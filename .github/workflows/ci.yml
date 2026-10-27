@@ -1,0 +1,29 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: ggpin, POSTGRES_PASSWORD: ggpin, POSTGRES_DB: ggpin_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ggpin" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://ggpin:ggpin@localhost:5432/ggpin_test
+      REDIS_URL: redis://localhost:6379
+      FULFILLMENT_DRY_RUN: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run db:deploy
+      - run: npm run test:e2e

@@ -1,0 +1,27 @@
+{
+  "name": "ggpin",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "npm@11.13.0",
+  "engines": { "node": ">=22.0.0" },
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e --concurrency=1",
+    "verify": "npm run lint && npm run typecheck && npm run test",
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate --workspace=api",
+    "db:deploy": "npm run db:deploy --workspace=api",
+    "db:seed": "npm run db:seed --workspace=api",
+    "db:studio": "npm run db:studio --workspace=api",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",
+    "secrets:scan": "gitleaks detect --no-banner",
+    "prepare": "husky"
+  },
+  "devDependencies": {}
+}

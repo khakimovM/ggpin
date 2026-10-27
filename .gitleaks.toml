@@ -1,0 +1,13 @@
+title = "ggpin gitleaks config"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "ton-mnemonic"
+description = "24-word mnemonic in code"
+regex = '''(?i)(mnemonic|seed)\s*[:=]\s*["']([a-z]{3,8}\s+){11,23}[a-z]{3,8}["']'''
+
+[[rules]]
+id = "fragment-cookie"
+description = "Fragment session cookie"
+regex = '''stel_(ssid|token|ton_token)\s*[:=]\s*["'][A-Za-z0-9%._-]{16,}'''

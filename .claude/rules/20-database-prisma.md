@@ -1,0 +1,20 @@
+---
+paths:
+  - "apps/api/prisma/**"
+  - "**/*.repository.ts"
+---
+# Database rules — Prisma / PostgreSQL
+
+- Schema lives in `apps/api/prisma/schema.prisma`; the worker uses the same generated client
+  (shared via `packages/db` re-export or workspace dependency — decided in phase 0).
+- Money columns: `BigInt` (`amountTiyin`, `costMicroUsdt`, `costNanoTon`). Never Decimal/Float.
+- Every table: `id` (cuid2/uuid), `createdAt`, `updatedAt`. Soft delete only where docs say so.
+- Unique constraints are the backbone of idempotency — declare them in the schema:
+  `Payment(provider, providerTxnId)`, `Order(userId, idempotencyKey)`,
+  `FulfillmentAttempt(orderId, attemptNo)`, `LedgerEntry(refType, refId, kind)`.
+- Balance-sensitive writes: lock the user's wallet row (`SELECT ... FOR UPDATE` on
+  `Wallet`) or use `Serializable` isolation with retry. Document which, in the service.
+- Index every foreign key and every column used in admin filters (status, createdAt, provider).
+- Migrations: never edit an applied migration; destructive changes need approval and a
+  two-step (expand → migrate data → contract) plan.
+- After editing the schema: `npx prisma validate` and `npx prisma format`.

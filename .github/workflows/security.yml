@@ -1,0 +1,29 @@
+name: Security
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "0 3 * * 1" }]
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+  # Optional: Claude security review on PRs (needs ANTHROPIC_API_KEY secret).
+  # claude-review:
+  #   if: github.event_name == 'pull_request'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: anthropics/claude-code-security-review@main
+  #       with: { claude-api-key: "${{ secrets.ANTHROPIC_API_KEY }}" }
