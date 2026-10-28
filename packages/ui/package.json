@@ -1,0 +1,13 @@
+{
+  "name": "@repo/ui",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./tokens.css"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  }
+}
