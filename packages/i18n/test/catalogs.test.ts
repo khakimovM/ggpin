@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import ru from '../ru.json';
 import uz from '../uz.json';
 
-type Catalog = { [key: string]: string | Catalog };
-
 // Flattens nested catalogs to `area.screen.element` keys so both locales can be compared.
-function flatten(catalog: Catalog, prefix = ''): Map<string, string> {
+// Anything other than a string or a nested object is a catalog bug, not something to skip.
+function flatten(catalog: unknown, prefix = ''): Map<string, string> {
+  if (typeof catalog !== 'object' || catalog === null || Array.isArray(catalog)) {
+    throw new Error(`"${prefix}" must be a string or a nested object`);
+  }
   const out = new Map<string, string>();
   for (const [key, value] of Object.entries(catalog)) {
     const path = prefix ? `${prefix}.${key}` : key;
@@ -15,12 +17,35 @@ function flatten(catalog: Catalog, prefix = ''): Map<string, string> {
   return out;
 }
 
+// ICU argument names ({name}, {count, plural, ...}); `#` inside plural branches is not one.
+function argNames(message: string): string[] {
+  const names = [...message.matchAll(/\{\s*([A-Za-z_]\w*)\s*[,}]/g)].flatMap((m) =>
+    m[1] ? [m[1]] : [],
+  );
+  return [...new Set(names)].sort();
+}
+
 const uzKeys = flatten(uz);
 const ruKeys = flatten(ru);
 
 describe('i18n catalogs', () => {
   it('uz and ru have identical key sets', () => {
     expect([...uzKeys.keys()].sort()).toEqual([...ruKeys.keys()].sort());
+  });
+
+  it('uz and ru use the same ICU arguments for every key', () => {
+    for (const [key, uzValue] of uzKeys) {
+      expect(argNames(ruKeys.get(key) ?? ''), key).toEqual(argNames(uzValue));
+    }
+  });
+
+  it('rejects non-string leaves', () => {
+    expect(() => flatten({ a: { b: 1 } })).toThrow('"a.b"');
+    expect(() => flatten({ a: ['x'] })).toThrow('"a"');
+  });
+
+  it('extracts ICU argument names', () => {
+    expect(argNames('{count, plural, one {# ta} other {# ta}} {name}')).toEqual(['count', 'name']);
   });
 
   it('has no empty strings', () => {
