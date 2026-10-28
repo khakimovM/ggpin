@@ -1,0 +1,8 @@
+npx lint-staged
+
+# Secrets scan of the staged diff. CI (security.yml) runs gitleaks on every push regardless.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --no-banner
+else
+  echo "pre-commit: gitleaks is not installed, staged secrets scan skipped (CI still runs it)" >&2
+fi
