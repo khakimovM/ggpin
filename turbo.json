@@ -1,5 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.base.json", "eslint.config.mjs", ".prettierrc", ".nvmrc"],
+  "globalPassThroughEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "FULFILLMENT_DRY_RUN",
+    "TON_NETWORK",
+    "API_PORT"
+  ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },
     "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true },
