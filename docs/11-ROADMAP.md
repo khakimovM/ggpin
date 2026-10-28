@@ -36,7 +36,7 @@ Redis 7); `.env.example` har ilova uchun; root skriptlar; CI workflow.
 - [x] `npm run verify` yashil (bo‘sh testlar bilan)
 - [x] `GET /api/v1/health/live` → `{status:"ok"}`
 - [x] i18n paketi: uz/ru kalitlar paritet testi bor
-- [ ] CI GitHub Actions'da yashil
+- [x] CI GitHub Actions'da yashil
 
 ---
 
