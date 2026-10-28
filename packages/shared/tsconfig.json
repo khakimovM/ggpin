@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // Typecheck (src + vitest tests) with bundler resolution: vitest ships ESM-only types.
+  // The emitted build stays CommonJS via tsconfig.build.json so NestJS can require() it.
+  "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
