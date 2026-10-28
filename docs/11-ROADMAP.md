@@ -161,7 +161,7 @@ rassilka, 2–4-to‘lov provayderlari (Payme/Click, Uzum, Rahmat), Telegram Sta
 ---
 
 ## 11 — Ishga tushirishga tayyorgarlik (MVP launch)
-**Vazifa:** Railway production, monitoring va ogohlantirishlar, backup + restore sinovi, yuklama testi,
+**Vazifa:** VPS production (Docker Compose, reverse proxy + TLS), monitoring va ogohlantirishlar, backup + restore sinovi, yuklama testi,
 `/security-check all`, `claude-security` skaneri, `docs/10-SECURITY.md` ro‘yxati, soft launch (yopiq beta).
 
 **Qabul mezonlari**

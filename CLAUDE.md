@@ -42,7 +42,7 @@ This is a production system that moves real money. Correctness and security outr
 | Validation | Zod everywhere (`nestjs-zod` on API); schemas live in `packages/shared` |
 | TON | `@ton/ton`, `@ton/crypto` (worker only) |
 | Tests | Jest + Supertest (api, worker), Vitest + Testing Library (web, admin), Playwright (e2e) |
-| Deploy | Docker → Railway (api, worker, web, admin as separate services) |
+| Deploy | Docker Compose on our own VPS (api, worker, web, admin as separate containers) |
 
 No Express, no Redux, no Moment.js, no `any`, no floating-point money.
 

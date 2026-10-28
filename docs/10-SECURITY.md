@@ -53,7 +53,7 @@
 - [ ] `/security-check all` + `claude-security` skaneri natijalari ko‘rib chiqilgan
 - [ ] gitleaks toza, `npm audit --omit=dev` da high/critical yo‘q
 - [ ] Hot wallet limitlari production qiymatlarida, sovuq hamyon alohida
-- [ ] Barcha provayder sandbox testlari o‘tgan, production kalitlari faqat Railway'da
+- [ ] Barcha provayder sandbox testlari o‘tgan, production kalitlari faqat VPS'dagi env fayllarida (repoda emas)
 - [ ] Admin: faqat kerakli ID'lar, OWNER bitta
 - [ ] Backup va restore sinab ko‘rilgan
 - [ ] Ogohlantirishlar egaga yetib kelishi sinalgan

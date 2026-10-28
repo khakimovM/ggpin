@@ -76,7 +76,7 @@ hududini o‘zgartiradi.
 | `e2e-qa` | Sonnet | Playwright: foydalanuvchi yo‘llari, skrinshotlar, dizayn bilan solishtirish | Ha (testlar) |
 | `code-reviewer` | Opus | Diff'ni "buzishga" urinadi, verdict beradi | **Yo‘q** (faqat o‘qiydi) |
 | `security-auditor` | Opus (max) | Xavfsizlik auditi: sirlar, auth, to‘lov, hamyon, admin | **Yo‘q** (faqat o‘qiydi) |
-| `devops` | Sonnet | Docker, CI, Railway, monitoring, backup | Ha |
+| `devops` | Sonnet | Docker, CI, VPS deploy, monitoring, backup | Ha |
 
 **Nega pul bilan ishlaydigan agentlar Opus'da:** to‘lov va yetkazishda bitta xato real pulga tushadi.
 **Nega reviewer va auditor kod yozmaydi:** o‘z ishini o‘zi baholamasligi uchun — mustaqil tekshiruv.

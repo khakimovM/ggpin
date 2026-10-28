@@ -16,6 +16,7 @@ to‘sib qo‘ysa — to‘xtab egadan so‘raladi.
 | D-11 | Balans modeli (hamyon) + "yetishmagan summani to‘lab, darhol sotib olish" (`TOPUP_AND_BUY`). |
 | D-12 | To‘lov provayderlari: Click, Payme, Uzum, Rahmat — YaTT shartnomasi asosida. |
 | D-13 | (2026-10-27) Brend: **ggpin** — doim kichik harfda, "gg" = *good game*. Domen `ggpin.uz` (web + Mini App `/tg`), `api.ggpin.uz`, `admin.ggpin.uz`; bot `@ggpin_bot`. |
+| D-20 | (2026-10-28) Hosting: **o‘z VPS'imiz**, Docker Compose bilan (Railway emas). Statik IP VPS'dan keladi. |
 
 ## Ochiq savollar
 
@@ -31,4 +32,3 @@ to‘sib qo‘ysa — to‘xtab egadan so‘raladi.
 | D-17 | Keshbek foizi, referal foizi (1%?), chegirma tier'lari, ustamalar | Ega | 10-bosqich |
 | D-18 | NFT gift ijarasi (buypin'dagi "Ijaraga") kerakmi va qachon? | Ega | MVP'dan keyin |
 | D-19 | O‘yinlar uchun ta'minotchilar (FazerCards, WDGZone, MooGold, Smile.one...) — test buyurtmalardan keyin tanlanadi | Ega | Har G-bosqichdan oldin |
-| D-20 | Hosting: Railway (FinTrack kabi) yoki VPS? Worker uchun statik IP kerakmi (ta'minotchilar IP whitelist so‘rasa)? | Ega | 11-bosqich |

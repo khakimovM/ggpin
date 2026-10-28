@@ -108,10 +108,12 @@ Prisma sxemasi `apps/api/prisma`da; worker ham shu generatsiya qilingan klientni
 | Web | bot orqali OTP (6 xona) | httpOnly cookie: access 15 daq + refresh 30 kun (rotatsiya) |
 | Admin | alohida OTP (`admin_` deep link) + allowlist + rol | `adm_session` cookie, 8 soat / 1 soat harakatsizlik |
 
-## Deploy (Railway)
+## Deploy (VPS, D-20)
 
-- Servislar: `api` (public), `worker` (public port yo‘q), `web` (public), `admin` (alohida subdomen),
-  `postgres`, `redis`.
+- O‘z VPS'imizda Docker Compose. Konteynerlar: `api` (public), `worker` (public port yo‘q),
+  `web` (public), `admin` (alohida subdomen), `postgres`, `redis`.
+- Tashqariga faqat reverse proxy (TLS) ochiq; Postgres va Redis faqat ichki tarmoqda.
+- Ta'minotchilar IP whitelist so‘rasa, VPS'ning statik IP'si beriladi.
 - Domenlar: `ggpin.uz` (landing, web do‘kon, Mini App `/tg`), `api.ggpin.uz`, `admin.ggpin.uz`.
 - Har servisning o‘z env'i; worker sirlari faqat worker'da.
 - Migratsiya: deploy oldidan `prisma migrate deploy`.
