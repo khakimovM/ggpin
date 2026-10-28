@@ -1,0 +1,12 @@
+{
+  "common": {
+    "loading": "Yuklanmoqda…",
+    "retry": "Qayta urinish",
+    "comingSoon": "Tez orada"
+  },
+  "admin": {
+    "shell": {
+      "title": "Admin panel"
+    }
+  }
+}

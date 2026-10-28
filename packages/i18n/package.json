@@ -1,0 +1,21 @@
+{
+  "name": "@repo/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./uz.json": "./uz.json",
+    "./ru.json": "./ru.json"
+  },
+  "files": [
+    "uz.json",
+    "ru.json"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.12"
+  }
+}
