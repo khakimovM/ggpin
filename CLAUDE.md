@@ -26,23 +26,23 @@ This is a production system that moves real money. Correctness and security outr
 
 ## 2. Stack (non-negotiable — ask before adding anything)
 
-| Layer | Choice |
-|---|---|
-| Monorepo | npm workspaces + Turborepo |
-| API | NestJS 10 (Fastify), TypeScript strict |
-| Worker | NestJS standalone app (`apps/worker`) — BullMQ consumers, the ONLY process holding wallet keys and supplier secrets |
-| DB / ORM | PostgreSQL 16 + Prisma 5 |
-| Queue / cache | Redis 7 + BullMQ |
-| Bot | grammY (inside `apps/api`, webhook in prod, long polling in dev) |
-| Web | Next.js 15 App Router (`apps/web`): landing (SSR/SEO), web store, Mini App routes `/tg/*` |
-| Admin | React 18 + Vite SPA (`apps/admin`), separate subdomain |
-| i18n | `next-intl` (web), shared message catalogs in `packages/i18n` (uz, ru); bot uses the same catalogs |
-| UI | Tailwind CSS + shadcn/ui style components in `packages/ui`, lucide-react, Framer Motion |
-| Server state | TanStack Query v5 (web + admin); Zustand only for client-only state |
-| Validation | Zod everywhere (`nestjs-zod` on API); schemas live in `packages/shared` |
-| TON | `@ton/ton`, `@ton/crypto` (worker only) |
-| Tests | Jest + Supertest (api, worker), Vitest + Testing Library (web, admin), Playwright (e2e) |
-| Deploy | Docker Compose on our own VPS (api, worker, web, admin as separate containers) |
+| Layer         | Choice                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Monorepo      | npm workspaces + Turborepo                                                                                          |
+| API           | NestJS 11 (Fastify 5), TypeScript strict                                                                            |
+| Worker        | NestJS standalone app (`apps/worker`) — BullMQ consumers, the ONLY process holding wallet keys and supplier secrets |
+| DB / ORM      | PostgreSQL 16 + Prisma 5                                                                                            |
+| Queue / cache | Redis 7 + BullMQ                                                                                                    |
+| Bot           | grammY (inside `apps/api`, webhook in prod, long polling in dev)                                                    |
+| Web           | Next.js 15 App Router (`apps/web`): landing (SSR/SEO), web store, Mini App routes `/tg/*`                           |
+| Admin         | React 19 + Vite SPA (`apps/admin`), separate subdomain, same React major as web                                     |
+| i18n          | `next-intl` (web), shared message catalogs in `packages/i18n` (uz, ru); bot uses the same catalogs                  |
+| UI            | Tailwind CSS + shadcn/ui style components in `packages/ui`, lucide-react, Framer Motion                             |
+| Server state  | TanStack Query v5 (web + admin); Zustand only for client-only state                                                 |
+| Validation    | Zod everywhere (`nestjs-zod` on API); schemas live in `packages/shared`                                             |
+| TON           | `@ton/ton`, `@ton/crypto` (worker only)                                                                             |
+| Tests         | Jest + Supertest (api, worker), Vitest + Testing Library (web, admin), Playwright (e2e)                             |
+| Deploy        | Docker Compose on our own VPS (api, worker, web, admin as separate containers)                                      |
 
 No Express, no Redux, no Moment.js, no `any`, no floating-point money.
 
@@ -65,22 +65,22 @@ design/       Claude Design prompts and handoff bundle
 
 ## 4. Read the spec before building
 
-| Question | File |
-|---|---|
-| What and why? | `docs/01-PRD.md` |
-| How is it structured? | `docs/02-ARCHITECTURE.md` |
-| Database? | `docs/03-DATA-MODEL.md` |
-| Endpoints? | `docs/04-API-CONTRACT.md` |
-| Payments (Click/Payme/Uzum/Rahmat)? | `docs/05-PAYMENTS.md` |
-| Fulfillment (Fragment, TON, suppliers)? | `docs/06-FULFILLMENT.md` |
-| Bot (uz/ru)? | `docs/07-BOT.md` |
-| Screens? | `docs/08-FRONTEND-SPEC.md` + `design/handoff/` |
-| Admin panel? | `docs/09-ADMIN-PANEL.md` |
-| Security model? | `docs/10-SECURITY.md` |
-| **What do I build next?** | `docs/11-ROADMAP.md` ← start here |
-| When is a task done? | `docs/12-DEFINITION-OF-DONE.md` |
-| Decisions and open questions | `docs/13-DECISIONS.md` |
-| Claude Design prompts | `design/DESIGN-BRIEF.md` |
+| Question                                | File                                           |
+| --------------------------------------- | ---------------------------------------------- |
+| What and why?                           | `docs/01-PRD.md`                               |
+| How is it structured?                   | `docs/02-ARCHITECTURE.md`                      |
+| Database?                               | `docs/03-DATA-MODEL.md`                        |
+| Endpoints?                              | `docs/04-API-CONTRACT.md`                      |
+| Payments (Click/Payme/Uzum/Rahmat)?     | `docs/05-PAYMENTS.md`                          |
+| Fulfillment (Fragment, TON, suppliers)? | `docs/06-FULFILLMENT.md`                       |
+| Bot (uz/ru)?                            | `docs/07-BOT.md`                               |
+| Screens?                                | `docs/08-FRONTEND-SPEC.md` + `design/handoff/` |
+| Admin panel?                            | `docs/09-ADMIN-PANEL.md`                       |
+| Security model?                         | `docs/10-SECURITY.md`                          |
+| **What do I build next?**               | `docs/11-ROADMAP.md` ← start here              |
+| When is a task done?                    | `docs/12-DEFINITION-OF-DONE.md`                |
+| Decisions and open questions            | `docs/13-DECISIONS.md`                         |
+| Claude Design prompts                   | `design/DESIGN-BRIEF.md`                       |
 
 `docs/04-API-CONTRACT.md` is a contract. If an implementation would change a response shape,
 stop and ask.
@@ -153,5 +153,5 @@ npm run verify         # lint + typecheck + test — run before saying "done"
 - Code, identifiers, comments, commits: **English**. User-facing text: **Uzbek and
   Russian** through `packages/i18n` only — no hardcoded UI strings.
 - Conventional commits: `feat(api): add stars order flow`.
-- Files ≤ 300 lines. Comments explain *why*.
+- Files ≤ 300 lines. Comments explain _why_.
 - Reports to the owner are written in **Uzbek**.
