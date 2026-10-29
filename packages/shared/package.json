@@ -12,9 +12,13 @@
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.12",
     "vitest": "^4.1.12"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }
