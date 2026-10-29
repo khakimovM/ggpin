@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — To‘lov va buyurtma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+<script src="image-slot.js"></script>
+</helmet>
+<div data-theme="{{ theme }}" data-reduced="{{ reduced }}" style="position:relative;width:390px;height:{{ frameH }};overflow:hidden;display:flex;flex-direction:column;background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif">
+  <div style="flex:none;height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 34px;font:700 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span>9:41</span><span style="display:flex;gap:6px;font-size:15px"><i class="icon-signal"></i><i class="icon-wifi"></i><i class="icon-battery-full"></i></span></div>
+  <div style="flex:none;height:44px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 12px;border-bottom:1px solid var(--border)">
+    <span style="display:flex;align-items:center;gap:2px;font:600 16px/1 Manrope,sans-serif;color:var(--primary-soft-foreground)"><i class="icon-chevron-left" style="font-size:22px"></i>Orqaga</span>
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font:800 15px/18px Manrope,sans-serif">ggpin</span><span style="font:600 11px/13px Manrope,sans-serif;color:var(--text-muted)">bot</span></span>
+    <span style="justify-self:end;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--text-muted);display:grid;place-items:center;color:var(--text-muted);font-size:14px"><i class="icon-ellipsis"></i></span>
+  </div>
+
+  <sc-if value="{{ isSheet }}" hint-placeholder-val="{{ true }}">
+    <div aria-hidden="true" style="flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:14px;align-items:center;padding:12px;border-radius:24px;background:var(--card);border:1px solid var(--border)"><span style="width:88px;height:88px;border-radius:20px;background:{{ o.bg }}"></span><span style="display:flex;flex-direction:column;gap:6px"><span style="font:800 20px/25px Manrope,sans-serif">{{ o.product }}</span><span style="width:120px;height:10px;border-radius:5px;background:var(--muted)"></span></span></div>
+      <div style="height:180px;border-radius:24px;background:var(--card);border:1px solid var(--border)"></div>
+      <div style="height:220px;border-radius:24px;background:var(--card);border:1px solid var(--border)"></div>
+    </div>
+    <div style="position:absolute;inset:91px 0 0;z-index:10;background:var(--overlay)"></div>
+    <div role="dialog" aria-modal="true" aria-labelledby="sheet-title" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:calc(100% - 100px);overflow-y:auto;background:var(--elevated);border-radius:28px 28px 0 0;box-shadow:var(--shadow-lg);padding:8px 16px 34px;display:flex;flex-direction:column;gap:16px;animation:{{ sheetAnim }}">
+      <span style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--input-border)"></span>
+
+      <sc-if value="{{ isConfirm }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 id="sheet-title" style="margin:0;font:800 20px/26px Manrope,sans-serif">Buyurtmani tasdiqlang</h2><button aria-label="Yopish" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--muted);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:16px"><i class="icon-x"></i></button></div>
+        <div style="display:flex;flex-direction:column;gap:12px;font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:14px;background:var(--star-soft);color:var(--star);display:grid;place-items:center;font-size:20px;flex:none"><i class="icon-star"></i></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font:800 15px/20px Manrope,sans-serif">Telegram Stars · 500 ⭐</span><span style="color:var(--text-secondary)">@dilnoza_k · Dilnoza K.</span></span></div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Narx</span><span>{{ priceStr }}</span></div>
+          <sc-if value="{{ discApplied }}"><div style="display:flex;justify-content:space-between;gap:12px;color:var(--success-text)"><span>Chegirma · {{ code }}</span><span>−1 100 so‘m</span></div></sc-if>
+        </div>
+
+        <sc-if value="{{ isExpired }}">
+          <div role="alert" style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;background:var(--warning-soft);color:var(--warning-text)">
+            <span style="display:flex;align-items:center;gap:8px;font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums"><i class="icon-refresh-ccw" style="font-size:17px"></i>Narx yangilandi: 110 500 so‘m</span>
+            <span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Avvalgi narxning amal qilish muddati tugadi. Yangi narx 10 daqiqa amal qiladi.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ notExpired }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ discOpen }}" hint-placeholder-val="{{ true }}">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Chegirma kodi</span>
+              <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input value="{{ code }}" onChange="{{ onCode }}" autocapitalize="characters" placeholder="Masalan, GG1" aria-invalid="{{ codeErr }}" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ codeBd }};padding:0 14px;font:700 15px/1 Manrope,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><button onClick="{{ onApply }}" disabled="{{ applyDisabled }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:{{ applyBg }};color:{{ applyFg }};font:800 14px/1 Manrope,sans-serif;cursor:pointer">Qo‘llash</button></span>
+              <sc-if value="{{ codeErr }}"><span role="alert" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:14px"></i>Kod topilmadi yoki muddati tugagan</span></sc-if>
+            </label>
+          </sc-if>
+          <sc-if value="{{ discApplied }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border-radius:14px;background:var(--success-soft);color:var(--success-text)"><i class="icon-ticket-check" style="font-size:18px"></i><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font:800 14px/18px Manrope,sans-serif;letter-spacing:.03em">{{ code }}</span><span style="font:700 13px/18px Manrope,sans-serif;font-variant-numeric:tabular-nums">−1% · −1 100 so‘m</span></span><button onClick="{{ onRemoveCode }}" aria-label="Kodni olib tashlash" style="width:36px;height:36px;border-radius:10px;border:none;background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:15px"><i class="icon-x"></i></button></div>
+          </sc-if>
+        </sc-if>
+
+        <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:16px;background:var(--muted);font-variant-numeric:tabular-nums">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font:800 15px/20px Manrope,sans-serif">Jami</span><span style="font:800 22px/28px Manrope,sans-serif">{{ totalStr }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary)"><span>Balans:</span><span>{{ balLine }}</span></div>
+        </div>
+        <sc-if value="{{ notExpired }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;justify-content:center;gap:6px;font:600 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums"><i class="icon-timer" style="font-size:14px"></i>Narx {{ ttl }} daqiqa amal qiladi</div></sc-if>
+        <sc-if value="{{ isPaying }}"><div aria-busy="true" style="height:52px;border-radius:16px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;gap:10px;font:800 16px/1 Manrope,sans-serif;opacity:.92"><span style="display:flex;font-size:20px">{{ spin }}</span>To‘lanmoqda…</div></sc-if>
+        <sc-if value="{{ showPay }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onPay }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;box-shadow:var(--shadow-glow)" style-active="transform:scale(.98)">To‘lash · {{ totalStr }}</button></sc-if>
+        <sc-if value="{{ isExpired }}"><button onClick="{{ onAcceptNew }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer;box-shadow:var(--shadow-glow);display:flex;align-items:center;justify-content:center;gap:8px"><i class="icon-refresh-cw" style="font-size:17px"></i>Yangi narx bilan davom etish</button></sc-if>
+      </sc-if>
+
+      <sc-if value="{{ isInsufficient }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding-top:4px">
+          <span style="width:72px;height:72px;border-radius:50%;background:var(--warning-soft);color:var(--warning-text);display:grid;place-items:center;font-size:32px"><i class="icon-wallet"></i></span>
+          <h2 id="sheet-title" style="margin:0;font:800 22px/28px Manrope,sans-serif">Mablag‘ yetarli emas</h2>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:var(--muted);font:600 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+          <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-secondary)">Balansingiz:</span><span>85 400 so‘m</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-secondary)">Narx:</span><span>122 450 so‘m</span></div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;font-weight:800;color:var(--danger-text)"><span>Yetishmaydi:</span><span>37 050 so‘m</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;box-shadow:var(--shadow-glow)">37 050 so‘m to‘ldirish va sotib olish</button>
+          <button style="height:48px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 15px/1 Manrope,sans-serif;cursor:pointer" style-hover="background:var(--muted)">Boshqa summa bilan to‘ldirish</button>
+          <button style="height:44px;border-radius:12px;border:none;background:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer" style-hover="color:var(--text)">Yopish</button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isTopup }}">
+    <main style="flex:1;min-height:0;overflow-y:auto;padding:16px 16px 140px;display:flex;flex-direction:column;gap:16px">
+      <sc-if value="{{ showTopupHead }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">{{ stepLabel }}</span><h1 style="margin:0;font:800 24px/30px Manrope,sans-serif;letter-spacing:-.02em">Hisobni to‘ldirish</h1></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><span style="height:4px;border-radius:2px;background:var(--primary)"></span><span style="height:4px;border-radius:2px;background:{{ step2Bar }}"></span></div>
+      </sc-if>
+
+      <sc-if value="{{ isMethod }}" hint-placeholder-val="{{ true }}">
+        <div role="radiogroup" aria-label="To‘lov usuli" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ methods }}" as="m" hint-placeholder-count="4">
+            <button role="radio" aria-checked="{{ m.on }}" onClick="{{ m.onClick }}" style="position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-height:112px;padding:14px;border-radius:20px;border:1.5px solid {{ m.bd }};background:{{ m.bg }};color:var(--text);cursor:pointer;text-align:left;transition:border-color var(--dur-fast),background var(--dur-fast)" style-active="transform:scale(.97)">
+              <span style="width:48px;height:48px;border-radius:14px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 15px/1 Manrope,sans-serif;color:var(--text-muted)">{{ m.ini }}</span>
+              <span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">{{ m.name }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">{{ m.sub }}</span></span>
+              <span style="position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;border:{{ m.dot }} solid {{ m.dotC }};background:var(--card);transition:border-width var(--dur-base) var(--ease-spring)"></span>
+            </button>
+          </sc-for>
+        </div>
+        <button role="radio" aria-checked="{{ starsOn }}" onClick="{{ pickStars }}" style="display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 14px;border-radius:20px;border:1.5px solid {{ starsBd }};background:{{ starsBg }};color:var(--text);cursor:pointer;text-align:left">
+          <span style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 32% 28%,color-mix(in oklab,var(--accent) 35%,white),var(--accent) 45%,var(--star));color:#fff;display:grid;place-items:center;font:700 22px/1 Manrope,sans-serif;flex:none">★</span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">Telegram Stars</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Telegram ichida ⭐ bilan to‘lash</span></span>
+          <span style="width:22px;height:22px;border-radius:50%;border:{{ starsDot }} solid {{ starsDotC }};background:var(--card);flex:none"></span>
+        </button>
+        <a href="#guide" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:20px;background:var(--card);border:1px solid var(--border);text-decoration:none;color:var(--text)" style-hover="color:var(--text);border-color:var(--input-border)">
+          <span style="width:44px;height:44px;border-radius:14px;background:var(--info-soft);color:var(--info);display:grid;place-items:center;font-size:20px;flex:none"><i class="icon-book-open"></i></span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font:800 15px/20px Manrope,sans-serif">Qo‘llanma — qanday to‘ldiraman?</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">3 qadam, rasmlar bilan</span></span>
+          <i class="icon-chevron-right" style="font-size:18px;color:var(--text-muted)"></i>
+        </a>
+      </sc-if>
+
+      <sc-if value="{{ isAmount }}">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:20px;background:var(--card);border:1px solid var(--border)">
+          <span style="width:44px;height:44px;border-radius:14px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif;color:var(--text-muted);flex:none">C</span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">To‘lov usuli</span><span style="font:800 16px/21px Manrope,sans-serif">Click</span></span>
+          <button onClick="{{ backToMethod }}" style="height:36px;padding:0 10px;border:none;background:none;color:var(--primary-soft-foreground);font:800 13px/1 Manrope,sans-serif;cursor:pointer">O‘zgartirish</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <label style="display:flex;flex-direction:column;gap:8px"><span style="font:800 17px/22px Manrope,sans-serif">Summa</span>
+            <span style="position:relative;display:flex"><input value="{{ amountStr }}" onChange="{{ onAmount }}" inputmode="numeric" placeholder="0" aria-invalid="{{ amtErr }}" style="flex:1;min-width:0;height:64px;border-radius:16px;background:var(--input);border:1.5px solid {{ amtBd }};padding:0 64px 0 16px;font:600 26px/1 Unbounded,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:16px;top:0;bottom:0;display:flex;align-items:center;font:700 15px/1 Manrope,sans-serif;color:var(--text-muted);pointer-events:none">so‘m</span></span></label>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+            <sc-for list="{{ amtChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="height:40px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:800 13px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap">{{ c.label }}</button></sc-for>
+          </div>
+          <sc-if value="{{ amtHelper }}" hint-placeholder-val="{{ true }}"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Minimal: 5 000 so‘m · komissiyasiz</span></sc-if>
+          <sc-if value="{{ amtErr }}"><span role="alert" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px"></i>{{ amtErrText }}</span></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isResult }}">
+        <div role="status" aria-live="polite" style="flex:1;min-height:540px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;position:relative">
+          <sc-if value="{{ confetti }}">{{ confettiEl }}</sc-if>
+          <sc-if value="{{ resSpinner }}"><span style="width:88px;height:88px;border-radius:50%;background:var(--info-soft);display:grid;place-items:center;color:var(--info);font-size:38px">{{ spin }}</span></sc-if>
+          <sc-if value="{{ resOk }}">{{ popOk }}</sc-if>
+          <sc-if value="{{ resFail }}"><span style="width:88px;height:88px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:40px"><i class="icon-x"></i></span></sc-if>
+          <h1 style="margin:6px 0 0;font:800 24px/30px Manrope,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-wrap:balance">{{ res.title }}</h1>
+          <p style="margin:0;max-width:300px;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">{{ res.body }}</p>
+          <sc-if value="{{ res.chip }}"><span style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:999px;background:var(--card);border:1px solid var(--border);font:700 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span style="width:24px;height:24px;border-radius:8px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 10px/1 Manrope,sans-serif;color:var(--text-muted)">C</span>{{ res.chip }}</span></sc-if>
+          <sc-if value="{{ res.progress }}"><span style="position:relative;width:180px;height:4px;border-radius:2px;background:var(--muted);overflow:hidden;margin-top:6px">{{ indet }}</span></sc-if>
+        </div>
+      </sc-if>
+    </main>
+    <sc-if value="{{ topupBar }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:color-mix(in oklab,var(--surface) 94%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border);padding:12px 16px 34px;display:flex;flex-direction:column;gap:8px">
+        <sc-if value="{{ bar.primary }}" hint-placeholder-val="{{ true }}"><button onClick="{{ bar.onPrimary }}" disabled="{{ bar.disabled }}" style="height:52px;border-radius:16px;border:none;background:{{ bar.bg }};color:{{ bar.fg }};box-shadow:{{ bar.sh }};font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px" style-active="transform:scale(.98)"><i class="{{ bar.icon }}" style="font-size:18px"></i>{{ bar.primary }}</button></sc-if>
+        <sc-if value="{{ bar.secondary }}"><button onClick="{{ bar.onSecondary }}" style="height:44px;border-radius:12px;border:none;background:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer">{{ bar.secondary }}</button></sc-if>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isOrder }}">
+    <main style="flex:1;min-height:0;overflow-y:{{ scrollY }};padding:12px 16px 48px;display:flex;flex-direction:column;gap:16px">
+      <section style="display:flex;gap:14px;align-items:center;padding:12px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+        <span style="position:relative;flex:none;width:72px;height:72px;border-radius:18px;overflow:hidden;background:{{ o.bg }}">
+          <sc-if value="{{ o.slot }}"><image-slot id="art-{{ o.art }}" shape="rounded" radius="18" placeholder="" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if>
+          <sc-if value="{{ o.noSlot }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;background:{{ o.bgImg }};display:grid;place-items:center;color:{{ o.iconC }};font-size:28px"><sc-if value="{{ o.noImg }}" hint-placeholder-val="{{ true }}"><i class="{{ o.icon }}"></i></sc-if></span></sc-if>
+        </span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font:800 17px/22px Manrope,sans-serif">{{ o.product }}</span><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ o.id }} · Bugun, 14:02</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.recipient }}</span></span>
+      </section>
+
+      <section role="status" aria-live="polite" style="position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:24px 20px;border-radius:24px;background:{{ hero.bg }};border:1px solid var(--border)">
+        <sc-if value="{{ hero.confetti }}">{{ confettiEl }}</sc-if>
+        <sc-if value="{{ hero.spinning }}"><span style="position:relative;width:72px;height:72px;display:grid;place-items:center">{{ pulseBig }}<span style="position:relative;width:72px;height:72px;border-radius:50%;background:var(--info);color:#fff;display:grid;place-items:center;font-size:32px">{{ spin }}</span></span></sc-if>
+        <sc-if value="{{ hero.popped }}">{{ heroPop }}</sc-if>
+        <sc-if value="{{ hero.static }}"><span style="width:72px;height:72px;border-radius:50%;background:{{ hero.iconBg }};color:{{ hero.iconFg }};display:grid;place-items:center;font-size:32px"><i class="{{ hero.icon }}"></i></span></sc-if>
+        <h1 style="margin:4px 0 0;font:800 24px/30px Manrope,sans-serif;letter-spacing:-.02em">{{ hero.title }}</h1>
+        <p style="margin:0;max-width:300px;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums;text-wrap:pretty">{{ hero.body }}</p>
+        <sc-if value="{{ hero.reason }}"><span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--card);border:1px solid var(--border);font:700 12px/16px Manrope,sans-serif;color:var(--text-secondary)"><i class="icon-info" style="font-size:13px"></i>{{ hero.reason }}</span></sc-if>
+      </section>
+
+      <sc-if value="{{ isVoucher }}">
+        <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <span style="font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Sovg‘a kartasi kodi</span>
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 8px 12px 16px;border-radius:16px;background:var(--accent-soft);border:1.5px dashed var(--accent)"><span style="flex:1;min-width:0;font:700 19px/26px ui-monospace,Menlo,monospace;letter-spacing:.06em;overflow-wrap:anywhere">XK7Q-92LM-PA3D-8R2T</span>
+            <button onClick="{{ onCopy }}" style="flex:none;height:44px;min-width:124px;padding:0 12px;border-radius:12px;border:none;background:var(--card);color:var(--text);font:800 13px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer"><sc-if value="{{ notCopied }}" hint-placeholder-val="{{ true }}"><i class="icon-copy" style="font-size:15px"></i>Nusxalash</sc-if><sc-if value="{{ copied }}"><i class="icon-check" style="font-size:15px;color:var(--success-text)"></i><span style="color:var(--success-text)">Nusxalandi</span></sc-if></button></div>
+          <div role="note" style="display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:14px;background:var(--danger-soft);color:var(--danger-text);font:700 13px/18px Manrope,sans-serif"><i class="icon-eye-off" style="font-size:16px;flex:none"></i>Kodni hech kimga ko‘rsatmang</div>
+          <a href="#redeem" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:0 4px;text-decoration:none;color:var(--primary-soft-foreground);font:800 14px/1 Manrope,sans-serif"><i class="icon-book-open" style="font-size:17px"></i>Faollashtirish yo‘riqnomasi<i class="icon-chevron-right" style="margin-left:auto;font-size:17px;color:var(--text-muted)"></i></a>
+        </section>
+      </sc-if>
+
+      <section aria-label="Buyurtma holati" style="padding:16px 16px 4px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+          <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+            <li style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px">
+              <span style="display:flex;flex-direction:column;align-items:center">
+                <span style="position:relative;width:28px;height:28px;display:grid;place-items:center">
+                  <sc-if value="{{ st.cur }}">{{ st.pulse }}</sc-if>
+                  <span style="position:relative;width:28px;height:28px;border-radius:50%;background:{{ st.dotBg }};border:2px solid {{ st.dotBd }};color:{{ st.dotFg }};display:grid;place-items:center;font-size:14px;transition:background var(--dur-base)"><sc-if value="{{ st.spinning }}">{{ st.spin }}</sc-if><sc-if value="{{ st.hasIcon }}"><i class="{{ st.icon }}"></i></sc-if></span>
+                </span>
+                <sc-if value="{{ st.line }}"><span style="flex:1;width:2px;min-height:22px;margin:2px 0;background:{{ st.lineC }};border-radius:1px"></span></sc-if>
+              </span>
+              <span style="padding:3px 0 18px;display:flex;flex-direction:column;gap:2px"><span style="font:800 15px/22px Manrope,sans-serif;color:{{ st.c }}">{{ st.label }}</span><sc-if value="{{ st.note }}"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary)">{{ st.note }}</span></sc-if></span>
+              <span style="padding-top:5px;font:700 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ st.time }}</span>
+            </li>
+          </sc-for>
+        </ol>
+      </section>
+
+      <section style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border);font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+        <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Buyurtma</span><span>{{ o.id }}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">To‘lov</span><span>Hamyon</span></div>
+        <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Summa</span><span style="font-weight:800">{{ o.price }}</span></div>
+        <sc-if value="{{ o.refund }}"><div style="display:flex;justify-content:space-between;gap:12px;color:var(--success-text)"><span>Qaytarildi</span><span style="font-weight:800">+{{ o.price }}</span></div></sc-if>
+      </section>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ actions }}" as="a" hint-placeholder-count="2"><button style="height:{{ a.h }};border-radius:16px;border:{{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};box-shadow:{{ a.sh }};font:800 15px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer" style-active="transform:scale(.98)"><i class="{{ a.icon }}" style="font-size:17px"></i>{{ a.label }}</button></sc-for>
+        <sc-if value="{{ leaveNote }}"><span style="display:flex;align-items:center;justify-content:center;gap:6px;font:600 13px/18px Manrope,sans-serif;color:var(--text-muted);text-align:center"><i class="icon-bell" style="font-size:14px"></i>Ilovani yopsangiz ham davom etadi — bot xabar beradi</span></sc-if>
+      </div>
+    </main>
+  </sc-if>
+
+  <span aria-hidden="true" style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--text);opacity:.85;z-index:30"></span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;confirm&quot;,&quot;confirmApplied&quot;,&quot;confirmPaying&quot;,&quot;confirmExpired&quot;,&quot;insufficient&quot;,&quot;topupMethod&quot;,&quot;topupAmount&quot;,&quot;topupHandoff&quot;,&quot;topupWaiting&quot;,&quot;topupSuccess&quot;,&quot;topupFailed&quot;,&quot;topupBuy&quot;,&quot;order&quot;],&quot;default&quot;:&quot;confirm&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;order&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;paid&quot;,&quot;queued&quot;,&quot;processing&quot;,&quot;delivered&quot;,&quot;voucher&quot;,&quot;review&quot;,&quot;failed&quot;,&quot;cancelled&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;amount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:50000,&quot;tsType&quot;:&quot;number&quot;},&quot;balance&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:140200,&quot;tsType&quot;:&quot;number&quot;},&quot;tall&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;artSlots&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { ...this.init(props), art: {} }; }
+  init(p) {
+    const sc = p.screen ?? 'confirm';
+    return { sc, code: p.screen === 'confirmApplied' ? 'GG1' : '', applied: sc === 'confirmApplied', codeErr: false, ttl: 581, amount: p.amount ?? 50000, method: 'click', ord: p.order ?? 'live', live: (p.order ?? 'live') === 'live' ? 0 : -1, liveProd: 'stars', copied: false };
+  }
+  componentDidMount() {
+    fetch('.image-slots.state.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => { if (!j) return; const art = {}; for (const k in j) { const v = j[k]; const u = typeof v === 'string' ? v : v && v.u; if (u) art[k] = u; } this.setState({ art }); }).catch(() => {});
+    if (this.props.frozen) return;
+    this.iv = setInterval(() => {
+      const s = this.state;
+      if (s.sc.startsWith('confirm') && s.sc !== 'confirmExpired' && s.ttl > 0) this.setState({ ttl: s.ttl - 1 });
+    }, 1000);
+    if (this.state.live === 0) this.advance();
+    if (this.state.sc === 'topupBuy') this.t2 = setTimeout(() => this.setState({ sc: 'order', ord: 'live', live: 1, liveProd: 'roblox' }, () => this.advance()), 2400);
+  }
+  advance() { clearTimeout(this.t); this.t = setTimeout(() => { if (this.state.live >= 0 && this.state.live < 3) this.setState(s => ({ live: s.live + 1 }), () => this.advance()); }, 2600); }
+  componentDidUpdate(prev) { if (['screen', 'order', 'amount'].some(k => prev[k] !== this.props[k])) this.setState(this.init(this.props)); }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.t); clearTimeout(this.t2); clearTimeout(this.tc); }
+  fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); }
+
+  renderVals() {
+    const h = React.createElement, P = this.props, s = this.state, fmt = n => this.fmt(n);
+    const rm = !!P.reducedMotion;
+    const frozen = !!P.frozen;
+    const still = rm || frozen;
+    const sc = s.sc;
+    const spin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, animation: still ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const indet = h('span', { style: { position: 'absolute', top: 0, bottom: 0, left: 0, width: '40%', borderRadius: 2, background: 'var(--primary)', animation: still ? 'none' : 'gg-indet 1300ms var(--ease-standard) infinite', transform: still ? 'translateX(75%)' : undefined } });
+    const pulse = size => h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)', animation: still ? 'none' : 'gg-pulse 1600ms var(--ease-out) infinite', opacity: still ? 0 : 1 } });
+    const popOk = h('span', { style: { width: 88, height: 88, borderRadius: '50%', background: 'var(--success-soft)', color: 'var(--success)', display: 'grid', placeItems: 'center', fontSize: 42, animation: still ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+    const heroPop = h('span', { style: { width: 72, height: 72, borderRadius: '50%', background: 'var(--success)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 34, animation: still ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+    const colors = ['var(--primary)', 'var(--accent)', 'var(--success)', 'var(--premium)', 'var(--info)', 'var(--chart-6)'];
+    const confettiEl = rm ? null : h('span', { 'aria-hidden': true, style: { position: 'absolute', left: '50%', top: '30%', width: 0, height: 0, pointerEvents: 'none' } },
+      Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2, d = 110 + (i * 37 % 90); return h('span', { key: i, style: { position: 'absolute', width: i % 3 ? 8 : 6, height: i % 3 ? 12 : 6, borderRadius: i % 3 ? 2 : '50%', background: colors[i % 6], '--dx': `${Math.round(Math.cos(a) * d)}px`, '--dy': `${Math.round(Math.sin(a) * d * 0.8 + 160)}px`, '--r': `${(i % 2 ? 1 : -1) * (180 + i * 20)}deg`, animation: frozen ? 'none' : `gg-confetti ${1400 + (i % 5) * 160}ms var(--ease-out) ${i % 4 * 40}ms both`, opacity: frozen ? 0.9 : undefined, transform: frozen ? `translate(${Math.round(Math.cos(a) * d * 0.7)}px,${Math.round(Math.sin(a) * d * 0.5 + 40)}px) rotate(${i * 25}deg)` : undefined } }); }));
+
+    const isConfirm = sc.startsWith('confirm');
+    const discApplied = s.applied;
+    const price = sc === 'confirmExpired' ? 110500 : 110000;
+    const total = discApplied ? price - 1100 : price;
+    const balance = P.balance ?? 140200;
+    const mm = Math.floor(s.ttl / 60), ss2 = String(s.ttl % 60).padStart(2, '0');
+
+    const methodsData = [['click', 'Click', 'C', 'Karta yoki ilova'], ['payme', 'Payme', 'P', 'Karta yoki ilova'], ['uzum', 'Uzum', 'U', 'Uzum Bank'], ['rahmat', 'Rahmat', 'R', 'Karta orqali']];
+    const methods = methodsData.map(([id, name, ini, sub]) => { const on = s.method === id; return { name, ini, sub, on, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', dot: on ? '7px' : '2px', dotC: on ? 'var(--primary)' : 'var(--input-border)', onClick: () => this.setState({ method: id }) }; });
+    const starsOn = s.method === 'stars';
+    const amount = Number(s.amount) || 0;
+    const amtMin = amount > 0 && amount < 5000, amtMax = amount > 10000000;
+    const amtErr = amtMin || amtMax;
+    const amtChips = [20000, 50000, 100000, 200000].map(v => { const on = amount === v; return { label: fmt(v), bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', onClick: () => this.setState({ amount: v }) }; });
+
+    const results = {
+      handoff: { title: 'To‘lov sahifasiga o‘tilmoqda…', body: 'To‘lovdan so‘ng shu yerga qayting — balans avtomatik yangilanadi.', chip: `Click · ${fmt(amount)} so‘m`, progress: true },
+      waiting: { title: 'To‘lov tekshirilmoqda…', body: 'Odatda bir necha soniya. Sahifani yopmang.', chip: `Click · ${fmt(amount)} so‘m` },
+      success: { title: 'Balans to‘ldirildi! +50 000 so‘m', body: 'Yangi balans: 135 400 so‘m. Endi xarid qilishingiz mumkin.' },
+      failed: { title: 'To‘lov amalga oshmadi', body: 'Pul yechilmadi. Karta balansini tekshiring yoki boshqa usulni tanlang.', chip: 'Click · 50 000 so‘m' },
+      topupBuy: { title: 'Balans to‘ldirildi! +37 050 so‘m', body: 'Roblox $10 kartasi uchun buyurtma berilmoqda…', progress: true },
+    };
+    const resKey = { topupHandoff: 'handoff', topupWaiting: 'waiting', topupSuccess: 'success', topupFailed: 'failed', topupBuy: 'topupBuy' }[sc];
+    const res = { chip: '', progress: false, ...(results[resKey] || results.success) };
+    const bars = {
+      topupMethod: { primary: 'Davom etish', icon: 'icon-arrow-right', onPrimary: () => this.setState({ sc: 'topupAmount' }) },
+      topupAmount: { primary: amtErr || !amount ? 'Davom etish' : `Davom etish · ${fmt(amount)} so‘m`, icon: 'icon-external-link', disabled: amtErr || !amount, onPrimary: () => { this.setState({ sc: 'topupHandoff' }); clearTimeout(this.t2); if (!frozen) this.t2 = setTimeout(() => this.setState({ sc: 'topupWaiting' }, () => { this.t2 = setTimeout(() => this.setState({ sc: 'topupSuccess' }), 1800); }), 1800); } },
+      topupHandoff: { primary: '', secondary: 'Sahifa ochilmadimi? Qayta ochish' },
+      topupWaiting: { primary: '', secondary: '' },
+      topupSuccess: { primary: 'Do‘konga qaytish', icon: 'icon-shopping-bag' },
+      topupFailed: { primary: 'Qayta urinish', icon: 'icon-refresh-cw', secondary: 'Boshqa usulni tanlash', onPrimary: () => this.setState({ sc: 'topupAmount' }), onSecondary: () => this.setState({ sc: 'topupMethod' }) },
+      topupBuy: { primary: '', secondary: '' },
+    };
+    const bar0 = { primary: '', secondary: '', icon: '', disabled: false, onPrimary: () => {}, onSecondary: () => {}, ...(bars[sc] || {}) };
+    const bar = { ...bar0, bg: bar0.disabled ? 'var(--muted)' : 'var(--primary)', fg: bar0.disabled ? 'var(--text-muted)' : 'var(--primary-foreground)', sh: bar0.disabled ? 'none' : 'var(--shadow-glow)' };
+
+    const withArt = (id, bg) => { const u = s.art['art-' + id]; return { noImg: !u, bgImg: u ? `center/cover no-repeat url("${u}"), ${bg}` : bg }; };
+    let ord = sc === 'order' ? s.ord : s.ord;
+    const isRobloxLive = ord === 'live' && s.liveProd === 'roblox';
+    if (ord === 'live') ord = ['paid', 'queued', 'processing', isRobloxLive ? 'voucher' : 'delivered'][Math.max(0, Math.min(3, s.live))];
+    const O = {
+      stars: { product: 'Telegram Stars · 500 ⭐', id: '#10482', recipient: '@dilnoza_k · Dilnoza K.', price: '110 000 so‘m', bg: 'var(--star-soft)', icon: 'icon-star', iconC: 'var(--star)', art: 'stars', tg: true },
+      roblox: { product: 'Roblox $10 sovg‘a kartasi', id: '#10486', recipient: 'Kod shu sahifada ko‘rinadi', price: '122 450 so‘m', bg: 'var(--muted)', icon: 'icon-image', iconC: 'var(--text-muted)', art: 'roblox' },
+      pubg: { product: 'PUBG Mobile · 660 UC', id: '#10485', recipient: 'SardorPRO · ID 5123456789', price: '120 750 so‘m', bg: 'var(--muted)', icon: 'icon-image', iconC: 'var(--text-muted)', art: 'pubg' },
+      premium: { product: 'Telegram Premium · 3 oylik', id: '#10479', recipient: '@jasur_t · Jasur T.', price: '165 000 so‘m', bg: 'var(--premium-soft)', icon: 'icon-crown', iconC: 'var(--premium)', art: 'premium', tg: true },
+    };
+    const prodFor = isRobloxLive ? 'roblox' : ({ paid: 'stars', queued: 'stars', processing: 'stars', delivered: 'stars', voucher: 'roblox', review: 'pubg', failed: 'roblox', cancelled: 'premium' }[ord] || 'stars');
+    const oo = O[sc === 'insufficient' ? 'roblox' : prodFor];
+    const slot = (P.artSlots ?? true) && !oo.tg;
+    const recipBy = { roblox: { voucher: 'Kod shu sahifada ko‘rinadi', failed: 'Kod berilmadi · pul qaytarildi' }[ord] || 'Kod tayyor bo‘lgach shu yerda chiqadi' };
+    const o = { ...oo, ...(recipBy[prodFor === 'roblox' ? 'roblox' : ''] && prodFor === 'roblox' ? { recipient: recipBy.roblox } : {}), ...withArt(oo.art, oo.bg), slot, noSlot: !slot, refund: ord === 'failed' || ord === 'cancelled' };
+
+    const T = ['14:02', '14:02', '14:03', '14:04'];
+    const mk = (label, kind, time, note) => ({ label, kind, time: time || '', note: note || '' });
+    let stepsRaw;
+    const idx = { paid: 0, queued: 1, processing: 2, delivered: 4, voucher: 4 }[ord];
+    if (idx !== undefined) {
+      stepsRaw = ['To‘landi', 'Navbatda', 'Bajarilmoqda', 'Yetkazildi'].map((l, i) => i < idx ? mk(l, 'done', T[i]) : i === idx ? mk(l, 'cur', '', i === 2 ? 'Odatda 1–2 daqiqa' : i === 1 ? 'Navbatingiz yetib kelmoqda' : '') : mk(l, 'todo'));
+      if (idx === 0) stepsRaw[0] = mk('To‘landi', 'cur', '', 'To‘lov tasdiqlanmoqda');
+    } else if (ord === 'review') stepsRaw = [mk('To‘landi', 'done', '14:02'), mk('Navbatda', 'done', '14:02'), mk('Tekshirilmoqda', 'warn', '', 'Qo‘lda tekshiruv · 15 daqiqagacha'), mk('Yetkazildi', 'todo')];
+    else if (ord === 'failed') stepsRaw = [mk('To‘landi', 'done', '14:02'), mk('Navbatda', 'done', '14:02'), mk('Bajarilmadi', 'fail', '14:05'), mk('Pul qaytarildi', 'refund', '14:05', '122 450 so‘m balansga')];
+    else stepsRaw = [mk('To‘landi', 'done', '14:02'), mk('Navbatda', 'done', '14:02'), mk('Bekor qilindi', 'cancel', '14:10', 'Administrator tomonidan'), mk('Pul qaytarildi', 'refund', '14:10', '165 000 so‘m balansga')];
+    const K = {
+      done: { dotBg: 'var(--success)', dotBd: 'var(--success)', dotFg: '#fff', icon: 'icon-check', c: 'var(--text)', lineC: 'var(--success)' },
+      cur: { dotBg: 'var(--info)', dotBd: 'var(--info)', dotFg: '#fff', icon: '', c: 'var(--info-text)', lineC: 'var(--border)' },
+      todo: { dotBg: 'var(--card)', dotBd: 'var(--border)', dotFg: 'var(--text-muted)', icon: '', c: 'var(--text-muted)', lineC: 'var(--border)' },
+      warn: { dotBg: 'var(--warning)', dotBd: 'var(--warning)', dotFg: '#fff', icon: 'icon-scan-search', c: 'var(--warning-text)', lineC: 'var(--border)' },
+      fail: { dotBg: 'var(--danger)', dotBd: 'var(--danger)', dotFg: '#fff', icon: 'icon-x', c: 'var(--danger-text)', lineC: 'var(--success)' },
+      cancel: { dotBg: 'var(--text-muted)', dotBd: 'var(--text-muted)', dotFg: 'var(--card)', icon: 'icon-ban', c: 'var(--text-secondary)', lineC: 'var(--success)' },
+      refund: { dotBg: 'var(--success)', dotBd: 'var(--success)', dotFg: '#fff', icon: 'icon-undo-2', c: 'var(--success-text)', lineC: 'var(--border)' },
+    };
+    const steps = stepsRaw.map((st, i) => { const k = K[st.kind]; const cur = st.kind === 'cur'; return { ...st, ...k, cur, spinning: cur, hasIcon: !cur && !!k.icon, spin: cur ? spin : null, pulse: cur ? pulse() : null, line: i < stepsRaw.length - 1 }; });
+
+    const heroes = {
+      paid: { title: 'To‘lov qabul qilindi', body: 'Buyurtma navbatga qo‘yilmoqda…', spinning: true, bg: 'var(--card)' },
+      queued: { title: 'Navbatda', body: 'Buyurtmangiz bir necha soniyada bajarila boshlaydi.', spinning: true, bg: 'var(--card)' },
+      processing: { title: 'Bajarilmoqda', body: isRobloxLive ? 'Roblox $10 kartasi kodi tayyorlanmoqda. Odatda 1–2 daqiqa.' : '@dilnoza_k hisobiga 500 ⭐ yuborilmoqda. Odatda 1–2 daqiqa.', spinning: true, bg: 'var(--card)' },
+      delivered: { title: 'Yetkazildi! 🎉', body: '@dilnoza_k hisobiga 500 ⭐ tushdi', popped: true, confetti: true, bg: 'var(--success-soft)' },
+      voucher: { title: 'Kod tayyor!', body: 'Roblox $10 sovg‘a kartasi kodi pastda. Uni roblox.com/redeem sahifasida faollashtiring.', popped: true, bg: 'var(--success-soft)' },
+      review: { title: 'Tekshirilmoqda', body: 'Buyurtmangiz qo‘lda tekshirilmoqda. Odatda 15 daqiqagacha. Pulingiz xavfsiz.', static: true, icon: 'icon-scan-search', iconBg: 'var(--warning-soft)', iconFg: 'var(--warning-text)', bg: 'var(--card)' },
+      failed: { title: 'Bajarilmadi', body: '122 450 so‘m balansingizga qaytarildi', reason: 'Sabab: yetkazib beruvchi kodni bermadi', static: true, icon: 'icon-circle-x', iconBg: 'var(--danger-soft)', iconFg: 'var(--danger)', bg: 'var(--card)' },
+      cancelled: { title: 'Bekor qilindi', body: 'Buyurtma administrator tomonidan bekor qilindi. 165 000 so‘m balansingizga qaytarildi.', reason: 'Sabab: qabul qiluvchi akkaunti cheklangan', static: true, icon: 'icon-ban', iconBg: 'var(--muted)', iconFg: 'var(--text-secondary)', bg: 'var(--card)' },
+    };
+    const hero = { reason: '', spinning: false, popped: false, static: false, confetti: false, icon: '', iconBg: '', iconFg: '', ...heroes[ord] };
+    if (hero.confetti && rm) hero.confetti = false;
+    const A = (label, icon, kind) => kind === 'primary' ? { label, icon, h: '52px', bd: 'none', bg: 'var(--primary)', fg: 'var(--primary-foreground)', sh: 'var(--shadow-glow)' } : kind === 'outline' ? { label, icon, h: '48px', bd: '1.5px solid var(--border)', bg: 'transparent', fg: 'var(--text)', sh: 'none' } : { label, icon, h: '44px', bd: 'none', bg: 'transparent', fg: 'var(--text-secondary)', sh: 'none' };
+    const actionsBy = {
+      paid: [A('Bosh sahifaga', 'icon-house', 'outline')], queued: [A('Bosh sahifaga', 'icon-house', 'outline')], processing: [A('Bosh sahifaga', 'icon-house', 'outline')],
+      delivered: [A('Yana xarid qilish', 'icon-shopping-bag', 'primary'), A('Ulashish', 'icon-share-2', 'outline')],
+      voucher: [A('Yana xarid qilish', 'icon-shopping-bag', 'primary')],
+      review: [A('Yordamga yozish', 'icon-message-circle', 'outline'), A('Bosh sahifaga', 'icon-house', 'ghost')],
+      failed: [A('Qayta urinish', 'icon-refresh-cw', 'primary'), A('Yordam', 'icon-life-buoy', 'outline')],
+      cancelled: [A('Yordamga yozish', 'icon-message-circle', 'outline'), A('Bosh sahifaga', 'icon-house', 'ghost')],
+    };
+
+    return {
+      theme: P.theme ?? 'light', reduced: String(rm), frameH: P.tall ? 'auto' : '844px', scrollY: P.tall ? 'visible' : 'auto', spin, indet, popOk, heroPop, confettiEl, pulseBig: pulse(),
+      sheetAnim: still ? 'none' : 'gg-sheet-in var(--dur-slow) var(--ease-out) both',
+      isSheet: isConfirm || sc === 'insufficient', isConfirm, isInsufficient: sc === 'insufficient',
+      isExpired: sc === 'confirmExpired', notExpired: sc !== 'confirmExpired', isPaying: sc === 'confirmPaying', showPay: sc === 'confirm' || sc === 'confirmApplied',
+      priceStr: fmt(price) + ' so‘m', totalStr: fmt(total) + ' so‘m', balLine: `${fmt(balance)} so‘m → ${fmt(balance - total)} so‘m`, ttl: `${mm}:${ss2}`,
+      code: s.code, codeErr: s.codeErr, codeBd: s.codeErr ? 'var(--danger)' : 'var(--input-border)', discApplied, discOpen: !discApplied,
+      applyDisabled: s.code.trim().length < 2, applyBg: s.code.trim().length < 2 ? 'var(--muted)' : 'var(--primary-soft)', applyFg: s.code.trim().length < 2 ? 'var(--text-muted)' : 'var(--primary-soft-foreground)',
+      onCode: e => this.setState({ code: e.target.value.toUpperCase().replace(/\s/g, '').slice(0, 16), codeErr: false }),
+      onApply: () => this.setState(x => x.code.includes('XATO') ? { codeErr: true } : { applied: true, codeErr: false }),
+      onRemoveCode: () => this.setState({ applied: false, code: '' }),
+      onPay: () => { this.setState({ sc: 'confirmPaying' }); clearTimeout(this.t2); this.t2 = setTimeout(() => this.setState({ sc: 'order', ord: 'live', live: 0, liveProd: 'stars' }, () => this.advance()), 1400); },
+      onAcceptNew: () => this.setState({ sc: 'confirm', ttl: 600 }),
+      o,
+      isTopup: sc.startsWith('topup'), showTopupHead: sc === 'topupMethod' || sc === 'topupAmount', stepLabel: sc === 'topupAmount' ? '2-qadam · Summa' : '1-qadam · To‘lov usuli', step2Bar: sc === 'topupAmount' ? 'var(--primary)' : 'var(--muted)',
+      isMethod: sc === 'topupMethod', methods, starsOn, pickStars: () => this.setState({ method: 'stars' }), starsBd: starsOn ? 'var(--primary)' : 'var(--border)', starsBg: starsOn ? 'var(--primary-soft)' : 'var(--card)', starsDot: starsOn ? '7px' : '2px', starsDotC: starsOn ? 'var(--primary)' : 'var(--input-border)',
+      isAmount: sc === 'topupAmount', backToMethod: () => this.setState({ sc: 'topupMethod' }),
+      amountStr: amount ? fmt(amount) : '', onAmount: e => this.setState({ amount: Number(e.target.value.replace(/\D/g, '').slice(0, 9)) || 0 }),
+      amtErr, amtHelper: !amtErr, amtErrText: amtMin ? 'Minimal summa 5 000 so‘m' : 'Maksimal summa 10 000 000 so‘m', amtBd: amtErr ? 'var(--danger)' : 'var(--input-border)', amtChips,
+      isResult: !!resKey, res, resSpinner: resKey === 'handoff' || resKey === 'waiting', resOk: resKey === 'success' || resKey === 'topupBuy', resFail: resKey === 'failed', confetti: resKey === 'success' && !rm,
+      topupBar: !!(bar.primary || bar.secondary), bar,
+      isOrder: sc === 'order', isVoucher: ord === 'voucher', hero, steps, actions: actionsBy[ord] || [], leaveNote: ['paid', 'queued', 'processing', 'review'].includes(ord),
+      copied: s.copied, notCopied: !s.copied, onCopy: () => { try { navigator.clipboard.writeText('XK7Q-92LM-PA3D-8R2T'); } catch (e) {} this.setState({ copied: true }); clearTimeout(this.tc); this.tc = setTimeout(() => this.setState({ copied: false }), 1800); },
+    };
+  }
+}
+</script>
+</body>
+</html>

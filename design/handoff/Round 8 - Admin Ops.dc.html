@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 8 · Admin</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:80px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1600px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 8</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Admin panel, davomi · 1440 &amp; 768</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Live frames from AdminOps.dc.html (same shell as round 7). Sidebar navigates between all round 8 pages. Interactive: user tabs, balance dialog (± preview, reason, code), product drag-reorder and toggles, SKU pick + markup → live price, routing priority, manual rate switch, payment drawer, reconciliation resolve, Fragment re-login, broadcast preview + send progress, audit diff drawer, ending admin sessions.</p>
+  </header>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="7">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 32px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><p style="margin:0;max-width:1500px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">{{ g.note }}</p></div>
+      <div style="display:flex;gap:48px;align-items:flex-start">
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 16px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:{{ it.w }};border-radius:20px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="AdminOps" page="{{ it.page }}" dialog="{{ it.dialog }}" drawer="{{ it.drawer }}" role="{{ it.role }}" theme="{{ it.theme }}" viewport="{{ it.vp }}" fragment-state="{{ it.fs }}" manual-rate="{{ it.manual }}" broadcast-sent="{{ it.sent }}" frame-height="{{ it.fh }}" frozen="{{ it.frozen }}" hint-size="{{ it.hint }}"></dc-import></div></figure>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const A = (label, o) => { const vp = o.vp || 'desktop', w = vp === 'tablet' ? '768px' : '1440px'; const fh = (o.dialog || o.drawer) ? '900px' : null; return { page: 'users', dialog: '', drawer: '', role: 'OWNER', theme: 'light', fs: 'active', manual: false, sent: false, frozen: true, ...o, vp, w, fh, label, hint: `${w},${fh || '1000px'}` }; };
+    const groups = [
+      { title: '1 · Foydalanuvchilar', note: 'Table with status filter; detail with 5 tabs and actions. “Balansni tuzatish” needs amount ±, reason and a Telegram code.', items: [A('Users · light · interactive', { frozen: false }), A('User detail · dark', { page: 'user', theme: 'dark' }), A('Balansni tuzatish · light', { page: 'user', dialog: 'balance', frozen: false }), A('Users · 768 · light', { vp: 'tablet' })] },
+      { title: '2 · Mahsulotlar va muharrir', note: 'Drag rows to reorder; active toggle; region and delivery badges. Editor: UZ/RU tabs, image slot, input schema, SKU table, routing with health dots, sticky live price preview (min-margin guard).', items: [A('Products · light · drag', { page: 'products', frozen: false }), A('Products · dark', { page: 'products', theme: 'dark' }), A('Editor · light · interactive', { page: 'product', frozen: false }), A('Editor · dark', { page: 'product', theme: 'dark' })] },
+      { title: '3 · Narx va sozlamalar', note: 'Percentages, discount tiers, top-up limits, tolerance, rate sources with 7-day history; emergency manual rate switches the panel to red.', items: [A('Pricing · light', { page: 'pricing', frozen: false }), A('Manual rate on · dark', { page: 'pricing', theme: 'dark', manual: true })] },
+      { title: '4 · To‘lovlar va Solishtirish', note: 'Row → drawer with redacted webhook payload. Daily reconciliation per provider with matched / missing / extra and a resolve action.', items: [A('Payments · light', { page: 'payments', frozen: false }), A('Payment drawer · dark', { page: 'payments', drawer: 'payment', theme: 'dark' }), A('Solishtirish · light', { page: 'recon', frozen: false }), A('Resolve dialog · dark', { page: 'recon', dialog: 'recon', theme: 'dark' })] },
+      { title: '5 · Infratuzilma', note: 'TON wallet (OPERATOR sees limits read-only), Fragment session ACTIVE / DEAD / re-login, suppliers health, queues.', items: [A('Hamyon · OWNER · light', { page: 'wallet' }), A('Hamyon · OPERATOR · dark', { page: 'wallet', role: 'OPERATOR', theme: 'dark' }), A('Fragment · ACTIVE · light', { page: 'fragment', frozen: false }), A('Fragment · DEAD · dark', { page: 'fragment', fs: 'dead', theme: 'dark' }), A('Fragment · re-login · light', { page: 'fragment', fs: 'relogin' }), A('Ta’minotchilar · light', { page: 'suppliers' }), A('Navbatlar · dark', { page: 'queues', theme: 'dark' })] },
+      { title: '6 · Marketing', note: 'Bonus code form + usage list; broadcast composer with Telegram-style preview, audience picker, test and send progress; referral leaderboard and suspicious flags.', items: [A('Bonus kodlar · light', { page: 'bonus', frozen: false }), A('Rassilka · light · interactive', { page: 'broadcast', frozen: false }), A('Rassilka · sending · dark', { page: 'broadcast', theme: 'dark', sent: true }), A('Referallar · light', { page: 'refs' })] },
+      { title: '7 · Audit log va Adminlar', note: 'Row → diff drawer. Admins is OWNER-only (other roles see a lock state).', items: [A('Audit · light', { page: 'audit', frozen: false }), A('Diff drawer · dark', { page: 'audit', drawer: 'diff', theme: 'dark' }), A('Adminlar · OWNER · light', { page: 'admins', frozen: false }), A('Admin qo‘shish · dark', { page: 'admins', dialog: 'addAdmin', theme: 'dark' }), A('Adminlar · SUPPORT · light', { page: 'admins', role: 'SUPPORT' })] },
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

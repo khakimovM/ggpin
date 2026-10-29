@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Mahsulot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+<script src="image-slot.js"></script>
+</helmet>
+<div data-theme="{{ theme }}" data-reduced="{{ reduced }}" style="position:relative;width:390px;height:{{ frameH }};overflow:hidden;display:flex;flex-direction:column;background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif">
+
+  <div style="flex:none;height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 34px;font:700 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span>9:41</span><span style="display:flex;gap:6px;font-size:15px"><i class="icon-signal"></i><i class="icon-wifi"></i><i class="icon-battery-full"></i></span></div>
+  <div style="flex:none;height:44px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 12px;border-bottom:1px solid var(--border)">
+    <span style="display:flex;align-items:center;gap:2px;font:600 16px/1 Manrope,sans-serif;color:var(--primary-soft-foreground)"><i class="icon-chevron-left" style="font-size:22px"></i>Orqaga</span>
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font:800 15px/18px Manrope,sans-serif">ggpin</span><span style="font:600 11px/13px Manrope,sans-serif;color:var(--text-muted)">bot</span></span>
+    <span style="justify-self:end;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--text-muted);display:grid;place-items:center;color:var(--text-muted);font-size:14px"><i class="icon-ellipsis"></i></span>
+  </div>
+
+  <main style="flex:1;min-height:0;overflow-y:{{ scrollY }};padding:12px 16px {{ mainPb }};display:flex;flex-direction:column;gap:16px">
+
+    <sc-if value="{{ isSkeleton }}">
+      <div aria-busy="true" style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:14px;padding:12px;border-radius:24px;background:var(--card);border:1px solid var(--border)"><span style="position:relative;overflow:hidden;width:88px;height:88px;border-radius:20px;background:var(--skeleton)">{{ sh }}</span><span style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:6px"><span style="position:relative;overflow:hidden;width:70%;height:16px;border-radius:8px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;width:90%;height:10px;border-radius:5px;background:var(--skeleton)">{{ sh }}</span><span style="display:flex;gap:6px;margin-top:4px"><span style="position:relative;overflow:hidden;width:54px;height:22px;border-radius:7px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;width:54px;height:22px;border-radius:7px;background:var(--skeleton)">{{ sh }}</span></span></span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)"><span style="position:relative;overflow:hidden;width:150px;height:16px;border-radius:8px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;height:48px;border-radius:14px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;width:60%;height:10px;border-radius:5px;background:var(--skeleton)">{{ sh }}</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)"><span style="position:relative;overflow:hidden;width:110px;height:16px;border-radius:8px;background:var(--skeleton)">{{ sh }}</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><span style="position:relative;overflow:hidden;height:72px;border-radius:16px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;height:72px;border-radius:16px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;height:72px;border-radius:16px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;height:72px;border-radius:16px;background:var(--skeleton)">{{ sh }}</span></div></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isError }}">
+      <div role="alert" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:40px 12px">
+        <span style="width:80px;height:80px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:36px"><i class="icon-cloud-off"></i></span>
+        <span style="font:800 20px/26px Manrope,sans-serif">Ma’lumotni yuklab bo‘lmadi</span>
+        <span style="max-width:280px;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Internet aloqasini tekshirib, qayta urinib ko‘ring.</span>
+        <button onClick="{{ onRetryPage }}" style="margin-top:6px;height:48px;padding:0 20px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer"><i class="icon-refresh-cw" style="font-size:17px"></i>Qayta urinish</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showPage }}" hint-placeholder-val="{{ true }}">
+
+      <sc-if value="{{ hdrCompact }}" hint-placeholder-val="{{ true }}">
+        <section style="display:flex;gap:14px;align-items:center;padding:12px;border-radius:24px;background:var(--card);border:1px solid var(--border);opacity:{{ hdrOp }}">
+          <span style="position:relative;flex:none;width:88px;height:88px;border-radius:20px;overflow:hidden;background:{{ p.bg }}">
+            <sc-if value="{{ useSlot }}"><image-slot id="art-{{ p.artId }}" shape="rounded" radius="20" placeholder="" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if>
+            <sc-if value="{{ noSlot }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;background:{{ p.bgImg }};display:grid;place-items:center;color:{{ p.iconC }};font-size:34px"><sc-if value="{{ p.noImg }}" hint-placeholder-val="{{ true }}"><i class="{{ p.icon }}"></i></sc-if></span></sc-if>
+          </span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+            <h1 style="margin:0;font:800 20px/25px Manrope,sans-serif;letter-spacing:-.01em">{{ p.name }}</h1>
+            <span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">{{ p.sub }}</span>
+            <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><sc-for list="{{ p.badges }}" as="b" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:7px;background:{{ b.bg }};color:{{ b.fg }};font:800 10px/1 Manrope,sans-serif;white-space:nowrap">{{ b.label }}</span></sc-for></span>
+          </span>
+        </section>
+      </sc-if>
+      <sc-if value="{{ hdrWide }}">
+        <section style="position:relative;overflow:hidden;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <span style="position:relative;display:block;aspect-ratio:16/9;background:{{ p.bgImg }}">
+            <sc-if value="{{ useSlot }}"><image-slot id="art-{{ p.artId }}" shape="rect" placeholder="CS2 banner" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if>
+            <span aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 40%,color-mix(in oklab,#05070F 78%,transparent))"></span>
+            <span style="position:absolute;left:16px;bottom:14px;right:16px;pointer-events:none;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;color:#fff"><span style="font:700 34px/1 Unbounded,sans-serif;letter-spacing:-.04em">CS2</span><span style="height:24px;padding:0 8px;border-radius:7px;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);font:800 11px/24px Manrope,sans-serif">Steam orqali</span></span>
+          </span>
+          <span style="display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px">
+            <h1 style="margin:0;font:800 20px/25px Manrope,sans-serif">{{ p.name }}</h1>
+            <span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary)">{{ p.sub }}</span>
+            <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><sc-for list="{{ p.badges }}" as="b" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:7px;background:{{ b.bg }};color:{{ b.fg }};font:800 10px/1 Manrope,sans-serif;white-space:nowrap">{{ b.label }}</span></sc-for></span>
+          </span>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ isUnavailable }}">
+        <section role="status" style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:32px 20px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <span style="width:64px;height:64px;border-radius:50%;background:var(--muted);color:var(--text-muted);display:grid;place-items:center;font-size:28px"><i class="icon-package-x"></i></span>
+          <span style="font:800 18px/24px Manrope,sans-serif">Mahsulot vaqtincha mavjud emas</span>
+          <span style="max-width:280px;font:500 14px/20px Manrope,sans-serif;color:var(--text-secondary)">Odatda tez tiklanadi. Hozircha boshqa mahsulotlarni ko‘rib chiqing.</span>
+          <button style="margin-top:6px;height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Bosh sahifaga</button>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ showBlocks }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ hasRecipient }}" hint-placeholder-val="{{ true }}">
+          <section aria-labelledby="r-title" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <h2 id="r-title" style="margin:0;font:800 17px/22px Manrope,sans-serif">{{ r.title }}</h2>
+              <sc-if value="{{ r.hasHelp }}"><button onClick="{{ openSheet }}" style="height:32px;padding:0 10px;border-radius:999px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:700 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap"><i class="icon-circle-help" style="font-size:14px"></i>{{ r.helpLabel }}</button></sc-if>
+            </div>
+
+            <sc-if value="{{ showInputs }}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{ isUsername }}" hint-placeholder-val="{{ true }}">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px">
+                  <label style="position:relative;display:flex;min-width:0"><span style="position:absolute;left:14px;top:0;bottom:0;display:flex;align-items:center;font:800 16px/1 Manrope,sans-serif;color:var(--text-muted);pointer-events:none">@</span><input value="{{ user }}" onChange="{{ onUser }}" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="username" aria-label="Telegram username" aria-invalid="{{ inErr }}" style="flex:1;min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ inBd }};padding:0 14px 0 34px;font:700 16px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label>
+                  <button onClick="{{ onCheck }}" disabled="{{ checkDisabled }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:{{ checkBg }};color:{{ checkFg }};font:800 14px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">Tekshirish</button>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">O‘zingizga yoki do‘stingizga</span><button onClick="{{ onSelf }}" style="flex:none;height:32px;padding:0 12px;border-radius:999px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 13px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><i class="icon-user" style="font-size:14px"></i>O‘zimga</button></div>
+              </sc-if>
+              <sc-if value="{{ isGameId }}">
+                <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Player ID</span>
+                  <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input value="{{ pid }}" onChange="{{ onPid }}" inputmode="numeric" placeholder="5123456789" aria-invalid="{{ inErr }}" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ inBd }};padding:0 14px;font:700 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.04em;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><button onClick="{{ onCheck }}" disabled="{{ checkDisabled }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:{{ checkBg }};color:{{ checkFg }};font:800 14px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">Tekshirish</button></span></label>
+              </sc-if>
+              <sc-if value="{{ isGameId2 }}">
+                <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:8px">
+                  <label style="display:flex;flex-direction:column;gap:6px;min-width:0"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">User ID</span><input value="{{ pid }}" onChange="{{ onPid }}" inputmode="numeric" placeholder="12345678" aria-invalid="{{ inErr }}" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ inBd }};padding:0 14px;font:700 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label>
+                  <label style="display:flex;flex-direction:column;gap:6px;min-width:0"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Zone ID</span><input value="{{ zone }}" onChange="{{ onZone }}" inputmode="numeric" placeholder="1234" aria-invalid="{{ inErr }}" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ inBd }};padding:0 14px;font:700 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label>
+                </div>
+                <span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">Format: 12345678 (1234)</span>
+                <button onClick="{{ onCheck }}" disabled="{{ checkDisabled }}" style="height:48px;border-radius:14px;border:none;background:{{ checkBg }};color:{{ checkFg }};font:800 15px/1 Manrope,sans-serif;cursor:pointer">Tekshirish</button>
+              </sc-if>
+              <sc-if value="{{ isSteam }}">
+                <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Steam login</span>
+                  <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input value="{{ login }}" onChange="{{ onLogin }}" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="steam_login" aria-invalid="{{ inErr }}" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ inBd }};padding:0 14px;font:700 16px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><button onClick="{{ onCheck }}" disabled="{{ checkDisabled }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:{{ checkBg }};color:{{ checkFg }};font:800 14px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">Tekshirish</button></span>
+                  <span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Kirishda ishlatiladigan login — nickname emas</span></label>
+              </sc-if>
+
+              <sc-if value="{{ rsInvalid }}"><div role="alert" style="display:flex;gap:6px;align-items:flex-start;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px;margin-top:2px;flex:none"></i>{{ r.invalid }}</div></sc-if>
+              <sc-if value="{{ rsNotFound }}"><div role="alert" style="display:flex;gap:6px;align-items:flex-start;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-user-x" style="font-size:15px;margin-top:2px;flex:none"></i>{{ r.notFound }}</div></sc-if>
+              <sc-if value="{{ rsDown }}"><div role="alert" style="display:flex;gap:10px;align-items:center;padding:10px 10px 10px 12px;border-radius:14px;background:var(--warning-soft);color:var(--warning-text);font:700 13px/18px Manrope,sans-serif"><i class="icon-plug-zap" style="font-size:18px;flex:none"></i><span style="flex:1">Tekshirish vaqtincha ishlamayapti. Birozdan so‘ng urinib ko‘ring.</span><button onClick="{{ onCheck }}" aria-label="Qayta urinish" style="width:36px;height:36px;border-radius:10px;border:none;background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:15px;flex:none"><i class="icon-refresh-cw"></i></button></div></sc-if>
+              <sc-if value="{{ rsChecking }}">
+                <div aria-busy="true" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;border:1.5px solid var(--border)"><span style="position:relative;overflow:hidden;width:48px;height:48px;border-radius:50%;background:var(--skeleton);flex:none">{{ sh }}</span><span style="flex:1;display:flex;flex-direction:column;gap:7px"><span style="position:relative;overflow:hidden;width:60%;height:12px;border-radius:6px;background:var(--skeleton)">{{ sh }}</span><span style="position:relative;overflow:hidden;width:40%;height:10px;border-radius:5px;background:var(--skeleton)">{{ sh }}</span></span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Tekshirilmoqda…</span></div>
+              </sc-if>
+              <sc-if value="{{ isGameId2 }}"><div style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--info-soft);color:var(--info-text);font:700 13px/18px Manrope,sans-serif"><i class="icon-globe" style="font-size:16px;margin-top:1px;flex:none"></i>Faqat Global serverdagi akkauntlar uchun</div></sc-if>
+            </sc-if>
+
+            <sc-if value="{{ rsFound }}">
+              <div style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:18px;border:1.5px solid var(--primary);background:var(--primary-soft)">
+                <div style="display:flex;align-items:center;gap:12px"><span style="width:52px;height:52px;border-radius:50%;background:var(--card);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 17px/1 Manrope,sans-serif;flex:none">{{ r.ini }}</span><span style="min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">{{ r.name }}</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ r.handle }}</span></span></div>
+                <span style="font:700 14px/20px Manrope,sans-serif">{{ r.prompt }}</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button onClick="{{ onReset }}" style="height:44px;border-radius:12px;border:1.5px solid var(--input-border);background:var(--card);color:var(--text);font:800 14px/1 Manrope,sans-serif;cursor:pointer">O‘zgartirish</button><button onClick="{{ onConfirm }}" style="height:44px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" style-active="transform:scale(.97)"><i class="icon-check" style="font-size:16px"></i>Ha, shu</button></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ rsConfirmed }}">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;border:1.5px solid var(--border);background:var(--background)">
+                <span style="position:relative;width:48px;height:48px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 16px/1 Manrope,sans-serif;flex:none">{{ r.ini }}<span style="position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:var(--success);color:#fff;border:2px solid var(--card);display:grid;place-items:center;font-size:11px"><i class="icon-check"></i></span></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:800 15px/20px Manrope,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums">{{ r.handle }}</span></span>
+                <button onClick="{{ onReset }}" style="flex:none;height:36px;padding:0 10px;border:none;background:none;color:var(--primary-soft-foreground);font:800 13px/1 Manrope,sans-serif;cursor:pointer">O‘zgartirish</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ premHas }}"><div role="status" style="display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--warning-soft);color:var(--warning-text);font:700 13px/19px Manrope,sans-serif"><i class="icon-crown" style="font-size:17px;flex:none;margin-top:1px"></i>Bu foydalanuvchida Premium allaqachon bor. Sovg‘a muddatni uzaytiradi.</div></sc-if>
+            <sc-if value="{{ premBlocked }}"><div role="alert" style="display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--danger-soft);color:var(--danger-text);font:700 13px/19px Manrope,sans-serif"><i class="icon-ban" style="font-size:17px;flex:none;margin-top:1px"></i><span style="display:flex;flex-direction:column;gap:2px">Bu foydalanuvchiga hozir Premium sovg‘a qilib bo‘lmaydi<span style="font-weight:500;color:var(--text-secondary)">Boshqa username kiriting yoki keyinroq urinib ko‘ring.</span></span></div></sc-if>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isQty }}" hint-placeholder-val="{{ true }}">
+          <section aria-labelledby="q-title" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 id="q-title" style="margin:0;font:800 17px/22px Manrope,sans-serif">Miqdor</h2>
+            <div style="display:grid;grid-template-columns:48px minmax(0,1fr) 48px;gap:8px">
+              <button onClick="{{ qtyDec }}" aria-label="Kamaytirish" style="height:52px;border-radius:14px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:20px;display:grid;place-items:center;cursor:pointer" style-active="transform:scale(.94)"><i class="icon-minus"></i></button>
+              <span style="position:relative;display:flex"><input value="{{ qty }}" onChange="{{ onQty }}" inputmode="numeric" aria-label="Stars miqdori" aria-invalid="{{ qtyErr }}" style="flex:1;min-width:0;height:52px;border-radius:14px;background:var(--input);border:1.5px solid {{ qtyBd }};text-align:center;padding:0 30px 0 8px;font:700 20px/1 Unbounded,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:12px;top:0;bottom:0;display:flex;align-items:center;font-size:16px;pointer-events:none">⭐</span></span>
+              <button onClick="{{ qtyInc }}" aria-label="Ko‘paytirish" style="height:52px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font-size:20px;display:grid;place-items:center;cursor:pointer" style-active="transform:scale(.94)"><i class="icon-plus"></i></button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <sc-for list="{{ qtyChips }}" as="c" hint-placeholder-count="6"><button onClick="{{ c.onClick }}" style="height:40px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;transition:all var(--dur-fast)">{{ c.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ qtyErr }}"><div role="alert" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px"></i>Kamida 50 ⭐ tanlang</div></sc-if>
+            <div style="display:flex;flex-direction:column;gap:4px;padding-top:12px;border-top:1px dashed var(--border)">
+              <span style="font:800 18px/24px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ qtyLine }}</span>
+              <span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">1 ⭐ = 220 so‘m · Minimal: 50 ⭐</span>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isPlans }}">
+          <section aria-labelledby="pl-title" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 id="pl-title" style="margin:0;font:800 17px/22px Manrope,sans-serif">Muddat</h2>
+            <div role="radiogroup" style="display:flex;flex-direction:column;gap:10px;padding-top:6px">
+              <sc-for list="{{ plans }}" as="pl" hint-placeholder-count="3">
+                <button role="radio" aria-checked="{{ pl.on }}" onClick="{{ pl.onClick }}" style="position:relative;display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 14px;border-radius:18px;border:1.5px solid {{ pl.bd }};background:{{ pl.bg }};color:var(--text);cursor:pointer;text-align:left;transition:border-color var(--dur-fast),background var(--dur-fast)" style-active="transform:scale(.98)">
+                  <sc-if value="{{ pl.best }}"><span style="position:absolute;top:-10px;left:14px;height:20px;padding:0 8px;border-radius:7px;background:var(--accent);color:var(--accent-foreground);font:800 10px/20px Manrope,sans-serif">Eng foydali</span></sc-if>
+                  <span style="width:22px;height:22px;border-radius:50%;border:{{ pl.dot }} solid {{ pl.dotC }};background:var(--card);flex:none;transition:border-width var(--dur-base) var(--ease-spring)"></span>
+                  <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">{{ pl.label }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ pl.monthly }}</span></span>
+                  <span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap">{{ pl.price }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isSkus }}">
+          <section aria-labelledby="s-title" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 id="s-title" style="margin:0;font:800 17px/22px Manrope,sans-serif">Paketni tanlang</h2>
+            <div role="tablist" style="display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--muted)">
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2"><button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.onClick }}" style="flex:1;height:38px;border-radius:999px;border:none;background:{{ t.bg }};color:{{ t.fg }};box-shadow:{{ t.sh }};font:800 14px/1 Manrope,sans-serif;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)">{{ t.label }}</button></sc-for>
+            </div>
+            <div role="radiogroup" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:6px">
+              <sc-for list="{{ skus }}" as="k" hint-placeholder-count="12">
+                <button role="radio" aria-checked="{{ k.on }}" onClick="{{ k.onClick }}" style="position:relative;text-align:left;display:flex;flex-direction:column;gap:4px;min-height:74px;padding:12px 14px;border-radius:16px;border:1.5px solid {{ k.bd }};background:{{ k.bg }};color:var(--text);cursor:pointer;transition:border-color var(--dur-fast),background var(--dur-fast)" style-active="transform:scale(.97)">
+                  <sc-if value="{{ k.best }}"><span style="position:absolute;top:-9px;left:12px;height:18px;padding:0 7px;border-radius:6px;background:var(--accent);color:var(--accent-foreground);font:800 10px/18px Manrope,sans-serif">Eng foydali</span></sc-if>
+                  <span style="position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font-size:12px;transform:scale({{ k.ck }});transition:transform var(--dur-base) var(--ease-spring)"><i class="icon-check"></i></span>
+                  <span style="font:800 16px/21px Manrope,sans-serif;font-variant-numeric:tabular-nums;padding-right:22px">{{ k.label }}</span>
+                  <span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ k.price }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isMoney }}">
+          <section aria-labelledby="m-title" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 id="m-title" style="margin:0;font:800 17px/22px Manrope,sans-serif">Summa</h2>
+            <label style="position:relative;display:flex"><input value="{{ amountStr }}" onChange="{{ onAmount }}" inputmode="numeric" placeholder="0" aria-label="Summa, so‘m" aria-invalid="{{ amtErr }}" style="flex:1;min-width:0;height:60px;border-radius:16px;background:var(--input);border:1.5px solid {{ amtBd }};padding:0 64px 0 16px;font:600 24px/1 Unbounded,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:16px;top:0;bottom:0;display:flex;align-items:center;font:700 15px/1 Manrope,sans-serif;color:var(--text-muted);pointer-events:none">so‘m</span></label>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              <sc-for list="{{ amtChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="height:40px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:800 13px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap">{{ c.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ amtErr }}"><div role="alert" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px"></i>Minimal summa: 10 000 so‘m</div></sc-if>
+            <div style="display:flex;flex-direction:column;gap:4px;padding-top:12px;border-top:1px dashed var(--border)">
+              <span style="font:800 16px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">Steam hisobingizga taxminan {{ usd }} $ tushadi</span>
+              <span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Xizmat haqi narxga kiritilgan</span>
+            </div>
+            <div role="note" style="display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--danger-soft);color:var(--danger-text);font:700 13px/19px Manrope,sans-serif"><i class="icon-triangle-alert" style="font-size:17px;flex:none;margin-top:1px"></i>Login noto‘g‘ri bo‘lsa, pul boshqa hisobga tushadi va qaytarib bo‘lmaydi.</div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isVoucher }}">
+          <section aria-labelledby="v-title" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 id="v-title" style="margin:0;font:800 17px/22px Manrope,sans-serif">Karta nominali</h2>
+            <div style="display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--info-soft);color:var(--info-text);font:700 13px/19px Manrope,sans-serif"><i class="icon-ticket" style="font-size:17px;flex:none;margin-top:1px"></i>Kodni roblox.com/redeem sahifasida faollashtirasiz — balansga $ tushadi</div>
+            <div role="radiogroup" style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ vouchers }}" as="v" hint-placeholder-count="3">
+                <button role="radio" aria-checked="{{ v.on }}" aria-disabled="{{ v.out }}" disabled="{{ v.out }}" onClick="{{ v.onClick }}" style="display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border-radius:16px;border:1.5px {{ v.bs }} {{ v.bd }};background:{{ v.bg }};color:{{ v.fg }};cursor:pointer;text-align:left;transition:border-color var(--dur-fast),background var(--dur-fast)">
+                  <span style="width:22px;height:22px;border-radius:50%;border:{{ v.dot }} solid {{ v.dotC }};background:var(--card);flex:none;opacity:{{ v.dotOp }}"></span>
+                  <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">{{ v.label }}</span><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ v.price }}</span></span>
+                  <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:{{ v.sbg }};color:{{ v.sfg }};font:800 11px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap"><i class="{{ v.sicon }}" style="font-size:12px"></i>{{ v.stock }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <section aria-label="Buyurtma xulosasi" style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border);font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+          <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Mahsulot</span><span style="text-align:right">{{ sumProduct }}</span></div>
+          <sc-if value="{{ hasRecipient }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">{{ r.sumLabel }}</span><span style="text-align:right;color:{{ sumRecipC }}">{{ sumRecip }}</span></div></sc-if>
+          <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Yetkazish</span><span style="text-align:right">{{ p.delivery }}</span></div>
+          <div style="height:1px;background:var(--border);margin:2px 0"></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-weight:800">Jami</span><span style="font:800 20px/26px Manrope,sans-serif">{{ totalStr }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px"><span style="color:var(--text-muted)">Hamyonda: {{ balanceStr }}</span><span style="color:{{ afterC }}">{{ afterStr }}</span></div>
+        </section>
+      </sc-if>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:color-mix(in oklab,var(--surface) 94%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border);padding:10px 16px 34px;display:flex;flex-direction:column;gap:8px">
+      <sc-if value="{{ barHint }}"><div style="display:flex;align-items:center;justify-content:center;gap:6px;font:700 13px/18px Manrope,sans-serif;color:{{ barHintC }};text-align:center"><i class="{{ barHintIcon }}" style="font-size:14px;flex:none"></i>{{ barHint }}</div></sc-if>
+      <sc-if value="{{ barLoading }}">
+        <div aria-busy="true" style="height:52px;border-radius:16px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;gap:10px;font:800 16px/1 Manrope,sans-serif;opacity:.9">Sotib olish ·<span style="position:relative;overflow:hidden;width:96px;height:16px;border-radius:8px;background:color-mix(in oklab,var(--primary-foreground) 28%,transparent)">{{ shOnPrimary }}</span></div>
+      </sc-if>
+      <sc-if value="{{ barNormal }}" hint-placeholder-val="{{ true }}">
+        <button disabled="{{ barDisabled }}" style="height:52px;border-radius:16px;border:none;background:{{ barBg }};color:{{ barFg }};box-shadow:{{ barSh }};font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background var(--dur-fast),transform var(--dur-instant)" style-active="transform:scale(.98)"><i class="{{ barIcon }}" style="font-size:18px"></i>{{ barLabel }}</button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ sheetOpen }}">
+    <div style="position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end">
+      <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:var(--overlay)"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="sh-title" style="position:relative;background:var(--elevated);border-radius:28px 28px 0 0;box-shadow:var(--shadow-lg);padding:8px 16px 34px;display:flex;flex-direction:column;gap:14px;max-height:88%;overflow-y:auto">
+        <span style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--input-border);margin-bottom:2px"></span>
+        <h2 id="sh-title" style="margin:0;font:800 19px/25px Manrope,sans-serif">{{ sheet.title }}</h2>
+        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ sheet.steps }}" as="st" hint-placeholder-count="3">
+            <li style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:center">
+              <span style="position:relative;width:96px;height:72px;border-radius:14px;overflow:hidden;background:var(--muted)">
+                <sc-if value="{{ useSlot }}"><image-slot id="{{ st.slot }}" shape="rounded" radius="14" placeholder="" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if>
+                <sc-if value="{{ noSlot }}"><span style="position:absolute;inset:0;display:grid;place-items:center;color:var(--text-muted);font-size:20px"><i class="icon-image"></i></span></sc-if>
+                <span style="position:absolute;top:6px;left:6px;pointer-events:none;width:22px;height:22px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font:800 11px/1 Manrope,sans-serif">{{ st.n }}</span>
+              </span>
+              <span style="font:600 14px/20px Manrope,sans-serif;text-wrap:pretty">{{ st.text }}</span>
+            </li>
+          </sc-for>
+        </ol>
+        <button onClick="{{ closeSheet }}" style="margin-top:4px;height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer">Tushunarli</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <span aria-hidden="true" style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--text);opacity:.85;z-index:30"></span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;product&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;stars&quot;,&quot;premium&quot;,&quot;pubg&quot;,&quot;mlbb&quot;,&quot;steam&quot;,&quot;cs2&quot;,&quot;roblox&quot;],&quot;default&quot;:&quot;stars&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;recipient&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;checking&quot;,&quot;found&quot;,&quot;confirmed&quot;,&quot;notfound&quot;,&quot;invalid&quot;,&quot;down&quot;],&quot;default&quot;:&quot;idle&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;pageState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ready&quot;,&quot;skeleton&quot;,&quot;unavailable&quot;,&quot;priceLoading&quot;,&quot;error&quot;],&quot;default&quot;:&quot;ready&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;premiumFlag&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;has&quot;,&quot;blocked&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;qty&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:100,&quot;tsType&quot;:&quot;number&quot;},&quot;plan&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;3&quot;,&quot;6&quot;,&quot;12&quot;],&quot;default&quot;:&quot;6&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tab&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;amount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:50000,&quot;tsType&quot;:&quot;number&quot;},&quot;balance&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:85400,&quot;tsType&quot;:&quot;number&quot;},&quot;tall&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;artSlots&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.fromProps(props);
+    this.state.art = {};
+  }
+  fromProps(p) {
+    const id = p.product ?? 'stars';
+    const rs = p.recipient ?? 'idle';
+    const filled = rs !== 'idle';
+    const defSku = { pubg: '660', mlbb: '86' };
+    return {
+      rs, ps: p.pageState ?? 'ready', sheet: !!p.sheet,
+      user: filled ? (rs === 'invalid' ? 'dk' : rs === 'notfound' ? 'dilnoza_kk' : 'dilnoza_k') : '',
+      pid: filled ? (id === 'mlbb' ? (rs === 'invalid' ? '1234' : '84512376') : (rs === 'invalid' ? '51234' : '5123456789')) : '',
+      zone: filled && id === 'mlbb' ? (rs === 'invalid' ? '' : '2051') : '',
+      login: filled ? (rs === 'invalid' ? 's' : 'sardor_steam') : '',
+      qty: p.qty ?? 100, plan: p.plan ?? '6', tab: p.tab ?? 0, sku: p.sku ?? defSku[id] ?? '', amount: p.amount ?? 50000, vsku: '10',
+    };
+  }
+  componentDidMount() {
+    fetch('.image-slots.state.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || typeof j !== 'object') return;
+      const art = {}; for (const k in j) { const v = j[k]; const u = typeof v === 'string' ? v : v && v.u; if (u) art[k] = u; }
+      this.setState({ art });
+    }).catch(() => {});
+  }
+  componentDidUpdate(prev) {
+    const keys = ['product', 'recipient', 'pageState', 'sheet', 'qty', 'plan', 'tab', 'amount'];
+    if (keys.some(k => prev[k] !== this.props[k])) this.setState(this.fromProps(this.props));
+  }
+  componentWillUnmount() { clearTimeout(this.t); }
+  fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); }
+
+  check(kind) {
+    const s = this.state;
+    const valid = kind === 'username' ? /^[a-zA-Z0-9_]{5,32}$/.test(s.user)
+      : kind === 'gameid' ? /^\d{8,12}$/.test(s.pid)
+      : kind === 'gameid2' ? /^\d{6,10}$/.test(s.pid) && /^\d{3,5}$/.test(s.zone)
+      : /^[a-zA-Z0-9_]{3,64}$/.test(s.login);
+    if (!valid) return this.setState({ rs: 'invalid' });
+    const v = (kind === 'username' ? s.user : kind === 'steam' ? s.login : s.pid).toLowerCase();
+    this.setState({ rs: 'checking' });
+    clearTimeout(this.t);
+    this.t = setTimeout(() => this.setState({ rs: v.includes('down') ? 'down' : (v.includes('xato') || v.endsWith('kk') || v.startsWith('000')) ? 'notfound' : 'found' }), 1000);
+  }
+
+  renderVals() {
+    const h = React.createElement, P = this.props, s = this.state, fmt = n => this.fmt(n);
+    const rm = !!P.reducedMotion || !!P.frozen;
+    const id = P.product ?? 'stars';
+    const artSlots = P.artSlots ?? true;
+    const balance = P.balance ?? 85400;
+    const premiumFlag = P.premiumFlag ?? 'none';
+    const sm = (bg) => h('span', { style: { position: 'absolute', inset: 0, background: `linear-gradient(90deg,transparent,${bg},transparent)`, transform: 'translateX(-100%)', animation: rm ? 'none' : 'gg-shimmer var(--dur-shimmer) var(--ease-standard) infinite', opacity: rm ? 0 : 1 } });
+
+    const B = { avto: { label: '⚡ Avto', bg: 'var(--success-soft)', fg: 'var(--success-text)' }, promo: { label: '🎟 Promokod', bg: 'var(--accent-soft)', fg: 'var(--accent-soft-foreground)' }, global: { label: 'Global', bg: 'var(--primary)', fg: 'var(--primary-foreground)' }, hot: { label: '★ Mashhur', bg: 'var(--accent)', fg: 'var(--accent-foreground)' }, cis: { label: 'MDH', bg: 'var(--muted)', fg: 'var(--text-secondary)' } };
+    const AUTO = '⚡ 1–2 daqiqa, avtomatik';
+    const products = {
+      stars: { name: 'Telegram Stars', sub: 'Sovg‘alar, reaksiyalar va obunalar uchun yulduzlar', badges: [B.avto], kind: 'username', pkg: 'qty', bg: 'var(--star-soft)', icon: 'icon-star', iconC: 'var(--star)', delivery: AUTO, tg: true },
+      premium: { name: 'Telegram Premium', sub: 'O‘zingizga yoki do‘stingizga Premium obuna', badges: [B.avto], kind: 'username', pkg: 'plans', bg: 'var(--premium-soft)', icon: 'icon-crown', iconC: 'var(--premium)', delivery: AUTO, tg: true },
+      pubg: { name: 'PUBG Mobile', sub: 'UC to‘g‘ridan-to‘g‘ri o‘yin hisobingizga', badges: [B.avto, B.global, B.hot], kind: 'gameid', pkg: 'skus', delivery: AUTO },
+      mlbb: { name: 'Mobile Legends', sub: 'Olmoslar User ID va Zone ID orqali', badges: [B.avto, B.global, B.hot], kind: 'gameid2', pkg: 'skus', delivery: AUTO },
+      steam: { name: 'Steam', sub: 'Steam hamyonini so‘mda to‘ldirish', badges: [B.avto, B.cis], kind: 'steam', pkg: 'money', delivery: '⚡ 5–15 daqiqa' },
+      cs2: { name: 'Counter-Strike 2', sub: 'Steam hamyonini to‘ldiring — skin, kalit va Prime uchun', badges: [B.avto, B.cis], kind: 'steam', pkg: 'money', delivery: '⚡ 5–15 daqiqa', wide: true, artId: 'cs2' },
+      roblox: { name: 'Roblox sovg‘a kartasi', sub: 'Robux uchun raqamli kod', badges: [B.promo, B.global], kind: 'none', pkg: 'voucher', delivery: 'Kod darhol ko‘rinadi' },
+    };
+    const pr = { bg: 'var(--muted)', icon: 'icon-image', iconC: 'var(--text-muted)', artId: id, ...(products[id] || products.stars) };
+    const u = s.art['art-' + pr.artId];
+    pr.noImg = !u; pr.bgImg = u ? `center/cover no-repeat url("${u}"), ${pr.bg}` : pr.bg;
+    const useSlot = artSlots && !pr.tg;
+
+    const R = {
+      username: { title: 'Kimga yuboramiz?', invalid: 'Username 5–32 ta lotin harf, raqam yoki _ dan iborat bo‘ladi', notFound: 'Bunday foydalanuvchi topilmadi. Username’ni tekshiring.', ini: 'DK', name: 'Dilnoza K.', handle: '@' + s.user, prompt: 'To‘g‘ri odammi? Tasdiqlang', sumLabel: 'Kimga', sumVal: '@' + s.user },
+      gameid: { title: 'O‘yinchi ma’lumotlari', hasHelp: true, helpLabel: 'ID’ni qayerdan topaman?', invalid: 'Player ID 8–12 ta raqamdan iborat bo‘ladi', notFound: 'Bunday ID bilan o‘yinchi topilmadi. ID’ni tekshiring.', ini: 'SP', name: 'SardorPRO', handle: `ID ${s.pid} · Region: Global`, prompt: 'To‘g‘ri akkauntmi? Tasdiqlang', sumLabel: 'Player ID', sumVal: s.pid },
+      gameid2: { title: 'O‘yinchi ma’lumotlari', hasHelp: true, helpLabel: 'ID’ni qayerdan topaman?', invalid: 'Format: 12345678 (1234) — User ID va Zone ID faqat raqamlar', notFound: 'Bunday ID bilan o‘yinchi topilmadi. ID’ni tekshiring.', ini: 'SP', name: 'SardorPRO', handle: `ID ${s.pid} (${s.zone}) · Region: Global`, prompt: 'To‘g‘ri akkauntmi? Tasdiqlang', sumLabel: 'User ID', sumVal: `${s.pid} (${s.zone})` },
+      steam: { title: 'Steam hisobi', hasHelp: true, helpLabel: 'Loginni qayerdan topaman?', invalid: 'Login 3–64 ta lotin harf, raqam yoki _ dan iborat bo‘ladi', notFound: 'Bunday Steam login topilmadi. Loginni tekshiring.', ini: 'SC', name: 'Sardor | CS2', handle: 'Hisob regioni: MDH', prompt: 'To‘g‘ri hisobmi? Tasdiqlang', sumLabel: 'Steam login', sumVal: s.login },
+    };
+    const r = { hasHelp: false, helpLabel: '', ...(R[pr.kind] || R.username) };
+    const hasRecipient = pr.kind !== 'none';
+    const rs = s.rs;
+    const confirmed = rs === 'confirmed';
+    const inErr = rs === 'invalid' || rs === 'notfound';
+    const rawVal = pr.kind === 'username' ? s.user : pr.kind === 'steam' ? s.login : s.pid;
+    const checkDisabled = !rawVal || rs === 'checking';
+
+    let price = 0, sumProduct = '', pkgValid = true, hintPkg = '';
+    const qty = Number(s.qty) || 0, qtyErr = pr.pkg === 'qty' && qty < 50;
+    if (pr.pkg === 'qty') { price = qty * 220; sumProduct = `${fmt(qty)} ⭐`; pkgValid = !qtyErr; if (qtyErr) hintPkg = 'Kamida 50 ⭐ tanlang'; }
+    const planData = [['3', '3 oylik', 165000, '55 000 so‘m/oy'], ['6', '6 oylik', 220000, '36 700 so‘m/oy', true], ['12', '12 oylik', 396000, '33 000 so‘m/oy']];
+    const plans = planData.map(([k, label, pz, monthly, best]) => { const on = s.plan === k; return { label, price: fmt(pz) + ' so‘m', monthly, best: !!best, on, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', dot: on ? '7px' : '2px', dotC: on ? 'var(--primary)' : 'var(--input-border)', onClick: () => this.setState({ plan: k }) }; });
+    if (pr.pkg === 'plans') { const pl = planData.find(x => x[0] === s.plan) || planData[1]; price = pl[2]; sumProduct = `Premium · ${pl[1]}`; }
+
+    const skuSets = {
+      pubg: { tabs: ['UC tezkor', 'To‘plamlar'], unit: 'UC', sets: [
+        [[60, 12150], [120, 24300], [180, 36450], [325, 61500], [385, 72900], [660, 120750], [985, 182000], [1320, 241500], [1800, 299150, 1], [2460, 410000], [3850, 615000], [8100, 1215000]].map(([n, pz, b]) => ({ k: String(n), label: `${fmt(n)} UC`, pz, best: !!b })),
+        [['prime', 'Prime · 1 oy', 12450], ['primeplus', 'Prime Plus · 1 oy', 122000], ['weekly', 'Haftalik to‘plam', 24900], ['monthly', 'Oylik to‘plam', 61500]].map(([k, label, pz]) => ({ k, label, pz, best: false })),
+      ] },
+      mlbb: { tabs: ['Olmoslar', 'Obunalar'], unit: 'olmos', sets: [
+        [[86, 19900], [172, 39500], [257, 58900], [344, 78500], [429, 97900], [514, 117000], [706, 159000, 1], [1050, 236000], [2195, 485000], [3688, 810000], [5532, 1215000], [9288, 2030000]].map(([n, pz, b]) => ({ k: String(n), label: `${fmt(n)} olmos`, pz, best: !!b })),
+        [['wdp', 'Haftalik olmos', 21900], ['twilight', 'Twilight Pass', 115000]].map(([k, label, pz]) => ({ k, label, pz, best: false })),
+      ] },
+    };
+    const ss = skuSets[id];
+    let tabs = [], skus = [];
+    if (ss) {
+      const tab = Math.min(s.tab, ss.sets.length - 1);
+      tabs = ss.tabs.map((label, i) => { const on = tab === i; return { label, on, bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--text)' : 'var(--text-muted)', sh: on ? 'var(--shadow-sm)' : 'none', onClick: () => this.setState({ tab: i, sku: ss.sets[i][0].k }) }; });
+      skus = ss.sets[tab].map(x => { const on = s.sku === x.k; return { ...x, price: fmt(x.pz) + ' so‘m', on, ck: on ? 1 : 0, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', onClick: () => this.setState({ sku: x.k }) }; });
+      const sel = ss.sets.flat().find(x => x.k === s.sku);
+      if (sel) { price = sel.pz; sumProduct = sel.label; } else { pkgValid = false; hintPkg = 'Paketni tanlang'; }
+    }
+
+    const amount = Number(s.amount) || 0, amtErr = pr.pkg === 'money' && amount > 0 && amount < 10000;
+    if (pr.pkg === 'money') { price = amount; sumProduct = `Steam · ${fmt(amount)} so‘m`; pkgValid = amount >= 10000; if (!pkgValid) hintPkg = 'Minimal summa: 10 000 so‘m'; }
+    const usd = (amount / 12987).toFixed(2).replace('.', ',');
+    const amtChips = [50000, 100000, 200000, 500000].map(v => { const on = amount === v; return { label: v >= 1000 ? `${v / 1000}k` : String(v), bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', onClick: () => this.setState({ amount: v }) }; });
+    amtChips.forEach((c, i) => { c.label = ['50 000', '100 000', '200 000', '500 000'][i]; });
+
+    const vData = [['3', 'Roblox $3', 36700, 0], ['10', 'Roblox $10', 122450, 69], ['15', 'Roblox $15', 191715, 25]];
+    const vouchers = vData.map(([k, label, pz, st]) => { const out = st === 0, on = !out && s.vsku === k; return { label, out, on, price: out ? 'Tugagan' : fmt(pz) + ' so‘m', stock: out ? 'Tugagan' : `${st} ta`, sicon: out ? 'icon-package-x' : 'icon-package', sbg: out ? 'var(--muted)' : st < 30 ? 'var(--warning-soft)' : 'var(--success-soft)', sfg: out ? 'var(--text-muted)' : st < 30 ? 'var(--warning-text)' : 'var(--success-text)', bs: out ? 'dashed' : 'solid', bd: on ? 'var(--primary)' : 'var(--border)', bg: out ? 'var(--muted)' : on ? 'var(--primary-soft)' : 'var(--card)', fg: out ? 'var(--text-muted)' : 'var(--text)', dot: on ? '7px' : '2px', dotC: on ? 'var(--primary)' : 'var(--input-border)', dotOp: out ? 0.4 : 1, onClick: () => !out && this.setState({ vsku: k }) }; });
+    if (pr.pkg === 'voucher') { const v = vData.find(x => x[0] === s.vsku); price = v[2]; sumProduct = v[1]; }
+
+    const ps = s.ps;
+    const blocked = pr.kind === 'username' && id === 'premium' && premiumFlag === 'blocked' && (rs === 'found' || confirmed);
+    const needRecipient = hasRecipient && !confirmed;
+    const enabled = ps === 'ready' && !needRecipient && pkgValid && !blocked;
+    const short = Math.max(0, price - balance);
+    const insufficient = enabled && short > 0;
+    let barHint = '', barHintC = 'var(--text-muted)', barHintIcon = 'icon-info';
+    if (ps === 'unavailable') { barHint = 'Mahsulot vaqtincha mavjud emas'; }
+    else if (blocked) { barHint = 'Bu foydalanuvchiga hozir Premium sovg‘a qilib bo‘lmaydi'; barHintC = 'var(--danger-text)'; barHintIcon = 'icon-ban'; }
+    else if (needRecipient) { barHint = 'Avval qabul qiluvchini tasdiqlang'; }
+    else if (!pkgValid) { barHint = hintPkg; barHintC = 'var(--danger-text)'; barHintIcon = 'icon-circle-x'; }
+    else if (insufficient) { barHint = `Yetishmaydi: ${fmt(short)} so‘m`; barHintC = 'var(--warning-text)'; barHintIcon = 'icon-triangle-alert'; }
+    const totalStr = fmt(price) + ' so‘m';
+
+    const sheets = {
+      gameid: { title: 'ID’ni qayerdan topaman?', steps: [['O‘yinni oching va chap yuqoridagi avatarga bosing.', 'help-pubg-1'], ['Profil sahifasida nik ostidagi ID raqamini toping.', 'help-pubg-2'], ['Raqamni nusxalab, shu yerga qo‘ying.', 'help-pubg-3']] },
+      gameid2: { title: 'ID’ni qayerdan topaman?', steps: [['O‘yinda chap yuqoridagi avatarga bosing.', 'help-mlbb-1'], ['Nik ostida “ID: 12345678 (1234)” ko‘rinadi.', 'help-mlbb-2'], ['Birinchi raqam — User ID, qavsdagisi — Zone ID.', 'help-mlbb-3']] },
+      steam: { title: 'Loginni qayerdan topaman?', steps: [['Steam ilovasida profil rasmingiz → “Hisob tafsilotlari”.', 'help-steam-1'], ['Yuqorida “… hisobi” yozuvi — bu login, nickname emas.', 'help-steam-2'], ['Loginni aynan shunday kiriting — katta-kichik harf farq qilmaydi.', 'help-steam-3']] },
+    };
+    const sh0 = sheets[pr.kind] || sheets.gameid;
+    const sheet = { title: sh0.title, steps: sh0.steps.map(([text, slot], i) => ({ n: i + 1, text, slot })) };
+    const tall = !!P.tall;
+
+    return {
+      theme: P.theme ?? 'light', reduced: String(rm), frameH: tall ? 'auto' : '844px', scrollY: tall ? 'visible' : 'auto', mainPb: ps === 'error' ? '40px' : '160px',
+      sh: sm('var(--skeleton-shine)'), shOnPrimary: sm('color-mix(in oklab,var(--primary-foreground) 45%,transparent)'),
+      isSkeleton: ps === 'skeleton', isError: ps === 'error', showPage: ps !== 'skeleton' && ps !== 'error', isUnavailable: ps === 'unavailable', showBlocks: ps !== 'unavailable',
+      p: pr, hdrCompact: !pr.wide, hdrWide: !!pr.wide, hdrOp: ps === 'unavailable' ? 0.6 : 1, useSlot, noSlot: !useSlot,
+      r, hasRecipient, isUsername: pr.kind === 'username', isGameId: pr.kind === 'gameid', isGameId2: pr.kind === 'gameid2', isSteam: pr.kind === 'steam',
+      showInputs: !['found', 'confirmed'].includes(rs), rsInvalid: rs === 'invalid', rsNotFound: rs === 'notfound', rsDown: rs === 'down', rsChecking: rs === 'checking', rsFound: rs === 'found', rsConfirmed: confirmed,
+      premHas: id === 'premium' && premiumFlag === 'has' && (rs === 'found' || confirmed), premBlocked: blocked,
+      inErr, inBd: inErr ? 'var(--danger)' : 'var(--input-border)', checkDisabled, checkBg: checkDisabled ? 'var(--muted)' : 'var(--primary)', checkFg: checkDisabled ? 'var(--text-muted)' : 'var(--primary-foreground)',
+      user: s.user, pid: s.pid, zone: s.zone, login: s.login,
+      onUser: e => this.setState({ user: e.target.value.replace(/^@/, '').replace(/\s/g, '').slice(0, 32), rs: 'idle' }),
+      onPid: e => this.setState({ pid: e.target.value.replace(/\D/g, '').slice(0, 12), rs: 'idle' }),
+      onZone: e => this.setState({ zone: e.target.value.replace(/\D/g, '').slice(0, 5), rs: 'idle' }),
+      onLogin: e => this.setState({ login: e.target.value.replace(/\s/g, '').slice(0, 64), rs: 'idle' }),
+      onSelf: () => this.setState({ user: 'sardor_r', rs: 'idle' }),
+      onCheck: () => this.check(pr.kind), onConfirm: () => this.setState({ rs: 'confirmed' }), onReset: () => this.setState({ rs: 'idle' }),
+      openSheet: () => this.setState({ sheet: true }), closeSheet: () => this.setState({ sheet: false }), sheetOpen: s.sheet, sheet,
+      isQty: pr.pkg === 'qty', isPlans: pr.pkg === 'plans', isSkus: pr.pkg === 'skus', isMoney: pr.pkg === 'money', isVoucher: pr.pkg === 'voucher',
+      qty: s.qty, qtyErr, qtyBd: qtyErr ? 'var(--danger)' : 'var(--input-border)', qtyLine: `${fmt(qty)} ⭐ = ${fmt(qty * 220)} so‘m`,
+      onQty: e => this.setState({ qty: e.target.value.replace(/\D/g, '').slice(0, 6) }),
+      qtyDec: () => this.setState(x => ({ qty: Math.max(50, (Number(x.qty) || 50) - 50) })), qtyInc: () => this.setState(x => ({ qty: (Number(x.qty) || 0) + 50 })),
+      qtyChips: [50, 100, 250, 500, 1000, 2500].map(v => { const on = qty === v; return { label: `${fmt(v)} ⭐`, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', onClick: () => this.setState({ qty: v }) }; }),
+      plans, tabs, skus,
+      amountStr: amount ? fmt(amount) : '', onAmount: e => this.setState({ amount: Number(e.target.value.replace(/\D/g, '').slice(0, 9)) || 0 }), amtErr, amtBd: amtErr ? 'var(--danger)' : 'var(--input-border)', amtChips, usd,
+      vouchers,
+      sumProduct, sumRecip: confirmed ? r.sumVal : 'Tasdiqlanmagan', sumRecipC: confirmed ? 'var(--text)' : 'var(--text-muted)',
+      totalStr, balanceStr: fmt(balance) + ' so‘m', afterStr: short > 0 ? `Yetishmaydi: ${fmt(short)} so‘m` : `Qoladi: ${fmt(balance - price)} so‘m`, afterC: short > 0 ? 'var(--warning-text)' : 'var(--text-secondary)',
+      showBar: ps !== 'error', barLoading: ps === 'priceLoading', barNormal: ps !== 'priceLoading',
+      barHint, barHintC, barHintIcon, barDisabled: !enabled,
+      barBg: enabled ? 'var(--primary)' : 'var(--muted)', barFg: enabled ? 'var(--primary-foreground)' : 'var(--text-muted)', barSh: enabled ? 'var(--shadow-glow)' : 'none',
+      barIcon: insufficient ? 'icon-wallet' : ps === 'unavailable' ? 'icon-package-x' : 'icon-shopping-bag', barLabel: insufficient ? 'Hisobni to‘ldirish' : ps === 'unavailable' ? 'Mavjud emas' : `Sotib olish · ${totalStr}`,
+      onRetryPage: () => { this.setState({ ps: 'skeleton' }); clearTimeout(this.t); this.t = setTimeout(() => this.setState({ ps: 'ready' }), 1000); },
+    };
+  }
+}
+</script>
+</body>
+</html>

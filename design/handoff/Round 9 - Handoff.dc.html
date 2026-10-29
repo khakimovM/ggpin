@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 9 · Review, inventory, tokens</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+<style>html,body{margin:0;background:#D9DDE6}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:56px;width:1600px;font-family:Manrope,sans-serif;color:#0B1020">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 9.3–9.4</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em">Consistency review, motion, inventory &amp; tokens</h1>
+  </header>
+
+  <section id="coverage" style="display:flex;flex-direction:column;gap:16px;padding:28px;border-radius:24px;background:#fff">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">1 · Coverage against round 0</h2>
+    <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:#3F4863">✓ present · — not applicable · <b style="color:#B0182B">gap</b> missing, with the fix to apply. “States” = loading, empty, error, ready.</p>
+    <table style="width:100%;border-collapse:collapse;font:600 14px/20px Manrope,sans-serif">
+      <thead><tr style="text-align:left;font:800 11px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5E6784;border-bottom:2px solid #E1E5EF"><th style="padding:10px 8px">Screen</th><th style="padding:10px 8px">File</th><th style="padding:10px 8px">390</th><th style="padding:10px 8px">768</th><th style="padding:10px 8px">1440</th><th style="padding:10px 8px">Dark</th><th style="padding:10px 8px">RU</th><th style="padding:10px 8px">States</th><th style="padding:10px 8px">Note</th></tr></thead>
+      <tbody><sc-for list="{{ coverage }}" as="c" hint-placeholder-count="14"><tr style="border-bottom:1px solid #E1E5EF"><td style="padding:9px 8px;font-weight:800">{{ c.s }}</td><td style="padding:9px 8px;color:#3F4863;font-size:12px">{{ c.f }}</td><td style="padding:9px 8px;color:{{ c.c1 }}">{{ c.m }}</td><td style="padding:9px 8px;color:{{ c.c2 }}">{{ c.t }}</td><td style="padding:9px 8px;color:{{ c.c3 }}">{{ c.d }}</td><td style="padding:9px 8px;color:{{ c.c4 }}">{{ c.dk }}</td><td style="padding:9px 8px;color:{{ c.c5 }}">{{ c.ru }}</td><td style="padding:9px 8px;color:{{ c.c6 }}">{{ c.st }}</td><td style="padding:9px 8px;color:#3F4863;font-size:13px">{{ c.n }}</td></tr></sc-for></tbody>
+    </table>
+  </section>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+    <section style="display:flex;flex-direction:column;gap:14px;padding:28px;border-radius:24px;background:#fff">
+      <h2 style="margin:0;font:800 24px/1.2 Manrope,sans-serif">Statuses — one source</h2>
+      <table style="width:100%;border-collapse:collapse;font:600 13px/18px Manrope,sans-serif"><thead><tr style="text-align:left;font:800 11px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5E6784;border-bottom:2px solid #E1E5EF"><th style="padding:8px 6px">Enum</th><th style="padding:8px 6px">UZ</th><th style="padding:8px 6px">RU</th><th style="padding:8px 6px">Token</th></tr></thead><tbody><sc-for list="{{ statuses }}" as="s" hint-placeholder-count="8"><tr style="border-bottom:1px solid #E1E5EF"><td style="padding:8px 6px;font:700 12px/18px ui-monospace,Menlo,monospace">{{ s.e }}</td><td style="padding:8px 6px"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:{{ s.bg }};color:{{ s.fg }};font:700 12px/1 Manrope,sans-serif;white-space:nowrap"><i class="{{ s.i }}" style="font-size:13px"></i>{{ s.uz }}</span></td><td style="padding:8px 6px;color:#3F4863">{{ s.ru }}</td><td style="padding:8px 6px;font:600 11px/16px ui-monospace,Menlo,monospace;color:#5E6784">{{ s.tk }}</td></tr></sc-for></tbody></table>
+      <p style="margin:0;font:500 13px/19px Manrope,sans-serif;color:#3F4863">Admin shows the enum (NEEDS_REVIEW); users see the label. HELD is admin-only — users see “Tekshirilmoqda”.</p>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:14px;padding:28px;border-radius:24px;background:#fff">
+      <h2 style="margin:0;font:800 24px/1.2 Manrope,sans-serif">Money &amp; dates</h2>
+      <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font:600 14px/21px Manrope,sans-serif"><sc-for list="{{ rules }}" as="r" hint-placeholder-count="8"><li>{{ r }}</li></sc-for></ul>
+    </section>
+  </div>
+
+  <section id="motion" style="display:flex;flex-direction:column;gap:18px;padding:28px;border-radius:24px;background:#fff">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">2 · Motion specs</h2>
+    <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:#3F4863">Bars show each property on a 0–1000 ms scale. Reduced motion (OS setting or Profil → “Animatsiyalarni kamaytirish”) applies the right-hand column.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px">
+      <sc-for list="{{ motion }}" as="m" hint-placeholder-count="5">
+        <article style="display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:18px;border:1px solid #E1E5EF">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;border-radius:10px;background:#E8EAFF;color:#2C37C9;display:grid;place-items:center;font-size:17px"><i class="{{ m.icon }}"></i></span><h3 style="margin:0;font:800 17px/22px Manrope,sans-serif">{{ m.title }}</h3><span style="margin-left:auto;font:600 12px/16px Manrope,sans-serif;color:#5E6784">{{ m.where }}</span></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><sc-for list="{{ m.tracks }}" as="t" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;align-items:center"><span style="display:flex;flex-direction:column;gap:1px"><span style="font:700 12px/16px Manrope,sans-serif">{{ t.p }}</span><span style="font:600 10px/14px ui-monospace,Menlo,monospace;color:#5E6784">{{ t.lab }}</span></span><span style="position:relative;height:16px;border-radius:5px;background:#F2F4F9"><span style="position:absolute;top:0;bottom:0;left:{{ t.l }};width:{{ t.w }};min-width:4px;border-radius:5px;background:{{ t.c }}"></span></span></div></sc-for></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font:600 12px/18px Manrope,sans-serif"><span style="padding:10px;border-radius:10px;background:#F2F4F9"><b>Trigger:</b> {{ m.trigger }}</span><span style="padding:10px;border-radius:10px;background:#FFF4D1"><b>Reduced:</b> {{ m.reduced }}</span></div>
+        </article>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="inventory" style="display:flex;flex-direction:column;gap:18px;padding:28px;border-radius:24px;background:#fff">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">3 · Component inventory</h2>
+    <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:#3F4863">Name = suggested React component. Variants and states are the props the frames already exercise.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+      <sc-for list="{{ inventory }}" as="g" hint-placeholder-count="6">
+        <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font:800 13px/18px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#3D4BF5">{{ g.group }}</h3>
+          <div style="border-radius:14px;border:1px solid #E1E5EF;overflow:hidden"><sc-for list="{{ g.items }}" as="c" hint-placeholder-count="6"><div style="display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-top:{{ c.bt }}"><span style="font:800 13px/18px ui-monospace,Menlo,monospace">{{ c.n }}</span><span style="font:600 12px/17px Manrope,sans-serif;color:#3F4863">{{ c.v }}</span></div></sc-for></div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="tokens" style="display:flex;flex-direction:column;gap:18px;padding:28px;border-radius:24px;background:#fff">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">4 · Token sheet → Tailwind</h2>
+    <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:#3F4863">Every CSS variable in <code>ggpin-tokens.css</code> appears once below. Light = <code>:root</code>, dark = <code>[data-theme="dark"]</code> (set from Telegram <code>colorScheme</code> or the web toggle). Tailwind reads the variables, so one class works in both themes.</p>
+    <table style="width:100%;border-collapse:collapse;font:600 13px/18px Manrope,sans-serif">
+      <thead><tr style="text-align:left;font:800 11px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5E6784;border-bottom:2px solid #E1E5EF"><th style="padding:8px 6px">Group</th><th style="padding:8px 6px">Variable</th><th style="padding:8px 6px">Light</th><th style="padding:8px 6px">Dark</th><th style="padding:8px 6px">Tailwind</th></tr></thead>
+      <tbody><sc-for list="{{ tokens }}" as="t" hint-placeholder-count="40"><tr style="border-bottom:1px solid #EEF0F5"><td style="padding:6px;font:800 11px/16px Manrope,sans-serif;color:#5E6784;text-transform:uppercase;letter-spacing:.04em">{{ t.g }}</td><td style="padding:6px;font:700 12px/16px ui-monospace,Menlo,monospace">{{ t.n }}</td><td style="padding:6px"><span style="display:flex;align-items:center;gap:8px"><sc-if value="{{ t.sw }}"><span style="width:22px;height:22px;border-radius:6px;background:{{ t.l }};border:1px solid rgba(0,0,0,.12);flex:none"></span></sc-if><span style="font:600 11px/16px ui-monospace,Menlo,monospace;color:#3F4863;word-break:break-all">{{ t.l }}</span></span></td><td style="padding:6px"><span style="display:flex;align-items:center;gap:8px"><sc-if value="{{ t.sw }}"><span style="width:22px;height:22px;border-radius:6px;background:{{ t.d }};border:1px solid rgba(0,0,0,.12);flex:none"></span></sc-if><span style="font:600 11px/16px ui-monospace,Menlo,monospace;color:#3F4863;word-break:break-all">{{ t.d }}</span></span></td><td style="padding:6px;font:700 12px/16px ui-monospace,Menlo,monospace;color:#2C37C9">{{ t.tw }}</td></tr></sc-for></tbody>
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:800 13px/18px Manrope,sans-serif">tailwind.config.ts</span><pre style="margin:0;padding:16px;border-radius:14px;background:#0B1020;color:#C9D1F2;font:500 12px/18px ui-monospace,Menlo,monospace;overflow:auto;max-height:640px">{{ twConfig }}</pre></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:800 13px/18px Manrope,sans-serif">globals.css</span><pre style="margin:0;padding:16px;border-radius:14px;background:#0B1020;color:#C9D1F2;font:500 12px/18px ui-monospace,Menlo,monospace;overflow:auto;max-height:640px">{{ globals }}</pre></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const OK = '#0A6A34', NA = '#8A90A6', GAP = '#B0182B';
+    const cv = (v) => v === '✓' ? OK : v === '—' ? NA : GAP;
+    const coverage = [
+      ['Landing “/”', 'Site · Round 1 - Landing', '✓', '—', '✓', '✓ hero', '✓ hero', '—', 'SSR; mobile menu at ≤1040 (≤1180 RU)'],
+      ['Product SEO page', 'Site · Round 1 - Product and System', '✓', '—', '✓', '✓', 'gap', '—', 'RU: reuse product copy from the catalog editor (UZ/RU fields)'],
+      ['Login /login (a–g)', 'Login · Round 1 - Login', '✓', '—', '✓', '✓', '✓', '✓', 'Admin variant in Round 7'],
+      ['404 / error / pay return', 'Site · Round 1 - Product and System', '✓', '—', '✓', '✓', 'gap', '—', 'Short strings; mirror the error dictionary'],
+      ['Mini App splash, gates, language', 'MiniApp · Round 2', '✓', '—', '—', '✓', '✓ picker', '—', 'Picker is bilingual by design'],
+      ['Mini App home', 'MiniApp · Round 2', '✓', '—', '—', '✓', '✓', '✓', 'Skeleton, catalog error, search empty, offline'],
+      ['Product pages (5 templates)', 'Product · Round 3', '✓', '—', '—', '✓', '✓ Stars, PUBG', '✓', 'Skeleton, unavailable, price loading, error'],
+      ['Confirm / insufficient sheets', 'Checkout · Round 4', '✓', '—', '—', '✓', '✓', '✓', 'Expired quote, loading'],
+      ['Top-up flow', 'Checkout · Round 4', '✓', '—', '—', '✓', '✓ amount', '✓', 'Waiting, success, failed'],
+      ['Order status', 'Checkout · Round 4', '✓', '—', '—', '✓', '✓', '✓', 'Delivered, voucher, review, failed, cancelled'],
+      ['Tarix / Profil / services', 'Account · Round 5', '✓', '—', '—', '✓', '✓ profile', '✓', 'Skeleton, error, empty for both tabs'],
+      ['Web store', 'Store · Round 6', '✓ via Mini App', '✓', '✓', '✓', 'gap', '✓', '390 web = Mini App layouts in the browser shell'],
+      ['Admin login + R7 pages', 'Login · Admin · Round 7', '—', '✓', '✓', '✓', '—', 'gap', 'UZ only. Add table skeleton / empty / error'],
+      ['Admin R8 pages', 'AdminOps · Round 8', '—', '✓', '✓', '✓', '—', 'gap', 'Same: one shared DataTable state set covers all'],
+      ['Bot assets', 'Round 9 - Bot Assets', '—', '—', '—', '—', 'gap', '—', 'RU versions: swap the headline string'],
+    ].map(([s, f, m, t, d, dk, ru, st, n]) => ({ s, f, m, t, d, dk, ru, st, n, c1: cv(m.split(' ')[0]), c2: cv(t), c3: cv(d), c4: cv(dk.split(' ')[0]), c5: cv(ru.split(' ')[0]), c6: cv(st) }));
+    const statuses = [
+      ['PAID', 'To‘landi', 'Оплачено', 'icon-circle-check', 'delivered'], ['QUEUED', 'Navbatda', 'В очереди', 'icon-clock', 'queued'], ['PROCESSING', 'Bajarilmoqda', 'Выполняется', 'icon-loader-circle', 'processing'], ['DELIVERED', 'Yetkazildi', 'Доставлено', 'icon-circle-check', 'delivered'],
+      ['NEEDS_REVIEW', 'Tekshirilmoqda', 'Проверяется', 'icon-scan-search', 'review'], ['FAILED → REFUNDED', 'Bajarilmadi · qaytarildi', 'Не выполнено — деньги возвращены', 'icon-undo-2', 'failed'], ['CANCELLED', 'Bekor qilindi', 'Отменён', 'icon-ban', 'cancelled'], ['HELD (admin)', 'Tekshirilmoqda', 'Проверяется', 'icon-pause', 'review'],
+    ].map(([e, uz, ru, i, k]) => ({ e, uz, ru, i, bg: `var(--status-${k}-soft)`, fg: `var(--status-${k})`, tk: `--status-${k}` }));
+    const rules = [
+      'Thousands separated by a non-breaking thin space: 85 400, 1 215 000 — never commas or dots.',
+      'Currency after the number: “so‘m” (UZ), “сум” (RU). Admin tables may drop the unit in a column titled “Narx, so‘m”.',
+      'Decimals with a comma: 99,4% · 3,85 $ · 3,420 TON. USD sign after the amount.',
+      'Signs use the real minus “−” (U+2212). Credits green (--success-text), debits neutral --text — never red for a normal purchase.',
+      'All money uses tabular-nums so columns and countdowns don’t jitter.',
+      'User-facing dates are relative (hozir, 14:05, Kecha, 27-oktabr) — never ISO.',
+      'Admin dates are DD.MM HH:MM (today) or DD.MM.YYYY HH:MM:SS in detail views and logs.',
+      'Countdowns are M:SS (2:41, 9:41); durations “1 daq 12 s” / “1 мин 12 с”.',
+    ];
+    const T = (p, l, w, lab, c = '#3D4BF5') => ({ p, l: (l / 10) + '%', w: (w / 10) + '%', lab, c });
+    const motion = [
+      { icon: 'icon-wallet', title: 'Wallet card', where: 'MiniApp home', tracks: [T('Gradient blobs drift', 0, 1000, 'gg-drift 14s ease-in-out ∞', '#7A84A3'), T('Balance count-up', 0, 480, 'dur-slower · ease-out'), T('Actions fade-in', 140, 220, 'dur-base', '#12A150')], trigger: 'Mount and balance change. Count-up only when the value changes.', reduced: 'Static gradient; number swaps instantly.' },
+      { icon: 'icon-grid-2x2', title: 'SKU selection', where: 'Product grid / chips', tracks: [T('Press scale .97', 0, 80, 'dur-instant'), T('Border + bg', 0, 140, 'dur-fast · standard', '#12A150'), T('Check pop', 60, 320, 'dur-slow · spring', '#F5A300'), T('Bottom bar price', 100, 220, 'dur-base · crossfade', '#8B5CF6')], trigger: 'Tap tile or chip; Telegram HapticFeedback.selectionChanged().', reduced: 'Colour change only, no scale or pop.' },
+      { icon: 'icon-panel-bottom-open', title: 'Bottom sheets', where: 'Confirm, insufficient, help', tracks: [T('Overlay opacity', 0, 220, 'dur-base'), T('Sheet translateY 40→0', 0, 320, 'gg-sheet-in · ease-out', '#12A150'), T('Close (reverse)', 0, 220, 'dur-base · ease-in', '#E5384B')], trigger: 'Open on action; close on drag down >80px, overlay tap, or Telegram Back.', reduced: 'Fade only, 1ms.' },
+      { icon: 'icon-list-checks', title: 'Timeline step change', where: 'Order status', tracks: [T('Done dot fill', 0, 220, 'dur-base'), T('Connector grow', 120, 320, 'dur-slow · standard', '#12A150'), T('Next dot pulse', 440, 560, 'gg-pulse 1.4s ∞', '#2F80ED'), T('Time label in', 220, 140, 'dur-fast', '#F5A300')], trigger: 'Server event (SSE/WebSocket) moves the order to the next status.', reduced: 'Instant state swap; no pulse; text update announced via aria-live.' },
+      { icon: 'icon-party-popper', title: 'Success moment', where: 'Top-up / delivered', tracks: [T('Check pop .5→1', 0, 480, 'gg-pop · spring', '#12A150'), T('Confetti 24 pcs', 120, 880, 'gg-confetti 1.1s', '#F5A300'), T('Title + text rise', 200, 320, 'gg-float-in', '#3D4BF5'), T('Haptic success', 0, 40, '', '#E0459A')], trigger: 'Status DELIVERED / payment PAID. Once per order (stored flag).', reduced: 'Static check icon; no confetti; haptic kept.' },
+    ];
+    const inv = {
+      'Foundations': [['Logo', 'mark · wordmark · sizes 24–512'], ['ThemeProvider', 'telegram | web toggle · data-theme'], ['Icon', 'Lucide · 13–24px'], ['MoneyText', 'so‘m/сум · sign · tabular · size'], ['RelativeTime', 'user · admin formats']],
+      'Actions & inputs': [['Button', 'primary · secondary · outline · ghost · danger · loading · disabled'], ['BottomActionBar', 'price · disabled hint · price loading'], ['Input', 'text · @username · digits · error · success'], ['MoneyInput', 'quick chips · min/max errors'], ['OtpInput', '6 boxes · paste · auto-submit · error'], ['Stepper', 'min · max'], ['Switch / Checkbox / Radio', 'admin dense size']],
+      'Selection & badges': [['Chip', 'filter · quick amount · selected'], ['SegmentedControl', '2–4 items · pill · dense'], ['Badge', 'region · delivery (Avto/Promokod) · Mashhur · Tez orada'], ['StatusChip', '7 statuses · short/long label'], ['Ribbon', 'Eng foydali / Выгоднее всего'], ['StockChip', 'in stock · low · sold out']],
+      'Commerce': [['ProductCard', 'feature · grid · disabled'], ['SkuTile / SkuRow', 'selected · ribbon · disabled'], ['PlanTile', 'monthly equivalent · ribbon'], ['RecipientBlock', 'idle · checking · found · not found · invalid · unavailable'], ['RecipientCard', 'telegram · game · steam'], ['PriceSummary', 'discount · total · validity'], ['WalletCard', 'animated · reduced'], ['PaymentMethodTile', 'Click · Payme · Uzum · Rahmat · Stars']],
+      'Orders & feedback': [['OrderTimeline', '4 steps · current animated'], ['OrderResult', 'delivered · voucher · review · failed · cancelled'], ['VoucherCode', 'copy · instructions'], ['OrderPill', 'in progress on Home'], ['Toast', 'success · error · above nav'], ['Banner', 'offline · service error · admin env'], ['EmptyState / ErrorState / Skeleton', 'per section']],
+      'Overlays & shell': [['BottomSheet', 'confirm · insufficient · help · top-up steps'], ['Modal', 'web checkout · admin action (reason + code)'], ['Drawer', 'admin payload · diff'], ['MiniAppShell', 'safe area · bottom nav · no back arrow'], ['WebHeader', 'wallet chip · lang · theme · avatar menu'], ['AdminShell', 'sidebar groups · env chip · role chip'], ['DataTable', 'filters · saved views · pagination · CSV'], ['KpiCard / Chart', 'area · donut · bar']],
+    };
+    const inventory = Object.entries(inv).map(([group, items]) => ({ group, items: items.map(([n, v], i) => ({ n, v, bt: i ? '1px solid #E1E5EF' : 'none' })) }));
+
+    const L = { background: '#F2F4F9', surface: '#FFFFFF', card: '#FFFFFF', elevated: '#FFFFFF', muted: '#E9ECF4', border: '#E1E5EF', input: '#F6F7FB', 'input-border': '#D3D9E6', ring: '#3D4BF5', overlay: 'rgba(8,12,24,.48)', text: '#0B1020', 'text-secondary': '#3F4863', 'text-muted': '#5E6784', primary: '#3D4BF5', 'primary-hover': '#2F3BDB', 'primary-pressed': '#2732BF', 'primary-foreground': '#FFFFFF', 'primary-soft': '#E8EAFF', 'primary-soft-foreground': '#2C37C9', accent: '#FFC531', 'accent-foreground': '#231A00', 'accent-soft': '#FFF4D1', 'accent-soft-foreground': '#7A5600', success: '#12A150', 'success-soft': '#E2F6EA', 'success-text': '#0A6A34', warning: '#F59E0B', 'warning-soft': '#FEF3DC', 'warning-text': '#8A5300', danger: '#E5384B', 'danger-hover': '#CC2639', 'danger-foreground': '#FFFFFF', 'danger-soft': '#FDE7EA', 'danger-text': '#B0182B', info: '#2F80ED', 'info-soft': '#E4EFFD', 'info-text': '#1559B8', 'status-queued': '#4A5370', 'status-queued-soft': '#ECEFF5', star: '#E89A00', 'star-soft': '#FFF2D6', premium: '#7C4DFF', 'premium-soft': '#EFE9FF', 'chart-1': '#3D4BF5', 'chart-2': '#F5A300', 'chart-3': '#12A150', 'chart-4': '#8B5CF6', 'chart-5': '#0EA5C6', 'chart-6': '#F2643D', 'chart-7': '#E0459A', 'chart-8': '#7A84A3', skeleton: '#E6E9F2', 'skeleton-shine': 'rgba(255,255,255,.7)' };
+    const D = { background: '#080C18', surface: '#0E1426', card: '#131B31', elevated: '#1A233D', muted: '#1C2540', border: '#232D4A', input: '#0F1629', 'input-border': '#2C3757', ring: '#7A84FF', overlay: 'rgba(2,4,10,.66)', text: '#F2F4FF', 'text-secondary': '#B7BFDA', 'text-muted': '#959DBB', primary: '#4A57FF', 'primary-hover': '#3F4CF0', 'primary-pressed': '#3540D6', 'primary-foreground': '#FFFFFF', 'primary-soft': '#1B2152', 'primary-soft-foreground': '#AEB5FF', accent: '#FFC94A', 'accent-foreground': '#231A00', 'accent-soft': '#2E2610', 'accent-soft-foreground': '#FFD36E', success: '#2BD17E', 'success-soft': '#0F2E22', 'success-text': '#5BE39C', warning: '#FFB627', 'warning-soft': '#33260A', 'warning-text': '#FFCB5C', danger: '#FF5468', 'danger-hover': '#E8364C', 'danger-foreground': '#FFFFFF', 'danger-soft': '#3A1219', 'danger-text': '#FF8B98', info: '#4DA3FF', 'info-soft': '#0E2440', 'info-text': '#86C1FF', 'status-queued': '#C3C9DE', 'status-queued-soft': '#1E2640', star: '#FFC531', 'star-soft': '#2E2610', premium: '#A58BFF', 'premium-soft': '#231B47', 'chart-1': '#5B67FF', 'chart-2': '#FFC531', 'chart-3': '#2BD17E', 'chart-4': '#A58BFF', 'chart-5': '#2CC6E8', 'chart-6': '#FF7A59', 'chart-7': '#F062B0', 'chart-8': '#8A94B0', skeleton: '#1A2239', 'skeleton-shine': 'rgba(255,255,255,.06)' };
+    const grp = k => /^chart/.test(k) ? 'chart' : /^(star|premium)/.test(k) ? 'product' : /^status/.test(k) ? 'status' : /^(success|warning|danger|info)/.test(k) ? 'feedback' : /^(primary|accent)/.test(k) ? 'brand' : /^(text)/.test(k) ? 'text' : /^skeleton/.test(k) ? 'loading' : 'surface';
+    const twOf = k => k === 'overlay' || k === 'skeleton-shine' ? `bg-${k}` : /^text/.test(k) ? `text-${k === 'text' ? 'foreground' : k.replace('text-', 'foreground-')}` : k === 'border' || k === 'input-border' ? `border-${k === 'border' ? 'DEFAULT' : 'input-border'}` : k === 'ring' ? 'ring-ring' : `bg-${k} / text-${k}`;
+    const tokens = [];
+    Object.keys(L).forEach(k => tokens.push({ g: grp(k), n: '--' + k, l: L[k], d: D[k], sw: true, tw: twOf(k) }));
+    [['delivered', 'success-text', 'success-soft'], ['processing', 'info-text', 'info-soft'], ['review', 'warning-text', 'warning-soft'], ['failed', 'danger-text', 'danger-soft'], ['cancelled', 'text-muted', 'muted']].forEach(([s, a, b]) => { tokens.push({ g: 'status', n: `--status-${s}`, l: `var(--${a})`, d: `var(--${a})`, sw: false, tw: `text-status-${s}` }); tokens.push({ g: 'status', n: `--status-${s}-soft`, l: `var(--${b})`, d: `var(--${b})`, sw: false, tw: `bg-status-${s}-soft` }); });
+    [['shadow-sm', '0 1px 2px rgba(16,24,48,.06), 0 1px 1px rgba(16,24,48,.04)', '0 1px 2px rgba(0,0,0,.4)'], ['shadow-md', '0 6px 16px -4px rgba(16,24,48,.10)', '0 8px 24px -6px rgba(0,0,0,.55)'], ['shadow-lg', '0 20px 48px -12px rgba(16,24,48,.22)', '0 24px 60px -12px rgba(0,0,0,.75)'], ['shadow-glow', '0 10px 24px -10px rgba(61,75,245,.7)', '0 10px 28px -10px rgba(74,87,255,.8)']].forEach(([k, l, d]) => tokens.push({ g: 'elevation', n: '--' + k, l, d, sw: false, tw: k.replace('shadow-', 'shadow-') }));
+    [['radius-xs', '6px', 'rounded-xs'], ['radius-sm', '10px', 'rounded-sm'], ['radius-md', '14px', 'rounded-md'], ['radius-lg', '20px', 'rounded-lg'], ['radius-xl', '24px', 'rounded-xl'], ['radius-2xl', '28px', 'rounded-2xl'], ['radius-full', '9999px', 'rounded-full']].forEach(([k, v, tw]) => tokens.push({ g: 'radius', n: '--' + k, l: v, d: '=', sw: false, tw }));
+    [['font-sans', 'Manrope', 'font-sans'], ['font-display', 'Unbounded (balances, prices, headlines)', 'font-display'], ['font-mono', 'ui-monospace (IDs, codes, hashes)', 'font-mono']].forEach(([k, v, tw]) => tokens.push({ g: 'type', n: '--' + k, l: v, d: '=', sw: false, tw }));
+    [['dur-instant', '80ms', 'duration-instant'], ['dur-fast', '140ms', 'duration-fast'], ['dur-base', '220ms', 'duration-base'], ['dur-slow', '320ms', 'duration-slow'], ['dur-slower', '480ms', 'duration-slower'], ['dur-shimmer', '1400ms', 'duration-shimmer'], ['ease-standard', 'cubic-bezier(.2,0,0,1)', 'ease-standard'], ['ease-out', 'cubic-bezier(.05,.7,.1,1)', 'ease-out'], ['ease-in', 'cubic-bezier(.3,0,.8,.15)', 'ease-in'], ['ease-spring', 'cubic-bezier(.34,1.56,.64,1)', 'ease-spring']].forEach(([k, v, tw]) => tokens.push({ g: 'motion', n: '--' + k, l: v, d: '=', sw: false, tw }));
+
+    const colorKeys = Object.keys(L).filter(k => !/^text/.test(k)).concat(['status-delivered', 'status-delivered-soft', 'status-processing', 'status-processing-soft', 'status-review', 'status-review-soft', 'status-failed', 'status-failed-soft', 'status-cancelled', 'status-cancelled-soft']);
+    const twConfig = `import type { Config } from 'tailwindcss'\n\nconst v = (n: string) => \`var(--\${n})\`\n\nexport default {\n  darkMode: ['selector', '[data-theme="dark"]'],\n  theme: {\n    extend: {\n      colors: {\n${colorKeys.map(k => `        '${k}': v('${k}'),`).join('\n')}\n        foreground: { DEFAULT: v('text'), secondary: v('text-secondary'), muted: v('text-muted') },\n      },\n      borderColor: { DEFAULT: v('border') },\n      borderRadius: { xs: v('radius-xs'), sm: v('radius-sm'), md: v('radius-md'), lg: v('radius-lg'), xl: v('radius-xl'), '2xl': v('radius-2xl'), full: v('radius-full') },\n      boxShadow: { sm: v('shadow-sm'), md: v('shadow-md'), lg: v('shadow-lg'), glow: v('shadow-glow') },\n      fontFamily: { sans: v('font-sans'), display: v('font-display'), mono: v('font-mono') },\n      transitionDuration: { instant: v('dur-instant'), fast: v('dur-fast'), base: v('dur-base'), slow: v('dur-slow'), slower: v('dur-slower'), shimmer: v('dur-shimmer') },\n      transitionTimingFunction: { standard: v('ease-standard'), out: v('ease-out'), in: v('ease-in'), spring: v('ease-spring') },\n    },\n  },\n} satisfies Config`;
+    const globals = `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n/* Paste ggpin-tokens.css here unchanged:\n   :root / [data-theme="light"]  → light values\n   [data-theme="dark"]           → dark values\n   :root                         → radius, font, motion\n   @keyframes gg-*               → shimmer, spin, pulse, pop,\n                                   float-in, sheet-in, shake,\n                                   confetti, drift, toast-in   */\n\n@layer base {\n  html { font-family: var(--font-sans); background: var(--background); color: var(--text); }\n  .tabular { font-variant-numeric: tabular-nums; }\n}\n\n/* Theme switch\n   Mini App: document.documentElement.dataset.theme =\n             Telegram.WebApp.colorScheme  (+ themeChanged event)\n   Web:      localStorage 'ggpin-theme' → system fallback   */\n\n/* Reduced motion: OS setting OR profile switch */\n@media (prefers-reduced-motion: reduce) {\n  *, *::before, *::after { animation-duration: 1ms !important;\n    animation-iteration-count: 1 !important; transition-duration: 1ms !important; }\n}\n[data-reduced="true"] * { animation: none !important; transition: none !important; }`;
+    return { coverage, statuses, rules, motion, inventory, tokens, twConfig, globals };
+  }
+}
+</script>
+</body>
+</html>

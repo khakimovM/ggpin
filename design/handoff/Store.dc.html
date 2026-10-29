@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Do‘kon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+<script src="image-slot.js"></script>
+</helmet>
+<div ref="{{ rootRef }}" data-theme="{{ theme }}" data-reduced="{{ reduced }}" style="position:relative;width:100%;height:{{ frameH }};overflow:hidden;background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif;display:flex;flex-direction:column">
+
+  <header style="position:relative;z-index:30;flex:none;background:var(--surface);border-bottom:1px solid var(--border)">
+    <div style="max-width:1264px;margin:0 auto;padding:0 {{ padX }};height:72px;display:flex;align-items:center;gap:{{ navGap }}">
+      <a href="#catalog" onClick="{{ goCatalog }}" aria-label="ggpin" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);flex:none"><span style="width:34px;height:34px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 16px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 20px/1 Unbounded,sans-serif;letter-spacing:-.04em"><span style="color:var(--primary)">gg</span>pin</span></a>
+      <nav aria-label="Asosiy" style="display:flex;gap:2px;flex:none">
+        <sc-for list="{{ navLinks }}" as="n" hint-placeholder-count="3"><a href="{{ n.href }}" onClick="{{ n.onClick }}" aria-current="{{ n.cur }}" style="height:40px;padding:0 14px;border-radius:10px;display:flex;align-items:center;text-decoration:none;white-space:nowrap;background:{{ n.bg }};color:{{ n.fg }};font:800 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">{{ n.label }}</a></sc-for>
+      </nav>
+      <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}">
+        <label style="position:relative;flex:1;min-width:160px;max-width:420px;display:flex"><i class="icon-search" style="position:absolute;left:14px;top:0;bottom:0;display:flex;align-items:center;font-size:17px;color:var(--text-muted);pointer-events:none"></i><input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Mahsulot qidirish…" aria-label="Mahsulot qidirish" style="flex:1;min-width:0;height:44px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px 0 40px;font:600 14px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label>
+      </sc-if>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex:none">
+        <span style="display:flex;align-items:center;gap:4px;height:44px;padding:0 4px 0 12px;border-radius:999px;background:var(--primary-soft);color:var(--primary-soft-foreground);font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap"><i class="icon-wallet" style="font-size:16px;margin-right:4px"></i>85 400 so‘m<button onClick="{{ openTopup }}" aria-label="Hisobni to‘ldirish" style="width:36px;height:36px;margin-left:6px;border-radius:50%;border:none;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;cursor:pointer;font-size:17px"><i class="icon-plus"></i></button></span>
+        <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}">
+          <div style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)"><sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="min-width:42px;height:36px;padding:0 10px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 12px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for></div>
+          <button onClick="{{ toggleTheme }}" aria-label="Mavzuni almashtirish" style="width:44px;height:44px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:18px"><i class="{{ themeIcon }}"></i></button>
+        </sc-if>
+        <button onClick="{{ toggleMenu }}" aria-label="Hisob menyusi" aria-expanded="{{ menuOpen }}" style="display:flex;align-items:center;gap:4px;height:44px;padding:0 6px 0 4px;border-radius:999px;border:1.5px solid var(--border);background:var(--card);color:var(--text);cursor:pointer"><span style="width:34px;height:34px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif">SR</span><i class="icon-chevron-down" style="font-size:15px;color:var(--text-muted)"></i></button>
+      </div>
+    </div>
+    <sc-if value="{{ t }}"><div style="padding:0 {{ padX }} 14px"><label style="position:relative;display:flex"><i class="icon-search" style="position:absolute;left:14px;top:0;bottom:0;display:flex;align-items:center;font-size:17px;color:var(--text-muted);pointer-events:none"></i><input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Mahsulot qidirish…" aria-label="Mahsulot qidirish" style="flex:1;min-width:0;height:44px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px 0 40px;font:600 14px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label></div></sc-if>
+    <sc-if value="{{ menuOpen }}">
+      <div role="menu" style="position:absolute;top:66px;right:{{ menuRight }};width:260px;background:var(--elevated);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);padding:8px;display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px 12px;border-bottom:1px solid var(--border);margin-bottom:4px"><span style="width:40px;height:40px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif">SR</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/18px Manrope,sans-serif">Sardor Rahimov</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">@sardor_r</span></span></div>
+        <a role="menuitem" href="#profile" onClick="{{ goProfile }}" style="height:44px;padding:0 10px;border-radius:12px;display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-circle-user" style="font-size:17px;color:var(--text-muted)"></i>Profil</a>
+        <sc-if value="{{ t }}">
+          <div style="height:48px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;font:700 14px/1 Manrope,sans-serif"><span style="display:flex;align-items:center;gap:10px"><i class="icon-languages" style="font-size:17px;color:var(--text-muted)"></i>Til</span><span style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)"><sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="min-width:40px;height:32px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 12px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for></span></div>
+          <button role="menuitem" onClick="{{ toggleTheme }}" style="height:44px;padding:0 10px;border-radius:12px;border:none;background:none;display:flex;align-items:center;gap:10px;color:var(--text);font:700 14px/1 Manrope,sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--muted)"><i class="{{ themeIcon }}" style="font-size:17px;color:var(--text-muted)"></i>{{ themeLabel }}</button>
+        </sc-if>
+        <button role="menuitem" style="height:44px;padding:0 10px;border-radius:12px;border:none;background:none;display:flex;align-items:center;gap:10px;color:var(--danger-text);font:700 14px/1 Manrope,sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--danger-soft)"><i class="icon-log-out" style="font-size:17px"></i>Chiqish</button>
+      </div>
+    </sc-if>
+  </header>
+
+  <div style="flex:1;min-height:0;overflow-y:{{ scrollY }}">
+  <div style="max-width:1264px;margin:0 auto;padding:{{ padTop }} {{ padX }} 64px;display:flex;flex-direction:column;gap:24px">
+
+    <sc-if value="{{ isCatalog }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:{{ catCols }};gap:32px;align-items:start">
+        <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}">
+          <aside aria-label="Kategoriyalar" style="position:sticky;top:24px;display:flex;flex-direction:column;gap:4px;padding:8px;border-radius:20px;background:var(--card);border:1px solid var(--border)">
+            <span style="padding:10px 12px 8px;font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Kategoriyalar</span>
+            <sc-for list="{{ cats }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" aria-current="{{ c.on }}" style="height:48px;padding:0 12px;border-radius:12px;border:none;background:{{ c.bg }};color:{{ c.fg }};display:flex;align-items:center;gap:10px;font:800 14px/1 Manrope,sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--muted)"><i class="{{ c.icon }}" style="font-size:18px"></i><span style="flex:1">{{ c.label }}</span><span style="min-width:26px;height:22px;padding:0 7px;border-radius:999px;background:{{ c.nbg }};color:{{ c.nfg }};font:800 11px/22px Manrope,sans-serif;text-align:center">{{ c.n }}</span></button></sc-for>
+          </aside>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:24px;min-width:0">
+          <sc-if value="{{ t }}"><div style="display:flex;gap:8px;overflow-x:auto"><sc-for list="{{ cats }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="flex:none;height:40px;padding:0 16px;border-radius:999px;border:1.5px solid {{ c.cbd }};background:{{ c.cbg }};color:{{ c.cfg }};font:800 14px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">{{ c.label }} · {{ c.n }}</button></sc-for></div></sc-if>
+          <sc-if value="{{ showPromo }}" hint-placeholder-val="{{ true }}">
+            <section aria-roledescription="carousel" aria-label="E’lonlar" style="display:flex;flex-direction:column;gap:10px">
+              <div style="overflow:hidden;border-radius:24px"><div style="display:flex;width:300%;transform:translateX({{ promoX }});transition:transform var(--dur-slow) var(--ease-standard)">
+                <sc-for list="{{ promos }}" as="b" hint-placeholder-count="3">
+                  <div style="position:relative;overflow:hidden;width:33.3333%;height:{{ promoH }};padding:28px 32px;background:{{ b.bg }};color:{{ b.fg }};display:flex;flex-direction:column;justify-content:center;gap:10px">
+                    <span style="position:relative;z-index:1;max-width:520px;font:700 26px/1.2 Unbounded,sans-serif;letter-spacing:-.03em;text-wrap:balance">{{ b.title }}</span>
+                    <span style="position:relative;z-index:1;max-width:440px;font:600 15px/22px Manrope,sans-serif;opacity:.9">{{ b.sub }}</span>
+                    <span style="position:relative;z-index:1;align-self:flex-start;margin-top:6px;height:40px;padding:0 16px;border-radius:12px;background:{{ b.btnBg }};color:{{ b.btnFg }};display:flex;align-items:center;gap:6px;font:800 14px/1 Manrope,sans-serif">{{ b.cta }}<i class="icon-arrow-right" style="font-size:15px"></i></span>
+                    <span aria-hidden="true" style="position:absolute;right:40px;top:50%;transform:translateY(-50%) rotate(-10deg);width:150px;height:150px;border-radius:50%;background:{{ b.glyphBg }};color:{{ b.glyphFg }};display:grid;place-items:center;font:700 44px/1 Unbounded,sans-serif;letter-spacing:-.04em"><i class="{{ b.icon }}" style="font-size:60px"></i>{{ b.glyph }}</span>
+                  </div>
+                </sc-for>
+              </div></div>
+              <div style="display:flex;justify-content:center;gap:2px"><sc-for list="{{ promos }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.onClick }}" aria-label="{{ b.aria }}" style="width:24px;height:20px;border:none;background:none;display:grid;place-items:center;cursor:pointer;padding:0"><span style="width:{{ b.dotW }};height:6px;border-radius:3px;background:{{ b.dotC }};transition:width var(--dur-base)"></span></button></sc-for></div>
+            </section>
+          </sc-if>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h1 style="margin:0;font:800 28px/34px Manrope,sans-serif;letter-spacing:-.02em">{{ gridTitle }}</h1><span style="font:700 14px/20px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ gridCount }}</span></div>
+          <sc-if value="{{ gridEmpty }}">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:56px 20px;border-radius:24px;background:var(--card);border:1px dashed var(--input-border)"><span style="width:64px;height:64px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:28px"><i class="icon-search-x"></i></span><span style="font:800 18px/24px Manrope,sans-serif">Hech narsa topilmadi</span><button onClick="{{ clearQuery }}" style="margin-top:4px;height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Qidiruvni tozalash</button></div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:repeat({{ gridN }},minmax(0,1fr));gap:16px">
+            <sc-for list="{{ items }}" as="it" hint-placeholder-count="8">
+              <a href="#product" onClick="{{ it.onClick }}" aria-disabled="{{ it.soon }}" style="display:flex;flex-direction:column;gap:12px;padding:8px 8px 16px;border-radius:22px;background:var(--card);border:1px solid var(--border);text-decoration:none;color:var(--text);opacity:{{ it.op }};transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base)" style-hover="transform:translateY(-3px);box-shadow:var(--shadow-md);color:var(--text)">
+                <span style="position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;background:{{ it.bg }}">
+                  <sc-if value="{{ it.useSlot }}"><image-slot id="art-{{ it.id }}" shape="rounded" radius="16" placeholder="{{ it.name }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if>
+                  <sc-if value="{{ it.noSlot }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;background:{{ it.bgImg }};display:grid;place-items:center;color:{{ it.iconC }};font-size:34px;filter:{{ it.filter }}"><sc-if value="{{ it.noImg }}" hint-placeholder-val="{{ true }}"><i class="{{ it.icon }}"></i></sc-if></span></sc-if>
+                  <sc-if value="{{ it.hot }}"><span style="position:absolute;top:8px;left:8px;pointer-events:none;height:24px;padding:0 8px;border-radius:8px;background:var(--accent);color:var(--accent-foreground);font:800 11px/24px Manrope,sans-serif">★ Mashhur</span></sc-if>
+                  <sc-if value="{{ it.soon }}"><span style="position:absolute;top:8px;left:8px;pointer-events:none;display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:8px;background:var(--elevated);color:var(--text-secondary);font:800 11px/1 Manrope,sans-serif"><i class="icon-clock" style="font-size:12px"></i>Tez orada</span></sc-if>
+                  <sc-if value="{{ it.region }}"><span style="position:absolute;top:8px;right:8px;pointer-events:none;height:24px;padding:0 8px;border-radius:8px;background:var(--primary);color:var(--primary-foreground);font:800 11px/24px Manrope,sans-serif">{{ it.region }}</span></sc-if>
+                </span>
+                <span style="display:flex;flex-direction:column;gap:6px;padding:0 8px">
+                  <span style="font:800 16px/21px Manrope,sans-serif">{{ it.name }}</span>
+                  <sc-if value="{{ it.live }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-self:flex-start;height:22px;padding:0 7px;border-radius:7px;background:{{ it.dbg }};color:{{ it.dfg }};font:800 11px/22px Manrope,sans-serif">{{ it.delivery }}</span><span style="display:flex;align-items:baseline;gap:4px"><span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ it.price }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">dan</span></span></sc-if>
+                  <sc-if value="{{ it.soon }}"><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">Ishga tushganda xabar beramiz</span></sc-if>
+                </span>
+              </a>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isProduct }}">
+      <nav aria-label="Breadcrumb" style="display:flex;align-items:center;gap:6px;font:600 13px/20px Manrope,sans-serif;color:var(--text-muted)"><a href="#catalog" onClick="{{ goCatalog }}" style="color:var(--text-muted);text-decoration:none" style-hover="color:var(--text)">Katalog</a><i class="icon-chevron-right" style="font-size:12px"></i><span>O‘yinlar</span><i class="icon-chevron-right" style="font-size:12px"></i><span style="color:var(--text)">PUBG Mobile</span></nav>
+      <div style="display:grid;grid-template-columns:{{ prodCols }};grid-template-areas:{{ prodAreas }};gap:24px 32px;align-items:start">
+        <section style="grid-area:head;display:flex;gap:20px;align-items:center;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <span style="position:relative;flex:none;width:{{ prodImg }};height:{{ prodImg }};border-radius:20px;overflow:hidden;background:var(--muted)">
+            <sc-if value="{{ artSlots }}"><image-slot id="art-pubg" shape="rounded" radius="20" placeholder="PUBG Mobile" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if>
+            <sc-if value="{{ noArtSlots }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;background:{{ pubgBg }};display:grid;place-items:center;color:var(--text-muted);font-size:36px"><sc-if value="{{ pubgNoImg }}" hint-placeholder-val="{{ true }}"><i class="icon-image"></i></sc-if></span></sc-if>
+          </span>
+          <span style="display:flex;flex-direction:column;gap:8px;min-width:0"><h1 style="margin:0;font:700 30px/1.15 Unbounded,sans-serif;letter-spacing:-.035em">PUBG Mobile</h1><span style="font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">UC to‘g‘ridan-to‘g‘ri o‘yin hisobingizga</span><span style="display:flex;flex-wrap:wrap;gap:6px"><span style="height:24px;padding:0 8px;border-radius:8px;background:var(--success-soft);color:var(--success-text);font:800 11px/24px Manrope,sans-serif">⚡ Avto</span><span style="height:24px;padding:0 8px;border-radius:8px;background:var(--primary);color:var(--primary-foreground);font:800 11px/24px Manrope,sans-serif">Global</span><span style="height:24px;padding:0 8px;border-radius:8px;background:var(--accent);color:var(--accent-foreground);font:800 11px/24px Manrope,sans-serif">★ Mashhur</span></span></span>
+        </section>
+
+        <section style="grid-area:desc;display:flex;flex-direction:column;gap:10px">
+          <h2 style="margin:0;font:800 20px/26px Manrope,sans-serif">Tavsif</h2>
+          <p style="margin:0;max-width:680px;font:500 16px/25px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">UC — PUBG Mobile o‘yin valyutasi: Royale Pass, skinlar va qutilar uchun. UC Player ID orqali to‘g‘ridan-to‘g‘ri hisobingizga tushadi — akkaunt paroli kerak emas. Odatda 1–2 daqiqada yetkaziladi.</p>
+        </section>
+
+        <section id="howto" style="grid-area:howto;display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <h2 style="margin:0;font:800 20px/26px Manrope,sans-serif">ID’ni qayerdan topaman?</h2>
+          <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+            <sc-for list="{{ howto }}" as="h" hint-placeholder-count="3">
+              <li style="display:flex;flex-direction:column;gap:10px"><span style="position:relative;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:var(--muted)"><sc-if value="{{ artSlots }}"><image-slot id="{{ h.slot }}" shape="rounded" radius="16" placeholder="" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if><sc-if value="{{ noArtSlots }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;display:grid;place-items:center;color:var(--text-muted);font-size:24px"><i class="icon-image"></i></span></sc-if><span style="position:absolute;top:8px;left:8px;pointer-events:none;width:26px;height:26px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif">{{ h.n }}</span></span><span style="font:600 14px/20px Manrope,sans-serif;text-wrap:pretty">{{ h.text }}</span></li>
+            </sc-for>
+          </ol>
+        </section>
+
+        <section style="grid-area:faq;display:flex;flex-direction:column;gap:12px">
+          <h2 style="margin:0;font:800 20px/26px Manrope,sans-serif">Savollar</h2>
+          <div style="border-radius:24px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+            <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="4"><div style="border-top:{{ f.bt }}"><button onClick="{{ f.onClick }}" aria-expanded="{{ f.open }}" style="width:100%;min-height:60px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:none;background:none;color:var(--text);font:800 15px/21px Manrope,sans-serif;text-align:left;cursor:pointer" style-hover="background:var(--muted)">{{ f.q }}<i class="icon-chevron-down" style="font-size:19px;color:var(--text-muted);flex:none;transform:{{ f.rot }};transition:transform var(--dur-base)"></i></button><sc-if value="{{ f.open }}"><p style="margin:0;padding:0 20px 18px;font:500 15px/23px Manrope,sans-serif;color:var(--text-secondary)">{{ f.a }}</p></sc-if></div></sc-for>
+          </div>
+        </section>
+
+        <aside aria-label="Xarid" style="grid-area:panel;position:sticky;top:24px;display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:24px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-md)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 style="margin:0;font:800 17px/22px Manrope,sans-serif">O‘yinchi ma’lumotlari</h2><a href="#howto" style="display:flex;align-items:center;gap:5px;font:700 12px/16px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none"><i class="icon-circle-help" style="font-size:14px"></i>ID qayerda?</a></div>
+          <sc-if value="{{ rIdle }}" hint-placeholder-val="{{ true }}">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Player ID</span><span style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input value="{{ pid }}" onChange="{{ onPid }}" inputmode="numeric" placeholder="5123456789" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px;font:700 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.04em;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><button onClick="{{ onCheck }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px"><sc-if value="{{ rChecking }}">{{ spin }}</sc-if>Tekshirish</button></span></label>
+          </sc-if>
+          <sc-if value="{{ rFound }}">
+            <div style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:18px;border:1.5px solid var(--primary);background:var(--primary-soft)"><div style="display:flex;align-items:center;gap:12px"><span style="width:48px;height:48px;border-radius:50%;background:var(--card);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 16px/1 Manrope,sans-serif">SP</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">SardorPRO</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">ID {{ pid }} · Region: Global</span></span></div><span style="font:700 14px/20px Manrope,sans-serif">To‘g‘ri akkauntmi? Tasdiqlang</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button onClick="{{ onReset }}" style="height:44px;border-radius:12px;border:1.5px solid var(--input-border);background:var(--card);color:var(--text);font:800 14px/1 Manrope,sans-serif;cursor:pointer">O‘zgartirish</button><button onClick="{{ onConfirm }}" style="height:44px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Ha, shu</button></div></div>
+          </sc-if>
+          <sc-if value="{{ rOk }}">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;border:1.5px solid var(--border);background:var(--background)"><span style="position:relative;width:44px;height:44px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 15px/1 Manrope,sans-serif;flex:none">SP<span style="position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:var(--success);color:#fff;border:2px solid var(--card);display:grid;place-items:center;font-size:10px"><i class="icon-check"></i></span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:800 15px/20px Manrope,sans-serif">SardorPRO</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">ID {{ pid }} · Global</span></span><button onClick="{{ onReset }}" style="height:36px;padding:0 8px;border:none;background:none;color:var(--primary-soft-foreground);font:800 13px/1 Manrope,sans-serif;cursor:pointer">O‘zgartirish</button></div>
+          </sc-if>
+          <div style="height:1px;background:var(--border)"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 style="margin:0;font:800 17px/22px Manrope,sans-serif">Paket</h2><div role="tablist" style="display:flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)"><sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="2"><button role="tab" onClick="{{ tb.onClick }}" style="height:32px;padding:0 12px;border-radius:999px;border:none;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.sh }};font:800 12px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">{{ tb.label }}</button></sc-for></div></div>
+          <div role="radiogroup" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:6px">
+            <sc-for list="{{ skus }}" as="k" hint-placeholder-count="12"><button role="radio" aria-checked="{{ k.on }}" onClick="{{ k.onClick }}" style="position:relative;text-align:left;display:flex;flex-direction:column;gap:2px;min-height:62px;padding:10px;border-radius:14px;border:1.5px solid {{ k.bd }};background:{{ k.bg }};color:var(--text);cursor:pointer;transition:border-color var(--dur-fast),background var(--dur-fast)"><sc-if value="{{ k.best }}"><span style="position:absolute;top:-8px;left:8px;height:16px;padding:0 6px;border-radius:5px;background:var(--accent);color:var(--accent-foreground);font:800 9px/16px Manrope,sans-serif">Eng foydali</span></sc-if><span style="font:800 14px/19px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ k.label }}</span><span style="font:700 12px/16px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ k.price }}</span></button></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:16px;background:var(--muted);font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Mahsulot</span><span>{{ skuLabel }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Yetkazish</span><span>⚡ 1–2 daqiqa</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-top:6px;border-top:1px solid var(--border)"><span style="font-weight:800">Jami</span><span style="font:800 20px/26px Manrope,sans-serif">{{ priceStr }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span style="color:var(--text-muted)">Hamyonda: 85 400 so‘m</span><span style="color:{{ afterC }}">{{ afterStr }}</span></div>
+          </div>
+          <sc-if value="{{ buyHint }}"><span style="display:flex;align-items:center;justify-content:center;gap:6px;font:700 13px/18px Manrope,sans-serif;color:var(--text-muted)"><i class="icon-info" style="font-size:14px"></i>{{ buyHint }}</span></sc-if>
+          <button onClick="{{ onBuy }}" disabled="{{ buyDisabled }}" style="height:52px;border-radius:16px;border:none;background:{{ buyBg }};color:{{ buyFg }};box-shadow:{{ buySh }};font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px" style-active="transform:scale(.98)"><i class="icon-shopping-bag" style="font-size:18px"></i>Sotib olish · {{ priceStr }}</button>
+        </aside>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isOrder }}">
+      <nav aria-label="Breadcrumb" style="display:flex;align-items:center;gap:6px;font:600 13px/20px Manrope,sans-serif;color:var(--text-muted)"><a href="#history" onClick="{{ goHistory }}" style="color:var(--text-muted);text-decoration:none">Tarix</a><i class="icon-chevron-right" style="font-size:12px"></i><span style="color:var(--text);font-variant-numeric:tabular-nums">Buyurtma #10485</span></nav>
+      <div style="display:grid;grid-template-columns:{{ orderCols }};gap:24px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+          <section role="status" aria-live="polite" style="display:flex;align-items:center;gap:20px;padding:24px;border-radius:24px;background:{{ oHero.bg }};border:1px solid var(--border)">
+            <sc-if value="{{ oHero.spinning }}"><span style="position:relative;width:72px;height:72px;flex:none;display:grid;place-items:center">{{ pulse }}<span style="position:relative;width:72px;height:72px;border-radius:50%;background:var(--info);color:#fff;display:grid;place-items:center;font-size:32px">{{ spin }}</span></span></sc-if>
+            <sc-if value="{{ oHero.done }}"><span style="width:72px;height:72px;flex:none;border-radius:50%;background:var(--success);color:#fff;display:grid;place-items:center;font-size:34px"><i class="icon-check"></i></span></sc-if>
+            <span style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font:800 28px/34px Manrope,sans-serif;letter-spacing:-.02em">{{ oHero.title }}</h1><span style="font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">{{ oHero.body }}</span></span>
+          </section>
+          <section aria-label="Buyurtma holati" style="padding:24px 24px 8px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+              <sc-for list="{{ oSteps }}" as="st" hint-placeholder-count="4">
+                <li style="display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:16px">
+                  <span style="display:flex;flex-direction:column;align-items:center"><span style="position:relative;width:32px;height:32px;display:grid;place-items:center"><sc-if value="{{ st.cur }}">{{ st.pulse }}</sc-if><span style="position:relative;width:32px;height:32px;border-radius:50%;background:{{ st.dotBg }};border:2px solid {{ st.dotBd }};color:{{ st.dotFg }};display:grid;place-items:center;font-size:15px"><sc-if value="{{ st.cur }}">{{ st.spin }}</sc-if><sc-if value="{{ st.done }}"><i class="icon-check"></i></sc-if></span></span><sc-if value="{{ st.line }}"><span style="flex:1;width:2px;min-height:28px;margin:2px 0;background:{{ st.lineC }}"></span></sc-if></span>
+                  <span style="padding:4px 0 24px;display:flex;flex-direction:column;gap:2px"><span style="font:800 17px/24px Manrope,sans-serif;color:{{ st.c }}">{{ st.label }}</span><sc-if value="{{ st.note }}"><span style="font:500 14px/20px Manrope,sans-serif;color:var(--text-secondary)">{{ st.note }}</span></sc-if></span>
+                  <span style="padding-top:6px;font:700 14px/20px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ st.time }}</span>
+                </li>
+              </sc-for>
+            </ol>
+          </section>
+        </div>
+        <aside aria-labelledby="od-title" style="position:sticky;top:24px;display:flex;flex-direction:column;gap:16px;padding:20px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+          <h2 id="od-title" style="margin:0;font:800 18px/24px Manrope,sans-serif">Buyurtma tafsilotlari</h2>
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:56px;height:56px;border-radius:16px;background:{{ pubgBg }};display:grid;place-items:center;color:var(--text-muted);font-size:22px;flex:none"><sc-if value="{{ pubgNoImg }}" hint-placeholder-val="{{ true }}"><i class="icon-image"></i></sc-if></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">PUBG Mobile · 660 UC</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">SardorPRO · ID 5123456789</span></span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Buyurtma</span><span>#10485</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Sana</span><span>29.10.2026, 14:02</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">To‘lov</span><span>Hamyon</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Region</span><span>Global</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-top:10px;border-top:1px solid var(--border)"><span style="font-weight:800">Summa</span><span style="font:800 20px/26px Manrope,sans-serif">120 750 so‘m</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px"><button onClick="{{ goCatalog }}" style="height:48px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif;cursor:pointer">Yana xarid qilish</button><button style="height:44px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><i class="icon-message-circle" style="font-size:16px"></i>Yordamga yozish</button></div>
+        </aside>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHistory }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap"><h1 style="margin:0;font:800 30px/36px Manrope,sans-serif;letter-spacing:-.02em">Tarix</h1><div role="tablist" style="display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--muted)"><sc-for list="{{ hTabs }}" as="tb" hint-placeholder-count="2"><button role="tab" onClick="{{ tb.onClick }}" style="height:38px;padding:0 18px;border-radius:999px;border:none;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.sh }};font:800 14px/1 Manrope,sans-serif;cursor:pointer">{{ tb.label }}</button></sc-for></div></div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+        <sc-if value="{{ hOrders }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ hChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="height:38px;padding:0 14px;border-radius:999px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 14px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">{{ c.label }}</button></sc-for></div></sc-if>
+        <div style="margin-left:auto;display:flex;gap:8px"><label style="position:relative;display:flex"><i class="icon-search" style="position:absolute;left:12px;top:0;bottom:0;display:flex;align-items:center;font-size:15px;color:var(--text-muted)"></i><input placeholder="#raqam yoki qabul qiluvchi" style="width:{{ hSearchW }};height:40px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 12px 0 34px;font:600 13px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring)"></label><button style="height:40px;padding:0 12px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font:700 13px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><i class="icon-calendar" style="font-size:15px"></i>Oxirgi 30 kun<i class="icon-chevron-down" style="font-size:14px;color:var(--text-muted)"></i></button></div>
+      </div>
+      <div style="border-radius:24px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+        <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}">
+          <table style="width:100%;border-collapse:collapse;font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+            <thead><tr style="text-align:left;font:700 12px/16px Manrope,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);background:var(--surface)"><th style="padding:12px 20px;font-weight:700">Sana</th><th style="padding:12px;font-weight:700">{{ hCol2 }}</th><th style="padding:12px;font-weight:700">{{ hCol3 }}</th><th style="padding:12px;font-weight:700;text-align:right">Summa</th><th style="padding:12px;font-weight:700">{{ hCol5 }}</th><th style="width:48px"></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ hRows }}" as="r" hint-placeholder-count="10">
+                <tr onClick="{{ r.onClick }}" style="border-top:1px solid var(--border);height:64px;cursor:pointer" style-hover="background:var(--muted)">
+                  <td style="padding:0 20px;color:var(--text-secondary);white-space:nowrap">{{ r.date }}</td>
+                  <td style="padding:0 12px"><span style="display:flex;align-items:center;gap:12px"><span style="width:36px;height:36px;border-radius:10px;background:{{ r.thumbBg }};color:{{ r.iconC }};display:grid;place-items:center;font-size:16px;flex:none"><i class="{{ r.icon }}"></i></span><span style="font-weight:800">{{ r.title }}</span></span></td>
+                  <td style="padding:0 12px;color:var(--text-secondary)">{{ r.sub }}</td>
+                  <td style="padding:0 12px;text-align:right;font-weight:800;white-space:nowrap;color:{{ r.amtC }}">{{ r.amt }}</td>
+                  <td style="padding:0 12px"><sc-if value="{{ r.chip }}"><span style="display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;background:{{ r.cbg }};color:{{ r.cfg }};font:700 12px/1 Manrope,sans-serif;white-space:nowrap"><i class="{{ r.cicon }}" style="font-size:13px"></i>{{ r.chip }}</span></sc-if><sc-if value="{{ r.method }}"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">{{ r.method }}</span></sc-if></td>
+                  <td style="padding-right:16px;color:var(--text-muted)"><i class="icon-chevron-right" style="font-size:17px"></i></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </sc-if>
+        <sc-if value="{{ t }}">
+          <sc-for list="{{ hRows }}" as="r" hint-placeholder-count="8">
+            <button onClick="{{ r.onClick }}" style="width:100%;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 20px;border:none;border-top:{{ r.bt }};background:none;color:var(--text);text-align:left;cursor:pointer;font-variant-numeric:tabular-nums" style-hover="background:var(--muted)">
+              <span style="width:44px;height:44px;border-radius:12px;background:{{ r.thumbBg }};color:{{ r.iconC }};display:grid;place-items:center;font-size:18px"><i class="{{ r.icon }}"></i></span>
+              <span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font:800 15px/20px Manrope,sans-serif">{{ r.title }}</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">{{ r.sub }} · {{ r.date }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="font:800 15px/20px Manrope,sans-serif;color:{{ r.amtC }};white-space:nowrap">{{ r.amt }}</span><sc-if value="{{ r.chip }}"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:{{ r.cbg }};color:{{ r.cfg }};font:700 11px/1 Manrope,sans-serif;white-space:nowrap"><i class="{{ r.cicon }}" style="font-size:12px"></i>{{ r.chip }}</span></sc-if></span>
+            </button>
+          </sc-for>
+        </sc-if>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--border);font:600 14px/20px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">
+          <span>{{ pageLabel }}</span>
+          <span style="display:flex;gap:6px"><button onClick="{{ prevPage }}" disabled="{{ prevDisabled }}" aria-label="Oldingi" style="width:40px;height:40px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;opacity:{{ prevOp }}"><i class="icon-chevron-left"></i></button><sc-for list="{{ pages }}" as="pg" hint-placeholder-count="3"><button onClick="{{ pg.onClick }}" style="min-width:40px;height:40px;border-radius:12px;border:1.5px solid {{ pg.bd }};background:{{ pg.bg }};color:{{ pg.fg }};font:800 14px/1 Manrope,sans-serif;cursor:pointer">{{ pg.n }}</button></sc-for><button onClick="{{ nextPage }}" disabled="{{ nextDisabled }}" aria-label="Keyingi" style="width:40px;height:40px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;opacity:{{ nextOp }}"><i class="icon-chevron-right"></i></button></span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isProfile }}">
+      <h1 style="margin:0;font:800 30px/36px Manrope,sans-serif;letter-spacing:-.02em">Profil</h1>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+          <section style="display:flex;flex-direction:column;gap:18px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:16px"><span style="width:72px;height:72px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 24px/1 Manrope,sans-serif;flex:none">SR</span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font:800 20px/26px Manrope,sans-serif">Sardor Rahimov</span><span style="font:600 14px/19px Manrope,sans-serif;color:var(--text-muted)">@sardor_r</span><button onClick="{{ copyId }}" style="align-self:flex-start;margin-top:4px;height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:var(--background);color:var(--text-secondary);font:700 12px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:6px;cursor:pointer">ID: 1187712645<i class="{{ idIcon }}" style="font-size:13px;color:{{ idIconC }}"></i></button></span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="padding:14px;border-radius:16px;background:var(--primary);color:var(--primary-foreground);display:flex;flex-direction:column;gap:4px"><span style="font:700 12px/16px Manrope,sans-serif;opacity:.85">Balans</span><span style="font:600 19px/24px Unbounded,sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap">85 400 <span style="font:700 13px/1 Manrope,sans-serif;opacity:.85">so‘m</span></span></div><div style="padding:14px;border-radius:16px;background:var(--accent-soft);display:flex;flex-direction:column;gap:4px"><span style="font:700 12px/16px Manrope,sans-serif;color:var(--accent-soft-foreground)">Keshbek</span><span style="font:600 19px/24px Unbounded,sans-serif;letter-spacing:-.03em">120 🪙</span></div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding-top:14px;border-top:1px solid var(--border)"><span style="width:40px;height:40px;border-radius:12px;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-size:18px"><i class="icon-phone"></i></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Telefon raqami</span><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">+998 90 *** ** 67</span></span><span style="display:flex;align-items:center;gap:4px;font:700 12px/16px Manrope,sans-serif;color:var(--success-text)"><i class="icon-circle-check" style="font-size:13px"></i>Ulangan</span></div>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 style="margin:0;font:800 18px/24px Manrope,sans-serif">Til va ko‘rinish</h2>
+            <div style="display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--muted)"><sc-for list="{{ langsBig }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="flex:1;height:44px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 15px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for></div>
+            <div style="display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--muted)"><sc-for list="{{ themeOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onClick }}" style="flex:1;height:40px;border-radius:999px;border:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.sh }};font:800 13px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer"><i class="{{ o.icon }}" style="font-size:15px"></i>{{ o.label }}</button></sc-for></div>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:12px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 style="margin:0;font:800 18px/24px Manrope,sans-serif">Bonus kod</h2>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input value="{{ bcode }}" onChange="{{ onBcode }}" placeholder="KODNI KIRITING" aria-invalid="{{ bErr }}" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid {{ bBd }};padding:0 14px;font:700 16px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><button onClick="{{ onActivate }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Faollashtirish</button></div>
+            <sc-if value="{{ bOk }}"><span role="status" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--success-text)"><i class="icon-circle-check" style="font-size:15px"></i>+5 000 so‘m balansingizga qo‘shildi</span></sc-if>
+            <sc-if value="{{ bErr }}"><span role="alert" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px"></i>{{ bErrText }}</span></sc-if>
+          </section>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+          <section style="display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 style="margin:0;font:800 18px/24px Manrope,sans-serif">Do‘stlarni taklif qilish</h2><span style="height:26px;padding:0 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-soft-foreground);font:800 12px/26px Manrope,sans-serif">1% bonus</span></div>
+            <div style="display:flex;align-items:center;gap:6px;height:48px;padding:0 4px 0 14px;border-radius:14px;background:var(--input);border:1.5px solid var(--input-border)"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1 ui-monospace,Menlo,monospace;color:var(--text-secondary)">t.me/ggpin_bot/app?startapp=ref_SARDOR7</span><button onClick="{{ copyRef }}" style="flex:none;height:40px;min-width:118px;padding:0 12px;border-radius:10px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:800 13px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer"><i class="{{ refIcon }}" style="font-size:14px"></i>{{ refLabel }}</button></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="padding:12px 14px;border-radius:16px;background:var(--muted);display:flex;flex-direction:column;gap:2px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Taklif qilinganlar</span><span style="font:800 20px/26px Manrope,sans-serif">7</span></div><div style="padding:12px 14px;border-radius:16px;background:var(--muted);display:flex;flex-direction:column;gap:2px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Jami bonus</span><span style="font:800 20px/26px Manrope,sans-serif;color:var(--success-text);font-variant-numeric:tabular-nums">18 300 so‘m</span></div></div>
+            <a href="#referral" style="display:flex;align-items:center;gap:6px;font:800 14px/20px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none">Taklif qilinganlar ro‘yxati<i class="icon-arrow-right" style="font-size:15px"></i></a>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 style="margin:0;font:800 18px/24px Manrope,sans-serif">Chegirma kodlari</h2><span style="font:800 14px/20px Manrope,sans-serif">120 🪙</span></div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px"><sc-for list="{{ tiers }}" as="tr" hint-placeholder-count="4"><button disabled="{{ tr.off }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px;border-radius:16px;border:1.5px {{ tr.bs }} var(--border);background:{{ tr.bg }};color:var(--text);cursor:pointer;text-align:left"><span style="font:700 17px/1 Unbounded,sans-serif;letter-spacing:-.04em;color:{{ tr.pc }}">{{ tr.pct }}</span><span style="font:800 12px/16px Manrope,sans-serif;color:var(--text-secondary);white-space:nowrap">{{ tr.cost }}</span></button></sc-for></div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:14px;border:1.5px dashed var(--primary);background:var(--primary-soft)"><span style="flex:1;font:700 15px/20px ui-monospace,Menlo,monospace;letter-spacing:.06em">GG1-7KQ2-MX</span><span style="font:700 12px/16px Manrope,sans-serif;color:var(--text-muted)">1% · 28-noyabrgacha</span><button style="height:36px;padding:0 10px;border-radius:10px;border:none;background:var(--card);color:var(--text);font:800 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:5px;cursor:pointer"><i class="icon-copy" style="font-size:13px"></i>Nusxalash</button></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:1.5px dashed var(--border);background:var(--muted);opacity:.7"><span style="flex:1;font:700 15px/20px ui-monospace,Menlo,monospace;letter-spacing:.06em;text-decoration:line-through">GG02-81ZD-QE</span><span style="height:26px;padding:0 10px;border-radius:999px;background:var(--card);color:var(--text-muted);font:800 11px/26px Manrope,sans-serif">Ishlatilgan</span></div>
+            </div>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:12px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+            <h2 style="margin:0;font:800 18px/24px Manrope,sans-serif">Faol sessiyalar</h2>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ sessions }}" as="se" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:{{ se.bt }}"><span style="width:40px;height:40px;border-radius:12px;background:var(--muted);color:var(--text-secondary);display:grid;place-items:center;font-size:18px;flex:none"><i class="{{ se.icon }}"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:8px;font:800 14px/19px Manrope,sans-serif">{{ se.device }}<sc-if value="{{ se.current }}"><span style="height:20px;padding:0 7px;border-radius:6px;background:var(--success-soft);color:var(--success-text);font:800 10px/20px Manrope,sans-serif">Bu qurilma</span></sc-if></span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">{{ se.meta }}</span></span><sc-if value="{{ se.other }}"><button onClick="{{ se.onEnd }}" style="height:36px;padding:0 12px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--danger-text);font:800 13px/1 Manrope,sans-serif;cursor:pointer" style-hover="background:var(--danger-soft);border-color:var(--danger)">Yakunlash</button></sc-if></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasOthers }}"><button onClick="{{ endAll }}" style="height:44px;border-radius:12px;border:none;background:var(--danger-soft);color:var(--danger-text);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Boshqa barcha sessiyalarni yakunlash</button></sc-if>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <footer style="border-top:1px solid var(--border);background:var(--surface)"><div style="max-width:1264px;margin:0 auto;padding:20px {{ padX }};display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)"><span>© 2026 ggpin</span><span style="display:flex;gap:20px"><a href="/oferta" style="color:var(--text-secondary);text-decoration:none">Ommaviy oferta</a><a href="/maxfiylik" style="color:var(--text-secondary);text-decoration:none">Maxfiylik siyosati</a><a href="/aloqa" style="color:var(--text-secondary);text-decoration:none">Aloqa</a></span></div></footer>
+  </div>
+
+  <sc-if value="{{ hasModal }}">
+    <div style="position:absolute;inset:0;z-index:50;display:grid;place-items:center;padding:24px">
+      <div onClick="{{ closeModal }}" style="position:absolute;inset:0;background:var(--overlay)"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="m-title" style="position:relative;width:min(100%,{{ modalW }});max-height:100%;overflow-y:auto;background:var(--elevated);border:1px solid var(--border);border-radius:28px;box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:18px;animation:{{ modalAnim }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2 id="m-title" style="margin:0;font:800 22px/28px Manrope,sans-serif">{{ modalTitle }}</h2><button onClick="{{ closeModal }}" aria-label="Yopish" style="width:40px;height:40px;border-radius:50%;border:none;background:var(--muted);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:17px"><i class="icon-x"></i></button></div>
+
+        <sc-if value="{{ mCheckout }}">
+          <div style="display:flex;align-items:center;gap:14px"><span style="width:52px;height:52px;border-radius:14px;background:{{ pubgBg }};display:grid;place-items:center;color:var(--text-muted);font-size:20px;flex:none"><sc-if value="{{ pubgNoImg }}" hint-placeholder-val="{{ true }}"><i class="icon-image"></i></sc-if></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 16px/21px Manrope,sans-serif">PUBG Mobile · {{ skuLabel }}</span><span style="font:600 14px/19px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">SardorPRO · ID {{ pid }}</span></span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;font:600 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums"><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Narx</span><span>{{ priceStr }}</span></div><sc-if value="{{ discOn }}"><div style="display:flex;justify-content:space-between;color:var(--success-text)"><span>Chegirma · GG1</span><span>−{{ discStr }}</span></div></sc-if></div>
+          <sc-if value="{{ discOff }}" hint-placeholder-val="{{ true }}"><label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Chegirma kodi</span><span style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input placeholder="Masalan, GG1" style="min-width:0;height:48px;border-radius:14px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px;font:700 15px/1 Manrope,sans-serif;text-transform:uppercase;color:var(--text);outline:none" style-focus="border-color:var(--ring)"><button onClick="{{ applyDisc }}" style="height:48px;padding:0 16px;border-radius:14px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Qo‘llash</button></span></label></sc-if>
+          <sc-if value="{{ discOn }}"><div style="display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border-radius:14px;background:var(--success-soft);color:var(--success-text);font:800 14px/18px Manrope,sans-serif;font-variant-numeric:tabular-nums"><i class="icon-ticket-check" style="font-size:18px"></i><span style="flex:1">GG1 · −1% · −{{ discStr }}</span><button onClick="{{ removeDisc }}" aria-label="Olib tashlash" style="width:32px;height:32px;border-radius:9px;border:none;background:var(--card);color:var(--text);cursor:pointer"><i class="icon-x"></i></button></div></sc-if>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:16px;background:var(--muted);font-variant-numeric:tabular-nums"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:800 16px/22px Manrope,sans-serif">Jami</span><span style="font:800 24px/30px Manrope,sans-serif">{{ totalStr }}</span></div><div style="display:flex;justify-content:space-between;font:600 14px/19px Manrope,sans-serif;color:var(--text-secondary)"><span>Balans:</span><span>{{ balLine }}</span></div></div>
+          <span style="display:flex;align-items:center;justify-content:center;gap:6px;font:600 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums"><i class="icon-timer" style="font-size:14px"></i>Narx {{ ttl }} daqiqa amal qiladi</span>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:10px"><button onClick="{{ closeModal }}" style="height:52px;padding:0 20px;border-radius:16px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 15px/1 Manrope,sans-serif;cursor:pointer">Bekor qilish</button><button onClick="{{ onPay }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;box-shadow:var(--shadow-glow);display:flex;align-items:center;justify-content:center;gap:8px"><sc-if value="{{ paying }}">{{ spin }}</sc-if>{{ payLabel }}</button></div>
+        </sc-if>
+
+        <sc-if value="{{ mInsufficient }}">
+          <div style="display:flex;align-items:center;gap:16px"><span style="width:64px;height:64px;border-radius:50%;background:var(--warning-soft);color:var(--warning-text);display:grid;place-items:center;font-size:28px;flex:none"><i class="icon-wallet"></i></span><span style="font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Xaridni yakunlash uchun hamyonni to‘ldiring — to‘lovdan so‘ng buyurtma avtomatik beriladi.</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:var(--muted);font:600 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums"><div style="display:flex;justify-content:space-between"><span style="color:var(--text-secondary)">Balansingiz:</span><span>85 400 so‘m</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-secondary)">Narx:</span><span>{{ priceStr }}</span></div><div style="height:1px;background:var(--border)"></div><div style="display:flex;justify-content:space-between;font-weight:800;color:var(--danger-text)"><span>Yetishmaydi:</span><span>{{ shortStr }}</span></div></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><button onClick="{{ topupShort }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;box-shadow:var(--shadow-glow)">{{ shortStr }} to‘ldirish va sotib olish</button><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button onClick="{{ openTopup }}" style="height:48px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/1 Manrope,sans-serif;cursor:pointer">Boshqa summa bilan to‘ldirish</button><button onClick="{{ closeModal }}" style="height:48px;border-radius:14px;border:none;background:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer">Yopish</button></div></div>
+        </sc-if>
+
+        <sc-if value="{{ mTopup }}">
+          <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <sc-for list="{{ tSteps }}" as="ts" hint-placeholder-count="3"><li style="display:flex;flex-direction:column;gap:8px"><span style="height:4px;border-radius:2px;background:{{ ts.bar }}"></span><span style="display:flex;align-items:center;gap:6px;font:800 12px/16px Manrope,sans-serif;color:{{ ts.c }}"><span style="width:20px;height:20px;border-radius:50%;background:{{ ts.dotBg }};color:{{ ts.dotFg }};display:grid;place-items:center;font:800 10px/1 Manrope,sans-serif">{{ ts.mark }}</span>{{ ts.label }}</span></li></sc-for>
+          </ol>
+          <sc-if value="{{ tMethod }}" hint-placeholder-val="{{ true }}">
+            <div role="radiogroup" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px"><sc-for list="{{ methods }}" as="m" hint-placeholder-count="4"><button role="radio" onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:12px;min-height:68px;padding:12px;border-radius:18px;border:1.5px solid {{ m.bd }};background:{{ m.bg }};color:var(--text);cursor:pointer;text-align:left"><span style="width:44px;height:44px;border-radius:12px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif;color:var(--text-muted);flex:none">{{ m.ini }}</span><span style="flex:1;font:800 15px/20px Manrope,sans-serif">{{ m.name }}</span><span style="width:20px;height:20px;border-radius:50%;border:{{ m.dot }} solid {{ m.dotC }};background:var(--card)"></span></button></sc-for></div>
+            <a href="#guide" style="display:flex;align-items:center;gap:8px;font:800 14px/20px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none"><i class="icon-book-open" style="font-size:16px"></i>Qo‘llanma — qanday to‘ldiraman?</a>
+            <button onClick="{{ toAmount }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer;box-shadow:var(--shadow-glow)">Davom etish</button>
+          </sc-if>
+          <sc-if value="{{ tAmount }}">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:var(--muted)"><span style="width:40px;height:40px;border-radius:12px;background:var(--card);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 13px/1 Manrope,sans-serif;color:var(--text-muted)">{{ methodIni }}</span><span style="flex:1;font:800 15px/20px Manrope,sans-serif">{{ methodName }}</span><button onClick="{{ toMethod }}" style="height:36px;padding:0 8px;border:none;background:none;color:var(--primary-soft-foreground);font:800 13px/1 Manrope,sans-serif;cursor:pointer">O‘zgartirish</button></div>
+            <label style="display:flex;flex-direction:column;gap:8px"><span style="font:800 15px/20px Manrope,sans-serif">Summa</span><span style="position:relative;display:flex"><input value="{{ tAmtStr }}" onChange="{{ onTAmt }}" inputmode="numeric" aria-invalid="{{ tAmtErr }}" style="flex:1;min-width:0;height:64px;border-radius:16px;background:var(--input);border:1.5px solid {{ tAmtBd }};padding:0 64px 0 16px;font:600 26px/1 Unbounded,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:16px;top:0;bottom:0;display:flex;align-items:center;font:700 15px/1 Manrope,sans-serif;color:var(--text-muted)">so‘m</span></span></label>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><sc-for list="{{ tChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="height:40px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:800 13px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer">{{ c.label }}</button></sc-for></div>
+            <sc-if value="{{ tAmtErr }}"><span role="alert" style="display:flex;gap:6px;align-items:center;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px"></i>{{ tAmtErrText }}</span></sc-if>
+            <sc-if value="{{ tAmtOk }}" hint-placeholder-val="{{ true }}"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Minimal: 5 000 so‘m · komissiyasiz</span></sc-if>
+            <button onClick="{{ toHandoff }}" disabled="{{ tAmtErr }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;box-shadow:var(--shadow-glow);display:flex;align-items:center;justify-content:center;gap:8px"><i class="icon-external-link" style="font-size:17px"></i>{{ tAmtStr }} so‘m to‘lash</button>
+          </sc-if>
+          <sc-if value="{{ tHandoff }}">
+            <div role="status" style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:16px 0"><span style="width:72px;height:72px;border-radius:50%;background:var(--info-soft);color:var(--info);display:grid;place-items:center;font-size:32px">{{ spin }}</span><span style="font:800 19px/25px Manrope,sans-serif">To‘lov sahifasi yangi oynada ochildi</span><span style="max-width:360px;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">To‘lovni yakunlang — bu oyna avtomatik yangilanadi.</span><button style="height:44px;padding:0 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer"><i class="icon-external-link" style="font-size:15px"></i>Qayta ochish</button></div>
+          </sc-if>
+          <sc-if value="{{ tSuccess }}">
+            <div role="status" style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:16px 0">{{ pop }}<span style="font:800 22px/28px Manrope,sans-serif;font-variant-numeric:tabular-nums">Balans to‘ldirildi! +50 000 so‘m</span><span style="font:600 15px/20px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">Yangi balans: 135 400 so‘m</span></div>
+            <button onClick="{{ closeModal }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer">Do‘konga qaytish</button>
+          </sc-if>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;viewport&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;tablet&quot;],&quot;default&quot;:null,&quot;tsType&quot;:&quot;'desktop'|'tablet'|undefined&quot;},&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;catalog&quot;,&quot;product&quot;,&quot;order&quot;,&quot;history&quot;,&quot;profile&quot;],&quot;default&quot;:&quot;catalog&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;modal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;checkout&quot;,&quot;insufficient&quot;,&quot;topup&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;topupStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;method&quot;,&quot;amount&quot;,&quot;handoff&quot;,&quot;success&quot;],&quot;default&quot;:&quot;method&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;recipient&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;found&quot;,&quot;confirmed&quot;],&quot;default&quot;:&quot;idle&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sku&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;325&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;discount&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;orderStep&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;min&quot;:0,&quot;max&quot;:3,&quot;tsType&quot;:&quot;number&quot;},&quot;menuOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;frameHeight&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;artSlots&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  constructor(props) { super(props); this.state = { ...this.init(props), w: 1440, art: {}, themeO: null, lang: 'uz', menu: null, promo: 0, acc: 0, idC: false, refC: false, sessions: ['cur', 'tg', 'mac'] }; }
+  init(p) {
+    const tStep = p.topupStep ?? 'method';
+    return { page: p.page ?? 'catalog', modal: p.modal ?? '', tStep, cat: p.category ?? 'all', query: '', rs: p.recipient ?? 'idle', pid: (p.recipient ?? 'idle') === 'idle' ? '' : '5123456789', sku: p.sku ?? '325', tab: 0, disc: (p.modal ?? '') === 'checkout' && !!p.discount, paying: false, ttl: 581, method: 'click', tAmt: tStep === 'amount' ? (p.amount ?? 50000) : 50000, ord: p.page === 'order' ? (p.orderStep ?? 2) : 0, hTab: 'orders', hChip: 'all', hPage: 1, bcode: '', bs: 'idle' };
+  }
+  componentDidMount() {
+    fetch('.image-slots.state.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => { if (!j) return; const art = {}; for (const k in j) { const v = j[k]; const u = typeof v === 'string' ? v : v && v.u; if (u) art[k] = u; } this.setState({ art }); }).catch(() => {});
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver && !this.props.viewport) { this.ro = new ResizeObserver(e => { const w = Math.round(e[0].contentRect.width); if (Math.abs(w - this.state.w) > 8) this.setState({ w }); }); this.ro.observe(el); }
+    if (this.props.frozen) return;
+    this.iv = setInterval(() => this.setState(s => ({ promo: (s.promo + 1) % 3, ttl: Math.max(0, s.ttl - 1) })), 1000);
+    if (this.state.page === 'order') this.advance();
+  }
+  advance() { clearTimeout(this.ta); this.ta = setTimeout(() => { if (this.state.page === 'order' && this.state.ord < 3) this.setState(s => ({ ord: s.ord + 1 }), () => this.advance()); }, 2600); }
+  componentDidUpdate(prev) { if (['page', 'modal', 'topupStep', 'category', 'recipient', 'sku', 'amount', 'discount', 'orderStep'].some(k => prev[k] !== this.props[k])) this.setState(this.init(this.props)); }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.ta); clearTimeout(this.tb); clearTimeout(this.tc); this.ro && this.ro.disconnect(); }
+  fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); }
+
+  renderVals() {
+    const h = React.createElement, P = this.props, s = this.state, fmt = n => this.fmt(n);
+    const rm = !!P.reducedMotion || !!P.frozen;
+    const t = P.viewport ? P.viewport === 'tablet' : s.w < 1024, d = !t;
+    const theme = s.themeO ?? P.theme ?? 'light';
+    const artSlots = !!(P.artSlots ?? true);
+    const spin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, animation: rm ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const pulse = h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)', animation: rm ? 'none' : 'gg-pulse 1600ms var(--ease-out) infinite', opacity: rm ? 0 : 1 } });
+    const pop = h('span', { style: { width: 80, height: 80, borderRadius: '50%', background: 'var(--success)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 38, animation: rm ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+    const withArt = (id, bg) => { const u = s.art['art-' + id]; return { noImg: !u, bgImg: u ? `center/cover no-repeat url("${u}"), ${bg}` : bg }; };
+    const pill = on => ({ bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--text)' : 'var(--text-muted)', sh: on ? 'var(--shadow-sm)' : 'none' });
+    const go = page => e => { e && e.preventDefault && e.preventDefault(); this.setState({ page, modal: '', menu: false }); };
+
+    const AV = { delivery: '⚡ Avto', dbg: 'var(--success-soft)', dfg: 'var(--success-text)' };
+    const catalog = [
+      { id: 'stars', cat: 'telegram', name: 'Telegram Stars', price: '11 000 so‘m', bg: 'var(--star-soft)', icon: 'icon-star', iconC: 'var(--star)', tg: true, ...AV },
+      { id: 'premium', cat: 'telegram', name: 'Telegram Premium', price: '165 000 so‘m', bg: 'var(--premium-soft)', icon: 'icon-crown', iconC: 'var(--premium)', tg: true, ...AV },
+      { id: 'pubg', cat: 'games', name: 'PUBG Mobile', price: '12 150 so‘m', region: 'Global', hot: true, ...AV },
+      { id: 'mlbb', cat: 'games', name: 'Mobile Legends', price: '19 900 so‘m', hot: true, ...AV },
+      { id: 'cs2', cat: 'games', name: 'Counter-Strike 2', price: '10 000 so‘m', region: 'MDH', ...AV },
+      { id: 'ff', cat: 'games', name: 'Free Fire', soon: true },
+      { id: 'so2', cat: 'games', name: 'Standoff 2', soon: true },
+      { id: 'steam', cat: 'platforms', name: 'Steam', price: '10 000 so‘m', region: 'MDH', ...AV },
+      { id: 'roblox', cat: 'platforms', name: 'Roblox', price: '122 450 so‘m', region: 'Global', delivery: '🎟 Promokod', dbg: 'var(--accent-soft)', dfg: 'var(--accent-soft-foreground)' },
+    ].map(x => ({ bg: 'var(--muted)', icon: 'icon-image', iconC: 'var(--text-muted)', ...x, hot: !!x.hot, soon: !!x.soon, live: !x.soon, region: x.region || '', op: x.soon ? 0.62 : 1, filter: x.soon ? 'grayscale(1)' : 'none', useSlot: artSlots && !x.tg, noSlot: !(artSlots && !x.tg), ...withArt(x.id, x.bg || 'var(--muted)'), onClick: e => { e.preventDefault(); if (!x.soon) this.setState({ page: 'product', modal: '' }); } }));
+    const q = s.query.trim().toLowerCase();
+    const items = catalog.filter(x => (s.cat === 'all' || x.cat === s.cat) && (!q || x.name.toLowerCase().includes(q)));
+    const catDefs = [['all', 'Hammasi', 'icon-layout-grid'], ['telegram', 'Telegram', 'icon-send'], ['games', 'O‘yinlar', 'icon-gamepad-2'], ['platforms', 'Platformalar', 'icon-monitor']];
+    const cats = catDefs.map(([id, label, icon]) => { const on = s.cat === id; return { label, icon, on, n: id === 'all' ? catalog.length : catalog.filter(x => x.cat === id).length, bg: on ? 'var(--primary-soft)' : 'transparent', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', nbg: on ? 'var(--primary)' : 'var(--muted)', nfg: on ? 'var(--primary-foreground)' : 'var(--text-muted)', cbg: on ? 'var(--primary)' : 'var(--card)', cfg: on ? 'var(--primary-foreground)' : 'var(--text-secondary)', cbd: on ? 'var(--primary)' : 'var(--border)', onClick: () => this.setState({ cat: id }) }; });
+    const promos = [
+      { title: 'Do‘stlaringizni taklif qiling — har bir xariddan 1% bonus', sub: 'Taklif havolangizni Profil sahifasida oling.', cta: 'Havolani olish', bg: 'var(--primary)', fg: 'var(--primary-foreground)', btnBg: 'var(--primary-foreground)', btnFg: 'var(--primary)', glyph: '1%', icon: '', glyphBg: 'var(--accent)', glyphFg: 'var(--accent-foreground)' },
+      { title: 'Premium’ni do‘stingizga sovg‘a qiling', sub: 'Faqat username kerak — 1–2 daqiqada ulanadi.', cta: 'Sovg‘a qilish', bg: 'var(--premium)', fg: '#fff', btnBg: '#fff', btnFg: 'var(--premium)', glyph: '', icon: 'icon-gift', glyphBg: 'rgba(255,255,255,.18)', glyphFg: '#fff' },
+      { title: 'Free Fire va Standoff 2 — tez orada', sub: 'Ishga tushganda Telegram’da xabar beramiz.', cta: 'Xabar olish', bg: 'var(--accent)', fg: 'var(--accent-foreground)', btnBg: 'var(--accent-foreground)', btnFg: 'var(--accent)', glyph: '', icon: 'icon-gamepad-2', glyphBg: 'rgba(0,0,0,.08)', glyphFg: 'var(--accent-foreground)' },
+    ].map((b, i) => ({ ...b, aria: `${i + 1}-e’lon`, dotW: s.promo === i ? '20px' : '6px', dotC: s.promo === i ? 'var(--primary)' : 'var(--input-border)', onClick: () => this.setState({ promo: i }) }));
+
+    const skuData = [[60, 12150], [120, 24300], [180, 36450], [325, 61500], [385, 72900], [660, 120750], [985, 182000], [1320, 241500], [1800, 299150, 1], [2460, 410000], [3850, 615000], [8100, 1215000]];
+    const packs = [['prime', 'Prime · 1 oy', 12450], ['primeplus', 'Prime Plus', 122000], ['weekly', 'Haftalik', 24900], ['monthly', 'Oylik', 61500]];
+    const set = s.tab === 0 ? skuData.map(([n, pz, b]) => ({ k: String(n), label: `${fmt(n)} UC`, pz, best: !!b })) : packs.map(([k, label, pz]) => ({ k, label, pz, best: false }));
+    const skus = set.map(x => { const on = s.sku === x.k; return { ...x, on, price: fmt(x.pz) + ' so‘m', bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', onClick: () => this.setState({ sku: x.k }) }; });
+    const allSkus = [...skuData.map(([n, pz]) => ({ k: String(n), label: `${fmt(n)} UC`, pz })), ...packs.map(([k, label, pz]) => ({ k, label, pz }))];
+    const sel = allSkus.find(x => x.k === s.sku) || allSkus[3];
+    const price = sel.pz, balance = 85400;
+    const disc = s.disc ? Math.round(price * 0.01) : 0, total = price - disc, short = price - balance;
+    const confirmed = s.rs === 'confirmed';
+    const tabs = ['UC tezkor', 'To‘plamlar'].map((label, i) => ({ label, ...pill(s.tab === i), onClick: () => this.setState({ tab: i, sku: i === 0 ? '325' : 'prime' }) }));
+    const howto = [['O‘yinni oching va chap yuqoridagi avatarga bosing.', 'help-pubg-1'], ['Profil sahifasida nik ostidagi ID raqamini toping.', 'help-pubg-2'], ['Raqamni nusxalab, Player ID maydoniga qo‘ying.', 'help-pubg-3']].map(([text, slot], i) => ({ n: i + 1, text, slot }));
+    const faqData = [['UC qancha vaqtda tushadi?', 'Odatda 1–2 daqiqa. Holatini “Tarix”da jonli kuzatasiz.'], ['Akkaunt parolim kerakmi?', 'Yo‘q. Faqat Player ID kerak — biz akkauntingizga kirmaymiz.'], ['Qaysi serverlar qo‘llab-quvvatlanadi?', 'Global server. Koreya, Vyetnam va Hindiston versiyalari qo‘llab-quvvatlanmaydi.'], ['Buyurtma bajarilmasa-chi?', 'Pul avtomatik ravishda balansingizga qaytadi.']];
+    const faqs = faqData.map(([q2, a], i) => { const open = s.acc === i; return { q: q2, a, open, rot: open ? 'rotate(180deg)' : 'none', bt: i ? '1px solid var(--border)' : 'none', onClick: () => this.setState({ acc: open ? -1 : i }) }; });
+
+    const oIdx = s.ord;
+    const oSteps = ['To‘landi', 'Navbatda', 'Bajarilmoqda', 'Yetkazildi'].map((label, i) => {
+      const done = i < oIdx || oIdx === 3, cur = i === oIdx && oIdx < 3;
+      return { label, done, cur, line: i < 3, time: done ? ['14:02', '14:02', '14:03', '14:04'][i] : '', note: cur ? (i === 2 ? 'SardorPRO hisobiga 660 UC yuborilmoqda · odatda 1–2 daqiqa' : 'Bir necha soniya') : '', dotBg: done ? 'var(--success)' : cur ? 'var(--info)' : 'var(--card)', dotBd: done ? 'var(--success)' : cur ? 'var(--info)' : 'var(--border)', dotFg: '#fff', c: done ? 'var(--text)' : cur ? 'var(--info-text)' : 'var(--text-muted)', lineC: done && i < oIdx ? 'var(--success)' : 'var(--border)', spin: cur ? spin : null, pulse: cur ? pulse : null };
+    });
+    const oHero = oIdx === 3 ? { title: 'Yetkazildi! 🎉', body: 'SardorPRO hisobiga 660 UC tushdi', done: true, spinning: false, bg: 'var(--success-soft)' } : { title: ['To‘lov qabul qilindi', 'Navbatda', 'Bajarilmoqda'][oIdx], body: 'Sahifani yopsangiz ham davom etadi — Telegram’da xabar beramiz.', done: false, spinning: true, bg: 'var(--card)' };
+
+    const ST = { done: ['Yetkazildi', 'icon-circle-check', 'var(--status-delivered-soft)', 'var(--status-delivered)'], wait: ['Bajarilmoqda', 'icon-loader-circle', 'var(--status-processing-soft)', 'var(--status-processing)'], review: ['Tekshirilmoqda', 'icon-scan-search', 'var(--status-review-soft)', 'var(--status-review)'], failed: ['Bajarilmadi', 'icon-undo-2', 'var(--status-failed-soft)', 'var(--status-failed)'], cancel: ['Bekor qilindi', 'icon-ban', 'var(--status-cancelled-soft)', 'var(--status-cancelled)'] };
+    const pool = [['stars', 'Telegram Stars · 500 ⭐', '@dilnoza_k', 110000, 'done'], ['premium', 'Premium · 6 oylik', '@dilnoza_k', 220000, 'wait'], ['pubg', 'PUBG Mobile · 660 UC', 'SardorPRO', 120750, 'review'], ['roblox', 'Roblox $10 karta', 'Kod', 122450, 'done'], ['premium', 'Premium · 3 oylik', '@jasur_t', 165000, 'cancel'], ['pubg', 'PUBG Mobile · 660 UC', 'ID 5123456789', 120750, 'failed'], ['mlbb', 'Mobile Legends · 86', '84512376 (2051)', 19900, 'done'], ['stars', 'Telegram Stars · 250 ⭐', '@sardor_r', 55000, 'done'], ['steam', 'Steam · 100 000', 'sardor_steam', 100000, 'done'], ['pubg', 'PUBG Mobile · 325 UC', 'SardorPRO', 61500, 'done']];
+    const PI = { stars: ['var(--star-soft)', 'icon-star', 'var(--star)'], premium: ['var(--premium-soft)', 'icon-crown', 'var(--premium)'] };
+    const filt = { all: () => true, done: r => r[4] === 'done', wait: r => r[4] === 'wait' || r[4] === 'review', cancel: r => r[4] === 'failed' || r[4] === 'cancel' }[s.hChip];
+    const totals = { all: 48, done: 39, wait: 3, cancel: 6 };
+    const hOrders = s.hTab === 'orders';
+    const totalN = hOrders ? totals[s.hChip] : 31;
+    const per = 20, pagesN = Math.max(1, Math.ceil(totalN / per)), pg = Math.min(s.hPage, pagesN);
+    const from = (pg - 1) * per + 1, to = Math.min(totalN, pg * per);
+    const fPool = pool.filter(filt);
+    const fin = [['Balans to‘ldirildi', 'Payme · *4417', '+50 000 so‘m', 'topup'], ['Xarid #10482', 'Telegram Stars · 500 ⭐', '−110 000 so‘m', 'out'], ['Pul qaytarildi #10470', 'PUBG Mobile · 660 UC', '+120 750 so‘m', 'in'], ['Referal bonus', 'Dilnoza K. xaridi', '+1 100 so‘m', 'in'], ['Bonus kod', 'GG5000', '+5 000 so‘m', 'in'], ['Xarid #10470', 'PUBG Mobile · 660 UC', '−120 750 so‘m', 'out']];
+    const hRows = Array.from({ length: to - from + 1 }, (_, i) => {
+      const idx = from - 1 + i, day = 29 - Math.floor(idx / 3), hh = 23 - ((idx * 5) % 14), mm = String((idx * 17) % 60).padStart(2, '0');
+      const date = `${String(day > 0 ? day : day + 30).padStart(2, '0')}.${day > 0 ? '10' : '09'}.2026, ${hh}:${mm}`;
+      if (!hOrders) { const f = fin[idx % fin.length]; const plus = f[2].startsWith('+'); return { date, title: f[0], sub: f[1], amt: f[2], amtC: plus ? 'var(--success-text)' : 'var(--text)', thumbBg: plus ? 'var(--success-soft)' : 'var(--muted)', icon: f[3] === 'topup' ? 'icon-wallet' : plus ? 'icon-arrow-down-left' : 'icon-shopping-bag', iconC: plus ? 'var(--success)' : 'var(--text-secondary)', chip: '', method: f[3] === 'topup' ? 'Payme' : plus ? 'Kirim' : 'Chiqim', bt: i ? '1px solid var(--border)' : 'none', onClick: () => {} }; }
+      const r = fPool[idx % fPool.length]; const st = ST[r[4]]; const pi = PI[r[0]] || ['var(--muted)', 'icon-gamepad-2', 'var(--text-muted)'];
+      return { date, title: r[1], sub: r[2], amt: fmt(r[3]) + ' so‘m', amtC: 'var(--text)', thumbBg: pi[0], icon: pi[1], iconC: pi[2], chip: st[0], cicon: st[1], cbg: st[2], cfg: st[3], method: '', bt: i ? '1px solid var(--border)' : 'none', onClick: () => this.setState({ page: 'order', ord: 2 }, () => !P.frozen && this.advance()) };
+    });
+    const hChips = [['all', 'Barchasi'], ['done', 'Bajarildi'], ['wait', 'Kutilmoqda'], ['cancel', 'Bekor qilingan']].map(([id, label]) => { const on = s.hChip === id; return { label, bg: on ? 'var(--primary)' : 'var(--card)', fg: on ? 'var(--primary-foreground)' : 'var(--text-secondary)', bd: on ? 'var(--primary)' : 'var(--border)', onClick: () => this.setState({ hChip: id, hPage: 1 }) }; });
+    const pages = Array.from({ length: pagesN }, (_, i) => { const on = i + 1 === pg; return { n: i + 1, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary)' : 'transparent', fg: on ? 'var(--primary-foreground)' : 'var(--text)', onClick: () => this.setState({ hPage: i + 1 }) }; });
+
+    const tierData = [['0,2%', 15], ['0,5%', 35], ['1%', 70], ['1,5%', 90]];
+    const tiers = tierData.map(([pct, c]) => { const off = 120 < c; return { pct, off, cost: `${c} 🪙`, bs: off ? 'dashed' : 'solid', bg: off ? 'var(--muted)' : 'var(--card)', pc: off ? 'var(--text-muted)' : 'var(--primary)' }; });
+    const sesData = { cur: ['icon-monitor', 'Chrome · Windows', 'Toshkent · hozir faol', true], tg: ['icon-smartphone', 'Telegram Mini App · iPhone', 'Toshkent · 2 soat oldin', false], mac: ['icon-laptop', 'Safari · macOS', 'Samarqand · kecha, 21:40', false] };
+    const sessions = s.sessions.map((k, i) => { const [icon, device, meta, current] = sesData[k]; return { icon, device, meta, current, other: !current, bt: i ? '1px solid var(--border)' : 'none', onEnd: () => this.setState(x => ({ sessions: x.sessions.filter(z => z !== k) })) }; });
+    const bErrMap = { invalid: 'Kod noto‘g‘ri', expired: 'Kod muddati tugagan', used: 'Bu kodni allaqachon ishlatgansiz' };
+
+    const methodsD = [['click', 'Click', 'C'], ['payme', 'Payme', 'P'], ['uzum', 'Uzum', 'U'], ['rahmat', 'Rahmat', 'R'], ['stars', 'Telegram Stars', '★']];
+    const methods = methodsD.map(([id, name, ini]) => { const on = s.method === id; return { name, ini, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', dot: on ? '6px' : '2px', dotC: on ? 'var(--primary)' : 'var(--input-border)', onClick: () => this.setState({ method: id }) }; });
+    const mSel = methodsD.find(m => m[0] === s.method);
+    const tAmt = Number(s.tAmt) || 0, tMin = tAmt < 5000, tMax = tAmt > 10000000;
+    const tOrder = ['method', 'amount', 'handoff', 'success'];
+    const ti = tOrder.indexOf(s.tStep);
+    const tSteps = ['To‘lov usuli', 'Summa', 'To‘lov'].map((label, i) => { const done = i < ti || ti === 3, cur = i === ti; return { label, bar: done || cur ? 'var(--primary)' : 'var(--muted)', c: cur || done ? 'var(--text)' : 'var(--text-muted)', dotBg: done ? 'var(--success)' : cur ? 'var(--primary)' : 'var(--muted)', dotFg: done || cur ? '#fff' : 'var(--text-muted)', mark: done ? '✓' : String(i + 1) }; });
+    const modal = s.modal;
+    const titles = { checkout: 'Buyurtmani tasdiqlang', insufficient: 'Mablag‘ yetarli emas', topup: 'Hisobni to‘ldirish' };
+    const navDefs = [['catalog', 'Katalog'], ['history', 'Tarix'], ['profile', 'Profil']];
+    const navOn = s.page === 'product' ? 'catalog' : s.page === 'order' ? 'history' : s.page;
+    const langs = [['uz', 'UZ'], ['ru', 'RU']].map(([id, label]) => ({ label, ...pill(s.lang === id), onClick: () => this.setState({ lang: id }) }));
+    const menuOpen = s.menu ?? !!P.menuOpen;
+
+    return {
+      rootRef: this.rootRef, theme, reduced: String(rm), t, d, padX: t ? '24px' : '32px', padTop: t ? '20px' : '28px', navGap: t ? '12px' : '20px', menuRight: t ? '24px' : 'max(32px, calc((100% - 1264px) / 2 + 32px))',
+      frameH: P.frameHeight ?? 'auto', scrollY: P.frameHeight ? 'hidden' : 'visible',
+      spin, pulse, pop,
+      navLinks: navDefs.map(([id, label]) => { const on = navOn === id; return { href: '#' + id, label, cur: on ? 'page' : 'false', bg: on ? 'var(--primary-soft)' : 'transparent', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', onClick: go(id) }; }),
+      goCatalog: go('catalog'), goHistory: go('history'), goProfile: go('profile'),
+      query: s.query, onQuery: e => this.setState({ query: e.target.value, page: 'catalog' }), clearQuery: () => this.setState({ query: '' }),
+      openTopup: () => this.setState({ modal: 'topup', tStep: 'method', menu: false }),
+      langs, langsBig: [['uz', 'O‘zbekcha'], ['ru', 'Русский']].map(([id, label]) => ({ label, ...pill(s.lang === id), onClick: () => this.setState({ lang: id }) })),
+      toggleTheme: () => this.setState({ themeO: theme === 'dark' ? 'light' : 'dark' }), themeIcon: theme === 'dark' ? 'icon-sun' : 'icon-moon', themeLabel: theme === 'dark' ? 'Yorug‘ mavzu' : 'Qorong‘i mavzu',
+      themeOpts: [['light', 'Yorug‘', 'icon-sun'], ['dark', 'Qorong‘i', 'icon-moon'], ['auto', 'Tizim', 'icon-monitor']].map(([id, label, icon]) => ({ label, icon, ...pill(id === theme), onClick: () => id !== 'auto' && this.setState({ themeO: id }) })),
+      menuOpen, toggleMenu: () => this.setState({ menu: !menuOpen }),
+      isCatalog: s.page === 'catalog', catCols: d ? '248px minmax(0,1fr)' : 'minmax(0,1fr)', cats, promos, promoX: `-${s.promo * 33.3333}%`, promoH: t ? '200px' : '220px', showPromo: !q && s.cat === 'all',
+      gridTitle: q ? 'Natijalar' : (catDefs.find(c => c[0] === s.cat) || catDefs[0])[1] === 'Hammasi' ? 'Barcha mahsulotlar' : catDefs.find(c => c[0] === s.cat)[1], gridCount: `${items.length} ta`, gridN: d ? 4 : 3, items, gridEmpty: !items.length,
+      isProduct: s.page === 'product', prodCols: d ? 'minmax(0,1fr) 420px' : 'minmax(0,1fr)', prodAreas: d ? '"head panel" "desc panel" "howto panel" "faq panel"' : '"head" "panel" "desc" "howto" "faq"', prodImg: d ? '140px' : '112px',
+      artSlots, noArtSlots: !artSlots, ...(() => { const a = withArt('pubg', 'var(--muted)'); return { pubgBg: a.bgImg, pubgNoImg: a.noImg }; })(), howto, faqs,
+      pid: s.pid, onPid: e => this.setState({ pid: e.target.value.replace(/\D/g, '').slice(0, 12), rs: 'idle' }),
+      rIdle: s.rs === 'idle' || s.rs === 'checking', rChecking: s.rs === 'checking', rFound: s.rs === 'found', rOk: confirmed,
+      onCheck: () => { if (!/^\d{8,12}$/.test(s.pid)) return this.setState({ pid: '5123456789' }); this.setState({ rs: 'checking' }); clearTimeout(this.tb); this.tb = setTimeout(() => this.setState({ rs: 'found' }), 900); },
+      onConfirm: () => this.setState({ rs: 'confirmed' }), onReset: () => this.setState({ rs: 'idle' }),
+      tabs, skus, skuLabel: sel.label, priceStr: fmt(price) + ' so‘m', afterStr: short > 0 ? `Yetishmaydi: ${fmt(short)} so‘m` : `Qoladi: ${fmt(balance - price)} so‘m`, afterC: short > 0 ? 'var(--warning-text)' : 'var(--text-secondary)',
+      buyHint: confirmed ? '' : 'Avval qabul qiluvchini tasdiqlang', buyDisabled: !confirmed, buyBg: confirmed ? 'var(--primary)' : 'var(--muted)', buyFg: confirmed ? 'var(--primary-foreground)' : 'var(--text-muted)', buySh: confirmed ? 'var(--shadow-glow)' : 'none',
+      onBuy: () => this.setState({ modal: short > 0 ? 'insufficient' : 'checkout', ttl: 581 }),
+      isOrder: s.page === 'order', orderCols: d ? 'minmax(0,1fr) 380px' : 'minmax(0,1fr)', oSteps, oHero,
+      isHistory: s.page === 'history', hTabs: [['orders', 'Buyurtmalar'], ['finance', 'Moliya']].map(([id, label]) => ({ label, ...pill(s.hTab === id), onClick: () => this.setState({ hTab: id, hPage: 1 }) })), hOrders, hChips, hRows,
+      hCol2: hOrders ? 'Mahsulot' : 'Amal', hCol3: hOrders ? 'Qabul qiluvchi' : 'Izoh', hCol5: hOrders ? 'Holat' : 'Turi', hSearchW: d ? '260px' : '200px',
+      pageLabel: `Jami ${totalN} tadan ${from}–${to}`, pages, prevDisabled: pg <= 1, nextDisabled: pg >= pagesN, prevOp: pg <= 1 ? 0.4 : 1, nextOp: pg >= pagesN ? 0.4 : 1, prevPage: () => this.setState({ hPage: Math.max(1, pg - 1) }), nextPage: () => this.setState({ hPage: Math.min(pagesN, pg + 1) }),
+      isProfile: s.page === 'profile', copyId: () => { try { navigator.clipboard.writeText('1187712645'); } catch (e) {} this.setState({ idC: true }); clearTimeout(this.tc); this.tc = setTimeout(() => this.setState({ idC: false }), 1500); }, idIcon: s.idC ? 'icon-check' : 'icon-copy', idIconC: s.idC ? 'var(--success-text)' : 'inherit',
+      copyRef: () => { try { navigator.clipboard.writeText('https://t.me/ggpin_bot/app?startapp=ref_SARDOR7'); } catch (e) {} this.setState({ refC: true }); clearTimeout(this.tc); this.tc = setTimeout(() => this.setState({ refC: false }), 1500); }, refIcon: s.refC ? 'icon-check' : 'icon-copy', refLabel: s.refC ? 'Nusxalandi' : 'Nusxalash',
+      tiers, sessions, hasOthers: sessions.some(x => x.other), endAll: () => this.setState({ sessions: ['cur'] }),
+      bcode: s.bcode, onBcode: e => this.setState({ bcode: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20), bs: 'idle' }), bOk: s.bs === 'ok', bErr: !!bErrMap[s.bs], bErrText: bErrMap[s.bs] || '', bBd: bErrMap[s.bs] ? 'var(--danger)' : 'var(--input-border)',
+      onActivate: () => { const c = s.bcode; this.setState({ bs: c === 'GG5000' ? 'ok' : c.startsWith('ESKI') ? 'expired' : c.startsWith('KUZ') ? 'used' : 'invalid' }); },
+      hasModal: !!modal, modalTitle: titles[modal] || '', modalW: modal === 'topup' ? '560px' : '520px', modalAnim: rm ? 'none' : 'gg-pop var(--dur-base) var(--ease-out) both', closeModal: () => this.setState({ modal: '' }),
+      mCheckout: modal === 'checkout', mInsufficient: modal === 'insufficient', mTopup: modal === 'topup',
+      discOn: s.disc, discOff: !s.disc, discStr: fmt(disc) + ' so‘m', applyDisc: () => this.setState({ disc: true }), removeDisc: () => this.setState({ disc: false }),
+      totalStr: fmt(total) + ' so‘m', balLine: `${fmt(balance)} so‘m → ${fmt(balance - total)} so‘m`, ttl: `${Math.floor(s.ttl / 60)}:${String(s.ttl % 60).padStart(2, '0')}`,
+      paying: s.paying, payLabel: s.paying ? 'To‘lanmoqda…' : `To‘lash · ${fmt(total)} so‘m`,
+      onPay: () => { this.setState({ paying: true }); clearTimeout(this.tb); this.tb = setTimeout(() => this.setState({ paying: false, modal: '', page: 'order', ord: 0 }, () => this.advance()), 1200); },
+      shortStr: fmt(Math.max(0, short)) + ' so‘m', topupShort: () => this.setState({ modal: 'topup', tStep: 'amount', tAmt: Math.max(5000, short) }),
+      tSteps, tMethod: s.tStep === 'method', tAmount: s.tStep === 'amount', tHandoff: s.tStep === 'handoff', tSuccess: s.tStep === 'success', methods, methodName: mSel[1], methodIni: mSel[2],
+      toAmount: () => this.setState({ tStep: 'amount' }), toMethod: () => this.setState({ tStep: 'method' }),
+      tAmtStr: tAmt ? fmt(tAmt) : '', onTAmt: e => this.setState({ tAmt: Number(e.target.value.replace(/\D/g, '').slice(0, 9)) || 0 }), tAmtErr: tMin || tMax, tAmtOk: !(tMin || tMax), tAmtErrText: tMin ? 'Minimal summa 5 000 so‘m' : 'Maksimal summa 10 000 000 so‘m', tAmtBd: tMin || tMax ? 'var(--danger)' : 'var(--input-border)',
+      tChips: [20000, 50000, 100000, 200000].map(v => { const on = tAmt === v; return { label: fmt(v), bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', onClick: () => this.setState({ tAmt: v }) }; }),
+      toHandoff: () => { this.setState({ tStep: 'handoff' }); clearTimeout(this.tb); if (!P.frozen) this.tb = setTimeout(() => this.setState({ tStep: 'success' }), 2200); },
+    };
+  }
+}
+</script>
+</body>
+</html>
