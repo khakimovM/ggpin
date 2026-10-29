@@ -2,6 +2,17 @@ title = "ggpin gitleaks config"
 [extend]
 useDefault = true
 
+# In .env.example files an empty secret (`FRAGMENT_SESSION_ENC_KEY=`) makes generic-api-key
+# skip the newline and report the NEXT line (`PRICE_TOLERANCE_BPS=300`) as the secret.
+# Only that exact shape is ignored, only in .env.example: a real value pasted into an example
+# file is still reported. Pinned gitleaks version: security.yml (GITLEAKS_VERSION).
+[[allowlists]]
+description = "next env assignment captured after an empty placeholder"
+condition = "AND"
+paths = ['''(^|/)\.env\.example$''']
+regexTarget = "secret"
+regexes = ['''^[A-Z][A-Z0-9]*_[A-Z0-9_]*=[\w.-]*$''']
+
 [[rules]]
 id = "ton-mnemonic"
 description = "24-word mnemonic in code"
