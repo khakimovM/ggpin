@@ -7,7 +7,18 @@
     "REDIS_URL",
     "FULFILLMENT_DRY_RUN",
     "TON_NETWORK",
-    "API_PORT"
+    "API_PORT",
+    "WEB_URL",
+    "ADMIN_URL",
+    "LOG_LEVEL",
+    "TRUST_PROXY",
+    "SWAGGER_ENABLED",
+    "BRAND_NAME",
+    "TON_MAX_PER_ORDER_NANO",
+    "TON_MAX_DAILY_NANO",
+    "TON_MIN_BALANCE_ALERT_NANO",
+    "SUPPLIER_MAX_PER_ORDER_MICRO_USDT",
+    "PRICE_TOLERANCE_BPS"
   ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },

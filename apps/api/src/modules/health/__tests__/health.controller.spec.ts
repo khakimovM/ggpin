@@ -2,13 +2,16 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../../../app.module';
+import { buildTestEnv } from '../../../config/__tests__/test-env';
 import { configureApp } from '../../../app.setup';
 
 describe('GET /api/v1/health/live', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule.register(buildTestEnv())],
+    }).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     configureApp(app);
     await app.init();
