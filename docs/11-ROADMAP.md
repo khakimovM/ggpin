@@ -32,7 +32,7 @@ Redis 7); `.env.example` har ilova uchun; root skriptlar; CI workflow.
 
 **Qabul mezonlari**
 
-- [ ] `npm install`, `npm run db:up`, `npm run dev` — to‘rt ilova ishga tushadi
+- [x] `npm install`, `npm run db:up`, `npm run dev` — to‘rt ilova ishga tushadi
 - [x] `npm run verify` yashil (bo‘sh testlar bilan)
 - [x] `GET /api/v1/health/live` → `{status:"ok"}`
 - [x] i18n paketi: uz/ru kalitlar paritet testi bor
