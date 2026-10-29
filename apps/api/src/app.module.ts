@@ -1,5 +1,6 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { AppConfigModule, type AppConfig } from './config/config.module';
+import { PrismaModule } from './infra/prisma/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({})
@@ -8,7 +9,7 @@ export class AppModule {
   static register(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [AppConfigModule.forRoot(config), HealthModule],
+      imports: [AppConfigModule.forRoot(config), PrismaModule, HealthModule],
     };
   }
 }

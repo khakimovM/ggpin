@@ -21,11 +21,44 @@
     "PRICE_TOLERANCE_BPS"
   ],
   "tasks": {
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },
-    "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true },
-    "lint": { "dependsOn": ["^build"] },
-    "typecheck": { "dependsOn": ["^build"] },
-    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
-    "test:e2e": { "dependsOn": ["^build"], "cache": false }
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "src/generated/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "db:generate": {
+      "outputs": ["src/generated/**"]
+    },
+    "@repo/db#lint": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "@repo/db#typecheck": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "@repo/db#test": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "@repo/db#test:e2e": {
+      "dependsOn": ["^build", "db:generate"],
+      "cache": false
+    }
   }
 }

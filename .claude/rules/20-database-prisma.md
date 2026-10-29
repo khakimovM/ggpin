@@ -9,7 +9,8 @@ paths:
 - Schema lives in `packages/db/prisma/schema.prisma` (Prisma 7, D-22); api and worker import the
   one generated client from `@repo/db`. Never instantiate `PrismaClient` outside that package.
 - Money columns: `BigInt` (`amountTiyin`, `costMicroUsdt`, `costNanoTon`). Never Decimal/Float.
-- Every table: `id` (cuid2/uuid), `createdAt`, `updatedAt`. Soft delete only where docs say so.
+- Every table: `id` (`cuid(2)`) and `createdAt`; `updatedAt` only on mutable tables — append-only
+  ledgers/logs and immutable snapshots have none (D-23). Soft delete only where docs say so.
 - Unique constraints are the backbone of idempotency — declare them in the schema:
   `Payment(provider, providerTxnId)`, `Order(userId, idempotencyKey)`,
   `FulfillmentAttempt(orderId, attemptNo)`, `LedgerEntry(refType, refId, kind)`.

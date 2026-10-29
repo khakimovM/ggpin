@@ -1,0 +1,622 @@
+// Source of truth for the ggpin database (docs/03-DATA-MODEL.md describes it; D-22, D-23).
+//
+// Conventions
+// - Money is BigInt in minor units, unit in the column name (Tiyin / MicroUsdt / NanoTon / Minor).
+// - ids are cuid2. Table names are the model names (PascalCase), so raw SQL uses "Wallet" etc.
+// - `updatedAt` exists only on tables whose rows are mutated. Append-only tables never get it:
+//   LedgerEntry, CoinEntry, AuditLog, OrderEvent (plus the immutable snapshots FxRate,
+//   WalletSnapshot, BonusRedemption and the insert-only Wallet lock row).
+// - onDelete policy: Restrict on every relation, so money/audit history can never be
+//   cascade-deleted. The only exception is Cascade on credential tables (WebSession,
+//   AdminSession), which hold no history. SetNull is never used: it would silently rewrite
+//   history rows.
+// - Polymorphic references have no FK by nature: LedgerEntry/CoinEntry (refType, refId),
+//   AuditLog (actorId, targetType, targetId), Setting.updatedBy.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  // NodeNext resolution needs explicit extensions; ".js" maps to the .ts sources and survives tsc.
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Locale {
+  uz
+  ru
+}
+
+model User {
+  id             String    @id @default(cuid(2))
+  telegramId     BigInt    @unique
+  username       String?
+  firstName      String?
+  lastName       String?
+  photoUrl       String?
+  phone          String? // faqat foydalanuvchi ulashsa
+  locale         Locale    @default(uz)
+  referralCode   String    @unique
+  referredById   String?
+  referredBy     User?     @relation("Referrals", fields: [referredById], references: [id], onDelete: Restrict)
+  referrals      User[]    @relation("Referrals")
+  isBlocked      Boolean   @default(false)
+  purchaseFrozen Boolean   @default(false) // to‘lov qaytarilib, balans manfiy bo‘lsa
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastSeenAt     DateTime?
+
+  wallet           Wallet?
+  ledgerEntries    LedgerEntry[]
+  coinEntries      CoinEntry[]
+  quotes           Quote[]
+  orders           Order[]
+  paymentIntents   PaymentIntent[]
+  bonusRedemptions BonusRedemption[]
+  discountCodes    DiscountCode[]
+  webSessions      WebSession[]
+
+  @@index([referredById])
+}
+
+// Balans saqlanmaydi; bu jadval faqat FOR UPDATE qulfi uchun. Qator bir marta yaratiladi.
+model Wallet {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+}
+
+enum LedgerKind {
+  TOPUP
+  TOPUP_REVERSAL
+  PURCHASE
+  REFUND
+  REFERRAL_BONUS
+  ADJUSTMENT
+}
+
+// Append-only: no updatedAt, rows are never updated or deleted.
+model LedgerEntry {
+  id          String     @id @default(cuid(2))
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  kind        LedgerKind
+  amountTiyin BigInt // ishorali: + kirim, − chiqim
+  refType     String // PAYMENT | ORDER | ADMIN | REFERRAL
+  refId       String
+  note        String?
+  createdAt   DateTime   @default(now())
+
+  @@unique([refType, refId, kind])
+  @@index([userId, createdAt])
+}
+
+enum CoinKind {
+  EARN
+  SPEND
+  EXPIRE
+  ADJUSTMENT
+  REVERSAL
+}
+
+// Append-only (see LedgerEntry).
+model CoinEntry {
+  id        String   @id @default(cuid(2))
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  kind      CoinKind
+  coins     BigInt
+  refType   String
+  refId     String
+  createdAt DateTime @default(now())
+
+  @@unique([refType, refId, kind])
+  @@index([userId, createdAt])
+}
+
+// ---------- Katalog ----------
+enum DeliveryType {
+  TG_USERNAME
+  GAME_ID
+  STEAM_LOGIN
+  VOUCHER
+  USERNAME
+}
+
+model Category {
+  id        String    @id @default(cuid(2))
+  slug      String    @unique
+  nameUz    String
+  nameRu    String
+  sort      Int       @default(0)
+  products  Product[]
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id             String         @id @default(cuid(2))
+  slug           String         @unique
+  categoryId     String
+  category       Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  nameUz         String
+  nameRu         String
+  descriptionUz  String?
+  descriptionRu  String?
+  helpUz         String? // "ID'ni qayerdan topaman?"
+  helpRu         String?
+  imageUrl       String
+  regionBadge    String? // GLOBAL | SNG | UZ ...
+  deliveryType   DeliveryType
+  inputSchema    Json // forma maydonlari: [{key:"playerId",type:"digits",min:5,max:12}, ...]
+  isAuto         Boolean        @default(true)
+  isFeatured     Boolean        @default(false)
+  isActive       Boolean        @default(false)
+  allowCustomQty Boolean        @default(false) // Stars: erkin miqdor
+  minQty         Int?
+  maxQty         Int?
+  sort           Int            @default(0)
+  skus           Sku[]
+  routes         ProductRoute[]
+  quotes         Quote[]
+  orders         Order[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([categoryId])
+}
+
+model Sku {
+  id             String    @id @default(cuid(2))
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  tab            String? // "UC tezkor" / "To‘plamlar" kabi guruh (i18n kaliti)
+  labelUz        String // "60 UC", "3 oylik"
+  labelRu        String
+  quantity       Int // 60 (UC), 3 (oy), 1 (voucher)
+  supplierSku    String? // ta'minotchidagi kod
+  markupBps      Int // ustama, bazis punktda (1500 = 15%)
+  minMarginTiyin BigInt    @default(0)
+  isActive       Boolean   @default(true)
+  sort           Int       @default(0)
+  vouchers       Voucher[]
+  quotes         Quote[]
+  orders         Order[]
+  updatedAt      DateTime  @updatedAt
+
+  @@index([productId])
+}
+
+// Mahsulot → adapter (ustuvorlik tartibida)
+model ProductRoute {
+  id        String   @id @default(cuid(2))
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  adapter   String // FRAGMENT | RESELLER_STARS | FAZERCARDS | ...
+  priority  Int
+  isEnabled Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, adapter])
+}
+
+enum VoucherStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  INVALID
+}
+
+// The Voucher <-> Order link lives ONLY here (orderId). 03 had it on both sides (Voucher.orderId
+// and Order.voucherId), which can disagree. The voucher row is the one that is reserved and sold,
+// so the inventory side owns the pointer; the order reads it back via `Order.voucher`.
+model Voucher {
+  id            String        @id @default(cuid(2))
+  skuId         String
+  sku           Sku           @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  codeEnc       String // shifrlangan
+  codeHash      String        @unique
+  status        VoucherStatus @default(AVAILABLE)
+  orderId       String?       @unique
+  order         Order?        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  costMicroUsdt BigInt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([skuId, status])
+}
+
+// ---------- Narx ----------
+// Immutable snapshot: quotes point at the exact rate that priced them.
+model FxRate {
+  id        String   @id @default(cuid(2))
+  pair      String // USDT_UZS, TON_USDT, TON_UZS
+  rate      String // o‘nlik qator (decimal string), hisob BigInt'da
+  source    String
+  createdAt DateTime @default(now())
+  quotes    Quote[]
+
+  @@index([pair, createdAt])
+}
+
+model Quote {
+  id             String          @id @default(cuid(2))
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  skuId          String?
+  sku            Sku?            @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  productId      String
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity       Int
+  recipient      Json // tekshirilgan qabul qiluvchi: {username, displayName, ...}
+  costCurrency   String // TON | USDT
+  costMinor      BigInt // nanoTON yoki microUSDT
+  fxRateId       String
+  fxRate         FxRate          @relation(fields: [fxRateId], references: [id], onDelete: Restrict)
+  priceTiyin     BigInt
+  maxCostMinor   BigInt // shu chegaradan oshsa — HELD
+  discountCodeId String?
+  discountCode   DiscountCode?   @relation(fields: [discountCodeId], references: [id], onDelete: Restrict)
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  order          Order?
+  paymentIntents PaymentIntent[]
+
+  @@index([userId, createdAt])
+  @@index([skuId])
+  @@index([productId])
+  @@index([fxRateId])
+  @@index([discountCodeId])
+  @@index([expiresAt])
+}
+
+// ---------- Buyurtma ----------
+// Must equal ORDER_STATUSES in packages/shared/src/order-state.ts (asserted by a DB test).
+enum OrderStatus {
+  PAID
+  QUEUED
+  PROCESSING
+  HELD
+  NEEDS_REVIEW
+  DELIVERED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id             String               @id @default(cuid(2))
+  number         Int                  @unique @default(autoincrement()) // foydalanuvchiga ko‘rinadigan #
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  quoteId        String               @unique
+  quote          Quote                @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  productId      String
+  product        Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  skuId          String?
+  sku            Sku?                 @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  quantity       Int
+  recipient      Json
+  priceTiyin     BigInt
+  discountTiyin  BigInt               @default(0)
+  costCurrency   String
+  costMinor      BigInt
+  maxCostMinor   BigInt
+  status         OrderStatus
+  statusReason   String?
+  idempotencyKey String
+  requestHash    String // same key + different body → 409 IDEMPOTENCY_CONFLICT
+  deliveredAt    DateTime?
+  voucher        Voucher? // reverse side of Voucher.orderId
+  discountCode   DiscountCode? // reverse side of DiscountCode.usedOrderId
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  attempts       FulfillmentAttempt[]
+  events         OrderEvent[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@index([skuId])
+}
+
+// Holat tarixi (audit). Append-only.
+model OrderEvent {
+  id        String       @id @default(cuid(2))
+  orderId   String
+  order     Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  from      OrderStatus?
+  to        OrderStatus
+  actor     String // SYSTEM | WORKER | ADMIN:<id>
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+enum AttemptStatus {
+  SENDING
+  SENT
+  CONFIRMED
+  FAILED
+  UNKNOWN
+}
+
+model FulfillmentAttempt {
+  id          String        @id @default(cuid(2))
+  orderId     String
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  attemptNo   Int
+  adapter     String
+  status      AttemptStatus
+  externalRef String? // TON message hash / supplier order id / Fragment req_id
+  request     Json // sirlarsiz
+  response    Json?
+  costMinor   BigInt?
+  error       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([orderId, attemptNo])
+  @@index([externalRef])
+}
+
+// ---------- To‘lovlar ----------
+enum PaymentProviderCode {
+  CLICK
+  PAYME
+  UZUM
+  RAHMAT
+  TG_STARS
+}
+
+enum IntentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  EXPIRED
+}
+
+model PaymentIntent {
+  id             String              @id @default(cuid(2))
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  provider       PaymentProviderCode
+  amountTiyin    BigInt
+  status         IntentStatus        @default(PENDING)
+  purpose        String // TOPUP | TOPUP_AND_BUY
+  quoteId        String? // TOPUP_AND_BUY bo‘lsa
+  quote          Quote?              @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  idempotencyKey String
+  requestHash    String // same key + different body → 409 IDEMPOTENCY_CONFLICT
+  expiresAt      DateTime
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  payments       Payment[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([quoteId])
+  @@index([status, createdAt])
+}
+
+enum PaymentStatus {
+  CREATED
+  CONFIRMED
+  CANCELLED
+}
+
+model Payment {
+  id            String              @id @default(cuid(2))
+  intentId      String
+  intent        PaymentIntent       @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  provider      PaymentProviderCode
+  providerTxnId String
+  amountTiyin   BigInt
+  status        PaymentStatus
+  raw           Json // redakt qilingan
+  confirmedAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([provider, providerTxnId])
+  @@index([intentId])
+  @@index([status, createdAt])
+}
+
+// ---------- Promo ----------
+model BonusCode {
+  id          String            @id @default(cuid(2))
+  codeHash    String            @unique
+  rewardType  String // WALLET_TIYIN | COINS
+  rewardValue BigInt
+  maxUses     Int
+  usedCount   Int               @default(0)
+  expiresAt   DateTime?
+  createdById String
+  createdBy   AdminUser         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  redemptions BonusRedemption[]
+
+  @@index([createdById])
+}
+
+// Immutable: a redemption is never edited.
+model BonusRedemption {
+  id        String    @id @default(cuid(2))
+  codeId    String
+  code      BonusCode @relation(fields: [codeId], references: [id], onDelete: Restrict)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime  @default(now())
+
+  @@unique([codeId, userId])
+  @@index([userId])
+}
+
+model DiscountTier {
+  id         String         @id @default(cuid(2))
+  bps        Int
+  priceCoins BigInt
+  isActive   Boolean        @default(true)
+  updatedAt  DateTime       @updatedAt
+  codes      DiscountCode[]
+}
+
+model DiscountCode {
+  id          String       @id @default(cuid(2))
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tierId      String
+  tier        DiscountTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  bps         Int
+  code        String       @unique
+  usedOrderId String?      @unique
+  usedOrder   Order?       @relation(fields: [usedOrderId], references: [id], onDelete: Restrict)
+  expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  quotes      Quote[]
+
+  @@index([userId])
+  @@index([tierId])
+}
+
+// ---------- Fragment / hamyon ----------
+model FragmentSession {
+  id         String    @id @default(cuid(2))
+  cookiesEnc String // shifrlangan cookie jar
+  pageHash   String?
+  status     String // ACTIVE | DEAD
+  lastOkAt   DateTime?
+  lastError  String?
+  updatedAt  DateTime  @updatedAt
+}
+
+// Hot wallet balansi tarixi (admin grafik uchun). Append-only.
+model WalletSnapshot {
+  id        String   @id @default(cuid(2))
+  network   String
+  address   String
+  tonNano   BigInt
+  usdtMicro BigInt
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ---------- Auth / admin ----------
+model WebSession {
+  id          String    @id @default(cuid(2))
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshHash String    @unique
+  familyId    String
+  userAgent   String?
+  ip          String?
+  revokedAt   DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// web va admin OTP
+model LoginRequest {
+  id         String   @id @default(cuid(2))
+  nonce      String   @unique
+  kind       String // USER | ADMIN
+  telegramId BigInt?
+  codeHash   String?
+  attempts   Int      @default(0)
+  status     String // PENDING | CODE_SENT | USED | EXPIRED | DENIED
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum AdminRole {
+  OWNER
+  OPERATOR
+  SUPPORT
+}
+
+model AdminUser {
+  id         String         @id @default(cuid(2))
+  telegramId BigInt         @unique
+  name       String
+  role       AdminRole
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  sessions   AdminSession[]
+  bonusCodes BonusCode[]
+  broadcasts Broadcast[]
+}
+
+model AdminSession {
+  id         String    @id @default(cuid(2))
+  adminId    String
+  admin      AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  lastUsedAt DateTime
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([adminId])
+}
+
+// Append-only. actorId/targetId are polymorphic, hence no FK.
+model AuditLog {
+  id         String   @id @default(cuid(2))
+  actorType  String // ADMIN | SYSTEM
+  actorId    String?
+  action     String // ORDER_REFUND, WALLET_ADJUST, PRODUCT_UPDATE ...
+  targetType String
+  targetId   String
+  before     Json?
+  after      Json?
+  reason     String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+}
+
+model Broadcast {
+  id          String    @id @default(cuid(2))
+  textUz      String
+  textRu      String
+  audience    Json
+  status      String // DRAFT | SENDING | DONE | CANCELLED
+  sentCount   Int       @default(0)
+  failCount   Int       @default(0)
+  createdById String
+  createdBy   AdminUser @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([createdById])
+}
+
+// Admin'dan o‘zgaradigan sozlamalar. updatedBy = admin id (no FK: may also be a system actor).
+model Setting {
+  key       String   @id // REFERRAL_BPS, CASHBACK_BPS, TOPUP_MIN_TIYIN ...
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
