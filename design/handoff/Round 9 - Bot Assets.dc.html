@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 9 · Bot assets</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+<style>html,body{margin:0;background:#D9DDE6}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:72px;width:max-content;font-family:Manrope,sans-serif;color:#0B1020">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1400px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 9.1</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em">Telegram bot assets</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Each artboard is drawn at its export size (no scaling). Export any of them as PNG from the frame id: <code>#bot-avatar</code>, <code>#bot-welcome</code>, <code>#share-referral</code>, <code>#share-stars</code>, <code>#share-premium</code>. Telegram crops avatars to a circle — the dashed ring on the guide copy shows the safe area.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">1 · Bot avatar · 512×512</h2>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <div id="bot-avatar" style="width:512px;height:512px;position:relative;overflow:hidden;background:#3D4BF5;display:grid;place-items:center">
+        <span aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(70% 70% at 78% 18%,rgba(255,197,49,.35),transparent 60%),radial-gradient(60% 60% at 15% 90%,rgba(11,16,32,.35),transparent 70%)"></span>
+        <span style="position:relative;font:800 250px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#FFFFFF;padding-right:24px;margin-top:-14px">g<span style="color:#FFC531">g</span></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="position:relative;width:256px;height:256px;border-radius:50%;overflow:hidden;background:#3D4BF5;display:grid;place-items:center"><span aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(70% 70% at 78% 18%,rgba(255,197,49,.35),transparent 60%)"></span><span style="position:relative;font:800 125px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:12px;margin-top:-7px">g<span style="color:#FFC531">g</span></span><span style="position:absolute;inset:18px;border-radius:50%;border:2px dashed rgba(255,255,255,.5)"></span></div>
+        <div style="display:flex;align-items:center;gap:12px"><span style="width:56px;height:56px;border-radius:50%;background:#3D4BF5;display:grid;place-items:center;font:800 27px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:3px">g<span style="color:#FFC531">g</span></span><span style="width:32px;height:32px;border-radius:50%;background:#3D4BF5;display:grid;place-items:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:2px">g<span style="color:#FFC531">g</span></span><span style="font:600 14px/20px Manrope,sans-serif;color:#3F4863">Circle crop at 256 / 56 / 32 px</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">2 · /start welcome banner · 1280×720</h2>
+    <div id="bot-welcome" style="width:1280px;height:720px;position:relative;overflow:hidden;background:#080C18;color:#F2F4FF;display:grid;grid-template-columns:1fr 520px;align-items:center;padding:0 88px;gap:40px">
+      <span aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(50% 70% at 82% 40%,rgba(74,87,255,.55),transparent 70%),radial-gradient(30% 40% at 95% 95%,rgba(255,197,49,.30),transparent 70%)"></span>
+      <div style="position:relative;display:flex;flex-direction:column;gap:28px">
+        <span style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border-radius:16px;background:#4A57FF;display:grid;place-items:center;font:800 27px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:3px">g<span style="color:#FFC531">g</span></span><span style="font:700 32px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span></span>
+        <h1 style="margin:0;font:700 64px/1.08 Unbounded,sans-serif;letter-spacing:-.04em;text-wrap:balance">Stars, Premium va donatlar — <span style="color:#FFC531">bir necha daqiqada</span></h1>
+        <div style="display:flex;gap:12px;flex-wrap:wrap"><span style="height:48px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;gap:8px;font:700 20px/1 Manrope,sans-serif">⚡ 1–2 daqiqada</span><span style="height:48px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;gap:8px;font:700 20px/1 Manrope,sans-serif">🔒 Xavfsiz to‘lov</span><span style="height:48px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;gap:8px;font:700 20px/1 Manrope,sans-serif">💸 Pul qaytariladi</span></div>
+      </div>
+      <div style="position:relative;height:520px">
+        <div style="position:absolute;left:40px;top:30px;width:300px;padding:26px;border-radius:28px;background:#FFC531;color:#231A00;transform:rotate(-6deg);box-shadow:0 30px 60px -20px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:14px"><span style="width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.45);display:grid;place-items:center;font-size:34px"><i class="icon-star"></i></span><span style="font:700 30px/1.1 Unbounded,sans-serif;letter-spacing:-.03em">Telegram Stars</span><span style="font:700 20px/1 Manrope,sans-serif">1 ⭐ = 220 so‘m</span></div>
+        <div style="position:absolute;right:0;top:200px;width:300px;padding:26px;border-radius:28px;background:#7C4DFF;color:#fff;transform:rotate(5deg);box-shadow:0 30px 60px -20px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:14px"><span style="width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:34px"><i class="icon-crown"></i></span><span style="font:700 30px/1.1 Unbounded,sans-serif;letter-spacing:-.03em">Telegram Premium</span><span style="font:700 20px/1 Manrope,sans-serif">165 000 so‘m dan</span></div>
+        <div style="position:absolute;left:10px;bottom:10px;height:72px;padding:0 22px;border-radius:20px;background:#131B31;border:1px solid #232D4A;display:flex;align-items:center;gap:14px;box-shadow:0 20px 40px -16px rgba(0,0,0,.7)"><span style="width:40px;height:40px;border-radius:12px;background:#0F2E22;color:#5BE39C;display:grid;place-items:center;font-size:22px"><i class="icon-gamepad-2"></i></span><span style="font:800 22px/1 Manrope,sans-serif">PUBG · MLBB · Steam · Roblox</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif">3 · Share cards · 1200×630</h2>
+    <div style="display:flex;flex-direction:column;gap:40px">
+      <div id="share-referral" style="width:1200px;height:630px;position:relative;overflow:hidden;background:#3D4BF5;color:#fff;display:grid;grid-template-columns:1fr 400px;align-items:center;padding:0 80px;gap:40px">
+        <span aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(60% 80% at 85% 30%,rgba(255,197,49,.45),transparent 65%),radial-gradient(50% 60% at 0% 100%,rgba(11,16,32,.35),transparent 70%)"></span>
+        <div style="position:relative;display:flex;flex-direction:column;gap:24px"><span style="display:flex;align-items:center;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:#fff;display:grid;place-items:center;font:800 23px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#3D4BF5;padding-right:3px">g<span style="color:#E89A00">g</span></span><span style="font:700 28px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span></span><h2 style="margin:0;font:700 56px/1.1 Unbounded,sans-serif;letter-spacing:-.04em;text-wrap:balance">Do‘stim seni ggpin’ga taklif qildi</h2><span style="font:600 26px/1.35 Manrope,sans-serif;opacity:.92;max-width:560px">Telegram Stars, Premium va o‘yin donatlari — bir necha daqiqada.</span><span style="align-self:flex-start;height:64px;padding:0 28px;border-radius:18px;background:#FFC531;color:#231A00;display:flex;align-items:center;gap:10px;font:800 24px/1 Manrope,sans-serif">Botni ochish <i class="icon-arrow-right"></i></span></div>
+        <div style="position:relative;display:grid;place-items:center"><span style="width:300px;height:300px;border-radius:50%;background:#FFC531;color:#231A00;display:grid;place-items:center;font:700 110px/1 Unbounded,sans-serif;letter-spacing:-.05em;box-shadow:0 0 0 30px rgba(255,197,49,.22),0 0 0 60px rgba(255,197,49,.1)">1%</span><span style="position:absolute;bottom:20px;height:48px;padding:0 20px;border-radius:999px;background:#0B1020;color:#fff;display:flex;align-items:center;font:800 20px/1 Manrope,sans-serif">har bir xariddan bonus</span></div>
+      </div>
+      <div style="display:flex;gap:40px">
+        <div id="share-stars" style="width:1200px;height:630px;position:relative;overflow:hidden;background:#FFF2D6;color:#231A00;display:grid;grid-template-columns:1fr 440px;align-items:center;padding:0 80px;gap:40px">
+          <span aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(55% 75% at 82% 45%,rgba(255,197,49,.85),transparent 70%)"></span>
+          <div style="position:relative;display:flex;flex-direction:column;gap:22px"><span style="display:flex;align-items:center;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:#3D4BF5;display:grid;place-items:center;font:800 23px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:3px">g<span style="color:#FFC531">g</span></span><span style="font:700 28px/1 Unbounded,sans-serif;letter-spacing:-.04em;color:#0B1020">ggpin</span></span><h2 style="margin:0;font:700 72px/1.02 Unbounded,sans-serif;letter-spacing:-.04em;color:#0B1020">Telegram Stars</h2><span style="font:700 30px/1.3 Manrope,sans-serif;color:#7A5600">1 ⭐ = 220 so‘m · 50 ⭐ dan</span><span style="display:flex;gap:10px"><span style="height:48px;padding:0 18px;border-radius:999px;background:#fff;display:flex;align-items:center;font:800 20px/1 Manrope,sans-serif">⚡ 1–2 daqiqada</span><span style="height:48px;padding:0 18px;border-radius:999px;background:#fff;display:flex;align-items:center;font:800 20px/1 Manrope,sans-serif">Username orqali</span></span></div>
+          <div style="position:relative;display:grid;place-items:center"><span style="width:320px;height:320px;border-radius:84px;background:#E89A00;color:#fff;display:grid;place-items:center;font-size:190px;transform:rotate(-8deg);box-shadow:0 40px 80px -30px rgba(122,86,0,.7)"><i class="icon-star"></i></span></div>
+        </div>
+      </div>
+      <div id="share-premium" style="width:1200px;height:630px;position:relative;overflow:hidden;background:#1B1440;color:#fff;display:grid;grid-template-columns:1fr 440px;align-items:center;padding:0 80px;gap:40px">
+        <span aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(55% 75% at 82% 45%,rgba(165,139,255,.7),transparent 70%)"></span>
+        <div style="position:relative;display:flex;flex-direction:column;gap:22px"><span style="display:flex;align-items:center;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:#4A57FF;display:grid;place-items:center;font:800 23px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:3px">g<span style="color:#FFC531">g</span></span><span style="font:700 28px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span></span><h2 style="margin:0;font:700 72px/1.02 Unbounded,sans-serif;letter-spacing:-.04em">Telegram Premium</h2><span style="font:700 30px/1.3 Manrope,sans-serif;color:#D6CCFF">165 000 so‘m dan · 3, 6, 12 oy</span><span style="display:flex;gap:10px"><span style="height:48px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;font:800 20px/1 Manrope,sans-serif">🎁 Sovg‘a qilish mumkin</span><span style="height:48px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;font:800 20px/1 Manrope,sans-serif">⚡ Avto</span></span></div>
+        <div style="position:relative;display:grid;place-items:center"><span style="width:320px;height:320px;border-radius:84px;background:#7C4DFF;color:#fff;display:grid;place-items:center;font-size:180px;transform:rotate(6deg);box-shadow:0 40px 80px -30px rgba(0,0,0,.8)"><i class="icon-crown"></i></span></div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

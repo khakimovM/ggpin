@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Telegram Stars, Premium va o‘yin donatlari</title>
+<meta name="description" content="Telegram Stars, Telegram Premium, PUBG Mobile UC, Mobile Legends olmoslari va boshqa raqamli mahsulotlar. Click, Payme, Uzum, Rahmat orqali to‘lov, 1–2 daqiqada avtomatik yetkazish.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+<script src="image-slot.js"></script>
+</helmet>
+<div ref="{{ rootRef }}" data-theme="{{ theme }}" data-reduced="{{ reduced }}" style="container-type:inline-size;background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif;min-height:100%;overflow:hidden">
+
+<header style="position:sticky;top:0;z-index:20;background:color-mix(in oklab,var(--background) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)">
+  <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);height:clamp(64px,5cqi,72px);display:flex;align-items:center;gap:32px">
+    <a href="/" aria-label="ggpin — bosh sahifa" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)"><span style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 20px/1 Unbounded,sans-serif;letter-spacing:-.04em"><span style="color:var(--primary)">gg</span>pin</span></a>
+    <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}">
+      <nav aria-label="Asosiy" style="display:flex;gap:0">
+        <a href="#mahsulotlar" style="height:40px;padding:0 14px;border-radius:10px;display:flex;align-items:center;white-space:nowrap;text-decoration:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">Mahsulotlar</a>
+        <a href="#qanday-ishlaydi" style="height:40px;padding:0 14px;border-radius:10px;display:flex;align-items:center;white-space:nowrap;text-decoration:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">Qanday ishlaydi</a>
+        <a href="#savollar" style="height:40px;padding:0 14px;border-radius:10px;display:flex;align-items:center;white-space:nowrap;text-decoration:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">Savollar</a>
+      </nav>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <div style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)">
+          <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="min-width:44px;height:34px;padding:0 10px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 12px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for>
+        </div>
+        <a href="/login" style="height:44px;padding:0 16px;border-radius:12px;display:flex;align-items:center;white-space:nowrap;text-decoration:none;color:var(--text);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">Kirish</a>
+        <a href="https://t.me/ggpinbot" style="height:44px;padding:0 18px;border-radius:12px;display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:700 14px/1 Manrope,sans-serif;transition:background var(--dur-fast)" style-hover="background:var(--primary-hover);color:var(--primary-foreground)"><i class="icon-send" style="font-size:16px"></i>Telegram’da ochish</a>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m }}">
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <a href="/login" style="height:44px;padding:0 12px;border-radius:12px;display:flex;align-items:center;text-decoration:none;color:var(--text);font:700 14px/1 Manrope,sans-serif">Kirish</a>
+        <button onClick="{{ toggleMenu }}" aria-label="Menyu" aria-expanded="{{ menuOpen }}" style="width:44px;height:44px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text);display:grid;place-items:center;font-size:20px;cursor:pointer"><i class="{{ menuIcon }}"></i></button>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ menuOpen }}">
+    <div style="border-top:1px solid var(--border);background:var(--surface);padding:8px 16px 20px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow-lg)">
+      <a href="#mahsulotlar" style="height:52px;display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:var(--text);font:700 16px/1 Manrope,sans-serif;border-bottom:1px solid var(--border)">Mahsulotlar<i class="icon-chevron-right" style="color:var(--text-muted)"></i></a>
+      <a href="#qanday-ishlaydi" style="height:52px;display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:var(--text);font:700 16px/1 Manrope,sans-serif;border-bottom:1px solid var(--border)">Qanday ishlaydi<i class="icon-chevron-right" style="color:var(--text-muted)"></i></a>
+      <a href="#savollar" style="height:52px;display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:var(--text);font:700 16px/1 Manrope,sans-serif;border-bottom:1px solid var(--border)">Savollar<i class="icon-chevron-right" style="color:var(--text-muted)"></i></a>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:56px"><span style="font:600 14px/1 Manrope,sans-serif;color:var(--text-muted)">Til</span>
+        <div style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)">
+          <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="min-width:48px;height:38px;padding:0 10px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 13px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for>
+        </div>
+      </div>
+      <a href="https://t.me/ggpinbot" style="height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow)"><i class="icon-send" style="font-size:17px"></i>Telegram’da ochish</a>
+    </div>
+  </sc-if>
+</header>
+
+<sc-if value="{{ isLanding }}" hint-placeholder-val="{{ true }}">
+<main>
+  <sc-if value="{{ heroShowcase }}" hint-placeholder-val="{{ true }}">
+  <section aria-labelledby="hero-title" style="position:relative;isolation:isolate;overflow:hidden;border-bottom:1px solid var(--border)">
+    <div aria-hidden="true" style="position:absolute;z-index:-2;top:-20%;bottom:-20%;left:clamp(-220px,calc(64cqi - 600px),34%);right:-25%;transform:rotate(-9deg);display:flex;flex-direction:column;justify-content:center;gap:18px">
+      <sc-for list="{{ wallRows }}" as="row" hint-placeholder-count="3">
+        <div style="display:flex;gap:18px;width:max-content;margin-left:{{ row.off }};animation:{{ row.anim }}">
+          <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="8">
+            <div style="position:relative;flex:none;width:clamp(128px,12.5cqi,184px);aspect-ratio:3/4;border-radius:24px;overflow:hidden;background:{{ it.bg }};border:1px solid var(--border);box-shadow:var(--shadow-md)">
+              <span style="position:absolute;inset:0;background:{{ it.bgImg }};display:grid;place-items:center;color:var(--text-muted);font-size:28px"><sc-if value="{{ it.noImg }}" hint-placeholder-val="{{ true }}"><i class="icon-image"></i></sc-if></span>
+              <span style="position:absolute;left:10px;bottom:10px;pointer-events:none;height:26px;padding:0 10px;border-radius:999px;background:color-mix(in oklab,var(--elevated) 88%,transparent);backdrop-filter:blur(8px);color:var(--text);font:800 11px/26px Manrope,sans-serif;white-space:nowrap">{{ it.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}"><div aria-hidden="true" style="position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(90deg,var(--background) 0%,var(--background) 34%,color-mix(in oklab,var(--background) 72%,transparent) 50%,color-mix(in oklab,var(--background) 18%,transparent) 70%,color-mix(in oklab,var(--background) 40%,transparent) 100%),linear-gradient(0deg,var(--background) 0%,transparent 18%,transparent 85%,var(--background) 100%)"></div></sc-if>
+    <sc-if value="{{ m }}"><div aria-hidden="true" style="position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,var(--background) 0%,var(--background) 50%,color-mix(in oklab,var(--background) 55%,transparent) 66%,color-mix(in oklab,var(--background) 20%,transparent) 82%,var(--background) 100%)"></div></sc-if>
+
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding:clamp(32px,4.5cqi,64px) clamp(16px,2.5cqi,32px) clamp(48px,5cqi,80px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:clamp(40px,4cqi,64px);align-items:center">
+      <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+        <span style="align-self:flex-start;max-width:100%;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 6px;border-radius:999px;background:var(--card);border:1px solid var(--border);font:700 13px/1 Manrope,sans-serif;color:var(--text-secondary)"><span style="flex:none;white-space:nowrap;height:22px;padding:0 8px;border-radius:999px;background:var(--success-soft);color:var(--success-text);display:flex;align-items:center;font:800 11px/1 Manrope,sans-serif">⚡ Avto</span>Telegram bot · Mini App · sayt</span>
+        <h1 id="hero-title" style="margin:0;font:700 clamp(30px,3.9cqi,56px)/1.1 Unbounded,sans-serif;letter-spacing:-.035em;text-wrap:balance">Telegram Stars, Premium va o‘yin donatlari — <span style="color:var(--primary)">bir necha daqiqada</span></h1>
+        <p style="margin:0;max-width:540px;font:500 clamp(16px,1.3cqi,19px)/1.55 Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">Hamyonni Click, Payme, Uzum yoki Rahmat orqali so‘mda to‘ldiring, mahsulotni tanlang — buyurtma avtomatik yetkaziladi, holatini esa jonli kuzatasiz.</p>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:560px">
+          <sc-for list="{{ picks }}" as="k" hint-placeholder-count="4">
+            <a href="{{ k.href }}" style="display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 10px 8px 8px;border-radius:16px;background:var(--card);border:1px solid var(--border);text-decoration:none;color:var(--text);min-width:0;transition:border-color var(--dur-fast),transform var(--dur-base) var(--ease-out)" style-hover="border-color:var(--primary);color:var(--text);transform:translateY(-2px)">
+              <span style="position:relative;width:40px;height:40px;border-radius:12px;overflow:hidden;flex:none;background:{{ k.bg }};color:{{ k.fg }};display:grid;place-items:center;font-size:19px">
+                <sc-if value="{{ k.noSlot }}" hint-placeholder-val="{{ true }}"><i class="{{ k.icon }}"></i></sc-if>
+                <sc-if value="{{ k.slot }}"><span style="position:absolute;inset:0;background:{{ k.bgImg }};display:grid;place-items:center;color:var(--text-muted);font:800 10px/1 Manrope,sans-serif"><sc-if value="{{ k.noImg }}" hint-placeholder-val="{{ true }}">{{ k.ini }}</sc-if></span></sc-if>
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font:800 14px/18px Manrope,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.name }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap">{{ k.price }}</span></span>
+              <i class="icon-chevron-right" style="margin-left:auto;font-size:16px;color:var(--text-muted);flex:none"></i>
+            </a>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <a href="https://t.me/ggpinbot" style="flex:1 1 220px;max-width:280px;min-width:min(100%,220px);height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;white-space:nowrap;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow);transition:background var(--dur-fast),transform var(--dur-instant)" style-hover="background:var(--primary-hover);color:var(--primary-foreground)" style-active="transform:scale(.98)"><i class="icon-send" style="font-size:18px"></i>Telegram’da ochish</a>
+          <a href="/katalog" style="flex:1 1 220px;max-width:280px;min-width:min(100%,220px);height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;background:var(--card);border:1.5px solid var(--border);color:var(--text);font:800 16px/1 Manrope,sans-serif;transition:background var(--dur-fast)" style-hover="background:var(--muted);color:var(--text)">Saytda xarid qilish<i class="icon-arrow-right" style="font-size:18px"></i></a>
+        </div>
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px;font:700 14px/20px Manrope,sans-serif;color:var(--text-secondary)">
+          <li>⚡ 1–2 daqiqada yetkaziladi</li><li>🔒 Xavfsiz to‘lov</li><li>💸 Bajarilmasa — pul qaytadi</li>
+        </ul>
+      </div>
+
+      <div aria-hidden="true" style="position:relative;justify-self:center;width:min(100%,500px);height:clamp(580px,46cqi,660px);display:grid;place-items:center">
+        <span style="position:absolute;width:min(110%,560px);aspect-ratio:1;border-radius:50%;background:radial-gradient(closest-side,var(--primary-soft),transparent)"></span>
+        <span style="position:absolute;top:1%;right:2%;width:clamp(112px,12cqi,172px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 32% 28%,color-mix(in oklab,var(--accent) 35%,white) 0%,var(--accent) 42%,var(--star) 100%);color:var(--primary-foreground);display:grid;place-items:center;font:700 clamp(58px,6cqi,92px)/1 Manrope,sans-serif;box-shadow:0 24px 60px -16px color-mix(in oklab,var(--star) 70%,transparent),inset 0 -6px 14px color-mix(in oklab,var(--star) 60%,black 10%);transform:rotate(12deg);animation:gg-bob 7s ease-in-out infinite">★</span>
+        <span style="position:absolute;bottom:20%;right:4%;width:clamp(76px,7cqi,100px);aspect-ratio:1;border-radius:28px;background:var(--premium);color:var(--primary-foreground);display:grid;place-items:center;font-size:clamp(34px,3.2cqi,46px);box-shadow:0 20px 44px -14px color-mix(in oklab,var(--premium) 80%,transparent);transform:rotate(-10deg);animation:gg-bob 8s ease-in-out 1.2s infinite"><i class="icon-crown"></i></span>
+        <span style="position:absolute;top:36%;left:2%;width:clamp(58px,5.4cqi,76px);aspect-ratio:1;border-radius:50%;background:var(--elevated);border:1px solid var(--border);color:var(--text);display:grid;place-items:center;font:700 clamp(15px,1.4cqi,19px)/1 Unbounded,sans-serif;letter-spacing:-.04em;box-shadow:var(--shadow-lg);transform:rotate(-8deg);animation:gg-bob 6s ease-in-out .6s infinite">UC</span>
+
+        <div data-theme="dark" style="position:relative;width:286px;height:clamp(540px,44cqi,600px);border-radius:46px;padding:8px;background:#05070F;box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.06) inset">
+          <div style="height:100%;border-radius:38px;overflow:hidden;background:var(--background);color:var(--text);display:flex;flex-direction:column">
+            <div style="height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:700 11px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span>9:41</span><span style="width:76px;height:22px;border-radius:999px;background:#000"></span><span style="display:flex;gap:4px;font-size:11px"><i class="icon-signal"></i><i class="icon-battery-full"></i></span></div>
+            <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:700 12px/1 Manrope,sans-serif;color:var(--text-secondary)"><span>Yopish</span><span style="color:var(--text)">ggpin <span style="color:var(--text-muted);font-weight:600">bot</span></span><i class="icon-ellipsis-vertical" style="font-size:14px"></i></div>
+            <div style="flex:1;padding:4px 12px 0;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:30px;height:30px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 11px/1 Manrope,sans-serif">SR</span><span style="display:flex;flex-direction:column;gap:1px"><span style="font:800 12px/15px Manrope,sans-serif">Sardor</span><span style="font:600 10px/12px Manrope,sans-serif;color:var(--text-muted)">@sardor_r</span></span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px 0 4px;border-radius:999px;background:var(--card);border:1px solid var(--border);font:800 10px/1 Manrope,sans-serif"><span style="width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--accent-foreground);display:grid;place-items:center;font:800 9px/1 Unbounded,sans-serif">g</span>120</span></div>
+              <div style="background:var(--primary);color:var(--primary-foreground);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:10px">
+                <span style="font:700 10px/1 Manrope,sans-serif;opacity:.85">Balans</span>
+                <span style="display:flex;align-items:baseline;gap:5px;font-variant-numeric:tabular-nums"><span style="font:600 22px/1 Unbounded,sans-serif;letter-spacing:-.03em">85 400</span><span style="font:700 11px/1 Manrope,sans-serif;opacity:.85">so‘m</span></span>
+                <span style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><span style="height:30px;border-radius:10px;background:var(--primary-foreground);color:var(--primary);display:flex;align-items:center;justify-content:center;gap:4px;font:800 10px/1 Manrope,sans-serif"><i class="icon-plus"></i>To‘ldirish</span><span style="height:30px;border-radius:10px;background:color-mix(in oklab,var(--primary-foreground) 16%,transparent);display:flex;align-items:center;justify-content:center;gap:4px;font:800 10px/1 Manrope,sans-serif"><i class="icon-history"></i>Tarix</span></span>
+              </div>
+              <span style="font:800 12px/1 Manrope,sans-serif;margin-top:2px">Mahsulotlar</span>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <sc-for list="{{ phoneTiles }}" as="p" hint-placeholder-count="6"><span style="display:flex;flex-direction:column;gap:4px"><span style="position:relative;aspect-ratio:1;border-radius:12px;background:{{ p.bg }};border:1px solid var(--border);overflow:hidden"><span style="position:absolute;inset:0;background:{{ p.bgImg }};display:grid;place-items:center;color:var(--text-muted);font-size:14px"><sc-if value="{{ p.noImg }}" hint-placeholder-val="{{ true }}"><i class="icon-image"></i></sc-if></span><sc-if value="{{ p.tag }}"><span style="position:absolute;top:4px;right:4px;pointer-events:none;height:14px;padding:0 4px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font:800 7px/14px Manrope,sans-serif">{{ p.tag }}</span></sc-if></span><span style="font:700 9px/11px Manrope,sans-serif;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span></span></sc-for>
+              </div>
+            </div>
+            <div style="margin:8px 10px 10px;height:54px;border-radius:999px;background:var(--surface);border:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);padding:4px;gap:4px">
+              <span style="border-radius:999px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:800 8px/1 Manrope,sans-serif"><i class="icon-house" style="font-size:14px"></i>Bosh sahifa</span>
+              <span style="color:var(--text-muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 8px/1 Manrope,sans-serif"><i class="icon-history" style="font-size:14px"></i>Tarix</span>
+              <span style="color:var(--text-muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 8px/1 Manrope,sans-serif"><i class="icon-circle-user" style="font-size:14px"></i>Profil</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;top:9%;left:0;animation:gg-float-in var(--dur-slower) var(--ease-out) 300ms both">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:gg-bob 6s ease-in-out 1s infinite">
+            <span style="width:34px;height:34px;border-radius:50%;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-size:17px"><i class="icon-circle-check"></i></span>
+            <span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/18px Manrope,sans-serif;white-space:nowrap">500 ⭐ yetkazildi</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);white-space:nowrap">@dilnoza_k · 1 daq 12 son</span></span>
+          </div>
+        </div>
+        <div style="position:absolute;top:54%;left:-2%;animation:gg-float-in var(--dur-slower) var(--ease-out) 650ms both">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:gg-bob 7s ease-in-out 1.4s infinite">
+            <span style="width:34px;height:34px;border-radius:50%;background:var(--premium-soft);color:var(--premium);display:grid;place-items:center;font-size:16px"><i class="icon-crown"></i></span>
+            <span style="display:flex;flex-direction:column;gap:3px"><span style="font:800 14px/18px Manrope,sans-serif;white-space:nowrap">Premium 3 oylik</span><span style="display:inline-flex;align-items:center;gap:4px;font:700 11px/14px Manrope,sans-serif;color:var(--status-processing);white-space:nowrap"><span style="display:flex;font-size:12px">{{ spin }}</span>Bajarilmoqda</span></span>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:5%;right:0;animation:gg-float-in var(--dur-slower) var(--ease-out) 1000ms both">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:gg-bob 6.5s ease-in-out 1.8s infinite">
+            <span style="position:relative;width:34px;height:34px;border-radius:10px;overflow:hidden;background:var(--muted)"><span style="position:absolute;inset:0;background:{{ pubgArt.bgImg }};display:grid;place-items:center;color:var(--text-muted);font:800 8px/1 Manrope,sans-serif"><sc-if value="{{ pubgArt.noImg }}" hint-placeholder-val="{{ true }}">PUBG</sc-if></span></span>
+            <span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/18px Manrope,sans-serif;white-space:nowrap">660 UC</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap">PUBG Mobile · 120 750 so‘m</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+  <sc-if value="{{ heroClassic }}">
+  <section aria-labelledby="hero-title" style="position:relative">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding:clamp(32px,5cqi,72px) clamp(16px,2.5cqi,32px) clamp(48px,6cqi,96px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:clamp(40px,4cqi,64px);align-items:center">
+      <div style="display:flex;flex-direction:column;gap:24px;min-width:0">
+        <span style="align-self:flex-start;max-width:100%;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 6px;border-radius:999px;background:var(--card);border:1px solid var(--border);font:700 13px/1 Manrope,sans-serif;color:var(--text-secondary)"><span style="flex:none;white-space:nowrap;height:22px;padding:0 8px;border-radius:999px;background:var(--success-soft);color:var(--success-text);display:flex;align-items:center;font:800 11px/1 Manrope,sans-serif">⚡ Avto</span>Telegram bot · Mini App · sayt</span>
+        <h1 id="hero-title" style="margin:0;font:700 clamp(30px,3.9cqi,56px)/1.1 Unbounded,sans-serif;letter-spacing:-.035em;text-wrap:balance">Telegram Stars, Premium va o‘yin donatlari — <span style="color:var(--primary)">bir necha daqiqada</span></h1>
+        <p style="margin:0;max-width:540px;font:500 clamp(16px,1.3cqi,19px)/1.55 Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">Hamyonni Click, Payme, Uzum yoki Rahmat orqali so‘mda to‘ldiring, mahsulotni tanlang — buyurtma avtomatik yetkaziladi, holatini esa jonli kuzatasiz.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <a href="https://t.me/ggpinbot" style="flex:1 1 220px;max-width:280px;min-width:min(100%,220px);height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow);transition:background var(--dur-fast),transform var(--dur-instant)" style-hover="background:var(--primary-hover);color:var(--primary-foreground)" style-active="transform:scale(.98)"><i class="icon-send" style="font-size:18px"></i>Telegram’da ochish</a>
+          <a href="/katalog" style="flex:1 1 220px;max-width:280px;min-width:min(100%,220px);height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;background:var(--card);border:1.5px solid var(--border);color:var(--text);font:800 16px/1 Manrope,sans-serif;transition:background var(--dur-fast)" style-hover="background:var(--muted);color:var(--text)">Saytda xarid qilish<i class="icon-arrow-right" style="font-size:18px"></i></a>
+        </div>
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px;font:700 14px/20px Manrope,sans-serif;color:var(--text-secondary)">
+          <li>⚡ 1–2 daqiqada yetkaziladi</li><li>🔒 Xavfsiz to‘lov</li><li>💸 Bajarilmasa — pul qaytadi</li>
+        </ul>
+      </div>
+
+      <div aria-hidden="true" style="position:relative;justify-self:center;width:min(100%,480px);height:clamp(560px,46cqi,640px);display:grid;place-items:center">
+        <span style="position:absolute;width:min(110%,560px);aspect-ratio:1;border-radius:50%;background:radial-gradient(closest-side,var(--primary-soft),transparent);opacity:.9"></span>
+        <div data-theme="dark" style="position:relative;width:286px;height:clamp(540px,44cqi,600px);border-radius:46px;padding:8px;background:#05070F;box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.06) inset">
+          <div style="height:100%;border-radius:38px;overflow:hidden;background:var(--background);color:var(--text);display:flex;flex-direction:column">
+            <div style="height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:700 11px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span>9:41</span><span style="width:76px;height:22px;border-radius:999px;background:#000"></span><span style="display:flex;gap:4px;font-size:11px"><i class="icon-signal"></i><i class="icon-battery-full"></i></span></div>
+            <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:700 12px/1 Manrope,sans-serif;color:var(--text-secondary)"><span>Yopish</span><span style="color:var(--text)">ggpin <span style="color:var(--text-muted);font-weight:600">bot</span></span><i class="icon-ellipsis-vertical" style="font-size:14px"></i></div>
+            <div style="flex:1;padding:4px 12px 0;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:30px;height:30px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 11px/1 Manrope,sans-serif">SR</span><span style="display:flex;flex-direction:column;gap:1px"><span style="font:800 12px/15px Manrope,sans-serif">Sardor</span><span style="font:600 10px/12px Manrope,sans-serif;color:var(--text-muted)">@sardor_r</span></span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px 0 4px;border-radius:999px;background:var(--card);border:1px solid var(--border);font:800 10px/1 Manrope,sans-serif"><span style="width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--accent-foreground);display:grid;place-items:center;font:800 9px/1 Unbounded,sans-serif">g</span>120</span></div>
+              <div style="background:var(--primary);color:var(--primary-foreground);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:10px">
+                <span style="font:700 10px/1 Manrope,sans-serif;opacity:.85">Balans</span>
+                <span style="display:flex;align-items:baseline;gap:5px;font-variant-numeric:tabular-nums"><span style="font:600 22px/1 Unbounded,sans-serif;letter-spacing:-.03em">85 400</span><span style="font:700 11px/1 Manrope,sans-serif;opacity:.85">so‘m</span></span>
+                <span style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><span style="height:30px;border-radius:10px;background:var(--primary-foreground);color:var(--primary);display:flex;align-items:center;justify-content:center;gap:4px;font:800 10px/1 Manrope,sans-serif"><i class="icon-plus"></i>To‘ldirish</span><span style="height:30px;border-radius:10px;background:color-mix(in oklab,var(--primary-foreground) 16%,transparent);display:flex;align-items:center;justify-content:center;gap:4px;font:800 10px/1 Manrope,sans-serif"><i class="icon-history"></i>Tarix</span></span>
+              </div>
+              <span style="font:800 12px/1 Manrope,sans-serif;margin-top:2px">Mahsulotlar</span>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <sc-for list="{{ phoneTiles }}" as="p" hint-placeholder-count="6"><span style="display:flex;flex-direction:column;gap:4px"><span style="position:relative;aspect-ratio:1;border-radius:12px;background:{{ p.bg }};border:1px solid var(--border);overflow:hidden"><span style="position:absolute;inset:0;background:{{ p.bgImg }};display:grid;place-items:center;color:var(--text-muted);font-size:14px"><sc-if value="{{ p.noImg }}" hint-placeholder-val="{{ true }}"><i class="icon-image"></i></sc-if></span><sc-if value="{{ p.tag }}"><span style="position:absolute;top:4px;right:4px;height:14px;padding:0 4px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font:800 7px/14px Manrope,sans-serif">{{ p.tag }}</span></sc-if></span><span style="font:700 9px/11px Manrope,sans-serif;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span></span></sc-for>
+              </div>
+            </div>
+            <div style="margin:8px 10px 10px;height:54px;border-radius:999px;background:var(--surface);border:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);padding:4px;gap:4px">
+              <span style="border-radius:999px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:800 8px/1 Manrope,sans-serif"><i class="icon-house" style="font-size:14px"></i>Bosh sahifa</span>
+              <span style="color:var(--text-muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 8px/1 Manrope,sans-serif"><i class="icon-history" style="font-size:14px"></i>Tarix</span>
+              <span style="color:var(--text-muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 8px/1 Manrope,sans-serif"><i class="icon-circle-user" style="font-size:14px"></i>Profil</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;top:13%;left:0;animation:gg-float-in var(--dur-slower) var(--ease-out) 300ms both">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:gg-bob 6s ease-in-out 1s infinite">
+            <span style="width:34px;height:34px;border-radius:50%;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-size:17px"><i class="icon-circle-check"></i></span>
+            <span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/18px Manrope,sans-serif">500 ⭐ yetkazildi</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">@dilnoza_k · 1 daq 12 son</span></span>
+          </div>
+        </div>
+        <div style="position:absolute;top:47%;right:0;animation:gg-float-in var(--dur-slower) var(--ease-out) 650ms both">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:gg-bob 7s ease-in-out 1.4s infinite">
+            <span style="width:34px;height:34px;border-radius:50%;background:var(--premium-soft);color:var(--premium);display:grid;place-items:center;font-size:16px"><i class="icon-crown"></i></span>
+            <span style="display:flex;flex-direction:column;gap:3px"><span style="font:800 14px/18px Manrope,sans-serif">Premium 3 oylik</span><span style="display:inline-flex;align-items:center;gap:4px;font:700 11px/14px Manrope,sans-serif;color:var(--status-processing)"><span style="display:flex;font-size:12px">{{ spin }}</span>Bajarilmoqda</span></span>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:9%;left:4%;animation:gg-float-in var(--dur-slower) var(--ease-out) 1000ms both">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:gg-bob 6.5s ease-in-out 1.8s infinite">
+            <span style="width:34px;height:34px;border-radius:10px;background:var(--muted);color:var(--text-muted);display:grid;place-items:center;font:800 8px/1 Manrope,sans-serif">PUBG</span>
+            <span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/18px Manrope,sans-serif">660 UC</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">120 750 so‘m</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+
+  <section id="mahsulotlar" aria-labelledby="products-title" style="padding-block:clamp(48px,6cqi,96px)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px">
+        <div style="display:flex;flex-direction:column;gap:8px"><h2 id="products-title" style="margin:0;font:800 clamp(26px,2.6cqi,38px)/1.15 Manrope,sans-serif;letter-spacing:-.02em">Mahsulotlar</h2><p style="margin:0;font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">Bitta hamyon — barcha raqamli xaridlar.</p></div>
+        <a href="/katalog" style="display:inline-flex;align-items:center;gap:6px;height:44px;font:700 15px/1 Manrope,sans-serif;text-decoration:none;color:var(--primary-soft-foreground)">Katalogga o‘tish<i class="icon-arrow-right" style="font-size:16px"></i></a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(max(156px,18cqi),1fr));gap:clamp(12px,1.4cqi,20px)">
+        <sc-for list="{{ products }}" as="p" hint-placeholder-count="8">
+          <a href="{{ p.href }}" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:12px;padding:8px 8px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base)" style-hover="transform:translateY(-3px);box-shadow:var(--shadow-md);color:inherit">
+            <span style="position:relative;aspect-ratio:1;border-radius:14px;background:{{ p.bg }};overflow:hidden;opacity:{{ p.op }}"><sc-if value="{{ artSlots }}" hint-placeholder-val="{{ true }}"><image-slot id="art-{{ p.id }}" shape="rounded" radius="14" placeholder="{{ p.name }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if><sc-if value="{{ noArtSlots }}"><span style="position:absolute;inset:0;background:{{ p.bgImg }};display:grid;place-items:center;color:var(--text-muted);font:700 12px/16px Manrope,sans-serif;text-align:center;padding:0 8px"><sc-if value="{{ p.noImg }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;align-items:center;gap:6px"><i class="icon-image" style="font-size:24px"></i>{{ p.name }}</span></sc-if></span></sc-if>
+              <sc-if value="{{ p.hot }}"><span style="position:absolute;top:8px;left:8px;pointer-events:none;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:7px;background:var(--accent);color:var(--accent-foreground);font:800 10px/1 Manrope,sans-serif"><i class="icon-flame" style="font-size:11px"></i>Mashhur</span></sc-if>
+              <sc-if value="{{ p.region }}"><span style="position:absolute;top:8px;right:8px;pointer-events:none;height:22px;padding:0 7px;border-radius:7px;background:var(--primary);color:var(--primary-foreground);font:800 10px/22px Manrope,sans-serif">{{ p.region }}</span></sc-if>
+            </span>
+            <span style="display:flex;flex-direction:column;gap:6px;padding:0 6px">
+              <span style="font:800 15px/20px Manrope,sans-serif">{{ p.name }}</span>
+              <sc-if value="{{ p.live }}" hint-placeholder-val="{{ true }}">
+                <span style="display:inline-flex;align-self:flex-start;height:20px;padding:0 6px;border-radius:6px;background:{{ p.dbg }};color:{{ p.dfg }};font:800 10px/20px Manrope,sans-serif">{{ p.delivery }}</span>
+                <span style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px"><span style="font:800 16px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ p.price }}</span><span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">dan boshlab</span></span>
+              </sc-if>
+              <sc-if value="{{ p.soon }}">
+                <span style="display:inline-flex;align-self:flex-start;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:6px;background:var(--info-soft);color:var(--info-text);font:800 10px/20px Manrope,sans-serif"><i class="icon-clock" style="font-size:11px"></i>Tez orada</span>
+                <span style="font:600 13px/22px Manrope,sans-serif;color:var(--text-muted)">Ishga tushganda xabar beramiz</span>
+              </sc-if>
+            </span>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section id="qanday-ishlaydi" aria-labelledby="how-title" style="padding-block:clamp(48px,6cqi,96px);background:var(--surface);border-block:1px solid var(--border)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:flex;flex-direction:column;gap:32px">
+      <div style="display:flex;flex-direction:column;gap:8px"><h2 id="how-title" style="margin:0;font:800 clamp(26px,2.6cqi,38px)/1.15 Manrope,sans-serif;letter-spacing:-.02em">Qanday ishlaydi</h2><p style="margin:0;font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">Uch qadam. Ro‘yxatdan o‘tish shart emas — Telegram orqali kirasiz.</p></div>
+      <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px">
+        <li style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px">
+          <span style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 32px/1 Unbounded,sans-serif;color:var(--primary);letter-spacing:-.04em">01</span><span style="width:44px;height:44px;border-radius:14px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:20px"><i class="icon-wallet"></i></span></span>
+          <h3 style="margin:0;font:800 19px/25px Manrope,sans-serif">Hisobni to‘ldiring</h3>
+          <span style="display:flex;flex-wrap:wrap;gap:6px"><span style="height:30px;padding:0 10px;border-radius:999px;background:var(--muted);font:700 12px/30px Manrope,sans-serif;color:var(--text-secondary)">Click</span><span style="height:30px;padding:0 10px;border-radius:999px;background:var(--muted);font:700 12px/30px Manrope,sans-serif;color:var(--text-secondary)">Payme</span><span style="height:30px;padding:0 10px;border-radius:999px;background:var(--muted);font:700 12px/30px Manrope,sans-serif;color:var(--text-secondary)">Uzum</span><span style="height:30px;padding:0 10px;border-radius:999px;background:var(--muted);font:700 12px/30px Manrope,sans-serif;color:var(--text-secondary)">Rahmat</span></span>
+        </li>
+        <li style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px">
+          <span style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 32px/1 Unbounded,sans-serif;color:var(--primary);letter-spacing:-.04em">02</span><span style="width:44px;height:44px;border-radius:14px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:20px"><i class="icon-at-sign"></i></span></span>
+          <h3 style="margin:0;font:800 19px/25px Manrope,sans-serif">Mahsulotni tanlang va username yoki ID kiriting</h3>
+          <span style="display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 12px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);font:600 14px/1 Manrope,sans-serif"><span style="color:var(--text-muted)">@</span>dilnoza_k<span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:9px;background:var(--success-soft);color:var(--success-text);font:800 12px/1 Manrope,sans-serif"><i class="icon-check" style="font-size:13px"></i>Dilnoza K.</span></span>
+        </li>
+        <li style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px">
+          <span style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 32px/1 Unbounded,sans-serif;color:var(--primary);letter-spacing:-.04em">03</span><span style="width:44px;height:44px;border-radius:14px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:20px"><i class="icon-activity"></i></span></span>
+          <h3 style="margin:0;font:800 19px/25px Manrope,sans-serif">Bir necha daqiqada oling — holatini jonli kuzating</h3>
+          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-processing-soft);color:var(--status-processing);font:700 12px/1 Manrope,sans-serif"><span style="display:flex;font-size:13px">{{ spin }}</span>Bajarilmoqda</span><i class="icon-arrow-right" style="color:var(--text-muted);font-size:14px"></i><span style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-delivered-soft);color:var(--status-delivered);font:700 12px/1 Manrope,sans-serif"><i class="icon-circle-check" style="font-size:13px"></i>Yetkazildi</span></span>
+        </li>
+      </ol>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;padding-top:8px">
+        <span style="font:700 13px/18px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">To‘lov usullari</span>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <span style="display:flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 8px;border-radius:16px;background:var(--card);border:1px solid var(--border)"><span style="width:40px;height:40px;border-radius:12px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;color:var(--text-muted)">C</span><span style="font:800 15px/1 Manrope,sans-serif">Click</span></span>
+          <span style="display:flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 8px;border-radius:16px;background:var(--card);border:1px solid var(--border)"><span style="width:40px;height:40px;border-radius:12px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;color:var(--text-muted)">P</span><span style="font:800 15px/1 Manrope,sans-serif">Payme</span></span>
+          <span style="display:flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 8px;border-radius:16px;background:var(--card);border:1px solid var(--border)"><span style="width:40px;height:40px;border-radius:12px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;color:var(--text-muted)">U</span><span style="font:800 15px/1 Manrope,sans-serif">Uzum</span></span>
+          <span style="display:flex;align-items:center;gap:10px;height:56px;padding:0 18px 0 8px;border-radius:16px;background:var(--card);border:1px solid var(--border)"><span style="width:40px;height:40px;border-radius:12px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;color:var(--text-muted)">R</span><span style="font:800 15px/1 Manrope,sans-serif">Rahmat</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="why-title" style="padding-block:clamp(48px,6cqi,96px)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:flex;flex-direction:column;gap:32px">
+      <h2 id="why-title" style="margin:0;font:800 clamp(26px,2.6cqi,38px)/1.15 Manrope,sans-serif;letter-spacing:-.02em">Nega biz?</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:16px">
+        <article style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-size:22px"><i class="icon-zap"></i></span><h3 style="margin:4px 0 0;font:800 18px/24px Manrope,sans-serif">Avtomatik yetkazish</h3><p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Buyurtma to‘lovdan so‘ng darhol bajariladi — odatda 1–2 daqiqa. Operator kutish shart emas.</p></article>
+        <article style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:var(--info-soft);color:var(--info);display:grid;place-items:center;font-size:22px"><i class="icon-eye"></i></span><h3 style="margin:4px 0 0;font:800 18px/24px Manrope,sans-serif">Shaffof holat</h3><p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Har bir bosqichni ko‘rasiz: navbatda, bajarilmoqda, yetkazildi. Bot ham xabar beradi.</p></article>
+        <article style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:22px"><i class="icon-shield-check"></i></span><h3 style="margin:4px 0 0;font:800 18px/24px Manrope,sans-serif">Pul qaytarish kafolati</h3><p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Buyurtma bajarilmasa, pul avtomatik ravishda hamyoningizga qaytadi.</p></article>
+        <article style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:12px"><span style="width:48px;height:48px;border-radius:14px;background:var(--accent-soft);color:var(--accent-soft-foreground);display:grid;place-items:center;font-size:22px"><i class="icon-messages-square"></i></span><h3 style="margin:4px 0 0;font:800 18px/24px Manrope,sans-serif">O‘zbek va rus tilida yordam</h3><p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Savolingiz bo‘lsa, Telegram’da yozing — o‘zingizga qulay tilda javob beramiz.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="ref-title" style="padding-bottom:clamp(48px,6cqi,96px)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px)">
+      <div style="position:relative;overflow:hidden;background:var(--primary);color:var(--primary-foreground);border-radius:clamp(24px,2.4cqi,32px);padding:clamp(28px,4cqi,56px);display:flex;flex-wrap:wrap;align-items:center;gap:28px 48px">
+        <div style="flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:14px">
+          <h2 id="ref-title" style="margin:0;font:700 clamp(22px,2.3cqi,34px)/1.2 Unbounded,sans-serif;letter-spacing:-.03em;text-wrap:balance">Do‘stlaringizni taklif qiling — har bir xariddan 1% bonus</h2>
+          <p style="margin:0;max-width:560px;font:500 16px/24px Manrope,sans-serif;opacity:.9">Taklif havolangizni ulashing. Do‘stingiz har safar xarid qilganda summaning 1% bonus bo‘lib hamyoningizga tushadi.</p>
+          <a href="https://t.me/ggpinbot?start=ref" style="align-self:flex-start;margin-top:6px;height:52px;padding:0 22px;border-radius:16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:var(--primary-foreground);color:var(--primary);font:800 15px/1 Manrope,sans-serif" style-hover="color:var(--primary-hover)"><i class="icon-gift" style="font-size:18px"></i>Taklif havolasini olish</a>
+        </div>
+        <div aria-hidden="true" style="flex:0 0 auto;position:relative;width:clamp(120px,14cqi,180px);aspect-ratio:1;border-radius:50%;background:var(--accent);color:var(--accent-foreground);display:grid;place-items:center;box-shadow:0 0 0 14px color-mix(in oklab,var(--primary-foreground) 10%,transparent),0 0 0 28px color-mix(in oklab,var(--primary-foreground) 6%,transparent)"><span style="font:700 clamp(34px,4cqi,52px)/1 Unbounded,sans-serif;letter-spacing:-.04em">1%</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="savollar" aria-labelledby="faq-title" style="padding-block:clamp(48px,6cqi,96px);background:var(--surface);border-block:1px solid var(--border)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:32px 64px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <h2 id="faq-title" style="margin:0;font:800 clamp(26px,2.6cqi,38px)/1.15 Manrope,sans-serif;letter-spacing:-.02em">Savollar</h2>
+        <p style="margin:0;font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">Javob topmadingizmi? Telegram’da yozing.</p>
+        <a href="https://t.me/ggpin_support" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:12px;display:flex;align-items:center;gap:8px;text-decoration:none;border:1.5px solid var(--border);color:var(--text);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-message-circle" style="font-size:16px"></i>Yordamga yozish</a>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:24px;overflow:hidden">
+        <sc-for list="{{ faqLanding }}" as="f" hint-placeholder-count="5">
+          <div style="border-bottom:1px solid var(--border)">
+            <h3 style="margin:0"><button onClick="{{ f.onClick }}" aria-expanded="{{ f.open }}" style="width:100%;min-height:64px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:none;background:none;color:var(--text);font:700 16px/22px Manrope,sans-serif;text-align:left;cursor:pointer" style-hover="background:var(--muted)">{{ f.q }}<i class="icon-chevron-down" style="font-size:20px;color:var(--text-muted);transform:{{ f.rot }};transition:transform var(--dur-base) var(--ease-standard);flex:none"></i></button></h3>
+            <sc-if value="{{ f.open }}"><p style="margin:0;padding:0 20px 20px;font:500 15px/23px Manrope,sans-serif;color:var(--text-secondary);max-width:640px">{{ f.a }}</p></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="cta-title" style="padding-block:clamp(56px,7cqi,112px)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+      <span aria-hidden="true" style="width:64px;height:64px;border-radius:20px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 29px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:4px;box-shadow:var(--shadow-glow)">g<span style="color:var(--accent)">g</span></span>
+      <h2 id="cta-title" style="margin:0;max-width:760px;font:700 clamp(24px,2.8cqi,40px)/1.18 Unbounded,sans-serif;letter-spacing:-.03em;text-wrap:balance">Birinchi buyurtma — bir necha daqiqada</h2>
+      <p style="margin:0;max-width:520px;font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">Botni oching yoki saytda Telegram orqali kiring. Parol kerak emas.</p>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;width:100%;margin-top:4px">
+        <a href="https://t.me/ggpinbot" style="flex:0 1 260px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow)" style-hover="background:var(--primary-hover);color:var(--primary-foreground)"><i class="icon-send" style="font-size:18px"></i>Telegram’da ochish</a>
+        <a href="/katalog" style="flex:0 1 260px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;background:var(--card);border:1.5px solid var(--border);color:var(--text);font:800 16px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">Saytda xarid qilish</a>
+      </div>
+    </div>
+  </section>
+</main>
+</sc-if>
+
+<sc-if value="{{ isProduct }}">
+<main>
+  <div style="width:100%;max-width:1264px;margin:0 auto;padding:clamp(16px,2cqi,28px) clamp(16px,2.5cqi,32px) 0">
+    <nav aria-label="Breadcrumb" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:600 13px/20px Manrope,sans-serif;color:var(--text-muted)"><a href="/" style="color:var(--text-muted);text-decoration:none" style-hover="color:var(--text)">Bosh sahifa</a><i class="icon-chevron-right" style="font-size:12px"></i><a href="/#mahsulotlar" style="color:var(--text-muted);text-decoration:none" style-hover="color:var(--text)">Mahsulotlar</a><i class="icon-chevron-right" style="font-size:12px"></i><span aria-current="page" style="color:var(--text)">Telegram Stars</span></nav>
+  </div>
+  <section aria-labelledby="p-title" style="width:100%;max-width:1264px;margin:0 auto;padding:clamp(20px,3cqi,40px) clamp(16px,2.5cqi,32px) clamp(48px,6cqi,88px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(24px,4cqi,56px);align-items:start">
+    <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="position:relative;aspect-ratio:4/3;border-radius:28px;background:var(--star-soft);border:1px solid var(--border);overflow:hidden"><sc-if value="{{ artSlots }}" hint-placeholder-val="{{ true }}"><image-slot id="art-stars-hero" shape="rounded" radius="28" placeholder="Telegram Stars — asosiy rasm" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if><sc-if value="{{ noArtSlots }}"><span style="position:absolute;inset:0;background:{{ starsHeroBg }};display:grid;place-items:center;color:var(--text-muted);font-size:32px"><i class="icon-image"></i></span></sc-if></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Narx</span><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">1 ⭐ = 220 so‘m</span></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Minimal</span><span style="font:800 15px/20px Manrope,sans-serif">50 ⭐</span></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Yetkazish</span><span style="font:800 15px/20px Manrope,sans-serif">1–2 daqiqa</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="height:24px;padding:0 8px;border-radius:8px;background:var(--success-soft);color:var(--success-text);font:800 11px/24px Manrope,sans-serif">⚡ Avto</span><span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:8px;background:var(--muted);color:var(--text-secondary);font:800 11px/1 Manrope,sans-serif"><i class="icon-globe" style="font-size:12px"></i>Global</span></div>
+      <h1 id="p-title" style="margin:0;font:700 clamp(30px,3.4cqi,48px)/1.1 Unbounded,sans-serif;letter-spacing:-.035em">Telegram Stars</h1>
+      <p style="margin:0;font:500 17px/26px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">Telegram’da sovg‘alar, reaksiyalar, kanal obunalari va botlar uchun ishlatiladigan yulduzlar. O‘zingizga yoki do‘stingizga username orqali yuboring — 1–2 daqiqada akkauntga tushadi.</p>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:8px">
+        <div style="display:flex;justify-content:space-between;padding:12px 14px 8px;font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)"><span>Miqdor</span><span>Narx</span></div>
+        <div role="radiogroup" aria-label="Stars miqdori" style="display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{ stars }}" as="r" hint-placeholder-count="5">
+            <button role="radio" aria-checked="{{ r.on }}" onClick="{{ r.onClick }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 14px;border-radius:16px;border:1.5px solid {{ r.bd }};background:{{ r.bg }};color:var(--text);cursor:pointer;text-align:left;transition:background var(--dur-fast),border-color var(--dur-fast)" style-hover="background:var(--muted)">
+              <span style="width:20px;height:20px;border-radius:50%;border:{{ r.dot }} solid {{ r.dotC }};background:var(--card);flex:none;transition:border-width var(--dur-base) var(--ease-spring)"></span>
+              <span style="font:800 16px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ r.label }}</span>
+              <sc-if value="{{ r.hot }}"><span style="display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:7px;background:var(--accent);color:var(--accent-foreground);font:800 10px/1 Manrope,sans-serif"><i class="icon-flame" style="font-size:11px"></i>Mashhur</span></sc-if>
+              <span style="margin-left:auto;font:700 15px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ r.price }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <p style="margin:0;padding:10px 14px 8px;font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Boshqa miqdor kerakmi? Xarid sahifasida 50 ⭐ dan istalgan sonni kiriting.</p>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <a href="/katalog/telegram-stars" style="flex:1 1 260px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;box-shadow:var(--shadow-glow)" style-hover="background:var(--primary-hover);color:var(--primary-foreground)">Sotib olish · {{ starPrice }}</a>
+        <a href="https://t.me/ggpinbot" style="flex:0 1 auto;height:56px;padding:0 20px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border:1.5px solid var(--border);color:var(--text);font:800 15px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-send" style="font-size:17px"></i>Telegram’da</a>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="p-how" style="padding-block:clamp(48px,6cqi,88px);background:var(--surface);border-block:1px solid var(--border)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:flex;flex-direction:column;gap:28px">
+      <h2 id="p-how" style="margin:0;font:800 clamp(24px,2.4cqi,34px)/1.2 Manrope,sans-serif;letter-spacing:-.02em">Telegram Stars qanday sotib olinadi</h2>
+      <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px">
+        <li style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:22px;display:flex;gap:16px"><span style="font:700 26px/1 Unbounded,sans-serif;color:var(--primary)">1</span><span style="display:flex;flex-direction:column;gap:6px"><h3 style="margin:0;font:800 17px/22px Manrope,sans-serif">Username’ni kiriting</h3><span style="font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Stars kimga borishini yozing. Ism va rasmni ko‘rib, tasdiqlaysiz.</span></span></li>
+        <li style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:22px;display:flex;gap:16px"><span style="font:700 26px/1 Unbounded,sans-serif;color:var(--primary)">2</span><span style="display:flex;flex-direction:column;gap:6px"><h3 style="margin:0;font:800 17px/22px Manrope,sans-serif">Miqdorni tanlang</h3><span style="font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Tayyor paketlardan yoki 50 ⭐ dan istalgan son.</span></span></li>
+        <li style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:22px;display:flex;gap:16px"><span style="font:700 26px/1 Unbounded,sans-serif;color:var(--primary)">3</span><span style="display:flex;flex-direction:column;gap:6px"><h3 style="margin:0;font:800 17px/22px Manrope,sans-serif">Hamyondan to‘lang</h3><span style="font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Stars 1–2 daqiqada tushadi. Holatini “Tarix”da kuzatasiz.</span></span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section aria-labelledby="p-faq" style="padding-block:clamp(48px,6cqi,88px)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:24px 64px;align-items:start">
+      <h2 id="p-faq" style="margin:0;font:800 clamp(24px,2.4cqi,34px)/1.2 Manrope,sans-serif;letter-spacing:-.02em">Telegram Stars bo‘yicha savollar</h2>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:24px;overflow:hidden">
+        <sc-for list="{{ faqProduct }}" as="f" hint-placeholder-count="4">
+          <div style="border-bottom:1px solid var(--border)">
+            <h3 style="margin:0"><button onClick="{{ f.onClick }}" aria-expanded="{{ f.open }}" style="width:100%;min-height:60px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:none;background:none;color:var(--text);font:700 16px/22px Manrope,sans-serif;text-align:left;cursor:pointer" style-hover="background:var(--muted)">{{ f.q }}<i class="icon-chevron-down" style="font-size:20px;color:var(--text-muted);transform:{{ f.rot }};transition:transform var(--dur-base) var(--ease-standard);flex:none"></i></button></h3>
+            <sc-if value="{{ f.open }}"><p style="margin:0;padding:0 20px 18px;font:500 15px/23px Manrope,sans-serif;color:var(--text-secondary)">{{ f.a }}</p></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="p-rel" style="padding-bottom:clamp(56px,7cqi,104px)">
+    <div style="width:100%;max-width:1264px;margin:0 auto;padding-inline:clamp(16px,2.5cqi,32px);display:flex;flex-direction:column;gap:24px">
+      <h2 id="p-rel" style="margin:0;font:800 clamp(24px,2.4cqi,34px)/1.2 Manrope,sans-serif;letter-spacing:-.02em">Boshqa mahsulotlar</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(max(156px,18cqi),1fr));gap:clamp(12px,1.4cqi,20px)">
+        <sc-for list="{{ related }}" as="p" hint-placeholder-count="4">
+          <a href="{{ p.href }}" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:12px;padding:8px 8px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base)" style-hover="transform:translateY(-3px);box-shadow:var(--shadow-md);color:inherit">
+            <span style="position:relative;aspect-ratio:1;border-radius:14px;background:{{ p.bg }};overflow:hidden"><sc-if value="{{ artSlots }}" hint-placeholder-val="{{ true }}"><image-slot id="art-{{ p.id }}" shape="rounded" radius="14" placeholder="{{ p.name }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></sc-if><sc-if value="{{ noArtSlots }}"><span style="position:absolute;inset:0;background:{{ p.bgImg }};display:grid;place-items:center;color:var(--text-muted);font:700 12px/16px Manrope,sans-serif;text-align:center;padding:0 8px"><sc-if value="{{ p.noImg }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;align-items:center;gap:6px"><i class="icon-image" style="font-size:24px"></i>{{ p.name }}</span></sc-if></span></sc-if><sc-if value="{{ p.hot }}"><span style="position:absolute;top:8px;left:8px;pointer-events:none;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:7px;background:var(--accent);color:var(--accent-foreground);font:800 10px/1 Manrope,sans-serif"><i class="icon-flame" style="font-size:11px"></i>Mashhur</span></sc-if><sc-if value="{{ p.region }}"><span style="position:absolute;top:8px;right:8px;pointer-events:none;height:22px;padding:0 7px;border-radius:7px;background:var(--primary);color:var(--primary-foreground);font:800 10px/22px Manrope,sans-serif">{{ p.region }}</span></sc-if></span>
+            <span style="display:flex;flex-direction:column;gap:6px;padding:0 6px"><span style="font:800 15px/20px Manrope,sans-serif">{{ p.name }}</span><span style="display:inline-flex;align-self:flex-start;height:20px;padding:0 6px;border-radius:6px;background:{{ p.dbg }};color:{{ p.dfg }};font:800 10px/20px Manrope,sans-serif">{{ p.delivery }}</span><span style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px"><span style="font:800 16px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ p.price }}</span><span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">dan boshlab</span></span></span>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</main>
+</sc-if>
+
+<sc-if value="{{ isSystem }}">
+<main style="min-height:clamp(560px,46cqi,680px);display:grid;place-items:center;padding:clamp(40px,6cqi,80px) 16px">
+  <sc-if value="{{ is404 }}">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;max-width:480px">
+      <span aria-hidden="true" style="font:700 clamp(84px,10cqi,140px)/1 Unbounded,sans-serif;letter-spacing:-.06em;color:var(--primary)">4<span style="color:var(--accent)">0</span>4</span>
+      <h1 style="margin:0;font:800 clamp(24px,2.4cqi,32px)/1.2 Manrope,sans-serif;letter-spacing:-.02em">Sahifa topilmadi</h1>
+      <p style="margin:0;font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">Havola eskirgan yoki manzilda xato bor. Bosh sahifadan davom eting.</p>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:8px"><a href="/" style="height:48px;padding:0 20px;border-radius:14px;display:flex;align-items:center;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif" style-hover="background:var(--primary-hover);color:var(--primary-foreground)">Bosh sahifaga</a><a href="/katalog" style="height:48px;padding:0 20px;border-radius:14px;display:flex;align-items:center;text-decoration:none;border:1.5px solid var(--border);color:var(--text);font:800 15px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)">Katalog</a></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isError }}">
+    <div role="alert" style="display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;max-width:480px">
+      <span style="width:80px;height:80px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:36px"><i class="icon-triangle-alert"></i></span>
+      <h1 style="margin:0;font:800 clamp(24px,2.4cqi,32px)/1.2 Manrope,sans-serif;letter-spacing:-.02em">Xatolik yuz berdi</h1>
+      <p style="margin:0;font:500 16px/24px Manrope,sans-serif;color:var(--text-secondary)">Sahifani ochib bo‘lmadi. Buyurtma va hamyoningiz xavfsiz — sahifani yangilab ko‘ring.</p>
+      <button style="margin-top:8px;height:48px;padding:0 20px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer" style-hover="background:var(--primary-hover)"><i class="icon-refresh-cw" style="font-size:17px"></i>Sahifani yangilash</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isPayChecking }}">
+    <div role="status" aria-live="polite" style="width:min(100%,440px);background:var(--card);border:1px solid var(--border);border-radius:28px;padding:36px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;box-shadow:var(--shadow-md)">
+      <span style="width:80px;height:80px;border-radius:50%;background:var(--info-soft);display:grid;place-items:center">{{ bigSpin }}</span>
+      <h1 style="margin:0;font:800 22px/28px Manrope,sans-serif">To‘lov tekshirilmoqda…</h1>
+      <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Odatda bir necha soniya. Sahifani yopmang.</p>
+      <div style="width:100%;display:flex;justify-content:space-between;padding:14px 16px;border-radius:16px;background:var(--muted);font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums"><span style="color:var(--text-muted)">Click</span><span>50 000 so‘m</span></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isPaySuccess }}">
+    <div role="status" style="width:min(100%,440px);background:var(--card);border:1px solid var(--border);border-radius:28px;padding:36px 24px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;box-shadow:var(--shadow-md)">
+      {{ popOk }}
+      <h1 style="margin:0;font:800 22px/28px Manrope,sans-serif;text-wrap:balance">To‘lov qabul qilindi — balansingiz 50 000 so‘mga to‘ldirildi</h1>
+      <div style="width:100%;display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:var(--muted);font:600 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">To‘lov usuli</span><span>Click</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Sana</span><span>Bugun, 14:10</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Yangi balans</span><span style="font-weight:800">135 400 so‘m</span></div>
+      </div>
+      <a href="/katalog" style="width:100%;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;text-decoration:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow);margin-top:6px" style-hover="background:var(--primary-hover);color:var(--primary-foreground)">Do‘konga qaytish</a>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isPayFailed }}">
+    <div role="alert" style="width:min(100%,440px);background:var(--card);border:1px solid var(--border);border-radius:28px;padding:36px 24px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;box-shadow:var(--shadow-md)">
+      {{ popFail }}
+      <h1 style="margin:0;font:800 22px/28px Manrope,sans-serif">To‘lov amalga oshmadi</h1>
+      <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">Hamyon to‘ldirilmadi. Qayta urinib ko‘ring yoki boshqa to‘lov usulini tanlang.</p>
+      <button style="width:100%;height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin-top:6px" style-hover="background:var(--primary-hover)"><i class="icon-refresh-cw" style="font-size:17px"></i>Qayta urinish</button>
+      <a href="/katalog" style="height:44px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Do‘konga qaytish</a>
+    </div>
+  </sc-if>
+</main>
+</sc-if>
+
+<footer style="background:var(--surface);border-top:1px solid var(--border)">
+  <div style="width:100%;max-width:1264px;margin:0 auto;padding:clamp(40px,4cqi,56px) clamp(16px,2.5cqi,32px) 28px;display:flex;flex-direction:column;gap:32px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:28px 32px">
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)"><span style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 20px/1 Unbounded,sans-serif;letter-spacing:-.04em"><span style="color:var(--primary)">gg</span>pin</span></a>
+        <span style="font:500 14px/21px Manrope,sans-serif;color:var(--text-muted)">Telegram Stars, Premium va o‘yin donatlari.</span>
+      </div>
+      <nav aria-label="Mahsulotlar" style="display:flex;flex-direction:column;gap:2px"><span style="font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Mahsulotlar</span><a href="/telegram-stars" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Telegram Stars</a><a href="/telegram-premium" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Telegram Premium</a><a href="/pubg-mobile" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">PUBG Mobile</a><a href="/mobile-legends" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Mobile Legends</a></nav>
+      <nav aria-label="Ma’lumot" style="display:flex;flex-direction:column;gap:2px"><span style="font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Ma’lumot</span><a href="/oferta" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Ommaviy oferta</a><a href="/maxfiylik" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Maxfiylik siyosati</a><a href="/aloqa" style="height:32px;display:flex;align-items:center;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)">Aloqa</a></nav>
+      <nav aria-label="Telegram" style="display:flex;flex-direction:column;gap:2px"><span style="font:700 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Telegram</span><a href="https://t.me/ggpin" style="height:32px;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)"><i class="icon-megaphone" style="font-size:15px"></i>Kanal</a><a href="https://t.me/ggpinbot" style="height:32px;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text-secondary);font:600 14px/1 Manrope,sans-serif" style-hover="color:var(--text)"><i class="icon-bot" style="font-size:15px"></i>@ggpinbot</a></nav>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:20px;border-top:1px solid var(--border)">
+      <span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">© 2026 ggpin</span>
+      <div style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)">
+        <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="min-width:44px;height:34px;padding:0 10px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 12px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;viewport&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:null,&quot;tsType&quot;:&quot;'desktop'|'mobile'|undefined&quot;},&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;landing&quot;,&quot;product&quot;,&quot;404&quot;,&quot;error&quot;,&quot;pay-checking&quot;,&quot;pay-success&quot;,&quot;pay-failed&quot;],&quot;default&quot;:&quot;landing&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;hero&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;showcase&quot;,&quot;classic&quot;],&quot;default&quot;:&quot;showcase&quot;,&quot;tsType&quot;:&quot;'showcase'|'classic'&quot;},&quot;menuOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { w: 1440, menu: undefined, acc: 0, lang: 'uz', star: 500, art: {} };
+  rootRef = React.createRef();
+
+  componentDidMount() {
+    this.loadArt();
+    this.onFocus = () => this.loadArt();
+    window.addEventListener('focus', this.onFocus);
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver && !this.props.viewport) {
+      this.ro = new ResizeObserver(e => { const w = Math.round(e[0].contentRect.width); if (Math.abs(w - this.state.w) > 8) this.setState({ w }); });
+      this.ro.observe(el);
+    }
+  }
+  loadArt() {
+    fetch('.image-slots.state.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || typeof j !== 'object') return;
+      const art = {};
+      for (const k in j) { const v = j[k]; const u = typeof v === 'string' ? v : v && v.u; if (u) art[k] = u; }
+      this.setState({ art });
+    }).catch(() => {});
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); window.removeEventListener('focus', this.onFocus); }
+
+  fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); }
+
+  renderVals() {
+    const h = React.createElement, p = this.props, s = this.state;
+    const rm = !!p.reducedMotion;
+    const page = p.page ?? 'landing';
+    const heroV = p.hero ?? 'showcase';
+    const m = p.viewport ? p.viewport === 'mobile' : s.w < 1024;
+    const menuOpen = m && (s.menu ?? !!p.menuOpen);
+    const spin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, animation: rm ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const bigSpin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, fontSize: 36, color: 'var(--info)', animation: rm ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const pop = (bg, fg, icon) => h('span', { style: { width: 80, height: 80, borderRadius: '50%', background: bg, color: fg, display: 'grid', placeItems: 'center', fontSize: 38, animation: rm ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: icon }));
+
+    const withArt = (id, bg) => { const u = s.art['art-' + id]; return { noImg: !u, bgImg: u ? `center/cover no-repeat url("${u}"), ${bg}` : bg }; };
+    const AV = { delivery: '⚡ Avto', dbg: 'var(--success-soft)', dfg: 'var(--success-text)' };
+    const PR = { delivery: '🎟 Promokod', dbg: 'var(--accent-soft)', dfg: 'var(--accent-soft-foreground)' };
+    const all = [
+      { id: 'stars', name: 'Telegram Stars', price: '11 000 so‘m', bg: 'var(--star-soft)', href: '/telegram-stars', ...AV },
+      { id: 'premium', name: 'Telegram Premium', price: '165 000 so‘m', bg: 'var(--premium-soft)', href: '/telegram-premium', ...AV },
+      { id: 'pubg', name: 'PUBG Mobile', price: '12 150 so‘m', bg: 'var(--muted)', href: '/pubg-mobile', hot: true, region: 'Global', ...AV },
+      { id: 'mlbb', name: 'Mobile Legends', price: '19 900 so‘m', bg: 'var(--muted)', href: '/mobile-legends', ...AV },
+      { id: 'steam', name: 'Steam', price: '50 000 so‘m', bg: 'var(--muted)', href: '/steam', region: 'Global', ...AV },
+      { id: 'roblox', name: 'Roblox', price: '122 450 so‘m', bg: 'var(--muted)', href: '/roblox', ...PR },
+      { id: 'ff', name: 'Free Fire', soon: true, bg: 'var(--muted)', href: '/free-fire' },
+      { id: 'so2', name: 'Standoff 2', soon: true, bg: 'var(--muted)', href: '/standoff-2' },
+    ].map(x => ({ ...x, live: !x.soon, hot: !!x.hot, region: x.region || '', op: x.soon ? 0.6 : 1, ...withArt(x.id, x.bg) }));
+    const related = all.filter(x => ['premium', 'pubg', 'mlbb', 'steam'].includes(x.id));
+
+    const mkAcc = list => list.map((x, i) => { const open = s.acc === i; return { ...x, open, rot: open ? 'rotate(180deg)' : 'none', onClick: () => this.setState({ acc: open ? -1 : i }) }; });
+    const faqLanding = mkAcc([
+      { q: 'Qancha vaqtda yetkaziladi?', a: 'Odatda 1–2 daqiqa. Buyurtma holatini “Tarix” bo‘limida jonli ko‘rib turasiz; promokodli mahsulotlarda kod shu yerda chiqadi.' },
+      { q: 'Username’ni noto‘g‘ri yozsam nima bo‘ladi?', a: 'To‘lovdan oldin biz tasdiqlash uchun akkauntning ismi va rasmini ko‘rsatamiz. U siz kutgan odam bo‘lmasa, “O‘zgartirish”ni bosing — pul yechilmaydi.' },
+      { q: 'Buyurtma bajarilmasa pulim nima bo‘ladi?', a: 'Pul avtomatik ravishda balansingizga qaytadi. Buyurtma “Bajarilmadi — pul qaytarildi” holatida ko‘rinadi.' },
+      { q: 'Qaysi to‘lov usullari bor?', a: 'Click, Payme, Uzum va Rahmat. Hamyon so‘mda to‘ldiriladi, xaridlar hamyondan to‘lanadi.' },
+      { q: 'Telegram Premium sovg‘a qilsam bo‘ladimi?', a: 'Ha. Qabul qiluvchi sifatida do‘stingizning username’ini kiriting — Premium uning akkauntiga ulanadi.' },
+    ]);
+    const faqProduct = mkAcc([
+      { q: 'Stars qayerda ko‘rinadi?', a: 'Telegram → Sozlamalar → “Telegram Stars” bo‘limida. Yetkazilgach, bot ham xabar yuboradi.' },
+      { q: 'Do‘stimga yuborsam bo‘ladimi?', a: 'Ha, uning username’ini kiriting. To‘lovdan oldin ism va rasmini ko‘rsatamiz.' },
+      { q: 'Minimal miqdor qancha?', a: '50 ⭐ — 11 000 so‘m. Undan yuqori istalgan miqdorni tanlashingiz mumkin.' },
+      { q: 'Buyurtma bajarilmasa-chi?', a: 'Pul avtomatik ravishda balansingizga qaytadi.' },
+    ]);
+
+    const stars = [50, 100, 250, 500, 1000].map(n => { const on = s.star === n; return { n, label: this.fmt(n) + ' ⭐', price: this.fmt(n * 220) + ' so‘m', hot: n === 500, on, bg: on ? 'var(--primary-soft)' : 'transparent', bd: on ? 'var(--primary)' : 'transparent', dot: on ? '6px' : '2px', dotC: on ? 'var(--primary)' : 'var(--input-border)', onClick: () => this.setState({ star: n }) }; });
+
+    const langs = [{ id: 'uz', label: 'UZ' }, { id: 'ru', label: 'RU' }].map(x => { const on = s.lang === x.id; return { ...x, bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--text)' : 'var(--text-muted)', sh: on ? 'var(--shadow-sm)' : 'none', onClick: () => this.setState({ lang: x.id }) }; });
+
+    return {
+      rootRef: this.rootRef, theme: p.theme ?? 'light', reduced: String(rm), m, d: !m, menuOpen, menuIcon: menuOpen ? 'icon-x' : 'icon-menu',
+      toggleMenu: () => this.setState({ menu: !menuOpen }), langs, spin, bigSpin,
+      popOk: pop('var(--success-soft)', 'var(--success)', 'icon-check'), popFail: pop('var(--danger-soft)', 'var(--danger)', 'icon-x'),
+      isLanding: page === 'landing', isProduct: page === 'product',
+      is404: page === '404', isError: page === 'error', isPayChecking: page === 'pay-checking', isPaySuccess: page === 'pay-success', isPayFailed: page === 'pay-failed',
+      isSystem: ['404', 'error', 'pay-checking', 'pay-success', 'pay-failed'].includes(page),
+      artSlots: p.artSlots ?? true, noArtSlots: !(p.artSlots ?? true), pubgArt: withArt('pubg', 'var(--muted)'), starsHeroBg: withArt('stars-hero', 'var(--star-soft)').bgImg,
+      heroShowcase: heroV === 'showcase', heroClassic: heroV === 'classic',
+      wallRows: [['pubg', 'stars', 'mlbb', 'ff', 'premium', 'steam', 'so2', 'roblox'], ['premium', 'roblox', 'pubg', 'steam', 'stars', 'so2', 'mlbb', 'ff'], ['steam', 'ff', 'stars', 'so2', 'pubg', 'mlbb', 'roblox', 'premium']].map((ids, r) => {
+        const items = ids.map(id => all.find(x => x.id === id));
+        return { items: [...items, ...items].map((x, k) => ({ ...x, key: r + '-' + k })), anim: rm ? 'none' : `gg-marquee ${[90, 110, 100][r]}s linear infinite${r === 1 ? ' reverse' : ''}`, off: ['0px', '-120px', '-60px'][r] };
+      }),
+      picks: [
+        { id: 'stars', name: 'Telegram Stars', price: '11 000 so‘m dan', href: '/telegram-stars', icon: 'icon-star', bg: 'var(--star-soft)', fg: 'var(--star)', slot: false },
+        { id: 'premium', name: 'Premium', price: '165 000 so‘m dan', href: '/telegram-premium', icon: 'icon-crown', bg: 'var(--premium-soft)', fg: 'var(--premium)', slot: false },
+        { id: 'pubg', name: 'PUBG Mobile UC', price: '12 150 so‘m dan', href: '/pubg-mobile', slot: true },
+        { id: 'mlbb', name: 'MLBB olmos', price: '19 900 so‘m dan', href: '/mobile-legends', slot: true },
+      ].map(x => ({ ...x, noSlot: !x.slot, ini: x.id === 'pubg' ? 'PUBG' : 'MLBB', ...withArt(x.id, 'var(--muted)') })),
+      products: all, related, faqLanding, faqProduct, stars,
+      starSel: this.fmt(s.star) + ' ⭐', starPrice: this.fmt(s.star * 220) + ' so‘m',
+      phoneTiles: [{ id: 'stars', name: 'Stars', bg: 'var(--star-soft)', tag: '' }, { id: 'premium', name: 'Premium', bg: 'var(--premium-soft)', tag: '' }, { id: 'pubg', name: 'PUBG Mobile', bg: 'var(--muted)', tag: 'Global' }, { id: 'mlbb', name: 'Mobile Legends', bg: 'var(--muted)', tag: '' }, { id: 'steam', name: 'Steam', bg: 'var(--muted)', tag: '' }, { id: 'roblox', name: 'Roblox', bg: 'var(--muted)', tag: '' }].map(x => ({ ...x, ...withArt(x.id, x.bg) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

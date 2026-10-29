@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 7 · Admin</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:80px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1600px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 7</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Admin panel · 1440 &amp; 768</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Live frames from Admin.dc.html (+ Login.dc.html admin variant). Dense variant: base text 13px, rows 44px, controls 30–38px, radius 9–14px — same tokens. Sidebar, period filter, status filters and saved views, row → detail, attempt JSON toggles, role-based actions, the review checklist (primary action unlocks after “Zanjirda tekshirildi?”) and reason-gated dialogs all work. Age timers tick.</p>
+  </header>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="7">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 32px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><sc-if value="{{ g.note }}"><p style="margin:0;max-width:1500px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">{{ g.note }}</p></sc-if></div>
+      <div style="display:flex;gap:48px;align-items:flex-start">
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 16px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:{{ it.w }};border-radius:20px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)">
+            <sc-if value="{{ it.isLogin }}"><dc-import name="Login" variant="admin" env="{{ it.env }}" state="{{ it.state }}" theme="{{ it.theme }}" frozen="{{ it.frozen }}" reduced-motion="{{ it.frozen }}" hint-size="{{ it.hint }}"></dc-import></sc-if>
+            <sc-if value="{{ it.isAdmin }}" hint-placeholder-val="{{ true }}"><dc-import name="Admin" page="{{ it.page }}" dialog="{{ it.dialog }}" prefill="{{ it.prefill }}" role="{{ it.role }}" env="{{ it.env }}" theme="{{ it.theme }}" viewport="{{ it.vp }}" frame-height="{{ it.fh }}" frozen="{{ it.frozen }}" hint-size="{{ it.hint }}"></dc-import></sc-if>
+          </div></figure>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const A = (label, o) => { const vp = o.vp || 'desktop', w = vp === 'tablet' ? '768px' : '1440px'; const fh = o.dialog ? '900px' : null; return { isAdmin: true, isLogin: false, page: 'dashboard', dialog: '', prefill: false, role: 'OWNER', env: 'production', theme: 'light', frozen: true, ...o, vp, w, fh, label, hint: `${w},${fh || '1200px'}` }; };
+    const L = (label, o) => ({ isLogin: true, isAdmin: false, state: 'start', env: 'production', theme: 'light', frozen: true, ...o, w: o.w || '1440px', label, hint: `${o.w || '1440px'},900px` });
+    const groups = [
+      { title: '1 · Admin login “/login”', note: 'Same OTP states as the web login; the first frame runs the full flow (000000 = wrong code).', items: [L('Start · light · interactive', { frozen: false }), L('Code sent · dark · STAGING', { theme: 'dark', state: 'code', env: 'staging' }), L('Wrong code · light · 768', { state: 'wrong', w: '768px' }), L('Service error · dark · 768', { state: 'error', theme: 'dark', w: '768px' })] },
+      { title: '2–3 · Shell & Dashboard', note: 'Alerts sit on top; KPI cards; four charts (area, donut, horizontal bars, hourly bars). On 768 the sidebar collapses to an icon rail and panels stack.', items: [A('Dashboard · light · OWNER · interactive', { frozen: false }), A('Dashboard · dark · OPERATOR · STAGING', { theme: 'dark', role: 'OPERATOR', env: 'staging' }), A('Dashboard · 768 · light', { vp: 'tablet' })] },
+      { title: '4 · Orders list', note: 'Saved views, status filter, product/adapter/date/amount filters, search, CSV export. Profit coloured by sign; review rows tinted. Row click → detail.', items: [A('Orders · light · interactive', { page: 'orders', frozen: false }), A('Orders · dark', { page: 'orders', theme: 'dark' }), A('Orders · 768 · dark', { page: 'orders', vp: 'tablet', theme: 'dark' })] },
+      { title: '5 · Order detail', note: 'Actions depend on role (OWNER sees all; OPERATOR no money actions; SUPPORT notes only). Attempts expand to a request/response viewer with secrets redacted.', items: [A('Detail · OWNER · light · interactive', { page: 'order', frozen: false }), A('Detail · SUPPORT · dark', { page: 'order', role: 'SUPPORT', theme: 'dark' }), A('Detail · 768 · OPERATOR · light', { page: 'order', vp: 'tablet', role: 'OPERATOR' })] },
+      { title: '5 · Action dialogs', note: 'Every dialog requires “Sabab” (10+ chars). Money actions above 100 000 so‘m also require a Telegram confirmation code. Destructive actions use danger styling.', items: [A('Refund · reason + Telegram code · light', { page: 'order', dialog: 'refund', prefill: true, frozen: false }), A('Cancel · dark', { page: 'order', dialog: 'cancel', theme: 'dark' }), A('Note · light · 768', { page: 'order', dialog: 'note', vp: 'tablet' })] },
+      { title: '6 · Review queue “Tekshiruv navbati”', note: 'NEEDS_REVIEW (amber) and HELD (purple) cards with reason, live age timer (red after 5 min), checklist and quick actions.', items: [A('Queue · light · interactive', { page: 'review', frozen: false }), A('Queue · dark', { page: 'review', theme: 'dark' }), A('Queue · 768 · light', { page: 'review', vp: 'tablet' })] },
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

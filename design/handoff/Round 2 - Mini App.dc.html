@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 2 · Mini App</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:72px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1400px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 2</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Telegram Mini App · 390</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Live frames from MiniApp.dc.html. Theme follows Telegram.WebApp.colorScheme; header colour is set to --background via setHeaderColor. No in-app back arrow — Telegram BackButton is used on inner screens (hidden on Home). Bottom nav and the 34px home-indicator area = env(safe-area-inset-bottom); toasts sit 12px above the nav.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;color:#0B1020">1 · Splash, gates, language</h2>
+    <sc-for list="{{ gateRows }}" as="row" hint-placeholder-count="2">
+      <div style="display:flex;gap:32px;align-items:flex-start">
+        <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="5">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="MiniApp" screen="{{ it.screen }}" theme="{{ it.theme }}" frozen="{{ it.frozen }}" art-slots="{{ false }}" hint-size="390px,844px"></dc-import></div></figure>
+        </sc-for>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;color:#0B1020">2–3 · Shell &amp; Home “Bosh sahifa”</h2>
+    <p style="margin:-12px 0 0;max-width:1300px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">Full-length pages on the left (drop game art into the first frame — it appears everywhere). On the right, real 844 viewports: scroll inside, type in search, switch chips, tap carousel dots. The wallet card background drifts slowly; reduced motion freezes it. The promo carousel is an admin-managed slot.</p>
+    <div style="display:flex;gap:32px;align-items:flex-start">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">Home · light · full length</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="MiniApp" screen="home" theme="light" tall="{{ true }}" hint-size="390px,2000px"></dc-import></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">Home · dark · full length</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="MiniApp" screen="home" theme="dark" tall="{{ true }}" art-slots="{{ false }}" frozen="{{ true }}" hint-size="390px,2000px"></dc-import></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">Viewport · light · interactive</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="MiniApp" screen="home" theme="light" art-slots="{{ false }}" hint-size="390px,844px"></dc-import></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">Viewport · dark · toast above nav</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="MiniApp" screen="home" theme="dark" toast="{{ true }}" art-slots="{{ false }}" frozen="{{ true }}" hint-size="390px,844px"></dc-import></div></figure>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;color:#0B1020">3 · Home states</h2>
+    <sc-for list="{{ stateRows }}" as="row" hint-placeholder-count="2">
+      <div style="display:flex;gap:32px;align-items:flex-start">
+        <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="4">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="MiniApp" screen="home" state="{{ it.state }}" query="{{ it.query }}" theme="{{ it.theme }}" frozen="{{ true }}" art-slots="{{ false }}" hint-size="390px,844px"></dc-import></div></figure>
+        </sc-for>
+      </div>
+    </sc-for>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const gs = [['splash', 'Splash'], ['gate-bot', 'Gate · bot orqali'], ['gate-blocked', 'Gate · bloklangan'], ['gate-offline', 'Gate · ulanib bo‘lmadi'], ['lang', 'Til tanlash']];
+    const gateRows = ['light', 'dark'].map((theme, r) => ({ items: gs.map(([screen, l]) => ({ screen, theme, frozen: r === 1, label: `${l} · ${theme}` })) }));
+    const ss = [['skeleton', '', 'Skeleton'], ['catalogError', '', 'Katalog xatosi'], ['ready', 'fortnite', 'Qidiruv · bo‘sh'], ['offline', '', 'Offline banner']];
+    const stateRows = ['light', 'dark'].map(theme => ({ items: ss.map(([state, query, l]) => ({ state, query, theme, label: `${l} · ${theme}` })) }));
+    return { gateRows, stateRows };
+  }
+}
+</script>
+</body>
+</html>
