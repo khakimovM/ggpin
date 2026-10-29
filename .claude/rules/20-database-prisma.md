@@ -1,12 +1,13 @@
 ---
 paths:
-  - "apps/api/prisma/**"
-  - "**/*.repository.ts"
+  - 'packages/db/prisma/**'
+  - '**/*.repository.ts'
 ---
+
 # Database rules — Prisma / PostgreSQL
 
-- Schema lives in `apps/api/prisma/schema.prisma`; the worker uses the same generated client
-  (shared via `packages/db` re-export or workspace dependency — decided in phase 0).
+- Schema lives in `packages/db/prisma/schema.prisma` (Prisma 7, D-22); api and worker import the
+  one generated client from `@repo/db`. Never instantiate `PrismaClient` outside that package.
 - Money columns: `BigInt` (`amountTiyin`, `costMicroUsdt`, `costNanoTon`). Never Decimal/Float.
 - Every table: `id` (cuid2/uuid), `createdAt`, `updatedAt`. Soft delete only where docs say so.
 - Unique constraints are the backbone of idempotency — declare them in the schema:

@@ -1,6 +1,6 @@
 # 03 — Ma'lumotlar modeli
 
-Quyidagi Prisma sxemasi — **boshlang‘ich loyiha**. 1-bosqichda agent uni `apps/api/prisma/schema.prisma`
+Quyidagi Prisma sxemasi — **boshlang‘ich loyiha**. 1-bosqichda agent uni `packages/db/prisma/schema.prisma`
 ga ko‘chiradi, tekshiradi va kerak bo‘lsa aniqlashtiradi (o‘zgartirishlar shu faylda ham yangilanadi).
 
 ## Asosiy qoidalar
@@ -490,10 +490,10 @@ model Setting {                 // admin'dan o‘zgaradigan sozlamalar
 
 ## Nima qayerda hisoblanadi
 
-| Ko‘rsatkich | Qayerda |
-|---|---|
-| Balans | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh |
-| Keshbek tangalari | `SUM(CoinEntry.coins)` |
-| Referal daromadi | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)` |
+| Ko‘rsatkich              | Qayerda                                                                     |
+| ------------------------ | --------------------------------------------------------------------------- |
+| Balans                   | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh                    |
+| Keshbek tangalari        | `SUM(CoinEntry.coins)`                                                      |
+| Referal daromadi         | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)`                                |
 | Buyurtma foydasi (admin) | `priceTiyin − discountTiyin − costMinor × fx` (buyurtmadagi snapshot bilan) |
-| Hot wallet balansi | worker, zanjirdan + `WalletSnapshot` |
+| Hot wallet balansi       | worker, zanjirdan + `WalletSnapshot`                                        |
