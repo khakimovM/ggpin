@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { QUEUE_NAMES } from '@repo/shared';
 import { EnvValidationError, loadEnv, type Env } from './config/env';
 import { WorkerModule } from './worker.module';
 
@@ -23,13 +24,11 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.createApplicationContext(WorkerModule.register(env));
   app.enableShutdownHooks();
 
-  // Nothing holds the event loop open until BullMQ consumers arrive in phase 1; without this
-  // timer the process would exit right after boot. Shutdown hooks still close the app and
-  // exit on SIGINT/SIGTERM. Remove the timer together with the phase-1 queue change.
-  setInterval(() => undefined, 60_000);
-
+  // No keep-alive timer: the BullMQ Redis connections and the heartbeat interval keep the
+  // event loop busy; enableShutdownHooks closes them (and so lets the process exit) on
+  // SIGINT/SIGTERM.
   new Logger('Worker').log(
-    `worker started (no queues registered yet, dryRun=${String(env.FULFILLMENT_DRY_RUN)}, ton=${env.TON_NETWORK})`,
+    `worker started (${QUEUE_NAMES.length} queues registered, no processors yet, dryRun=${String(env.FULFILLMENT_DRY_RUN)}, ton=${env.TON_NETWORK})`,
   );
 }
 
