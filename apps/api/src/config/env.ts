@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isBlank, productionSecretProblems, workerSecretProblems } from './env-security';
+import { parseTrustedProxies } from './trust-proxy';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = (fallback: 'true' | 'false') =>
@@ -17,22 +18,17 @@ const bigintString = (fallback: string) =>
     .default(fallback)
     .transform((v) => BigInt(v));
 
-// How many reverse-proxy hops in front of the API may append to X-Forwarded-For. A count, not
-// "trust everything": with `true` Fastify takes the left-most address, which the client writes
-// itself, so anyone could pick their own rate-limit key. "false" is kept as an alias of 0.
-const proxyHops = z
+// IPs/CIDRs of the reverse proxies allowed to set X-Forwarded-For; empty = trust none.
+// See trust-proxy.ts for why this is an allowlist and not a hop count.
+const trustedProxies = z
   .string()
-  .default('0')
-  .transform((v) => (v === 'false' ? '0' : v))
-  .pipe(
-    z
-      .string()
-      .regex(
-        /^\d$/,
-        'must be the number of trusted reverse-proxy hops (0-9); "true" is not allowed',
-      ),
-  )
-  .transform((v) => Number(v));
+  .default('')
+  .transform((value, ctx): readonly string[] => {
+    const parsed = parseTrustedProxies(value);
+    if (parsed.ok) return parsed.entries;
+    ctx.addIssue({ code: 'custom', message: parsed.problem });
+    return z.NEVER;
+  });
 
 const httpUrl = z.url({ protocol: /^https?$/ });
 
@@ -62,7 +58,7 @@ const EnvSchema = z.object({
   WEB_URL: httpOrigin,
   ADMIN_URL: httpOrigin,
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  TRUST_PROXY: proxyHops,
+  TRUST_PROXY: trustedProxies,
   // Swagger is off unless explicitly enabled, in every environment including production.
   SWAGGER_ENABLED: bool('false'),
 
@@ -146,6 +142,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 
   if (clean.NODE_ENV === 'production') {
     problems.push(...productionSecretProblems(clean));
+    if (clean.SWAGGER_ENABLED === 'true') {
+      problems.push(
+        'SWAGGER_ENABLED: must not be "true" in production (the API docs would be public)',
+      );
+    }
     for (const name of ['WEB_URL', 'ADMIN_URL', 'MINI_APP_URL', 'TELEGRAM_WEBHOOK_URL']) {
       const value = clean[name];
       if (value !== undefined && !value.startsWith('https://')) {

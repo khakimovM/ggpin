@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { WORKER_ONLY_SECRETS } from '@repo/shared';
 import { EnvValidationError, loadEnv } from '../env';
-import { WORKER_ONLY_SECRETS } from '../env-security';
 import { TEST_ENV_SOURCE, buildTestEnv } from './test-env';
 
 const SECRET_VALUE = 'S3cr3t-VALUE-that-must-never-be-printed-9f8e7d';
@@ -21,7 +23,7 @@ describe('loadEnv', () => {
     expect(env).toMatchObject({
       API_PORT: 5000,
       LOG_LEVEL: 'info',
-      TRUST_PROXY: 0,
+      TRUST_PROXY: [],
       SWAGGER_ENABLED: false,
       PAYME_TEST_MODE: true,
       TG_INITDATA_MAX_AGE_SEC: 86400,
@@ -38,13 +40,13 @@ describe('loadEnv', () => {
   it('parses ports, booleans, origins and id lists', () => {
     const env = buildTestEnv({
       API_PORT: '5050',
-      TRUST_PROXY: '1',
+      TRUST_PROXY: '10.0.0.0/8, ::1',
       SWAGGER_ENABLED: 'true',
       WEB_URL: 'https://ggpin.uz/',
       ADMIN_TELEGRAM_IDS: '123, 456',
     });
     expect(env.API_PORT).toBe(5050);
-    expect(env.TRUST_PROXY).toBe(1);
+    expect(env.TRUST_PROXY).toEqual(['10.0.0.0/8', '::1']);
     expect(env.SWAGGER_ENABLED).toBe(true);
     expect(env.WEB_URL).toBe('https://ggpin.uz');
     expect(env.ADMIN_TELEGRAM_IDS).toEqual([123n, 456n]);
@@ -74,10 +76,13 @@ describe('loadEnv', () => {
     expect(messageOf({ ...TEST_ENV_SOURCE, REDIS_URL: 'http://x' })).toContain('REDIS_URL');
   });
 
-  it('takes TRUST_PROXY as a hop count and refuses "trust everything"', () => {
-    expect(buildTestEnv({ TRUST_PROXY: 'false' }).TRUST_PROXY).toBe(0);
-    expect(buildTestEnv({ TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
-    for (const bad of ['true', '-1', '10', '1.5', 'yes']) {
+  it('takes TRUST_PROXY as an allowlist of proxy IPs/CIDRs and refuses "trust everything"', () => {
+    expect(buildTestEnv({ TRUST_PROXY: '127.0.0.1,::1, 172.18.0.0/16' }).TRUST_PROXY).toEqual([
+      '127.0.0.1',
+      '::1',
+      '172.18.0.0/16',
+    ]);
+    for (const bad of ['true', 'false', '*', '1', '0', '2', '0.0.0.0/0', '::/0', '10.0.0.0/33']) {
       expect(messageOf({ ...TEST_ENV_SOURCE, TRUST_PROXY: bad })).toContain('TRUST_PROXY');
     }
   });
@@ -111,6 +116,59 @@ describe('loadEnv', () => {
 
     it('does not reject harmless worker config such as TON_NETWORK', () => {
       expect(() => loadEnv({ ...TEST_ENV_SOURCE, TON_NETWORK: 'testnet' })).not.toThrow();
+    });
+
+    it.each([
+      'SUPPLIER_PUBG_API_KEY',
+      'SUPPLIER_STEAM_SECRET',
+      'TON_WALLET_PRIVATE_KEY',
+      'FRAGMENT_COOKIES',
+      'TON_MNEMONIC',
+      'SOMETHING_MNEMONIC',
+      'MY_PRIVATE_KEY',
+      'APP_SEED_PHRASE',
+      'SESSION_COOKIE',
+    ])('refuses worker-shaped secrets that are not on the exact list: %s', (name) => {
+      const message = messageOf({ ...TEST_ENV_SOURCE, [name]: SECRET_VALUE });
+      expect(message).toContain(name);
+      expect(message).not.toContain(SECRET_VALUE);
+    });
+
+    // The worker's own template is the realistic source of names: secret-shaped ones must be
+    // refused by the API, the rest (limits, URLs, network) must not be.
+    describe('against apps/worker/.env.example', () => {
+      const names = readFileSync(join(__dirname, '../../../../worker/.env.example'), 'utf8')
+        .split(/\r?\n/)
+        .map((line) => /^([A-Z][A-Z0-9_]*)=/.exec(line)?.[1])
+        .filter((name): name is string => name !== undefined);
+      const secretShaped = /SECRET|TOKEN|PASSWORD|MNEMONIC|COOKIE|PRIVATE|_KEY|_ENC/;
+      const secrets = names.filter((n) => secretShaped.test(n));
+      const harmless = names.filter((n) => !secretShaped.test(n));
+
+      it('reads the template', () => {
+        expect(secrets.length).toBeGreaterThanOrEqual(5);
+        expect(harmless).toContain('TON_NETWORK');
+      });
+
+      it.each(secrets)('refuses %s', (name) => {
+        expect(messageOf({ ...TEST_ENV_SOURCE, [name]: SECRET_VALUE })).toContain(name);
+      });
+
+      it('accepts the harmless worker settings', () => {
+        const source = {
+          ...TEST_ENV_SOURCE,
+          TON_NETWORK: 'testnet',
+          TON_API_ENDPOINT: 'https://toncenter.test/api',
+          TON_MAX_PER_ORDER_NANO: '50000000000',
+          TON_MAX_DAILY_NANO: '500000000000',
+          TON_MIN_BALANCE_ALERT_NANO: '100000000000',
+          RESELLER_STARS_API_URL: 'https://reseller.test',
+          SUPPLIER_MAX_PER_ORDER_MICRO_USDT: '200000000',
+          PRICE_TOLERANCE_BPS: '300',
+          FULFILLMENT_DRY_RUN: 'true',
+        };
+        expect(() => loadEnv(source)).not.toThrow();
+      });
     });
   });
 
@@ -150,6 +208,14 @@ describe('loadEnv', () => {
       expect(() =>
         loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'development', JWT_ACCESS_SECRET: 'change-me' }),
       ).not.toThrow();
+    });
+
+    it('refuses SWAGGER_ENABLED=true in production, but not elsewhere', () => {
+      const message = messageOf({ ...prod, SWAGGER_ENABLED: 'true' });
+      expect(message).toContain('SWAGGER_ENABLED');
+      expect(message).toContain('production');
+      expect(() => loadEnv({ ...prod, SWAGGER_ENABLED: 'false' })).not.toThrow();
+      expect(() => loadEnv({ ...TEST_ENV_SOURCE, SWAGGER_ENABLED: 'true' })).not.toThrow();
     });
 
     it('requires https origins', () => {
