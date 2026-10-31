@@ -34,14 +34,19 @@
     "ts-jest": "^29.4.15"
   },
   "dependencies": {
+    "@fastify/helmet": "13.2.0",
+    "@fastify/static": "10.1.8",
     "@nestjs/bullmq": "11.0.5",
     "@nestjs/common": "^11.2.8",
     "@nestjs/core": "^11.2.8",
     "@nestjs/platform-fastify": "^11.2.8",
+    "@nestjs/swagger": "11.4.7",
+    "@nestjs/throttler": "6.7.1",
     "@repo/db": "^0.0.0",
     "@repo/shared": "^0.0.0",
     "bullmq": "5.81.5",
     "ioredis": "5.11.1",
+    "nestjs-zod": "5.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^4.6.7"

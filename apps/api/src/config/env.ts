@@ -17,6 +17,23 @@ const bigintString = (fallback: string) =>
     .default(fallback)
     .transform((v) => BigInt(v));
 
+// How many reverse-proxy hops in front of the API may append to X-Forwarded-For. A count, not
+// "trust everything": with `true` Fastify takes the left-most address, which the client writes
+// itself, so anyone could pick their own rate-limit key. "false" is kept as an alias of 0.
+const proxyHops = z
+  .string()
+  .default('0')
+  .transform((v) => (v === 'false' ? '0' : v))
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^\d$/,
+        'must be the number of trusted reverse-proxy hops (0-9); "true" is not allowed',
+      ),
+  )
+  .transform((v) => Number(v));
+
 const httpUrl = z.url({ protocol: /^https?$/ });
 
 // Origins feed the CORS allowlist, so "https://x.uz/" and "https://x.uz" normalise to one form.
@@ -45,7 +62,7 @@ const EnvSchema = z.object({
   WEB_URL: httpOrigin,
   ADMIN_URL: httpOrigin,
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  TRUST_PROXY: bool('false'),
+  TRUST_PROXY: proxyHops,
   // Swagger is off unless explicitly enabled, in every environment including production.
   SWAGGER_ENABLED: bool('false'),
 

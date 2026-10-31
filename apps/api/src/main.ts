@@ -1,8 +1,9 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
+import { createHttpAdapter } from './common/http/create-http-adapter';
 import { EnvValidationError, loadEnv, type Env } from './config/env';
 
 // Misconfiguration must stop the process with a readable reason, not a stack trace.
@@ -22,9 +23,9 @@ async function bootstrap(): Promise<void> {
   const env = loadEnvOrExit();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(env),
-    new FastifyAdapter({ trustProxy: env.TRUST_PROXY }),
+    createHttpAdapter(env),
   );
-  configureApp(app);
+  await configureApp(app);
   app.enableShutdownHooks();
   await app.listen(env.API_PORT, '0.0.0.0');
 }

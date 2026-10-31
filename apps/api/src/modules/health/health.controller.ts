@@ -1,5 +1,7 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Readiness } from '@repo/shared';
+import { RawResponse } from '../../common/http/raw-response.decorator';
 import { HealthService } from './health.service';
 
 // Only the part of the Fastify reply this controller uses; avoids importing fastify types
@@ -9,7 +11,10 @@ interface StatusReply {
 }
 
 // Both routes are unenveloped (D-24, docs/04-API-CONTRACT.md#health): orchestrators and
-// uptime checks read `status` at the top level.
+// uptime checks read `status` at the top level. Probes poll every few seconds, so both routes
+// are also exempt from the per-IP rate limit.
+@RawResponse()
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(private readonly health: HealthService) {}

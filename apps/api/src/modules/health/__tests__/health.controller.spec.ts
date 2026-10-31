@@ -27,7 +27,7 @@ describe('/api/v1/health', () => {
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
       logger: false,
     });
-    configureApp(app);
+    await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });

@@ -22,7 +22,7 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
       logger: false,
     });
-    configureApp(app);
+    await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });

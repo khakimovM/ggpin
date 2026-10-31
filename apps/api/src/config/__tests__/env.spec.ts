@@ -21,7 +21,7 @@ describe('loadEnv', () => {
     expect(env).toMatchObject({
       API_PORT: 5000,
       LOG_LEVEL: 'info',
-      TRUST_PROXY: false,
+      TRUST_PROXY: 0,
       SWAGGER_ENABLED: false,
       PAYME_TEST_MODE: true,
       TG_INITDATA_MAX_AGE_SEC: 86400,
@@ -38,13 +38,13 @@ describe('loadEnv', () => {
   it('parses ports, booleans, origins and id lists', () => {
     const env = buildTestEnv({
       API_PORT: '5050',
-      TRUST_PROXY: 'true',
+      TRUST_PROXY: '1',
       SWAGGER_ENABLED: 'true',
       WEB_URL: 'https://ggpin.uz/',
       ADMIN_TELEGRAM_IDS: '123, 456',
     });
     expect(env.API_PORT).toBe(5050);
-    expect(env.TRUST_PROXY).toBe(true);
+    expect(env.TRUST_PROXY).toBe(1);
     expect(env.SWAGGER_ENABLED).toBe(true);
     expect(env.WEB_URL).toBe('https://ggpin.uz');
     expect(env.ADMIN_TELEGRAM_IDS).toEqual([123n, 456n]);
@@ -72,6 +72,14 @@ describe('loadEnv', () => {
       'DATABASE_URL',
     );
     expect(messageOf({ ...TEST_ENV_SOURCE, REDIS_URL: 'http://x' })).toContain('REDIS_URL');
+  });
+
+  it('takes TRUST_PROXY as a hop count and refuses "trust everything"', () => {
+    expect(buildTestEnv({ TRUST_PROXY: 'false' }).TRUST_PROXY).toBe(0);
+    expect(buildTestEnv({ TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+    for (const bad of ['true', '-1', '10', '1.5', 'yes']) {
+      expect(messageOf({ ...TEST_ENV_SOURCE, TRUST_PROXY: bad })).toContain('TRUST_PROXY');
+    }
   });
 
   it('parses booleans strictly', () => {
