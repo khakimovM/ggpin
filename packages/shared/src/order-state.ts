@@ -19,33 +19,54 @@ export const ORDER_STATUSES = [
 export const orderStatusSchema = z.enum(ORDER_STATUSES);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 
-/** `system` = API/worker/reconcile code paths; `admin` = a human operator (audited). */
-export const ORDER_ACTORS = ['system', 'admin'] as const;
+/**
+ * `system` = ordinary API/worker code paths (fulfillment processor, releasing HELD orders);
+ * `reconciler` = the reconcile job, the only automated actor allowed to resolve NEEDS_REVIEW,
+ * and only with proof from the chain/supplier; `admin` = a human operator (audited).
+ */
+export const ORDER_ACTORS = ['system', 'reconciler', 'admin'] as const;
 export type OrderActor = (typeof ORDER_ACTORS)[number];
 
 const SYSTEM: readonly OrderActor[] = ['system'];
 const ADMIN: readonly OrderActor[] = ['admin'];
 const ANY: readonly OrderActor[] = ['system', 'admin'];
+const RESOLVERS: readonly OrderActor[] = ['reconciler', 'admin'];
 
-type TransitionTable = Record<OrderStatus, Partial<Record<OrderStatus, readonly OrderActor[]>>>;
+type TransitionTable = Readonly<
+  Record<OrderStatus, Readonly<Partial<Record<OrderStatus, readonly OrderActor[]>>>>
+>;
+
+// The table is the sole authority on Order.status. A caller that could push an actor into one of
+// these arrays would silently widen who may move money, so every level is frozen: a mutation
+// attempt throws in strict mode instead of taking effect.
+function freezeTable(table: TransitionTable): TransitionTable {
+  for (const edges of Object.values(table)) {
+    for (const actors of Object.values(edges)) Object.freeze(actors);
+    Object.freeze(edges);
+  }
+  return Object.freeze(table);
+}
 
 // Why each actor list:
 // - cancellations and DELIVERED→REFUNDED move or return money by human decision → admin only;
-// - NEEDS_REVIEW resolves via the reconciler (system) or an operator (admin);
+// - NEEDS_REVIEW means we cannot prove whether the TON/supplier payment went out, so it is
+//   resolved ONLY by the reconciler (with chain/supplier proof) or an operator. The ordinary
+//   processor (system) must not: moving it to FAILED would auto-refund an order that may
+//   already have been paid out (docs/06-FULFILLMENT.md, rules/45-fulfillment.md);
 // - HELD is released by the worker when price/limits recover, or by an operator;
 // - the refund legs (FAILED/CANCELLED→REFUNDED) are written by the refund transaction itself,
 //   which runs as system after a failure and as admin after an admin cancellation.
-export const ORDER_TRANSITIONS: TransitionTable = {
+export const ORDER_TRANSITIONS: TransitionTable = freezeTable({
   PAID: { QUEUED: SYSTEM, CANCELLED: ADMIN },
   QUEUED: { PROCESSING: SYSTEM, CANCELLED: ADMIN },
   PROCESSING: { DELIVERED: SYSTEM, FAILED: SYSTEM, HELD: SYSTEM, NEEDS_REVIEW: SYSTEM },
   HELD: { QUEUED: ANY, FAILED: ANY, CANCELLED: ADMIN },
-  NEEDS_REVIEW: { DELIVERED: ANY, FAILED: ANY },
+  NEEDS_REVIEW: { DELIVERED: RESOLVERS, FAILED: RESOLVERS },
   DELIVERED: { REFUNDED: ADMIN },
   FAILED: { REFUNDED: ANY },
   CANCELLED: { REFUNDED: ANY },
   REFUNDED: {},
-};
+});
 
 export type IllegalTransitionReason = 'NO_SUCH_TRANSITION' | 'ACTOR_NOT_ALLOWED';
 

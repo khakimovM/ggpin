@@ -9,6 +9,7 @@ import {
   nextStatuses,
   ORDER_ACTORS,
   ORDER_STATUSES,
+  ORDER_TRANSITIONS,
   orderStatusSchema,
   type OrderActor,
   type OrderStatus,
@@ -28,8 +29,8 @@ const LEGAL: ReadonlyArray<readonly [OrderStatus, OrderStatus, readonly OrderAct
   ['HELD', 'QUEUED', ['system', 'admin']],
   ['HELD', 'FAILED', ['system', 'admin']],
   ['HELD', 'CANCELLED', ['admin']],
-  ['NEEDS_REVIEW', 'DELIVERED', ['system', 'admin']],
-  ['NEEDS_REVIEW', 'FAILED', ['system', 'admin']],
+  ['NEEDS_REVIEW', 'DELIVERED', ['reconciler', 'admin']],
+  ['NEEDS_REVIEW', 'FAILED', ['reconciler', 'admin']],
   ['FAILED', 'REFUNDED', ['system', 'admin']],
   ['CANCELLED', 'REFUNDED', ['system', 'admin']],
   ['DELIVERED', 'REFUNDED', ['admin']],
@@ -119,6 +120,46 @@ describe('order state machine', () => {
     expect(canTransition('PROCESSING', 'QUEUED', 'system')).toBe(false);
   });
 
+  it('NEEDS_REVIEW is resolved only by the reconciler or an admin, never by the processor', () => {
+    // A system FAILED here would auto-refund an order whose payout may have gone out.
+    for (const to of ['DELIVERED', 'FAILED'] as const) {
+      expect(canTransition('NEEDS_REVIEW', to, 'system')).toBe(false);
+      expect(() => assertTransition('NEEDS_REVIEW', to, 'system')).toThrow(
+        expect.objectContaining({ reason: 'ACTOR_NOT_ALLOWED' }),
+      );
+      expect(canTransition('NEEDS_REVIEW', to, 'reconciler')).toBe(true);
+      expect(canTransition('NEEDS_REVIEW', to, 'admin')).toBe(true);
+    }
+    expect(nextStatuses('NEEDS_REVIEW', 'system')).toEqual([]);
+  });
+
+  it('the reconciler may leave only NEEDS_REVIEW', () => {
+    const edges = PAIRS.filter(([from, to]) => canTransition(from, to, 'reconciler'));
+    expect(edges).toEqual([
+      ['NEEDS_REVIEW', 'DELIVERED'],
+      ['NEEDS_REVIEW', 'FAILED'],
+    ]);
+  });
+
+  it('the transition table is deeply frozen: a mutation attempt throws and changes nothing', () => {
+    const table = ORDER_TRANSITIONS as unknown as Record<string, Record<string, OrderActor[]>>;
+    expect(Object.isFrozen(ORDER_TRANSITIONS)).toBe(true);
+    for (const edges of Object.values(ORDER_TRANSITIONS)) {
+      expect(Object.isFrozen(edges)).toBe(true);
+      for (const actors of Object.values(edges)) expect(Object.isFrozen(actors)).toBe(true);
+    }
+    expect(() => table['NEEDS_REVIEW']?.['DELIVERED']?.push('system')).toThrow(TypeError);
+    expect(() => {
+      table['PAID'] = {};
+    }).toThrow(TypeError);
+    expect(() => {
+      const paid = table['PAID'];
+      if (paid) paid['DELIVERED'] = ['system'];
+    }).toThrow(TypeError);
+    expect(canTransition('NEEDS_REVIEW', 'DELIVERED', 'system')).toBe(false);
+    expect(canTransition('PAID', 'DELIVERED', 'system')).toBe(false);
+  });
+
   it('the thrown error carries from/to/actor and a readable message', () => {
     try {
       assertTransition('DELIVERED', 'QUEUED', 'system');
@@ -160,6 +201,7 @@ describe('order state machine', () => {
     for (const status of reachable) {
       for (const next of nextStatuses(status, 'system')) reachable.add(next);
       for (const next of nextStatuses(status, 'admin')) reachable.add(next);
+      for (const next of nextStatuses(status, 'reconciler')) reachable.add(next);
     }
     expect([...reachable].sort()).toEqual([...ORDER_STATUSES].sort());
   });
