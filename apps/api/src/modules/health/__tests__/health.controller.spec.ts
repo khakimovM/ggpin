@@ -6,6 +6,7 @@ import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
 import { HealthRepository } from '../health.repository';
+import { READINESS_CACHE_TTL_MS } from '../health.service';
 
 // HTTP surface of /health with the dependency probes faked (no Postgres/Redis needed). The
 // real-dependency version lives in health-ready.e2e-spec.ts.
@@ -34,7 +35,32 @@ describe('/api/v1/health', () => {
     await app.getHttpAdapter().getInstance().ready();
   });
 
+  // /ready caches its result for READINESS_CACHE_TTL_MS. Only the clock is faked (timers stay
+  // real, supertest needs them) and moved past the window before each test, so every test
+  // starts with a cold cache and sees its own repository mocks.
+  beforeAll(() => {
+    jest.useFakeTimers({
+      doNotFake: [
+        'hrtime',
+        'nextTick',
+        'performance',
+        'queueMicrotask',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+      ],
+    });
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
+    jest.setSystemTime(Date.now() + READINESS_CACHE_TTL_MS + 1);
     repo.pingDatabase.mockResolvedValue(undefined);
     repo.pingRedis.mockResolvedValue(undefined);
     repo.workerHeartbeatPresent.mockResolvedValue(true);
@@ -61,6 +87,21 @@ describe('/api/v1/health', () => {
   });
 
   describe('GET ready', () => {
+    it('serves repeated calls within the window from one probe, and probes again after it', async () => {
+      const probes = () => repo.pingDatabase.mock.calls.length;
+      const before = probes();
+      await Promise.all(
+        [1, 2, 3, 4, 5].map(() => request(app.getHttpServer()).get('/api/v1/health/ready')),
+      );
+      await request(app.getHttpServer()).get('/api/v1/health/ready').expect(200);
+      expect(probes() - before).toBe(1);
+
+      repo.pingDatabase.mockRejectedValue(new Error('down'));
+      await request(app.getHttpServer()).get('/api/v1/health/ready').expect(200); // still cached
+      jest.setSystemTime(Date.now() + READINESS_CACHE_TTL_MS + 1);
+      await request(app.getHttpServer()).get('/api/v1/health/ready').expect(503);
+    });
+
     it('200 with the unenveloped contract shape when everything is up', async () => {
       const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
       expect(res.status).toBe(200);

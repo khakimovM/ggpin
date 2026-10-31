@@ -1,7 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { ReadinessSchema } from '@repo/shared';
 import type { HealthRepository } from '../health.repository';
-import { HealthService, READINESS_CHECK_TIMEOUT_MS } from '../health.service';
+import {
+  HealthService,
+  READINESS_CACHE_TTL_MS,
+  READINESS_CHECK_TIMEOUT_MS,
+} from '../health.service';
 
 type Repo = jest.Mocked<
   Pick<HealthRepository, 'pingDatabase' | 'pingRedis' | 'workerHeartbeatPresent'>
@@ -113,5 +117,95 @@ describe('HealthService.readiness', () => {
     jest.useFakeTimers();
     await build(healthyRepo()).readiness();
     expect(jest.getTimerCount()).toBe(0);
+  });
+});
+
+describe('HealthService.readiness cache', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('serves a fresh result without probing again, then probes after the TTL', async () => {
+    const repo = healthyRepo();
+    const service = build(repo);
+    await service.readiness();
+    await service.readiness();
+    await jest.advanceTimersByTimeAsync(READINESS_CACHE_TTL_MS - 1);
+    await service.readiness();
+    expect(repo.pingDatabase).toHaveBeenCalledTimes(1);
+    expect(repo.pingRedis).toHaveBeenCalledTimes(1);
+    expect(repo.workerHeartbeatPresent).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(1);
+    await service.readiness();
+    expect(repo.pingDatabase).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares one in-flight probe between concurrent callers', async () => {
+    const repo = healthyRepo();
+    let release: () => void = () => undefined;
+    repo.pingDatabase.mockImplementation(() => new Promise<void>((resolve) => (release = resolve)));
+    const service = build(repo);
+    const calls = Array.from({ length: 50 }, () => service.readiness());
+    await jest.advanceTimersByTimeAsync(10);
+    expect(repo.pingDatabase).toHaveBeenCalledTimes(1);
+    release();
+    const reports = await Promise.all(calls);
+    expect(reports.every((r) => r.status === 'ok')).toBe(true);
+    expect(repo.pingDatabase).toHaveBeenCalledTimes(1);
+    expect(repo.pingRedis).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches a failing result for the same short window', async () => {
+    const repo = healthyRepo();
+    repo.pingDatabase.mockRejectedValue(new Error('ECONNREFUSED'));
+    const service = build(repo);
+    expect((await service.readiness()).status).toBe('degraded');
+    expect((await service.readiness()).status).toBe('degraded');
+    expect(repo.pingDatabase).toHaveBeenCalledTimes(1);
+
+    // Recovery is seen once the window has passed.
+    repo.pingDatabase.mockResolvedValue(undefined);
+    await jest.advanceTimersByTimeAsync(READINESS_CACHE_TTL_MS);
+    expect((await service.readiness()).status).toBe('ok');
+  });
+
+  it('measures the window from when the probe finished, not when it started', async () => {
+    const repo = healthyRepo();
+    let release: () => void = () => undefined;
+    repo.pingDatabase.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    const service = build(repo);
+    const first = service.readiness();
+    await jest.advanceTimersByTimeAsync(READINESS_CACHE_TTL_MS + 500);
+    release();
+    await first;
+    await service.readiness();
+    expect(repo.pingDatabase).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts a new probe after a hung one timed out and its window passed', async () => {
+    const repo = healthyRepo();
+    repo.pingDatabase.mockImplementationOnce(never);
+    const service = build(repo);
+    const first = service.readiness();
+    await jest.advanceTimersByTimeAsync(READINESS_CHECK_TIMEOUT_MS);
+    expect((await first).db).toBe('down');
+    await jest.advanceTimersByTimeAsync(READINESS_CACHE_TTL_MS);
+    expect((await service.readiness()).db).toBe('ok');
+  });
+
+  it('hands every caller its own copy of the report', async () => {
+    const service = build(healthyRepo());
+    const first = await service.readiness();
+    (first as { status: string }).status = 'tampered';
+    expect((await service.readiness()).status).toBe('ok');
   });
 });

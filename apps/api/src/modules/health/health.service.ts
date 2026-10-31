@@ -5,6 +5,12 @@ import { HealthRepository } from './health.repository';
 // Per check; the checks run in parallel, so a hung dependency costs the probe at most this.
 export const READINESS_CHECK_TIMEOUT_MS = 2_000;
 
+// /ready is unthrottled (orchestrators poll it) and each probe hits Postgres and Redis, so
+// without a cache anyone who can reach the route could turn it into a database load generator.
+// A result, healthy or not, is served for this long; a constant, not env, so it cannot be
+// "tuned" to zero in production by accident.
+export const READINESS_CACHE_TTL_MS = 1_500;
+
 class CheckTimeoutError extends Error {
   constructor() {
     super('timeout');
@@ -18,7 +24,28 @@ export class HealthService {
 
   constructor(private readonly repo: HealthRepository) {}
 
-  async readiness(): Promise<Readiness> {
+  private cached: { readonly at: number; readonly report: Readiness } | null = null;
+  // Single flight: callers arriving while a probe runs share it instead of starting their own.
+  private inFlight: Promise<Readiness> | null = null;
+
+  readiness(): Promise<Readiness> {
+    if (this.cached !== null && Date.now() - this.cached.at < READINESS_CACHE_TTL_MS) {
+      return Promise.resolve({ ...this.cached.report });
+    }
+    this.inFlight ??= this.probe()
+      .then((report) => {
+        // Stamped when the probe finished, so a slow probe still gets a full window.
+        this.cached = { at: Date.now(), report };
+        return report;
+      })
+      .finally(() => {
+        this.inFlight = null;
+      });
+    return this.inFlight.then((report) => ({ ...report }));
+  }
+
+  // Never rejects: every check maps its own failure to 'down'.
+  private async probe(): Promise<Readiness> {
     const [db, redis, worker] = await Promise.all([
       this.check('db', () => this.repo.pingDatabase()),
       this.check('redis', () => this.repo.pingRedis()),

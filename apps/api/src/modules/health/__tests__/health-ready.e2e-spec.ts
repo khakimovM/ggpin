@@ -6,9 +6,12 @@ import request from 'supertest';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
+import { READINESS_CACHE_TTL_MS } from '../health.service';
 
 // Real Postgres (`*_test`) and real Redis (logical DB 15). The worker is simulated by writing
 // its heartbeat key directly, exactly as HeartbeatService does.
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
   const env = buildE2eEnv();
   let app: NestFastifyApplication;
@@ -29,6 +32,9 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
 
   beforeEach(async () => {
     await redis.del(WORKER_HEARTBEAT_KEY);
+    // /ready caches its result; let the previous test's result expire so each test probes the
+    // real dependencies itself.
+    await sleep(READINESS_CACHE_TTL_MS + 50);
   });
 
   afterAll(async () => {
@@ -70,7 +76,7 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
   it('503 again once the heartbeat TTL expires', async () => {
     await redis.set(WORKER_HEARTBEAT_KEY, 'x', 'PX', 300);
     await request(app.getHttpServer()).get('/api/v1/health/ready').expect(200);
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await sleep(READINESS_CACHE_TTL_MS + 100);
     await request(app.getHttpServer()).get('/api/v1/health/ready').expect(503);
   });
 
