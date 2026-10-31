@@ -41,9 +41,13 @@ const CRON_DEFAULTS: QueueJobDefaults = {
  *
  * fulfill-order: 5 attempts, 5 s base (5/10/20/40 s). A retry is only safe because the
  * processor (phase 5) reconciles any existing FulfillmentAttempt before sending and turns an
- * unknown outcome into NEEDS_REVIEW instead of throwing — never a second payment. Completed
- * jobs are kept 7 days so a duplicate `jobId = orderId` enqueue in that window is a no-op;
- * the order state machine is the real guard after that.
+ * unknown outcome into NEEDS_REVIEW instead of throwing — never a second payment.
+ *
+ * Enqueue with `jobId = orderId` ONLY through the shared enqueue path (`decideEnqueue` in
+ * job-enqueue.ts, used by the API's FulfillOrderEnqueuer): BullMQ drops an `add()` whose id still
+ * exists in any state, and finished jobs are retained 7 days (completed) / 30 days (failed), so a
+ * plain `queue.add` would lose a legitimate second enqueue (HELD → QUEUED, admin retry). The
+ * order lock and status re-check in the processor are the real double-spend guard.
  */
 export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> = {
   [QUEUES.FULFILL_ORDER]: {

@@ -10,6 +10,7 @@ export default defineConfig({
         'src/money.ts',
         'src/order-state.ts',
         'src/env-secrets.ts',
+        'src/job-enqueue.ts',
         'src/log-redaction/**/*.ts',
       ],
       thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },

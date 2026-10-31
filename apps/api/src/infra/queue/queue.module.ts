@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES } from '@repo/shared';
 import type { QueueOptions } from 'bullmq';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import { FulfillOrderEnqueuer } from './fulfill-order-enqueuer';
 import { QueueErrorLogger } from './queue-error-logger';
 
 // Producer-only connection. enableOfflineQueue=false makes `queue.add` fail fast while Redis
@@ -18,8 +19,9 @@ const queues = BullModule.registerQueue(
 );
 
 // The API only produces jobs; it registers no processors. Inject a queue with
-// `@InjectQueue(QUEUES.FULFILL_ORDER)`. (tg-outbox and payment-reconcile consumers live in
-// the API per docs/02-ARCHITECTURE.md and arrive with phases 2 and 4.)
+// `@InjectQueue(QUEUES.FULFILL_ORDER)`, but enqueue fulfill-order only through
+// FulfillOrderEnqueuer. (tg-outbox and payment-reconcile consumers live in the API per
+// docs/02-ARCHITECTURE.md and arrive with phases 2 and 4.)
 @Global()
 @Module({
   imports: [
@@ -29,7 +31,7 @@ const queues = BullModule.registerQueue(
     }),
     queues,
   ],
-  providers: [QueueErrorLogger],
-  exports: [queues],
+  providers: [QueueErrorLogger, FulfillOrderEnqueuer],
+  exports: [queues, FulfillOrderEnqueuer],
 })
 export class QueueModule {}

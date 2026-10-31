@@ -4,6 +4,7 @@ import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES } from '@repo/shared';
 import { withFakeInfra } from '../../../__tests__/fake-infra';
 import { AppConfigModule } from '../../../config/config.module';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
+import { FulfillOrderEnqueuer } from '../fulfill-order-enqueuer';
 import { QueueModule } from '../queue.module';
 
 describe('QueueModule (api, producer)', () => {
@@ -31,6 +32,12 @@ describe('QueueModule (api, producer)', () => {
       strict: false,
     });
     expect(options.defaultJobOptions).toEqual(QUEUE_JOB_DEFAULTS[name]);
+  });
+
+  it('provides the single fulfill-order enqueue path', () => {
+    expect(moduleRef.get(FulfillOrderEnqueuer, { strict: false })).toBeInstanceOf(
+      FulfillOrderEnqueuer,
+    );
   });
 
   it('connects from REDIS_URL and fails fast instead of buffering while Redis is down', () => {
