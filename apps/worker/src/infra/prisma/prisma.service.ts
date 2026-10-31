@@ -1,4 +1,4 @@
-import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { createPrismaClient, type PrismaClient } from '@repo/db';
 import { WORKER_CONFIG, type WorkerConfig } from '../../config/config.module';
 
@@ -7,14 +7,17 @@ import { WORKER_CONFIG, type WorkerConfig } from '../../config/config.module';
 // the driver adapter. The connection is lazy (pg connects on the first query), so booting a
 // module graph in unit tests needs no database.
 @Injectable()
-export class PrismaService implements OnModuleDestroy {
+export class PrismaService implements OnApplicationShutdown {
   readonly client: PrismaClient;
 
   constructor(@Inject(WORKER_CONFIG) config: WorkerConfig) {
     this.client = createPrismaClient(config.DATABASE_URL);
   }
 
-  async onModuleDestroy(): Promise<void> {
+  // onApplicationShutdown, not onModuleDestroy: Nest calls onModuleDestroy FIRST, while the HTTP
+  // server and BullMQ workers may still be finishing a request/job that needs the database.
+  // onApplicationShutdown runs after the server has stopped and after beforeApplicationShutdown.
+  async onApplicationShutdown(): Promise<void> {
     await this.client.$disconnect();
   }
 }
