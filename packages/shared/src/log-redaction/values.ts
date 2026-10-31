@@ -6,87 +6,15 @@
 // logged under an unknown key would slip through. Matching key NAMES at any depth is the
 // stronger guarantee. The copy never mutates the caller's object (it may be a live request,
 // config or domain object), handles cycles and Errors, and is bounded in depth.
+import { REDACTED, isSensitiveField } from './keys';
+import { scrubSecretsInText } from './text';
 
-export const REDACTED = '[Redacted]';
 const CIRCULAR = '[Circular]';
 const TRUNCATED = '[Truncated]';
 const UNSERIALIZABLE = '[Unserializable]';
 
 /** Deeper structures are cut off: bounds the cost of logging a huge graph by mistake. */
 export const MAX_REDACTION_DEPTH = 8;
-
-// Compared after normalisation (lower-case, no `-`, `_` or spaces), so `apiKey`, `api_key`,
-// `X-Api-Key` and `APIKEY` are one entry. The generic key `code` is deliberately absent:
-// error envelopes (`INSUFFICIENT_BALANCE`) and Node errors (`ECONNREFUSED`) use it and logs
-// need it; OTP values travel under the OTP-specific keys below.
-const SENSITIVE_EXACT: ReadonlySet<string> = new Set([
-  'authorization',
-  'proxyauthorization',
-  'cookie',
-  'setcookie',
-  'cookies', // Fragment session cookies
-  'initdata', // Telegram Mini App launch params (carry the signed hash)
-  'hash',
-  'signature',
-  'sign',
-  'signstring',
-  'mnemonic',
-  'seed',
-  'seedphrase',
-  'apikey',
-  'password',
-  'secret',
-  'token',
-  'tokens',
-  'otp',
-  'otpcode',
-  'verificationcode',
-  'phone',
-  'phonenumber',
-  'privatekey',
-]);
-
-// `accessToken`, `refreshToken`, `x-telegram-bot-api-secret-token`, `clientSecret`,
-// `x-signature`, `dbPassword`, ... Not a bare `sign` suffix (it would catch "design").
-const SENSITIVE_SUFFIXES: readonly string[] = [
-  'token',
-  'secret',
-  'apikey',
-  'password',
-  'privatekey',
-  'signature',
-  'initdata',
-];
-
-export function isSensitiveKey(key: string): boolean {
-  const normalised = key.toLowerCase().replace(/[-_\s]/g, '');
-  return (
-    SENSITIVE_EXACT.has(normalised) ||
-    SENSITIVE_SUFFIXES.some((suffix) => normalised.endsWith(suffix))
-  );
-}
-
-// ---- Text -------------------------------------------------------------------------------
-// Secrets also hide inside strings that are not under a sensitive key: an error message
-// quoting a connection URL, a Telegram API URL that embeds the bot token, a logged query
-// string. These patterns are the second line of defence for free text.
-
-const URL_USERINFO = /(:\/\/)[^\s/?#]*@/g; // scheme://user:pass@host -> scheme://[Redacted]@host
-const BOT_TOKEN = /(?<!\d)\d{6,12}:[A-Za-z0-9_-]{30,}/g; // 123456789:AA..., also inside /bot<token>/
-const AUTH_SCHEME = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
-// `key=value` after a query separator or whitespace: covers URLs (?token=..) and libpq-style
-// connection strings (host=db password=..).
-const KEY_VALUE_PAIR = /(^|[\s?&;,])([A-Za-z0-9_.-]+)=([^&\s#"';,]*)/g;
-
-export function scrubSecretsInText(text: string): string {
-  return text
-    .replace(URL_USERINFO, `$1${REDACTED}@`)
-    .replace(BOT_TOKEN, REDACTED)
-    .replace(AUTH_SCHEME, `$1 ${REDACTED}`)
-    .replace(KEY_VALUE_PAIR, (pair, separator: string, key: string) =>
-      isSensitiveKey(key) ? `${separator}${key}=${REDACTED}` : pair,
-    );
-}
 
 // ---- Values -----------------------------------------------------------------------------
 
@@ -119,7 +47,7 @@ function copyProperties(
     const value = source[key];
     if (passthrough?.has(key) === true) {
       assign(copy, key, value);
-    } else if (isSensitiveKey(key) && value !== null && value !== undefined) {
+    } else if (isSensitiveField(key, value) && value !== null && value !== undefined) {
       assign(copy, key, REDACTED);
     } else {
       assign(copy, key, redactValue(value, depth + 1, ancestors));
@@ -200,4 +128,32 @@ export function redactLogRecord(
   passthroughKeys?: ReadonlySet<string>,
 ): Record<string, unknown> {
   return copyProperties(record, 0, new Set([record]), passthroughKeys);
+}
+
+/**
+ * Redacts the pre-serialised bindings string Pino keeps for a logger (`,"k":v,"k2":v2`).
+ * Fails closed: text that is not the expected JSON fragment is dropped, not passed through.
+ */
+export function redactSerializedBindings(chindings: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(`{${chindings.replace(/^,/, '')}}`);
+  } catch {
+    return '';
+  }
+  const json = JSON.stringify(redactSecrets(parsed));
+  return json === '{}' ? '' : `,${json.slice(1, -1)}`;
+}
+
+/**
+ * For Pino's `onChild`: Pino resets `formatters.bindings` for child loggers, so
+ * `logger.child({ apiKey })` would print the key on every line the child writes. Rewrites the
+ * child's stored bindings through the redaction policy. `chindingsSym` is `pino.symbols.chindingsSym`
+ * (public Pino API); passing it in keeps this package free of a Pino dependency.
+ */
+export function redactChildBindings(child: object, chindingsSym: symbol): void {
+  const current: unknown = Reflect.get(child, chindingsSym);
+  if (typeof current === 'string') {
+    Reflect.set(child, chindingsSym, redactSerializedBindings(current));
+  }
 }

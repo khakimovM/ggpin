@@ -1,5 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  API_ONLY_SECRETS,
+  WORKER_PRODUCTION_GENERATED_SECRETS as PRODUCTION_GENERATED_SECRETS,
+  WORKER_PRODUCTION_ISSUED_CREDENTIALS as PRODUCTION_ISSUED_CREDENTIALS,
+} from '@repo/shared';
 import { EnvValidationError, loadEnv } from '../env';
-import { PRODUCTION_GENERATED_SECRETS, PRODUCTION_ISSUED_CREDENTIALS } from '../env-security';
 import { TEST_ENV_SOURCE, buildTestEnv } from './test-env';
 
 const SECRET_VALUE = 'S3cr3t-VALUE-that-must-never-be-printed-9f8e7d';
@@ -70,6 +76,38 @@ describe('worker loadEnv', () => {
         expect(messageOf({ ...TEST_ENV_SOURCE, [name]: bad })).toContain(name);
       }
     }
+  });
+
+  describe('API-only secrets', () => {
+    it.each(API_ONLY_SECRETS)('refuses to boot when %s is set', (name) => {
+      const message = messageOf({ ...TEST_ENV_SOURCE, [name]: SECRET_VALUE });
+      expect(message).toContain(name);
+      expect(message).toContain('API-only');
+      expect(message).not.toContain(SECRET_VALUE);
+    });
+
+    it('refuses in production too, and reports every offender at once', () => {
+      const message = messageOf({
+        ...TEST_ENV_SOURCE,
+        NODE_ENV: 'production',
+        FULFILLMENT_DRY_RUN: 'true',
+        JWT_ACCESS_SECRET: SECRET_VALUE,
+        PAYME_KEY: SECRET_VALUE,
+      });
+      expect(message).toContain('JWT_ACCESS_SECRET');
+      expect(message).toContain('PAYME_KEY');
+    });
+
+    it('allows them to be empty (as in a copied API .env.example)', () => {
+      const source = Object.fromEntries(API_ONLY_SECRETS.map((n) => [n, '']));
+      expect(() => loadEnv({ ...TEST_ENV_SOURCE, ...source })).not.toThrow();
+    });
+
+    it('keeps its own template free of them', () => {
+      const template = readFileSync(join(__dirname, '../../../.env.example'), 'utf8');
+      for (const name of API_ONLY_SECRETS)
+        expect(template).not.toMatch(new RegExp(`^${name}=`, 'm'));
+    });
   });
 
   describe('secrets', () => {

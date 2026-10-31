@@ -2,64 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_REDACTION_DEPTH,
   REDACTED,
-  isSensitiveKey,
+  redactChildBindings,
   redactLogRecord,
   redactSecrets,
-  scrubSecretsInText,
-} from './log-redaction';
+  redactSerializedBindings,
+} from './index';
 
-// Every key the policy names (see docs/10-SECURITY.md and rules/60-security.md).
-const SENSITIVE_KEYS = [
-  'authorization',
-  'cookie',
-  'set-cookie',
-  'x-telegram-bot-api-secret-token',
-  'initData',
-  'hash',
-  'signature',
-  'sign',
-  'sign_string',
-  'mnemonic',
-  'apiKey',
-  'api_key',
-  'password',
-  'secret',
-  'clientSecret',
-  'token',
-  'accessToken',
-  'refresh_token',
-  'otp',
-  'otpCode',
-  'verificationCode',
-  'phone',
-  'phoneNumber',
-  'privateKey',
-  'seed',
-  'cookies',
-];
-
-// Assembled at runtime so no token-shaped literal sits in the source.
-const FAKE_BOT_TOKEN = ['123456789', 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw0'].join(':');
-
-describe('isSensitiveKey', () => {
-  it.each(SENSITIVE_KEYS)('%s is sensitive', (key) => {
-    expect(isSensitiveKey(key)).toBe(true);
-  });
-
-  it.each(['AUTHORIZATION', 'Set-Cookie', 'X-Api-Key', 'APIKEY', 'Init_Data', 'x-signature'])(
-    'matches case and separator variants: %s',
-    (key) => {
-      expect(isSensitiveKey(key)).toBe(true);
-    },
-  );
-
-  it.each(['code', 'message', 'status', 'orderId', 'design', 'tokenCount', 'txHash', 'userId'])(
-    'does not flag %s',
-    (key) => {
-      expect(isSensitiveKey(key)).toBe(false);
-    },
-  );
-});
+// A representative subset; keys.test.ts covers every name the policy knows.
+const SENSITIVE_KEYS = ['authorization', 'set-cookie', 'initData', 'apiKey', 'password', 'phone'];
 
 describe('redactSecrets', () => {
   it.each(SENSITIVE_KEYS)('redacts %s at the top level', (key) => {
@@ -103,6 +53,38 @@ describe('redactSecrets', () => {
       code: 'INSUFFICIENT_BALANCE',
       err: { code: 'ECONNREFUSED' },
     });
+  });
+
+  it('redacts `code` only when it looks like a one-time code', () => {
+    // The OTP verify body is { nonce, code }.
+    expect(redactSecrets({ nonce: 'n-1', code: '123456' })).toEqual({
+      nonce: 'n-1',
+      code: REDACTED,
+    });
+    expect(redactSecrets({ code: 4821 })).toEqual({ code: REDACTED });
+    expect(redactSecrets({ code: '1234' })).toEqual({ code: REDACTED });
+    expect(redactSecrets({ code: '12345678' })).toEqual({ code: REDACTED });
+    for (const code of [-31050, 500, 'ETIMEDOUT', 'INSUFFICIENT_BALANCE', '123', '123456789']) {
+      expect(redactSecrets({ code })).toEqual({ code });
+    }
+    expect(redactSecrets({ code: true, err: { code: 99001 } })).toEqual({
+      code: true,
+      err: { code: REDACTED },
+    });
+  });
+
+  it('keeps useful non-secret identifiers', () => {
+    const record = {
+      idempotencyKey: 'k-1',
+      txHash: '0xabc',
+      orderId: 'o-1',
+      provider: 'click',
+      status: 'PAID',
+      cacheKey: 'wallet:1',
+      jobId: 'j-1',
+      queue: 'fulfill-order',
+    };
+    expect(redactSecrets(record)).toEqual(record);
   });
 
   it('does not mutate its input', () => {
@@ -257,53 +239,6 @@ describe('redactSecrets', () => {
   });
 });
 
-describe('scrubSecretsInText', () => {
-  it('hides URL credentials for any scheme', () => {
-    expect(scrubSecretsInText('postgresql://ggpin:p%40ss@db:5432/app')).toBe(
-      `postgresql://${REDACTED}@db:5432/app`,
-    );
-    expect(scrubSecretsInText('redis://:pw@cache:6379 and https://user:pw@x.test/a')).toBe(
-      `redis://${REDACTED}@cache:6379 and https://${REDACTED}@x.test/a`,
-    );
-  });
-
-  it('keeps URLs without credentials', () => {
-    expect(scrubSecretsInText('https://api.test/path?a=1@b')).toBe('https://api.test/path?a=1@b');
-  });
-
-  it('hides Telegram bot tokens, also inside API URLs', () => {
-    expect(
-      scrubSecretsInText(`failed https://api.telegram.org/bot${FAKE_BOT_TOKEN}/sendMessage`),
-    ).toBe(`failed https://api.telegram.org/bot${REDACTED}/sendMessage`);
-    expect(scrubSecretsInText(`token ${FAKE_BOT_TOKEN}`)).toBe(`token ${REDACTED}`);
-  });
-
-  it('hides Bearer and Basic credentials', () => {
-    expect(scrubSecretsInText('Authorization: Basic dXNlcjpwYXNzd29yZA==')).toBe(
-      `Authorization: Basic ${REDACTED}`,
-    );
-  });
-
-  it('hides sensitive query parameters only', () => {
-    expect(scrubSecretsInText('/cb?token=abc123&page=2&sign=zzz')).toBe(
-      `/cb?token=${REDACTED}&page=2&sign=${REDACTED}`,
-    );
-  });
-
-  it('hides key=value secrets in free text and connection strings', () => {
-    expect(scrubSecretsInText('retry with token=abc123')).toBe(`retry with token=${REDACTED}`);
-    expect(scrubSecretsInText('password=hunter2 host=db')).toBe(`password=${REDACTED} host=db`);
-    expect(scrubSecretsInText('host=db password=hunter2; user=app')).toBe(
-      `host=db password=${REDACTED}; user=app`,
-    );
-  });
-
-  it('leaves ordinary text alone', () => {
-    const text = 'order 42 failed: INSUFFICIENT_BALANCE at 12:30';
-    expect(scrubSecretsInText(text)).toBe(text);
-  });
-});
-
 describe('redactLogRecord', () => {
   it('redacts fields and leaves passthrough keys to their serializers', () => {
     const req = { token: 'kept-for-the-serializer' };
@@ -331,5 +266,36 @@ describe('redactLogRecord', () => {
     const record: Record<string, unknown> = { id: 1 };
     record.me = record;
     expect(redactLogRecord(record)).toEqual({ id: 1, me: '[Circular]' });
+  });
+});
+
+describe('redactSerializedBindings / redactChildBindings', () => {
+  it('redacts values in a Pino bindings fragment and keeps the rest', () => {
+    const fragment = `,"pid":7,"service":"api","apiKey":"abc","ctx":{"cookies":"c=1","id":2}`;
+    expect(JSON.parse(`{${redactSerializedBindings(fragment).slice(1)}}`)).toEqual({
+      pid: 7,
+      service: 'api',
+      apiKey: REDACTED,
+      ctx: { cookies: REDACTED, id: 2 },
+    });
+  });
+
+  it('accepts a fragment without the leading comma and returns empty for no bindings', () => {
+    expect(redactSerializedBindings('"token":"t"')).toBe(`,"token":"${REDACTED}"`);
+    expect(redactSerializedBindings('')).toBe('');
+  });
+
+  it('fails closed on text that is not a JSON fragment', () => {
+    expect(redactSerializedBindings(',"apiKey":"abc')).toBe('');
+  });
+
+  it('rewrites the stored bindings of a child through the given symbol', () => {
+    const sym = Symbol('chindings');
+    const child = { [sym]: ',"apiKey":"abc","id":1' };
+    redactChildBindings(child, sym);
+    expect(child[sym]).toBe(`,"apiKey":"${REDACTED}","id":1`);
+    const other = { [sym]: 42 };
+    redactChildBindings(other, sym);
+    expect(other[sym]).toBe(42);
   });
 });

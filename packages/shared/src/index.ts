@@ -1,4 +1,5 @@
 export { BRAND, type Brand } from './brand';
+export * from './env-secrets';
 export * from './errors';
 export * from './health';
 export * from './log-redaction';

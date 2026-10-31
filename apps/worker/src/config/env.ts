@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isBlank, productionSecretProblems } from './env-security';
+import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
@@ -92,6 +92,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
   }
 
+  // The worker must not see the API's payment/session/bot secrets (the mirror of the API's
+  // worker-secret check): refused in every environment, not only production.
+  problems.push(...apiSecretProblems(clean));
   if (production) problems.push(...productionSecretProblems(clean));
 
   if (!parsed.success || problems.length > 0) throw new EnvValidationError(problems);

@@ -1,7 +1,12 @@
 import type { Params } from 'nestjs-pino';
-import { stdTimeFunctions, type DestinationStream } from 'pino';
+import { stdTimeFunctions, symbols, type DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
-import { redactLogRecord, redactSecrets, scrubSecretsInText } from '@repo/shared';
+import {
+  redactChildBindings,
+  redactLogRecord,
+  redactSecrets,
+  scrubSecretsInText,
+} from '@repo/shared';
 import type { AppConfig } from '../../config/config.module';
 import { serializeRequest, serializeResponse } from './serializers';
 
@@ -32,9 +37,14 @@ export function buildLoggerParams(config: LoggerConfig, destination?: Destinatio
     timestamp: stdTimeFunctions.isoTime,
     formatters: {
       log: (record) => redactLogRecord(record, SERIALIZED_KEYS),
+      // Root bindings (`base`). Pino resets this formatter for child loggers, see onChild.
+      bindings: (bindings) => redactLogRecord(bindings, SERIALIZED_KEYS),
       // pino-pretty reads numeric levels; JSON consumers prefer labels.
       ...(pretty ? {} : { level: (label: string) => ({ level: label }) }),
     },
+    // `logger.child({ apiKey })` is printed on every line the child writes and bypasses both
+    // `formatters.log` and `formatters.bindings`; this rewrites the child's stored bindings.
+    onChild: (child) => redactChildBindings(child, symbols.chindingsSym),
     serializers: {
       req: serializeRequest,
       res: serializeResponse,

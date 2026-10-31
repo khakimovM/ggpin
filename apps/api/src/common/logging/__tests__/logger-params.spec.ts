@@ -36,6 +36,56 @@ describe('API logger policy', () => {
     expect(String(record?.time)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
+  it('redacts child-logger bindings, which do not pass through the record formatter', () => {
+    const { stream, logger } = createLogger();
+    const child = logger.child({
+      apiKey: SECRETS.apiKey,
+      userId: 'u-1',
+      tokenHash: SECRETS.refresh,
+    });
+    child.info('bound');
+    child.child({ secretKey: SECRETS.signature }).info({ attempt: 2 }, 'nested child');
+    const out = stream.text();
+    for (const value of [SECRETS.apiKey, SECRETS.refresh, SECRETS.signature]) {
+      expect(out).not.toContain(value);
+    }
+    expect(stream.records()[0]).toMatchObject({
+      service: 'api',
+      userId: 'u-1',
+      apiKey: REDACTED,
+      tokenHash: REDACTED,
+    });
+    expect(stream.records()[1]).toMatchObject({ userId: 'u-1', attempt: 2, secretKey: REDACTED });
+  });
+
+  it('redacts an OTP-shaped code (verify body) but keeps error codes and useful ids', () => {
+    const { stream, logger } = createLogger();
+    logger.info(
+      { body: { nonce: 'n-1', code: SECRETS.otp }, idempotencyKey: 'k-1', txHash: 'h' },
+      'verify',
+    );
+    logger.error({ err: Object.assign(new Error('x'), { code: 'ECONNREFUSED' }) }, 'failed');
+    expect(stream.text()).not.toContain(SECRETS.otp);
+    expect(stream.records()[0]).toMatchObject({
+      body: { nonce: 'n-1', code: REDACTED },
+      idempotencyKey: 'k-1',
+      txHash: 'h',
+    });
+    expect((stream.records()[1] as { err: { code: string } }).err.code).toBe('ECONNREFUSED');
+  });
+
+  it('scrubs quoted values, embedded JSON and phone numbers in free text', () => {
+    const { stream, logger } = createLogger();
+    logger.warn(
+      `retry password="${SECRETS.apiKey}" body {"apiKey":"${SECRETS.refresh}"} call ${SECRETS.phone}`,
+    );
+    const out = stream.text();
+    for (const value of [SECRETS.apiKey, SECRETS.refresh, SECRETS.phone]) {
+      expect(out).not.toContain(value);
+    }
+    expect(out).toContain('apiKey');
+  });
+
   it('never lets any kind of secret reach the output', () => {
     const { stream, logger } = createLogger();
     logger.info(

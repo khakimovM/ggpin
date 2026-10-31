@@ -49,7 +49,14 @@ describe('worker logger policy', () => {
         wallet: { mnemonic: SECRETS.mnemonic, privateKey: SECRETS.privateKey },
         fragment: { cookies: [{ name: 'stel_ssid', value: SECRETS.cookies }] },
         supplier: { apiKey: SECRETS.apiKey, response: { signature: SECRETS.signature } },
-        env: { WALLET_ENC_KEY_TOKEN: SECRETS.walletKey, accessToken: SECRETS.token },
+        env: {
+          WALLET_ENC_KEY: SECRETS.walletKey,
+          TON_MNEMONIC_ENC: SECRETS.mnemonic,
+          FRAGMENT_SESSION_ENC_KEY: SECRETS.walletKey,
+          TON_API_KEY: SECRETS.apiKey,
+          RESELLER_STARS_API_KEY: SECRETS.apiKey,
+          accessToken: SECRETS.token,
+        },
         steps: [{ attempt: 1, auth: { token: SECRETS.token } }],
       },
       'dump',
@@ -58,6 +65,41 @@ describe('worker logger policy', () => {
     for (const value of Object.values(SECRETS)) expect(out).not.toContain(value);
     expect(out).toContain(REDACTED);
     expect(out).toContain('"attempt":1');
+  });
+
+  it('redacts child-logger bindings, which do not pass through the record formatter', () => {
+    const { stream, logger } = createLogger();
+    const child = logger.child({ apiKey: SECRETS.apiKey, orderId: 'o-3', ctx: { cookies: 'c=1' } });
+    child.info('bound');
+    child.child({ secretKey: SECRETS.walletKey }).info({ attempt: 2 }, 'nested child');
+    const out = stream.text();
+    expect(out).not.toContain(SECRETS.apiKey);
+    expect(out).not.toContain(SECRETS.walletKey);
+    expect(out).not.toContain('c=1');
+    expect(stream.records()[0]).toMatchObject({
+      service: 'worker',
+      orderId: 'o-3',
+      apiKey: REDACTED,
+      msg: 'bound',
+    });
+    expect(stream.records()[1]).toMatchObject({ orderId: 'o-3', attempt: 2, secretKey: REDACTED });
+  });
+
+  it('keeps useful non-secret fields and redacts an OTP-shaped code', () => {
+    const { stream, logger } = createLogger();
+    logger.info(
+      { idempotencyKey: 'k-1', txHash: 'h-1', jobId: 'j-1', queue: 'fulfill-order', code: 4821 },
+      'fields',
+    );
+    logger.error({ err: Object.assign(new Error('x'), { code: 'ETIMEDOUT' }) }, 'fields');
+    expect(stream.records()[0]).toMatchObject({
+      idempotencyKey: 'k-1',
+      txHash: 'h-1',
+      jobId: 'j-1',
+      queue: 'fulfill-order',
+      code: REDACTED,
+    });
+    expect((stream.records()[1] as { err: { code: string } }).err.code).toBe('ETIMEDOUT');
   });
 
   it('keeps `code` and scrubs secrets inside logged errors', () => {
