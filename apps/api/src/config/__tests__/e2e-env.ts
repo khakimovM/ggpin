@@ -21,5 +21,10 @@ export function buildE2eEnv(): Env {
   }
   const redisUrl = new URL(process.env['REDIS_URL'] ?? 'redis://localhost:6379');
   redisUrl.pathname = `/${E2E_REDIS_DB}`;
-  return buildTestEnv({ DATABASE_URL: databaseUrl, REDIS_URL: redisUrl.toString() });
+  // Silent: e2e output stays readable; the logging suites opt in to capture explicitly.
+  return buildTestEnv({
+    DATABASE_URL: databaseUrl,
+    REDIS_URL: redisUrl.toString(),
+    LOG_LEVEL: 'silent',
+  });
 }

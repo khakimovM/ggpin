@@ -55,7 +55,7 @@ export function applyCors(app: NestFastifyApplication, config: AppConfig): void 
     // X-CSRF-Token is the CSRF header for state-changing cookie-session routes
     // (rules/60-security.md); the check itself arrives with auth in phase 2.
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-CSRF-Token'],
-    exposedHeaders: ['Retry-After'],
+    exposedHeaders: ['Retry-After', 'X-Request-Id'],
     maxAge: 600,
   });
 }

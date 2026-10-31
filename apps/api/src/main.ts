@@ -24,6 +24,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(env),
     createHttpAdapter(env),
+    // Buffer until configureApp installs the Pino logger, so boot logs are structured too.
+    { bufferLogs: true },
   );
   await configureApp(app);
   app.enableShutdownHooks();

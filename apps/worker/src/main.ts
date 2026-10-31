@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { QUEUE_NAMES } from '@repo/shared';
 import { EnvValidationError, loadEnv, type Env } from './config/env';
 import { WorkerModule } from './worker.module';
@@ -21,7 +22,11 @@ function loadEnvOrExit(): Env {
 async function bootstrap(): Promise<void> {
   const env = loadEnvOrExit();
   // Application context only: the worker never opens an HTTP port (docs/02-ARCHITECTURE.md).
-  const app = await NestFactory.createApplicationContext(WorkerModule.register(env));
+  const app = await NestFactory.createApplicationContext(WorkerModule.register(env), {
+    // Buffer until the Pino logger is installed, so boot logs are structured and redacted too.
+    bufferLogs: true,
+  });
+  app.useLogger(app.get(PinoLogger));
   app.enableShutdownHooks();
 
   // No keep-alive timer: the BullMQ Redis connections and the heartbeat interval keep the

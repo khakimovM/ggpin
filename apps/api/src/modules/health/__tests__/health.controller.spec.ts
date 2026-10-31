@@ -19,7 +19,9 @@ describe('/api/v1/health', () => {
 
   beforeAll(async () => {
     const moduleRef = await withFakeInfra(
-      Test.createTestingModule({ imports: [AppModule.register(buildTestEnv())] }),
+      Test.createTestingModule({
+        imports: [AppModule.register(buildTestEnv({ LOG_LEVEL: 'silent' }))],
+      }),
     )
       .overrideProvider(HealthRepository)
       .useValue(repo)

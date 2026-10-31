@@ -43,6 +43,12 @@ export class HttpTestController {
     return body;
   }
 
+  // Accepts anything: the logging e2e posts secret-bearing bodies and must reach a 2xx handler.
+  @Post('sink')
+  sink(@Body() _body: unknown): { received: true } {
+    return { received: true };
+  }
+
   @Get('domain-error')
   domainError(): never {
     throw new AppError('INSUFFICIENT_BALANCE', {

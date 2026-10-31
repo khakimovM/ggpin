@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpException,
-  Logger,
   NotFoundException,
   UnauthorizedException,
   type ArgumentsHost,
@@ -18,6 +17,9 @@ interface Sent {
   body: unknown;
 }
 
+// The per-request pino child (carries reqId) that the filter logs through.
+const errorLog = jest.fn<void, [Record<string, unknown>, string]>();
+
 function run(exception: unknown): Sent {
   const sent: Sent = { status: 0, body: undefined };
   const reply = {
@@ -30,7 +32,16 @@ function run(exception: unknown): Sent {
       };
     },
   };
-  const request = { method: 'POST', routeOptions: { url: '/api/v1/things' } };
+  const request = {
+    id: 'req-0001-abcd',
+    method: 'POST',
+    ip: '203.0.113.9',
+    url: '/api/v1/things/42?token=abc',
+    is404: false,
+    headers: {},
+    routeOptions: { url: '/api/v1/things' },
+    raw: { allLogs: [{ error: errorLog }] },
+  };
   const host = {
     switchToHttp: () => ({ getResponse: () => reply, getRequest: () => request }),
   } as unknown as ArgumentsHost;
@@ -43,12 +54,7 @@ function fastifyError(statusCode: number, code: string): Error {
 }
 
 describe('AllExceptionsFilter', () => {
-  let errorLog: jest.SpyInstance;
-
-  beforeEach(() => {
-    errorLog = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-  });
-  afterEach(() => jest.restoreAllMocks());
+  beforeEach(() => errorLog.mockReset());
 
   it('AppError -> its code, contract status and i18n key', () => {
     const sent = run(new AppError('QUOTE_EXPIRED'));
@@ -164,16 +170,24 @@ describe('AllExceptionsFilter', () => {
     expect(wire).not.toContain('at ');
   });
 
-  it('logs only method + route pattern for a 500 (no body, headers or raw URL)', () => {
-    run(new Error('boom'));
+  it('logs method + route pattern + the error for a 500 (no body, headers or raw URL)', () => {
+    const error = new Error('boom');
+    run(error);
     expect(errorLog).toHaveBeenCalledTimes(1);
-    const [message] = errorLog.mock.calls[0] as [string];
-    expect(message).toContain('POST /api/v1/things');
+    const [record, message] = errorLog.mock.calls[0] ?? [];
+    expect(record).toEqual({ method: 'POST', route: '/api/v1/things', err: error });
+    expect(message).toBe('request failed');
+    expect(JSON.stringify(record)).not.toContain('token=abc');
   });
 
   it('non-Error throwables are still a clean 500', () => {
     const sent = run('a string');
     expect(sent.status).toBe(500);
     expect(sent.body).toMatchObject({ error: { code: 'INTERNAL_ERROR' } });
+    // The thrown value itself is never logged.
+    expect(errorLog).toHaveBeenCalledWith(
+      { method: 'POST', route: '/api/v1/things' },
+      'request failed with a non-Error value',
+    );
   });
 });

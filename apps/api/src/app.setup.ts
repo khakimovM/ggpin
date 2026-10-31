@@ -1,5 +1,7 @@
 import { VersioningType } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { Logger } from 'nestjs-pino';
+import { registerRequestHooks } from './common/logging/request-logging';
 import { applyCors, applySecurityHeaders } from './common/http/security-headers';
 import { setupSwagger } from './common/http/setup-swagger';
 import { APP_CONFIG, type AppConfig } from './config/config.module';
@@ -9,6 +11,10 @@ import { APP_CONFIG, type AppConfig } from './config/config.module';
 // HttpPipelineModule; this function does what only the underlying Fastify app can do.
 export async function configureApp(app: NestFastifyApplication): Promise<void> {
   const config = app.get<AppConfig>(APP_CONFIG);
+  // Pairs with bufferLogs in main.ts: logs written while the app was being built are replayed
+  // through Pino, so boot output is structured and redacted like everything else.
+  app.useLogger(app.get(Logger));
+  registerRequestHooks(app);
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   await applySecurityHeaders(app, config);

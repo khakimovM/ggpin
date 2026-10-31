@@ -1,5 +1,6 @@
-import { Catch, Logger, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
+import { Catch, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import { ERROR_HTTP_STATUS, errorMessageKey } from '@repo/shared';
+import { requestLogger, routeOf, type LogRequest } from '../logging/request-logging';
 import { resolveError } from './resolve-error';
 import { toJsonSafe } from './to-json-safe';
 
@@ -8,18 +9,14 @@ import { toJsonSafe } from './to-json-safe';
 interface ErrorReply {
   status(statusCode: number): { send(payload: unknown): unknown };
 }
-interface ErrorRequest {
-  readonly method: string;
-  readonly routeOptions?: { readonly url?: string };
-}
+// The Fastify request, as far as logging needs it (id, route, per-request logger).
+type ErrorRequest = LogRequest;
 
 // The single place errors become `{ success:false, error:{ code, message, details? } }`.
 // Never echoes exception messages, stacks or driver text: for anything unexpected the client
 // gets INTERNAL_ERROR and the cause stays in the server log.
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
-
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const reply = http.getResponse<ErrorReply>();
@@ -34,16 +31,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
         : { code, message: errorMessageKey(code), details: toJsonSafe(details) };
     void reply.status(ERROR_HTTP_STATUS[code]).send({ success: false, error });
   }
-
-  // Method + route pattern only: no body, headers, query or raw URL (which can embed ids or
-  // tokens). S6 replaces this logger with Pino and adds redaction.
+  // Method + route pattern + request id, then the error itself: no body, headers, query or
+  // raw URL (they can embed ids or tokens). The stack stays here; the client never sees it.
+  // Pino's err serializer redacts secrets in the message, stack and extra props (e.g. a
+  // driver error that quotes a connection URL).
   private logFailure(exception: unknown, request: ErrorRequest): void {
-    const route = request.routeOptions?.url ?? 'unmatched';
-    const where = `${request.method} ${route}`;
+    const log = requestLogger(request);
+    const where = { method: request.method, route: routeOf(request) };
     if (exception instanceof Error) {
-      this.logger.error(`${where} failed: ${exception.name}`, exception.stack);
+      log.error({ ...where, err: exception }, 'request failed');
     } else {
-      this.logger.error(`${where} failed with a non-Error value`);
+      log.error(where, 'request failed with a non-Error value');
     }
   }
 }

@@ -1,6 +1,9 @@
 import { Module, type DynamicModule } from '@nestjs/common';
+import { LoggerModule } from 'nestjs-pino';
+import type { DestinationStream } from 'pino';
 import type { RateLimit } from './common/http/http-limits';
 import { HttpPipelineModule } from './common/http/http-pipeline.module';
+import { buildLoggerParams } from './common/logging/logger-params';
 import { AppConfigModule, type AppConfig } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { QueueModule } from './infra/queue/queue.module';
@@ -10,6 +13,8 @@ import { HealthModule } from './modules/health/health.module';
 export interface AppModuleOptions {
   /** Overrides the default per-IP limit; tests use a tiny window instead of 120 requests. */
   readonly rateLimit?: RateLimit;
+  /** Where log lines go instead of stdout; tests capture output here. */
+  readonly logDestination?: DestinationStream;
 }
 
 @Module({})
@@ -20,6 +25,7 @@ export class AppModule {
       module: AppModule,
       imports: [
         AppConfigModule.forRoot(config),
+        LoggerModule.forRoot(buildLoggerParams(config, options.logDestination)),
         HttpPipelineModule.register(options.rateLimit),
         PrismaModule,
         RedisModule,
