@@ -10,6 +10,11 @@
 //   cascade-deleted. The only exception is Cascade on credential tables (WebSession,
 //   AdminSession), which hold no history. SetNull is never used: it would silently rewrite
 //   history rows.
+// - Beyond what Prisma can express, the migrations add raw SQL that is the real money
+//   guardrail and is NOT visible in this file: CHECK constraints (ledger sign per kind,
+//   amounts > 0, bps 0..10000, usedCount <= maxUses, no self-referral ...) and BEFORE UPDATE/
+//   DELETE triggers that make LedgerEntry, CoinEntry, OrderEvent and AuditLog append-only.
+//   See docs/03-DATA-MODEL.md "Migratsiya 2".
 // - Polymorphic references have no FK by nature: LedgerEntry/CoinEntry (refType, refId),
 //   AuditLog (actorId, targetType, targetId), Setting.updatedBy.
 
@@ -75,17 +80,25 @@ enum LedgerKind {
   PURCHASE
   REFUND
   REFERRAL_BONUS
+  REFERRAL_BONUS_REVERSAL
   ADJUSTMENT
 }
 
-// Append-only: no updatedAt, rows are never updated or deleted.
+// Append-only: no updatedAt, rows are never updated or deleted. Enforced by a DB trigger, and the
+// sign of amountTiyin per kind by a CHECK (TOPUP/REFUND/REFERRAL_BONUS > 0; TOPUP_REVERSAL/
+// PURCHASE/REFERRAL_BONUS_REVERSAL < 0; ADJUSTMENT <> 0).
 model LedgerEntry {
   id          String     @id @default(cuid(2))
   userId      String
   user        User       @relation(fields: [userId], references: [id], onDelete: Restrict)
   kind        LedgerKind
   amountTiyin BigInt // ishorali: + kirim, − chiqim
-  refType     String // PAYMENT | ORDER | ADMIN | REFERRAL
+  // PAYMENT | ORDER | REFERRAL | ADMIN_ACTION. The (refType, refId, kind) unique is the
+  // idempotency guard, so one order can have one REFUND. Convention: the automatic refund of a
+  // failed/cancelled order and a full admin refund use ORDER/<orderId>; every admin PARTIAL
+  // refund or adjustment uses ADMIN_ACTION/<AuditLog.id>, so several partial refunds of one
+  // order never collide.
+  refType     String
   refId       String
   note        String?
   createdAt   DateTime   @default(now())
@@ -102,7 +115,8 @@ enum CoinKind {
   REVERSAL
 }
 
-// Append-only (see LedgerEntry).
+// Append-only (see LedgerEntry); a CHECK fixes the sign per kind (EARN > 0; SPEND/EXPIRE < 0;
+// ADJUSTMENT/REVERSAL <> 0). REVERSAL undoes a cashback EARN when a delivered order is refunded.
 model CoinEntry {
   id        String   @id @default(cuid(2))
   userId    String
@@ -133,6 +147,7 @@ model Category {
   nameRu    String
   sort      Int       @default(0)
   products  Product[]
+  createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
 
@@ -184,6 +199,7 @@ model Sku {
   vouchers       Voucher[]
   quotes         Quote[]
   orders         Order[]
+  createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([productId])
@@ -197,6 +213,7 @@ model ProductRoute {
   adapter   String // FRAGMENT | RESELLER_STARS | FAZERCARDS | ...
   priority  Int
   isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([productId, adapter])
@@ -237,6 +254,7 @@ model FxRate {
   source    String
   createdAt DateTime @default(now())
   quotes    Quote[]
+  orders    Order[]
 
   @@index([pair, createdAt])
 }
@@ -301,11 +319,14 @@ model Order {
   sku            Sku?                 @relation(fields: [skuId], references: [id], onDelete: Restrict)
   quantity       Int
   recipient      Json
-  priceTiyin     BigInt
+  priceTiyin     BigInt // chegirmadan oldingi narx; to‘langan summa = priceTiyin − discountTiyin
   discountTiyin  BigInt               @default(0)
   costCurrency   String
   costMinor      BigInt
   maxCostMinor   BigInt
+  // FX snapshot that priced the order (rule 40); equals Quote.fxRateId at creation time.
+  fxRateId       String
+  fxRate         FxRate               @relation(fields: [fxRateId], references: [id], onDelete: Restrict)
   status         OrderStatus
   statusReason   String?
   idempotencyKey String
@@ -323,6 +344,7 @@ model Order {
   @@index([userId, createdAt])
   @@index([productId])
   @@index([skuId])
+  @@index([fxRateId])
 }
 
 // Holat tarixi (audit). Append-only.
@@ -363,6 +385,11 @@ model FulfillmentAttempt {
   updatedAt   DateTime      @updatedAt
 
   @@unique([orderId, attemptNo])
+  // One external payout (TON message hash / supplier order id) belongs to exactly one attempt;
+  // NULLs stay allowed. Kept separate from the plain index below because that one serves
+  // lookups by externalRef ALONE (reconciler: tx hash from the chain), which this unique
+  // cannot (it leads with adapter).
+  @@unique([adapter, externalRef])
   @@index([externalRef])
 }
 
@@ -466,6 +493,7 @@ model DiscountTier {
   bps        Int
   priceCoins BigInt
   isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   codes      DiscountCode[]
 }
@@ -497,6 +525,7 @@ model FragmentSession {
   status     String // ACTIVE | DEAD
   lastOkAt   DateTime?
   lastError  String?
+  createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
 
@@ -617,6 +646,7 @@ model Broadcast {
 model Setting {
   key       String   @id // REFERRAL_BPS, CASHBACK_BPS, TOPUP_MIN_TIYIN ...
   value     Json
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   updatedBy String?
 }

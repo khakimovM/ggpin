@@ -57,6 +57,7 @@ export async function createOrder(user: User, idempotencyKey = `key-${next()}`):
       recipient: { username: 'someone' },
       priceTiyin: quote.priceTiyin,
       costCurrency: quote.costCurrency,
+      fxRateId: quote.fxRateId,
       costMinor: quote.costMinor,
       maxCostMinor: quote.maxCostMinor,
       status: 'PAID',

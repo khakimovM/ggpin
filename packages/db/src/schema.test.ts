@@ -40,6 +40,19 @@ describe('schema.prisma', () => {
     },
   );
 
+  it('every model has createdAt (rules/20-database-prisma.md)', () => {
+    for (const [name, body] of modelBlocks()) {
+      expect(fieldNames(body), name).toContain('createdAt');
+    }
+  });
+
+  it('Order keeps the FX snapshot id with an FK and an index', () => {
+    const order = modelBlocks().get('Order') ?? '';
+    expect(order).toMatch(/fxRateId\s+String\s/);
+    expect(order).toContain('fields: [fxRateId], references: [id], onDelete: Restrict');
+    expect(order).toContain('@@index([fxRateId])');
+  });
+
   it('uses no Decimal or Float column anywhere (money is BigInt minor units)', () => {
     expect(schema).not.toMatch(/^\s+\w+\s+(Decimal|Float)\b/m);
   });
@@ -57,6 +70,13 @@ describe('schema.prisma', () => {
     for (const [model, unique] of Object.entries(expectations)) {
       expect(models.get(model), model).toContain(unique);
     }
+  });
+
+  it('FulfillmentAttempt: one external payout (tx hash / supplier order id) per attempt', () => {
+    const body = modelBlocks().get('FulfillmentAttempt') ?? '';
+    expect(body).toContain('@@unique([adapter, externalRef])');
+    // lookups by externalRef alone (reconciler, tx hash from the chain) still need this index
+    expect(body).toContain('@@index([externalRef])');
   });
 
   it('never uses onDelete: SetNull, and cascades only on credential tables', () => {

@@ -47,7 +47,7 @@ describe('migrated database', () => {
       FROM information_schema.referential_constraints rc
       JOIN information_schema.table_constraints tc ON tc.constraint_name = rc.constraint_name
       WHERE tc.constraint_schema = 'public'`;
-    expect(rows.length).toBeGreaterThanOrEqual(32);
+    expect(rows.length).toBeGreaterThanOrEqual(33);
     const cascading = rows
       .filter((r) => r.delete_rule === 'CASCADE')
       .map((r) => r.table_name)
