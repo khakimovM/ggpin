@@ -61,6 +61,20 @@ const WORKER_ONLY_SYNTAX = [
   ...dynamicImport(WORKER_RE, WORKER_MESSAGE),
 ];
 
+// The reverse direction: apps/worker must not reach into apps/api (it would drag HTTP, bot and
+// payment-webhook code into the only process that holds wallet keys). Shared code goes through
+// packages/*. The package name of apps/api is "api"; the relative form is `../**/api/(src|dist)/`.
+const API_RE = String.raw`(^api$|^api\/|apps\/api\/|^(\.\.\/)+(.*\/)?api\/(src|dist)\/)`;
+const API_MESSAGE = 'Do not import from apps/api; share code through packages/*.';
+const API_ONLY_PATHS = [{ name: 'api', message: API_MESSAGE }];
+const API_ONLY_PATTERNS = [
+  {
+    group: ['api/*', '**/apps/api/**', '../**/api/src/**', '../**/api/dist/**'],
+    message: API_MESSAGE,
+  },
+];
+const API_ONLY_SYNTAX = dynamicImport(API_RE, API_MESSAGE);
+
 export default defineConfig(
   {
     ignores: [
@@ -138,6 +152,25 @@ export default defineConfig(
         },
       ],
       'no-restricted-syntax': ['error', ...PROCESS_ENV_SYNTAX, ...WORKER_ONLY_SYNTAX],
+    },
+  },
+  {
+    files: ['apps/worker/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: API_ONLY_PATHS, patterns: API_ONLY_PATTERNS }],
+      'no-restricted-syntax': ['error', ...API_ONLY_SYNTAX],
+    },
+  },
+  {
+    // Same restating as for apps/api above: the worker (outside config) is under both rule sets.
+    files: ['apps/worker/src/**/*.ts'],
+    ignores: ['apps/*/src/config/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: [...PROCESS_ENV_IMPORTS, ...API_ONLY_PATHS], patterns: API_ONLY_PATTERNS },
+      ],
+      'no-restricted-syntax': ['error', ...PROCESS_ENV_SYNTAX, ...API_ONLY_SYNTAX],
     },
   },
   {
