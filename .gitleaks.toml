@@ -2,16 +2,31 @@ title = "ggpin gitleaks config"
 [extend]
 useDefault = true
 
-# In .env.example files an empty secret (`FRAGMENT_SESSION_ENC_KEY=`) makes generic-api-key
-# skip the newline and report the NEXT line (`PRICE_TOLERANCE_BPS=300`) as the secret.
-# Only that exact shape is ignored, only in .env.example: a real value pasted into an example
-# file is still reported. Pinned gitleaks version: security.yml (GITLEAKS_VERSION).
+# generic-api-key quirk: after an empty `FOO_KEY=` its separator class accepts "\n", so the NEXT
+# line is reported as the secret. Allow it only when that next value cannot be a secret (empty,
+# digits, true/false). targetRules makes this a rule-level allowlist: gitleaks 8.30.1 `dir` mode
+# pre-skips whole files that match a *global* allowlist path, ignoring condition = "AND".
+# Pinned gitleaks version: security.yml (GITLEAKS_VERSION).
 [[allowlists]]
-description = "next env assignment captured after an empty placeholder"
+description = "generic-api-key swallowed the next non-secret assignment after an empty placeholder"
+targetRules = ["generic-api-key"]
 condition = "AND"
 paths = ['''(^|/)\.env\.example$''']
 regexTarget = "secret"
-regexes = ['''^[A-Z][A-Z0-9]*_[A-Z0-9_]*=[\w.-]*$''']
+regexes = ['''^[A-Z][A-Z0-9_]*=(?:[0-9]+|true|false)?$''']
+
+# Templates hold placeholders only. Newline-safe ([ \t] only), so an empty line above can never
+# swallow this one; catches values that generic-api-key's own allowlist hides (e.g. after an empty
+# TON_API_ENDPOINT=/RESELLER_STARS_API_URL= line).
+[[rules]]
+id = "env-example-secret-value"
+description = "Secret-named variable has a real value in an .env.example template"
+path = '''(^|/)\.env\.example$'''
+regex = '''(?m)^[ \t]*(?:export[ \t]+)?[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|MNEMONIC|COOKIE|PRIVATE|_KEY|_ENC)[A-Z0-9_]*[ \t]*=[ \t]*["']?([^\s"'#]+)'''
+secretGroup = 1
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = ['''^change-me''', '''^<[^>]*>$''']
 
 [[rules]]
 id = "ton-mnemonic"
