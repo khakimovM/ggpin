@@ -42,7 +42,7 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | ----- | ---------------------------------------------- | -------------------------------------------------------------------------- |
 | POST  | `/auth/telegram/webapp`                        | body `{ initData }` → `{ token, expiresIn, user }` (Mini App)              |
 | POST  | `/auth/telegram/start`                         | web: `{ }` → `{ nonce, botUrl: "https://t.me/<bot>?start=login_<nonce>" }` |
-| GET   | `/auth/telegram/status/:nonce`                 | `PENDING                                                                   | CODE_SENT | DENIED | EXPIRED` |
+| GET   | `/auth/telegram/status/:nonce`                 | `PENDING \| CODE_SENT \| DENIED \| EXPIRED`                                |
 | POST  | `/auth/telegram/verify`                        | `{ nonce, code }` → cookie'lar + `{ user }`                                |
 | POST  | `/auth/refresh`                                | cookie rotatsiyasi                                                         |
 | POST  | `/auth/logout`                                 | joriy sessiya                                                              |
@@ -125,13 +125,13 @@ Buyurtma holatlari klientda: `PAID, QUEUED → "Navbatda"`, `PROCESSING → "Baj
 
 ## To‘lovlar
 
-| GET  | `/payments/methods`                                   | faol provayderlar, min/max, komissiya ma'lumoti               |
-| ---- | ----------------------------------------------------- | ------------------------------------------------------------- |
-| POST | `/payments/intents`                                   | `Idempotency-Key`; `{ provider, amountTiyin, purpose: "TOPUP" | "TOPUP_AND_BUY", quoteId? }`→`{ intentId, redirectUrl, expiresAt }` |
-| GET  | `/payments/intents/:id`                               | holat (`PENDING                                               | PAID                                                                | CANCELLED | EXPIRED`), buyurtma (TOPUP_AND_BUY bo‘lsa) |
-| POST | `/payments/click/prepare`, `/payments/click/complete` | Click callback (public, imzo)                                 |
-| POST | `/payments/payme`                                     | Payme JSON-RPC (public, Basic auth)                           |
-| POST | `/payments/uzum/*`, `/payments/rahmat/*`              | shartnoma hujjatiga ko‘ra                                     |
+| GET  | `/payments/methods`                                   | faol provayderlar, min/max, komissiya ma'lumoti                                                                                        |
+| ---- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| POST | `/payments/intents`                                   | `Idempotency-Key`; `{ provider, amountTiyin, purpose: "TOPUP" \| "TOPUP_AND_BUY", quoteId? }` → `{ intentId, redirectUrl, expiresAt }` |
+| GET  | `/payments/intents/:id`                               | holat (`PENDING \| PAID \| CANCELLED \| EXPIRED`), buyurtma (TOPUP_AND_BUY bo‘lsa)                                                     |
+| POST | `/payments/click/prepare`, `/payments/click/complete` | Click callback (public, imzo)                                                                                                          |
+| POST | `/payments/payme`                                     | Payme JSON-RPC (public, Basic auth)                                                                                                    |
+| POST | `/payments/uzum/*`, `/payments/rahmat/*`              | shartnoma hujjatiga ko‘ra                                                                                                              |
 
 `TOPUP_AND_BUY`: to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, keyin kotirovka hali
 amal qilsa avtomatik xarid qilinadi; amal qilmasa pul balansda qoladi va foydalanuvchiga xabar boradi.
