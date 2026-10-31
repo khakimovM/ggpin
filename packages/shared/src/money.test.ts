@@ -3,15 +3,22 @@ import {
   applyMarkup,
   CURRENCY_DECIMALS,
   convert,
+  convertInverse,
+  convertPair,
+  convertPairForCost,
+  convertPairForCredit,
   formatMajor,
   formatMoney,
+  FX_PAIRS,
   MoneyError,
   parseMajor,
+  parseSignedMajor,
   percentOf,
   roundUpToSom,
   somToTiyin,
   tiyinToSom,
   type Currency,
+  type FxPair,
 } from './money';
 
 const NNBSP = ' ';
@@ -34,9 +41,20 @@ describe('parseMajor / formatMajor', () => {
     expect(parseMajor(currency, input)).toBe(expected);
   });
 
-  it('accepts a leading minus (signed ledger deltas) and normalises -0', () => {
-    expect(parseMajor('UZS', '-12.50')).toBe(-1250n);
-    expect(parseMajor('UZS', '-0')).toBe(0n);
+  it('parseMajor / somToTiyin reject negatives and -0 (user- and admin-entered amounts)', () => {
+    for (const input of ['-500', '-12.50', '-0', '-0.00', '-0.01']) {
+      expect(() => parseMajor('UZS', input), input).toThrow(/must not be negative/);
+      expect(() => somToTiyin(input), input).toThrow(MoneyError);
+    }
+    expect(parseMajor('UZS', '0')).toBe(0n); // zero is the caller's rule, not the parser's
+  });
+
+  it('parseSignedMajor is the explicit signed path (ADJUSTMENT) and normalises -0', () => {
+    expect(parseSignedMajor('UZS', '-12.50')).toBe(-1250n);
+    expect(parseSignedMajor('UZS', '12.50')).toBe(1250n);
+    expect(parseSignedMajor('UZS', '-0')).toBe(0n);
+    expect(() => parseSignedMajor('UZS', '--1')).toThrow(MoneyError);
+    expect(() => parseSignedMajor('UZS', '-1.001')).toThrow(/at most 2/);
   });
 
   it.each(['', ' 1', '1 ', '1.', '.5', '1e3', '1,5', '--1', '+1', '1.2.3', 'abc', '0x10', '١٢'])(
@@ -60,7 +78,7 @@ describe('parseMajor / formatMajor', () => {
     const currencies = Object.keys(CURRENCY_DECIMALS) as Currency[];
     for (const currency of currencies) {
       for (const minor of [0n, 1n, 99n, 100n, 123_456_789n, BEYOND_2_53, -BEYOND_2_53, -1n]) {
-        expect(parseMajor(currency, formatMajor(currency, minor))).toBe(minor);
+        expect(parseSignedMajor(currency, formatMajor(currency, minor))).toBe(minor);
       }
     }
   });
@@ -178,6 +196,158 @@ describe('convert', () => {
 
   it('rejects a non-bigint amount', () => {
     expect(() => uzsToUsdt(notABigInt(1), '1', 'up')).toThrow(MoneyError);
+  });
+});
+
+describe('convertInverse', () => {
+  // rate is FROM-per-TO: 12 600 so'm per 1 USDT; amounts are minor units.
+  const tiyinToMicro = (amount: bigint, rounding: 'up' | 'down', rate = '12600'): bigint =>
+    convertInverse({ amount, from: 'UZS', to: 'USDT', rate, rounding });
+
+  it('is exact when the division is even: up === down', () => {
+    // 12 600 so'm = 1 260 000 tiyin = exactly 1 USDT
+    expect(tiyinToMicro(1_260_000n, 'up')).toBe(1_000_000n);
+    expect(tiyinToMicro(1_260_000n, 'down')).toBe(1_000_000n);
+  });
+
+  it('rounds up for cost and down for credit where the division is inexact', () => {
+    // 1 tiyin = 0.01 so'm / 12600 = 0.79365 micro
+    expect(tiyinToMicro(1n, 'up')).toBe(1n);
+    expect(tiyinToMicro(1n, 'down')).toBe(0n);
+    // 10 000 so'm = 793 650.79365 micro
+    expect(tiyinToMicro(1_000_000n, 'up')).toBe(793_651n);
+    expect(tiyinToMicro(1_000_000n, 'down')).toBe(793_650n);
+  });
+
+  it('uses ceiling/floor for negative amounts and handles zero', () => {
+    expect(tiyinToMicro(-1n, 'up')).toBe(0n);
+    expect(tiyinToMicro(-1n, 'down')).toBe(-1n);
+    expect(tiyinToMicro(0n, 'up')).toBe(0n);
+  });
+
+  it('is the exact inverse of convert for a rate with decimals', () => {
+    const forward = convert({
+      amount: 1_000_000n,
+      from: 'USDT',
+      to: 'UZS',
+      rate: '12600.5',
+      rounding: 'up',
+    });
+    expect(forward).toBe(1_260_050n); // 1 USDT -> 12 600.50 so'm = 1 260 050 tiyin
+    expect(tiyinToMicro(forward, 'down', '12600.5')).toBe(1_000_000n);
+  });
+
+  it('stays exact above 2^53', () => {
+    const huge = 10n ** 20n;
+    expect(
+      convertInverse({ amount: huge, from: 'TON', to: 'TON', rate: '1', rounding: 'up' }),
+    ).toBe(huge);
+  });
+
+  it('rejects bad rates and non-bigint amounts', () => {
+    for (const rate of ['0', '-1', '', '1e3', 'x']) {
+      expect(() => tiyinToMicro(1n, 'up', rate)).toThrow(MoneyError);
+    }
+    expect(() => tiyinToMicro(notABigInt(1), 'up')).toThrow(/bigint/);
+  });
+});
+
+describe('convertPair (cost rounds up, credit rounds down, both directions)', () => {
+  interface Case {
+    readonly pair: FxPair;
+    readonly rate: string;
+    readonly from: Currency;
+    /** an amount whose conversion is inexact: [ceil, floor] */
+    readonly ceil: bigint;
+    readonly floor: bigint;
+    readonly even: { readonly amount: bigint; readonly result: bigint };
+  }
+
+  // Every conversion below is for 1 minor unit of `from` (inexact) and one evenly divisible amount.
+  const CASES: readonly Case[] = [
+    // base -> quote (multiply)
+    {
+      pair: 'USDT_UZS',
+      rate: '12600.5',
+      from: 'USDT',
+      ceil: 2n,
+      floor: 1n,
+      even: { amount: 1_000_000n, result: 1_260_050n },
+    }, // 1.26005 tiyin
+    {
+      pair: 'TON_USDT',
+      rate: '5.5',
+      from: 'TON',
+      ceil: 1n,
+      floor: 0n,
+      even: { amount: 1_000_000_000n, result: 5_500_000n },
+    }, // 0.0055 micro
+    {
+      pair: 'TON_UZS',
+      rate: '30000.5',
+      from: 'TON',
+      ceil: 1n,
+      floor: 0n,
+      even: { amount: 1_000_000_000n, result: 3_000_050n },
+    }, // 0.00300005 tiyin
+    // quote -> base (divide)
+    {
+      pair: 'USDT_UZS',
+      rate: '12600',
+      from: 'UZS',
+      ceil: 1n,
+      floor: 0n,
+      even: { amount: 1_260_000n, result: 1_000_000n },
+    }, // 0.79365 micro
+    {
+      pair: 'TON_USDT',
+      rate: '5.5',
+      from: 'USDT',
+      ceil: 182n,
+      floor: 181n,
+      even: { amount: 5_500_000n, result: 1_000_000_000n },
+    }, // 181.81 nano
+    {
+      pair: 'TON_UZS',
+      rate: '30000.5',
+      from: 'UZS',
+      ceil: 334n,
+      floor: 333n,
+      even: { amount: 3_000_050n, result: 1_000_000_000n },
+    }, // 333.33 nano
+  ];
+
+  it.each(CASES)('$pair from $from', ({ pair, rate, from, ceil, floor, even }) => {
+    // where rounding really happens: cost = ceil, credit = floor, and they differ by exactly 1
+    expect(convertPairForCost({ amount: 1n, pair, from, rate })).toBe(ceil);
+    expect(convertPairForCredit({ amount: 1n, pair, from, rate })).toBe(floor);
+    expect(ceil - floor).toBe(1n);
+    // where it does not: both directions agree
+    expect(convertPairForCost({ amount: even.amount, pair, from, rate })).toBe(even.result);
+    expect(convertPairForCredit({ amount: even.amount, pair, from, rate })).toBe(even.result);
+  });
+
+  it('exposes the three stored pairs, quote per base', () => {
+    expect(FX_PAIRS).toEqual({
+      USDT_UZS: { base: 'USDT', quote: 'UZS' },
+      TON_USDT: { base: 'TON', quote: 'USDT' },
+      TON_UZS: { base: 'TON', quote: 'UZS' },
+    });
+  });
+
+  it('convertPair takes the rounding explicitly', () => {
+    const input = { amount: 1n, pair: 'TON_UZS', from: 'UZS', rate: '30000.5' } as const;
+    expect(convertPair({ ...input, rounding: 'up' })).toBe(334n);
+    expect(convertPair({ ...input, rounding: 'down' })).toBe(333n);
+  });
+
+  it('rejects a currency that is not a side of the pair', () => {
+    expect(() =>
+      convertPairForCost({ amount: 1n, pair: 'USDT_UZS', from: 'TON', rate: '1' }),
+    ).toThrow(/not a side of USDT_UZS/);
+    expect(() =>
+      convertPairForCredit({ amount: 1n, pair: 'TON_USDT', from: 'STARS', rate: '1' }),
+    ).toThrow(MoneyError);
   });
 });
 

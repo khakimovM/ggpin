@@ -27,7 +27,8 @@ const TIYIN_PER_SOM = 100n;
 // and bounds the size of the BigInt products below.
 const MAX_RATE_DECIMALS = 18;
 
-// Sign is allowed in the major-unit parser: ADJUSTMENT deltas and ledger reversals are signed.
+// One regex for both parsers; the unsigned entry point rejects a leading minus afterwards so the
+// error says why (a bare "invalid amount" would hide that the sign was the problem).
 const MAJOR_RE = /^(-)?(\d+)(?:\.(\d+))?$/;
 const RATE_RE = /^(\d+)(?:\.(\d+))?$/;
 
@@ -53,22 +54,38 @@ function divide(numerator: bigint, denominator: bigint, rounding: Rounding): big
   return numerator < 0n ? quotient - 1n : quotient;
 }
 
-/**
- * Parses a decimal string in MAJOR units ("12550.5") into minor units. Rejects non-strings
- * (floats), exponents, whitespace, missing digits and more decimals than the unit allows —
- * silently truncating user money is never acceptable.
- */
-export function parseMajor(currency: Currency, input: string): bigint {
+function parseDecimalMajor(currency: Currency, input: string, allowNegative: boolean): bigint {
   if (typeof input !== 'string') throw new MoneyError('amount must be a decimal string');
   const match = MAJOR_RE.exec(input);
   if (!match) throw new MoneyError(`invalid ${currency} amount "${input}"`);
   const [, minus, whole = '', fraction = ''] = match;
+  // "-0" is rejected too: a negative-zero string is never a legitimate user/admin amount.
+  if (minus && !allowNegative) throw new MoneyError('amount must not be negative');
   const decimals = CURRENCY_DECIMALS[currency];
   if (fraction.length > decimals) {
     throw new MoneyError(`${currency} allows at most ${decimals} decimal places`);
   }
   const minor = BigInt(whole + fraction.padEnd(decimals, '0'));
   return minus ? -minor : minor;
+}
+
+/**
+ * Parses a NON-NEGATIVE decimal string in MAJOR units ("12550.5") into minor units. This is
+ * the parser for user- and admin-entered amounts (top-up, prices, limits): a leading minus,
+ * including "-0", is rejected. Also rejects non-strings (floats), exponents, whitespace,
+ * missing digits and more decimals than the unit allows — silently truncating user money is
+ * never acceptable. Whether zero is acceptable is the caller's rule.
+ */
+export function parseMajor(currency: Currency, input: string): bigint {
+  return parseDecimalMajor(currency, input, false);
+}
+
+/**
+ * Explicit SIGNED path, only for deltas that are signed by nature (admin ADJUSTMENT, ledger
+ * reversals). Never use it for a user-entered amount. "-0" normalises to 0n.
+ */
+export function parseSignedMajor(currency: Currency, input: string): bigint {
+  return parseDecimalMajor(currency, input, true);
 }
 
 /** Minor units → canonical major decimal string; trailing zeros are trimmed ("125.5", "125"). */
@@ -82,7 +99,7 @@ export function formatMajor(currency: Currency, minor: bigint): string {
   return `${negative ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`;
 }
 
-/** "12550.5" so'm → 1255050 tiyin. */
+/** "12550.5" so'm → 1255050 tiyin. Non-negative only (see parseMajor). */
 export function somToTiyin(som: string): bigint {
   return parseMajor('UZS', som);
 }
@@ -140,6 +157,62 @@ export function convert({ amount, from, to, rate, rounding }: ConvertInput): big
     pow10(CURRENCY_DECIMALS[from] + scaleDigits),
     rounding,
   );
+}
+
+/**
+ * Inverse of `convert`: the rate is quoted FROM-per-TO (e.g. 12 600 so'm per 1 USDT) and the
+ * amount in the `from` currency is DIVIDED by it. Needed because 1/rate is not an exact
+ * decimal, so inverting the string first would lose precision before the only allowed rounding.
+ */
+export function convertInverse({ amount, from, to, rate, rounding }: ConvertInput): bigint {
+  assertBigInt(amount, 'amount');
+  const { numerator, scaleDigits } = parseRate(rate);
+  return divide(
+    amount * pow10(CURRENCY_DECIMALS[to] + scaleDigits),
+    pow10(CURRENCY_DECIMALS[from]) * numerator,
+    rounding,
+  );
+}
+
+/**
+ * The FxRate.pair values we store. The rate is QUOTE major units per 1 BASE major unit
+ * (USDT_UZS = so'm per USDT), so base → quote multiplies and quote → base divides.
+ */
+export const FX_PAIRS = {
+  USDT_UZS: { base: 'USDT', quote: 'UZS' },
+  TON_USDT: { base: 'TON', quote: 'USDT' },
+  TON_UZS: { base: 'TON', quote: 'UZS' },
+} as const satisfies Record<string, { base: Currency; quote: Currency }>;
+export type FxPair = keyof typeof FX_PAIRS;
+
+export interface ConvertPairInput {
+  readonly amount: bigint;
+  readonly pair: FxPair;
+  /** Which side of the pair `amount` is denominated in; the result is in the other side. */
+  readonly from: Currency;
+  /** FxRate.rate for `pair`. */
+  readonly rate: string;
+  readonly rounding: Rounding;
+}
+
+/** Converts across a stored FX pair in either direction (multiply or divide by the rate). */
+export function convertPair({ amount, pair, from, rate, rounding }: ConvertPairInput): bigint {
+  const { base, quote } = FX_PAIRS[pair];
+  if (from === base) return convert({ amount, from: base, to: quote, rate, rounding });
+  if (from === quote) return convertInverse({ amount, from: quote, to: base, rate, rounding });
+  throw new MoneyError(`${from} is not a side of ${pair}`);
+}
+
+type PairConversion = Omit<ConvertPairInput, 'rounding'>;
+
+/** What WE pay or must cover (supplier cost, hot-wallet need): rounds UP, never short. */
+export function convertPairForCost(input: PairConversion): bigint {
+  return convertPair({ ...input, rounding: 'up' });
+}
+
+/** What a USER is credited or refunded: rounds DOWN, never gives away a fraction. */
+export function convertPairForCredit(input: PairConversion): bigint {
+  return convertPair({ ...input, rounding: 'down' });
 }
 
 function assertBps(bps: number): bigint {
