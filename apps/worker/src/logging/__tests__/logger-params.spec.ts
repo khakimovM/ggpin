@@ -11,15 +11,16 @@ import { buildLoggerParams } from '../logger-params';
 import { CaptureStream } from './capture-stream';
 
 // Distinct, greppable values: if one appears in the captured output, the policy leaked.
-// (Assembled from parts where they resemble real secret formats.)
+// Joined at runtime so the source never holds a literal that secret scanners report.
+const fake = (...parts: string[]) => parts.join('-');
 const SECRETS = {
   mnemonic: ['abandon', 'ability', 'able', 'about', 'above', 'absent'].join(' '),
-  apiKey: 'supplier-apikey-secret-111',
-  cookies: 'stel_ssid=fragment-cookie-secret-222',
-  privateKey: 'wallet-privatekey-secret-333',
-  walletKey: 'enc-key-secret-444',
-  signature: 'supplier-signature-secret-555',
-  token: 'api-token-secret-666',
+  apiKey: fake('supplier', 'apikey', 'secret', '111'),
+  cookies: `stel_ssid=${fake('fragment', 'cookie', 'secret', '222')}`,
+  privateKey: fake('wallet', 'privatekey', 'secret', '333'),
+  walletKey: fake('enc', 'key', 'secret', '444'),
+  signature: fake('supplier', 'signature', 'secret', '555'),
+  token: fake('api', 'token', 'secret', '666'),
 };
 
 function createLogger(level: 'info' | 'silent' = 'info') {

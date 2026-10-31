@@ -1,0 +1,7 @@
+# Exact findings only (commit:file:rule:line). Each entry must say why it is not a secret.
+# 0c2eec9: log-redaction test fixtures spelled as literals (`apikey-secret-fff666`, ...).
+# They are fake values that the tests prove never reach log output; the next commit builds
+# them at runtime instead, so no new literal exists.
+0c2eec9444f4077e08ac2713ddad2d3f78d7a69b:apps/api/src/common/logging/__tests__/logger-params.spec.ts:generic-api-key:14
+0c2eec9444f4077e08ac2713ddad2d3f78d7a69b:apps/worker/src/logging/__tests__/logger-params.spec.ts:generic-api-key:17
+0c2eec9444f4077e08ac2713ddad2d3f78d7a69b:apps/worker/src/logging/__tests__/logger-params.spec.ts:generic-api-key:19
