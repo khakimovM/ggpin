@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   API_ONLY_SECRETS,
+  WORKER_ENV_PREFIXES,
   WORKER_ONLY_SECRETS,
   apiSecretProblems,
   isBlank,
@@ -12,41 +13,96 @@ import {
 
 const VALUE = 'S3cr3t-value-that-must-not-be-printed';
 
+// Names the re-audit verified as missed (RA-10), plus the shapes the rules must keep refusing.
+const MUST_REFUSE = [
+  ...WORKER_ONLY_SECRETS,
+  'FAZERCARDS_API_KEY',
+  'TONCENTER_API_KEY',
+  'TONAPI_KEY',
+  'MOOGOLD_SECRET',
+  'HOT_WALLET_SECRET',
+  'STEAM_API_KEY',
+  'PUBG_API_KEY',
+  'UNIPIN_SECRET',
+  'SMILEONE_TOKEN',
+  'STEL_SSID',
+  'STEL_DT',
+  'STEL_TON_TOKEN',
+  'FRAGMENT_HASH',
+  'SUPPLIER_PUBG_API_KEY',
+  'SUPPLIER_STEAM_SECRET',
+  'TON_WALLET_PRIVATE_KEY',
+  'TON_ACCESS_TOKEN',
+  'WALLET_PASSWORD',
+  'WALLET_SEED',
+  'FRAGMENT_COOKIES',
+  'FRAGMENT_SESSION_ENC',
+  'RESELLER_PREMIUM_API_KEY',
+  'ton_mnemonic',
+  'SOMETHING_MNEMONIC',
+  'APP_SEED_PHRASE',
+  'SEEDPHRASE',
+  'ROBLOX_COOKIE',
+];
+
+// Legitimate names that previously stopped the API from booting, generic developer-shell
+// variables that must never break it, and the worker's own non-secret settings.
+const MUST_ALLOW = [
+  'COOKIE_SECRET',
+  'COOKIE_DOMAIN',
+  'SESSION_COOKIE_NAME',
+  'SESSION_COOKIE_DOMAIN',
+  'JWT_PRIVATE_KEY',
+  'VAPID_PRIVATE_KEY',
+  'PYTHONHASHSEED',
+  'SSH_PRIVATE_KEY',
+  'DB_SEED',
+  'GITHUB_TOKEN',
+  'NPM_TOKEN',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_ACCESS_KEY_ID',
+  'SENTRY_AUTH_TOKEN',
+  'TON_NETWORK',
+  'TON_API_ENDPOINT',
+  'TON_MAX_PER_ORDER_NANO',
+  'TON_MAX_DAILY_NANO',
+  'TON_MIN_BALANCE_ALERT_NANO',
+  'RESELLER_STARS_API_URL',
+  'SUPPLIER_MAX_PER_ORDER_MICRO_USDT',
+  'FRAGMENT_BASE_URL',
+  'STEAM_COMPAT_CLIENT_INSTALL_PATH',
+  'DATABASE_URL',
+  'JWT_ACCESS_SECRET',
+  'API_PORT',
+];
+
 describe('isWorkerOnlySecretName', () => {
-  it.each([
-    ...WORKER_ONLY_SECRETS,
-    'SUPPLIER_PUBG_API_KEY',
-    'SUPPLIER_STEAM_SECRET',
-    'TON_WALLET_PRIVATE_KEY',
-    'TON_ACCESS_TOKEN',
-    'WALLET_PASSWORD',
-    'WALLET_SEED',
-    'FRAGMENT_COOKIES',
-    'FRAGMENT_SESSION_ENC',
-    'RESELLER_PREMIUM_API_KEY',
-    'ton_mnemonic',
-    'SOMETHING_MNEMONIC',
-    'MY_PRIVATE_KEY',
-    'APP_SEED_PHRASE',
-    'SESSION_COOKIE',
-  ])('%s is worker-only', (name) => {
+  it.each(MUST_REFUSE)('%s is worker-only', (name) => {
     expect(isWorkerOnlySecretName(name)).toBe(true);
   });
 
-  it.each([
-    'TON_NETWORK',
-    'TON_API_ENDPOINT',
-    'TON_MAX_PER_ORDER_NANO',
-    'TON_MAX_DAILY_NANO',
-    'TON_MIN_BALANCE_ALERT_NANO',
-    'RESELLER_STARS_API_URL',
-    'SUPPLIER_MAX_PER_ORDER_MICRO_USDT',
-    'FRAGMENT_BASE_URL',
-    'DATABASE_URL',
-    'JWT_ACCESS_SECRET',
-    'API_PORT',
-  ])('%s is not', (name) => {
+  it.each(MUST_ALLOW)('%s is not', (name) => {
     expect(isWorkerOnlySecretName(name)).toBe(false);
+  });
+
+  it('boots in a developer shell that has unrelated credentials', () => {
+    const shell = {
+      GITHUB_TOKEN: VALUE,
+      NPM_TOKEN: VALUE,
+      AWS_SECRET_ACCESS_KEY: VALUE,
+      SSH_PRIVATE_KEY: VALUE,
+      PYTHONHASHSEED: '0',
+      COOKIE_SECRET: VALUE,
+      JWT_PRIVATE_KEY: VALUE,
+    };
+    expect(workerSecretProblems(shell)).toEqual([]);
+  });
+
+  it('every documented worker prefix refuses a secret-shaped name', () => {
+    for (const prefix of WORKER_ENV_PREFIXES) {
+      expect(isWorkerOnlySecretName(prefix + 'API_KEY')).toBe(true);
+      expect(isWorkerOnlySecretName(prefix + 'BASE_URL')).toBe(prefix === 'STEL_');
+    }
   });
 });
 

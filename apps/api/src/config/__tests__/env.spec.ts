@@ -125,13 +125,41 @@ describe('loadEnv', () => {
       'FRAGMENT_COOKIES',
       'TON_MNEMONIC',
       'SOMETHING_MNEMONIC',
-      'MY_PRIVATE_KEY',
       'APP_SEED_PHRASE',
-      'SESSION_COOKIE',
+      'FAZERCARDS_API_KEY',
+      'TONCENTER_API_KEY',
+      'TONAPI_KEY',
+      'MOOGOLD_SECRET',
+      'HOT_WALLET_SECRET',
+      'STEAM_API_KEY',
+      'PUBG_API_KEY',
+      'UNIPIN_SECRET',
+      'SMILEONE_TOKEN',
+      'STEL_SSID',
+      'FRAGMENT_HASH',
     ])('refuses worker-shaped secrets that are not on the exact list: %s', (name) => {
       const message = messageOf({ ...TEST_ENV_SOURCE, [name]: SECRET_VALUE });
       expect(message).toContain(name);
       expect(message).not.toContain(SECRET_VALUE);
+    });
+
+    // Names that merely look secret, or belong to a developer's own shell, must never stop the
+    // API from booting (they are not worker material).
+    it.each([
+      'COOKIE_SECRET',
+      'COOKIE_DOMAIN',
+      'SESSION_COOKIE_NAME',
+      'SESSION_COOKIE_DOMAIN',
+      'JWT_PRIVATE_KEY',
+      'VAPID_PRIVATE_KEY',
+      'PYTHONHASHSEED',
+      'SSH_PRIVATE_KEY',
+      'DB_SEED',
+      'GITHUB_TOKEN',
+      'NPM_TOKEN',
+      'AWS_SECRET_ACCESS_KEY',
+    ])('boots with %s set', (name) => {
+      expect(() => loadEnv({ ...TEST_ENV_SOURCE, [name]: SECRET_VALUE })).not.toThrow();
     });
 
     // The worker's own template is the realistic source of names: secret-shaped ones must be

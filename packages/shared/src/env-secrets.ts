@@ -74,12 +74,46 @@ export const ALL_SECRET_ENV_NAMES: readonly string[] = [
 
 // ---- Worker-secret detection for the API ---------------------------------------------------
 // The exact list above misses a new worker secret that someone forgets to add (e.g.
-// SUPPLIER_PUBG_API_KEY). The API therefore also refuses by name shape.
+// FAZERCARDS_API_KEY). The API therefore also refuses by name shape, in two narrow rules.
+// The API must still boot in a developer shell full of unrelated credentials (GITHUB_TOKEN,
+// NPM_TOKEN, AWS_SECRET_ACCESS_KEY, SSH_PRIVATE_KEY ...) and with its own legitimate
+// secret-ish names (COOKIE_SECRET, JWT_PRIVATE_KEY), so neither rule is a bare "looks secret".
 
-const WORKER_PREFIX = /^(TON_|WALLET_|FRAGMENT_|RESELLER_|SUPPLIER_)/;
-const SECRET_SHAPED = /KEY|SECRET|TOKEN|PASSWORD|MNEMONIC|COOKIE|PRIVATE|SEED|_ENC$/;
-// Wallet/session material is forbidden in the API whatever it is called or prefixed with.
-const ALWAYS_FORBIDDEN = /MNEMONIC|PRIVATE_KEY|SEED|COOKIE/;
+/**
+ * Env-name prefixes owned by apps/worker: the TON wallet and its API providers, the Fragment
+ * session, the Stars reseller, and every supplier / game adapter (ProductRoute.adapter in
+ * packages/db/prisma/schema.prisma and the supplier table in docs/06-FULFILLMENT.md). Add the
+ * prefix of every new adapter here in the same change that adds its secrets.
+ */
+export const WORKER_ENV_PREFIXES = [
+  'TON_',
+  'TONCENTER_',
+  'TONAPI_',
+  'WALLET_',
+  'HOT_WALLET_',
+  'FRAGMENT_',
+  'STEL_', // Fragment web-session cookie names (stel_ssid, stel_dt, ...)
+  'RESELLER_',
+  'SUPPLIER_',
+  'FAZERCARDS_',
+  'WDGZONE_',
+  'MOOGOLD_',
+  'UNIPIN_',
+  'SMILEONE_',
+  'STEAM_',
+  'PUBG_',
+  'MLBB_',
+  'ROBLOX_',
+] as const;
+
+// Rule 1: a worker-prefixed name that is shaped like a credential. SSID and HASH are the
+// Fragment cookie / page-hash spellings; "_ENC" is a sealed blob.
+const SECRET_SHAPED = /KEY|SECRET|TOKEN|PASSWORD|SSID|HASH|COOKIE|MNEMONIC|PRIVATE|SEED|_ENC$/;
+
+// Rule 2: wallet material is refused under ANY name or prefix: the mnemonic / seed phrase and
+// the Fragment session cookies. Deliberately nothing broader (no bare SEED, COOKIE or
+// PRIVATE_KEY): PYTHONHASHSEED, COOKIE_SECRET and JWT_PRIVATE_KEY are not wallet material.
+const WALLET_MATERIAL = /MNEMONIC|SEED_?PHRASE|^STEL_|^FRAGMENT_.*COOKIE/;
 
 const WORKER_ONLY_SET: ReadonlySet<string> = new Set(WORKER_ONLY_SECRETS);
 
@@ -88,8 +122,8 @@ export function isWorkerOnlySecretName(name: string): boolean {
   const upper = name.toUpperCase();
   return (
     WORKER_ONLY_SET.has(upper) ||
-    ALWAYS_FORBIDDEN.test(upper) ||
-    (WORKER_PREFIX.test(upper) && SECRET_SHAPED.test(upper))
+    WALLET_MATERIAL.test(upper) ||
+    (WORKER_ENV_PREFIXES.some((prefix) => upper.startsWith(prefix)) && SECRET_SHAPED.test(upper))
   );
 }
 
