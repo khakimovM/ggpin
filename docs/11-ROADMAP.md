@@ -49,11 +49,11 @@ interceptor/filter/pipe, Pino (redaksiya bilan), Swagger, Throttler, Helmet, COR
 
 **Qabul mezonlari**
 
-- [ ] Migratsiya barcha modellarni yaratadi, `prisma validate` yashil
-- [ ] Env yetishmasa ilova ishga tushmaydi va sababni aytadi
-- [ ] `money.ts` va `order-state.ts` 100% unit test qamrovi (taqiqlangan o‘tishlar xato beradi)
-- [ ] Xato konverti shartnomaga mos, `BigInt` JSONda string
-- [ ] Logda sirlar redakt qilinishi testlangan
+- [x] Migratsiya barcha modellarni yaratadi, `prisma validate` yashil
+- [x] Env yetishmasa ilova ishga tushmaydi va sababni aytadi
+- [x] `money.ts` va `order-state.ts` 100% unit test qamrovi (taqiqlangan o‘tishlar xato beradi)
+- [x] Xato konverti shartnomaga mos, `BigInt` JSONda string
+- [x] Logda sirlar redakt qilinishi testlangan
 
 ---
 

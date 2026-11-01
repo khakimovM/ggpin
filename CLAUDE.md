@@ -31,7 +31,7 @@ This is a production system that moves real money. Correctness and security outr
 | Monorepo      | npm workspaces + Turborepo                                                                                          |
 | API           | NestJS 11 (Fastify 5), TypeScript strict                                                                            |
 | Worker        | NestJS standalone app (`apps/worker`) — BullMQ consumers, the ONLY process holding wallet keys and supplier secrets |
-| DB / ORM      | PostgreSQL 16 + Prisma 5                                                                                            |
+| DB / ORM      | PostgreSQL 16 + Prisma 7 (`@prisma/adapter-pg`); schema, migrations and client in `packages/db` (D-22)              |
 | Queue / cache | Redis 7 + BullMQ                                                                                                    |
 | Bot           | grammY (inside `apps/api`, webhook in prod, long polling in dev)                                                    |
 | Web           | Next.js 15 App Router (`apps/web`): landing (SSR/SEO), web store, Mini App routes `/tg/*`                           |
@@ -56,6 +56,7 @@ apps/
   admin/      React + Vite: admin panel
 packages/
   shared/     Zod schemas, DTO types, money utils, order state machine, brand constants
+  db/         Prisma schema, migrations, generated client (used by api and worker)
   i18n/       uz.json / ru.json message catalogs (web, bot, emails)
   ui/         design tokens (from Claude Design handoff) + shared components
 docs/         specification — the source of truth (Uzbek)

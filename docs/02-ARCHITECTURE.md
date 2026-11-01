@@ -31,12 +31,13 @@ apps/
   admin/    admin panel
 packages/
   shared/   Zod sxemalar, tiplar, money.ts, order-state.ts, brand.ts
+  db/       Prisma sxemasi, migratsiyalar, generatsiya qilingan klient
   i18n/     uz.json, ru.json
   ui/       dizayn token'lari va komponentlar
 ```
 
-Prisma sxemasi `apps/api/prisma`da; worker ham shu generatsiya qilingan klientni ishlatadi
-(0-bosqichda `packages/db` sifatida ajratish mumkin).
+Prisma sxemasi `packages/db/prisma/schema.prisma`da (D-22); api va worker bitta generatsiya
+qilingan klientni `@repo/db` orqali ishlatadi.
 
 ## Nega worker alohida?
 
@@ -47,47 +48,47 @@ Prisma sxemasi `apps/api/prisma`da; worker ham shu generatsiya qilingan klientni
 
 ## API modullari (`apps/api/src/modules`)
 
-| Modul | Vazifa |
-|---|---|
-| `auth` | Mini App initData, web OTP (bot orqali), refresh, sessiyalar |
-| `users` | profil, til, telefon |
-| `catalog` | kategoriyalar, mahsulotlar, SKU, input sxemalari, stok |
-| `pricing` | kotirovka (quote), FX kurslari, ustama qoidalari |
-| `wallet` | ledger, balans, keshbek tangalari |
-| `orders` | buyurtma yaratish (balansdan), ro‘yxat, tafsilot, holat oqimi (SSE yoki polling) |
-| `recipients` | qabul qiluvchini tekshirish (worker'ga RPC navbati orqali) |
-| `payments` | intent, provayder adapterlari, callback'lar, solishtirish |
-| `referrals` | havolalar, bog‘lanish, bonus hisoblash |
-| `promo` | bonus kodlar, chegirma kodlari |
-| `notifications` | bot orqali xabarlar (outbox) |
-| `telegram` | bot handlerlari, webhook |
-| `admin` | admin auth, rollar, audit, barcha boshqaruv endpointlari |
-| `health` | ready/live |
+| Modul           | Vazifa                                                                           |
+| --------------- | -------------------------------------------------------------------------------- |
+| `auth`          | Mini App initData, web OTP (bot orqali), refresh, sessiyalar                     |
+| `users`         | profil, til, telefon                                                             |
+| `catalog`       | kategoriyalar, mahsulotlar, SKU, input sxemalari, stok                           |
+| `pricing`       | kotirovka (quote), FX kurslari, ustama qoidalari                                 |
+| `wallet`        | ledger, balans, keshbek tangalari                                                |
+| `orders`        | buyurtma yaratish (balansdan), ro‘yxat, tafsilot, holat oqimi (SSE yoki polling) |
+| `recipients`    | qabul qiluvchini tekshirish (worker'ga RPC navbati orqali)                       |
+| `payments`      | intent, provayder adapterlari, callback'lar, solishtirish                        |
+| `referrals`     | havolalar, bog‘lanish, bonus hisoblash                                           |
+| `promo`         | bonus kodlar, chegirma kodlari                                                   |
+| `notifications` | bot orqali xabarlar (outbox)                                                     |
+| `telegram`      | bot handlerlari, webhook                                                         |
+| `admin`         | admin auth, rollar, audit, barcha boshqaruv endpointlari                         |
+| `health`        | ready/live                                                                       |
 
 ## Worker modullari (`apps/worker/src`)
 
-| Modul | Vazifa |
-|---|---|
-| `fulfillment` | `fulfill-order` navbati, holat oqimi, adapter router (asosiy + zaxira) |
-| `adapters/fragment` | Stars, Premium; sessiya (cookie jar, keep-alive) |
-| `adapters/<supplier>` | o‘yin ta'minotchilari (keyingi bosqichlarda) |
-| `ton` | hamyon, seqno lock, yuborish, tasdiqlash, balans |
-| `recipients` | `validate-recipient` navbati (username/ID tekshiruvi) |
-| `pricing-sync` | Fragment narxi, TON/USDT kursi, ta'minotchi narxlari (cron) |
-| `reconcile` | NEEDS_REVIEW buyurtmalarni zanjirdan/ta'minotchidan tekshirish, hisobot |
-| `alerts` | egaga Telegram ogohlantirishlari (hamyon kam, sessiya o‘ldi, navbat tiqildi) |
+| Modul                 | Vazifa                                                                       |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `fulfillment`         | `fulfill-order` navbati, holat oqimi, adapter router (asosiy + zaxira)       |
+| `adapters/fragment`   | Stars, Premium; sessiya (cookie jar, keep-alive)                             |
+| `adapters/<supplier>` | o‘yin ta'minotchilari (keyingi bosqichlarda)                                 |
+| `ton`                 | hamyon, seqno lock, yuborish, tasdiqlash, balans                             |
+| `recipients`          | `validate-recipient` navbati (username/ID tekshiruvi)                        |
+| `pricing-sync`        | Fragment narxi, TON/USDT kursi, ta'minotchi narxlari (cron)                  |
+| `reconcile`           | NEEDS_REVIEW buyurtmalarni zanjirdan/ta'minotchidan tekshirish, hisobot      |
+| `alerts`              | egaga Telegram ogohlantirishlari (hamyon kam, sessiya o‘ldi, navbat tiqildi) |
 
 ## Navbatlar (BullMQ)
 
-| Navbat | jobId | Ishlovchi | Qayta urinish |
-|---|---|---|---|
-| `fulfill-order` | `orderId` | worker | 5 marta, eksponensial; noma'lum natija → NEEDS_REVIEW |
-| `validate-recipient` | `hash(product+input)` | worker | 2 marta, 10 s timeout |
-| `price-sync` | cron | worker | — |
-| `fragment-keepalive` | cron 20 daq | worker | — |
-| `reconcile` | cron 10 daq | worker | — |
-| `tg-outbox` | `messageId` | api | 429 → `retry_after` |
-| `payment-reconcile` | cron kunlik | api | — |
+| Navbat               | jobId                 | Ishlovchi | Qayta urinish                                         |
+| -------------------- | --------------------- | --------- | ----------------------------------------------------- |
+| `fulfill-order`      | `orderId`             | worker    | 5 marta, eksponensial; noma'lum natija → NEEDS_REVIEW |
+| `validate-recipient` | `hash(product+input)` | worker    | 2 marta, 10 s timeout                                 |
+| `price-sync`         | cron                  | worker    | —                                                     |
+| `fragment-keepalive` | cron 20 daq           | worker    | —                                                     |
+| `reconcile`          | cron 10 daq           | worker    | —                                                     |
+| `tg-outbox`          | `messageId`           | api       | 429 → `retry_after`                                   |
+| `payment-reconcile`  | cron kunlik           | api       | —                                                     |
 
 ## Asosiy oqim: Stars xaridi
 
@@ -102,11 +103,11 @@ Prisma sxemasi `apps/api/prisma`da; worker ham shu generatsiya qilingan klientni
 
 ## Autentifikatsiya
 
-| Kanal | Usul | Sessiya |
-|---|---|---|
-| Mini App | `initData` HMAC (server) | Bearer token (1 soat), xotirada; muddati tugasa initData qayta yuboriladi |
-| Web | bot orqali OTP (6 xona) | httpOnly cookie: access 15 daq + refresh 30 kun (rotatsiya) |
-| Admin | alohida OTP (`admin_` deep link) + allowlist + rol | `adm_session` cookie, 8 soat / 1 soat harakatsizlik |
+| Kanal    | Usul                                               | Sessiya                                                                   |
+| -------- | -------------------------------------------------- | ------------------------------------------------------------------------- |
+| Mini App | `initData` HMAC (server)                           | Bearer token (1 soat), xotirada; muddati tugasa initData qayta yuboriladi |
+| Web      | bot orqali OTP (6 xona)                            | httpOnly cookie: access 15 daq + refresh 30 kun (rotatsiya)               |
+| Admin    | alohida OTP (`admin_` deep link) + allowlist + rol | `adm_session` cookie, 8 soat / 1 soat harakatsizlik                       |
 
 ## Deploy (VPS, D-20)
 

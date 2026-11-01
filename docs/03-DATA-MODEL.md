@@ -1,499 +1,165 @@
 # 03 — Ma'lumotlar modeli
 
-Quyidagi Prisma sxemasi — **boshlang‘ich loyiha**. 1-bosqichda agent uni `apps/api/prisma/schema.prisma`
-ga ko‘chiradi, tekshiradi va kerak bo‘lsa aniqlashtiradi (o‘zgartirishlar shu faylda ham yangilanadi).
+> **Haqiqat manbai — `packages/db/prisma/schema.prisma`** (Prisma 7, D-22). Migratsiyalar:
+> `packages/db/prisma/migrations/20261029185158_init`, `20261031120000_domain_guardrails`
+> ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda) va `20261101100000_discount_below_full_price`
+> ("Migratsiya 3"). Bu hujjat sxemani tushuntiradi, nusxasini
+> saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
+> ham o‘sha o‘zgarishda yangilanadi.
 
 ## Asosiy qoidalar
 
-- Pul: `BigInt`, birligi ustun nomida (`Tiyin`, `MicroUsdt`, `NanoTon`, `Stars`).
-- Balans saqlanmaydi: `LedgerEntry` yig‘indisi. `Wallet` jadvali faqat **qulf** (row lock) va
-  sozlamalar uchun.
-- Idempotentlik — unique indekslar orqali.
-- `Order.status` faqat `order-state.ts` orqali o‘zgaradi.
+- Pul: `BigInt`, birligi ustun nomida (`Tiyin`, `MicroUsdt`, `NanoTon`, `Minor`). `Decimal`/`Float` yo‘q.
+- Balans saqlanmaydi: `LedgerEntry` yig‘indisi. `Wallet` jadvali faqat **qulf** (row lock) uchun.
+- Idempotentlik — unique indekslar orqali (quyidagi jadval).
+- `Order.status` faqat `order-state.ts` orqali o‘zgaradi; `OrderStatus` enum `ORDER_STATUSES` bilan
+  bir xil (DB testi tekshiradi).
+- id — `cuid(2)`; jadval nomlari model nomlari bilan bir xil (`"Wallet"`, `"LedgerEntry"`).
 
-## Sxema (loyiha)
+## Modellar (29 ta model, 11 ta enum)
 
-```prisma
-generator client {
-  provider = "prisma-client-js"
-}
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+| Guruh         | Modellar                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| Foydalanuvchi | `User`, `Wallet`                                                                              |
+| Hamyon        | `LedgerEntry` (so‘m), `CoinEntry` (keshbek tangalari)                                         |
+| Katalog       | `Category`, `Product`, `Sku`, `ProductRoute`, `Voucher`                                       |
+| Narx          | `FxRate`, `Quote`                                                                             |
+| Buyurtma      | `Order`, `OrderEvent`, `FulfillmentAttempt`                                                   |
+| To‘lov        | `PaymentIntent`, `Payment`                                                                    |
+| Promo         | `BonusCode`, `BonusRedemption`, `DiscountTier`, `DiscountCode`                                |
+| Fragment      | `FragmentSession`, `WalletSnapshot`                                                           |
+| Auth / admin  | `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `AuditLog`, `Broadcast`, `Setting` |
 
-enum Locale {
-  uz
-  ru
-}
+## Idempotentlik unique'lari
 
-model User {
-  id            String   @id @default(cuid())
-  telegramId    BigInt   @unique
-  username      String?
-  firstName     String?
-  lastName      String?
-  photoUrl      String?
-  phone         String?            // faqat foydalanuvchi ulashsa
-  locale        Locale   @default(uz)
-  referralCode  String   @unique
-  referredById  String?
-  referredBy    User?    @relation("Referrals", fields: [referredById], references: [id])
-  referrals     User[]   @relation("Referrals")
-  isBlocked     Boolean  @default(false)
-  purchaseFrozen Boolean @default(false)  // to‘lov qaytarilib, balans manfiy bo‘lsa
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  lastSeenAt    DateTime?
-  wallet        Wallet?
-  @@index([referredById])
-}
+| Jadval               | Unique                                | Nimani himoya qiladi                                                                                                 |
+| -------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `Payment`            | `(provider, providerTxnId)`           | provayder callback'i takrorlansa                                                                                     |
+| `Order`              | `(userId, idempotencyKey)`, `quoteId` | buyurtma ikki marta yaratilmasin                                                                                     |
+| `PaymentIntent`      | `(userId, idempotencyKey)`            | intent ikki marta yaratilmasin                                                                                       |
+| `FulfillmentAttempt` | `(orderId, attemptNo)`                | urinish raqami bir marta                                                                                             |
+| `LedgerEntry`        | `(refType, refId, kind)`              | bitta pul harakati bir marta yoziladi                                                                                |
+| `CoinEntry`          | `(refType, refId, kind)`              | bitta tanga harakati bir marta yoziladi                                                                              |
+| `BonusRedemption`    | `(codeId, userId)`                    | bonus kod foydalanuvchiga bir marta                                                                                  |
+| `FulfillmentAttempt` | `(adapter, externalRef)`              | bitta tashqi to‘lov (TON hash / yetkazib beruvchi buyurtma id) faqat bitta urinishga tegishli; `NULL` ruxsat etiladi |
 
-model Wallet {               // balans saqlanmaydi; FOR UPDATE qulfi uchun
-  userId    String   @id
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-}
+## D-23 o‘zgarishlari (boshlang‘ich loyihaga nisbatan)
 
-enum LedgerKind {
-  TOPUP
-  TOPUP_REVERSAL
-  PURCHASE
-  REFUND
-  REFERRAL_BONUS
-  ADJUSTMENT
-}
+1. **Hamma `*Id` — haqiqiy FK.** Har biriga `@relation` va indeks qo‘shildi (32 ta FK). `onDelete`:
+   hamma joyda `Restrict` (pul va audit tarixi kaskad bilan o‘chib ketmasin; `SetNull` ham yo‘q —
+   u tarix qatorini jimgina o‘zgartirardi). Yagona istisno — `Cascade`: `WebSession`, `AdminSession`
+   (tarix saqlamaydigan kirish ma'lumotlari). FK bo‘lmagan joylar (polimorf havola):
+   `LedgerEntry`/`CoinEntry` `(refType, refId)`, `AuditLog` `actorId`/`targetId`, `Setting.updatedBy`.
+2. **`updatedAt` faqat o‘zgaradigan jadvallarda.** Append-only jadvallarda yo‘q: `LedgerEntry`,
+   `CoinEntry`, `AuditLog`, `OrderEvent`; o‘zgarmas snapshot'lar: `FxRate`, `WalletSnapshot`,
+   `BonusRedemption`, `Wallet`. Qo‘shildi (qatorlari o‘zgaradi): `Category`, `Sku`, `ProductRoute`,
+   `Voucher`, `Quote`, `PaymentIntent`, `Payment`, `BonusCode`, `DiscountTier`, `DiscountCode`,
+   `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `Broadcast`.
+3. **Idempotentlik:** `Order.requestHash` va `PaymentIntent.idempotencyKey` + `requestHash`
+   (`@@unique([userId, idempotencyKey])`) qo‘shildi: bir xil kalit + boshqa body → `409 IDEMPOTENCY_CONFLICT`.
+4. **`Voucher` ↔ `Order` bog‘lanishi bitta:** faqat `Voucher.orderId` (`@unique`). `Order.voucherId`
+   olib tashlandi — ikki tomonli havola bir-biriga zid bo‘lishi mumkin edi. Zahirada turadigan
+   va sotiladigan qator voucher, shuning uchun havolani inventar tomoni ushlaydi; buyurtma
+   uni `Order.voucher` orqali o‘qiydi.
+5. **Qo‘shimcha indekslar:** `Product.categoryId`, `Sku.productId`, `Quote` (`skuId`, `productId`,
+   `fxRateId`, `discountCodeId`, `expiresAt`), `Order` (`productId`, `skuId`), `PaymentIntent`
+   (`quoteId`, `status+createdAt`), `Payment` (`intentId`, `status+createdAt`), `BonusCode.createdById`,
+   `BonusRedemption.userId`, `DiscountCode.tierId`, `AdminSession.adminId`, `Broadcast.createdById`,
+   `WebSession.familyId`, `AuditLog (actorId, createdAt)`, `WalletSnapshot.createdAt`.
+6. **Generator:** `prisma-client` (Prisma 7), `moduleFormat = "cjs"`, natija `packages/db/src/generated`
+   (git'da yo‘q, `npm run build -w @repo/db` yaratadi). `datasource`da URL yo‘q — u `prisma.config.ts`
+   (faqat CLI) va ilovalarning tekshirilgan konfigidan keladi.
 
-model LedgerEntry {
-  id          String     @id @default(cuid())
-  userId      String
-  kind        LedgerKind
-  amountTiyin BigInt                 // ishorali: + kirim, − chiqim
-  refType     String                 // PAYMENT | ORDER | ADMIN | REFERRAL
-  refId       String
-  note        String?
-  createdAt   DateTime   @default(now())
-  @@unique([refType, refId, kind])
-  @@index([userId, createdAt])
-}
+Eslatma: `Setting.updatedBy`, `LedgerEntry.refId` kabi polimorf maydonlar FK emas; ularning
+yaxlitligi servis qatlamida ta'minlanadi.
 
-enum CoinKind {
-  EARN
-  SPEND
-  EXPIRE
-  ADJUSTMENT
-  REVERSAL
-}
-model CoinEntry {
-  id        String   @id @default(cuid())
-  userId    String
-  kind      CoinKind
-  coins     BigInt
-  refType   String
-  refId     String
-  createdAt DateTime @default(now())
-  @@unique([refType, refId, kind])
-  @@index([userId, createdAt])
-}
+## Migratsiya 2: `20261031120000_domain_guardrails`
 
-// ---------- Katalog ----------
-enum DeliveryType {
-  TG_USERNAME
-  GAME_ID
-  STEAM_LOGIN
-  VOUCHER
-  USERNAME
-}
+Faqat qo‘shimcha (additive) o‘zgarishlar: hech bir ustun yoki jadval o‘chirilmagan va nomi o‘zgartirilmagan.
+Prisma ifodalay olmaydigan qismlar (trigger va `CHECK`) xom SQL sifatida shu migratsiyada; ular
+`schema.prisma`da ko‘rinmaydi, lekin DB testlari (`packages/db/test/*.e2e.test.ts`) har birini tekshiradi.
 
-model Category {
-  id        String    @id @default(cuid())
-  slug      String    @unique
-  nameUz    String
-  nameRu    String
-  sort      Int       @default(0)
-  products  Product[]
-}
+1. **`Order.fxRateId`** — `FxRate`ga haqiqiy FK (`Restrict`), indeksli, `NOT NULL`. Qoida: buyurtma
+   narxlangan FX snapshot id'sini o‘zida saqlaydi (avval faqat `Quote`da edi). Qiymat yaratilish
+   paytida `Quote.fxRateId` bilan bir xil bo‘lishi servis qatlamida ta'minlanadi. Migratsiya paytida
+   dev va test bazalarida `Order` jadvali bo‘sh edi, shuning uchun to‘ldirish (backfill) kerak bo‘lmadi.
+2. **Append-only DB darajasida.** `LedgerEntry`, `CoinEntry`, `OrderEvent`, `AuditLog` jadvallarida
+   `BEFORE UPDATE OR DELETE` qator triggeri (`ggpin_forbid_mutation()`) istisno ko‘taradi. `TRUNCATE`
+   qator triggerlarini ishga tushirmaydi — test tozalash shunga tayanadi (`TRUNCATE ... CASCADE`);
+   productionda ilova roliga `TRUNCATE` huquqi berilmaydi. Xato kodi — loyihaga xos SQLSTATE `GG001`
+   (`20261031130000_append_only_error_code` migratsiyasi). Dastlabki `restrict_violation` (23001) kodini
+   Prisma pg adapteri FK xatosiga o‘xshatib ko‘rsatar va trigger matnini yashirar edi; `GG001` bilan
+   kod ham, `… is append-only` matni ham klientgacha yetib boradi.
+3. **`CHECK` cheklovlari:**
 
-model Product {
-  id            String       @id @default(cuid())
-  slug          String       @unique
-  categoryId    String
-  category      Category     @relation(fields: [categoryId], references: [id])
-  nameUz        String
-  nameRu        String
-  descriptionUz String?
-  descriptionRu String?
-  helpUz        String?      // "ID'ni qayerdan topaman?"
-  helpRu        String?
-  imageUrl      String
-  regionBadge   String?      // GLOBAL | SNG | UZ ...
-  deliveryType  DeliveryType
-  inputSchema   Json         // forma maydonlari: [{key:"playerId",type:"digits",min:5,max:12}, ...]
-  isAuto        Boolean      @default(true)
-  isFeatured    Boolean      @default(false)
-  isActive      Boolean      @default(false)
-  allowCustomQty Boolean     @default(false)   // Stars: erkin miqdor
-  minQty        Int?
-  maxQty        Int?
-  sort          Int          @default(0)
-  skus          Sku[]
-  routes        ProductRoute[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-}
+   | Jadval                         | Cheklov                                                                                                                    |
+   | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+   | `LedgerEntry`                  | ishora turga qarab (jadval pastda); noma'lum tur rad etiladi (`ELSE false`) — yangi tur qo‘shilsa, cheklov ham yangilanadi |
+   | `CoinEntry`                    | `EARN` > 0; `SPEND`, `EXPIRE` < 0; `ADJUSTMENT`, `REVERSAL` ≠ 0 (`REVERSAL` EARN yoki SPEND'ni bekor qilishi mumkin)       |
+   | `Order`, `Quote`               | `quantity` > 0, `priceTiyin` > 0, `costMinor` > 0, `maxCostMinor` ≥ `costMinor`                                            |
+   | `Order`                        | `0 ≤ discountTiyin < priceTiyin` (`priceTiyin` — chegirmadan oldingi narx; 3-migratsiyada qat'iylashtirilgan)              |
+   | `PaymentIntent`, `Payment`     | `amountTiyin` > 0                                                                                                          |
+   | `Sku`                          | `quantity` > 0, `minMarginTiyin` ≥ 0, `markupBps` ≥ 0 (ustama 100% dan oshishi mumkin, shuning uchun yuqori chegara yo‘q)  |
+   | `Product`                      | `minQty`, `maxQty` > 0 va `minQty` ≤ `maxQty`                                                                              |
+   | `Voucher`                      | `costMicroUsdt` > 0                                                                                                        |
+   | `FulfillmentAttempt`           | `attemptNo` > 0, `costMinor` ≥ 0                                                                                           |
+   | `WalletSnapshot`               | `tonNano` ≥ 0, `usdtMicro` ≥ 0                                                                                             |
+   | `BonusCode`                    | `rewardValue` > 0, `maxUses` > 0, `0 ≤ usedCount ≤ maxUses`                                                                |
+   | `DiscountTier`, `DiscountCode` | `bps` 0..9999 (3-migratsiyada qat'iylashtirilgan); `DiscountTier.priceCoins` > 0                                           |
+   | `FxRate`                       | `rate` — musbat o‘nlik qator, ko‘pi bilan 18 xona (`money.ts` bilan bir xil)                                               |
+   | `User`                         | `referredById` ≠ `id` (o‘zini o‘zi taklif qila olmaydi)                                                                    |
 
-model Sku {
-  id            String   @id @default(cuid())
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id])
-  tab           String?  // "UC tezkor" / "To‘plamlar" kabi guruh (i18n kaliti)
-  labelUz       String   // "60 UC", "3 oylik"
-  labelRu       String
-  quantity      Int      // 60 (UC), 3 (oy), 1 (voucher)
-  supplierSku   String?  // ta'minotchidagi kod
-  markupBps     Int      // ustama, bazis punktda (1500 = 15%)
-  minMarginTiyin BigInt  @default(0)
-  isActive      Boolean  @default(true)
-  sort          Int      @default(0)
-  vouchers      Voucher[]
-}
+   `Quote`da chegirma ustuni yo‘q, shuning uchun "chegirma ≤ narx" cheklovi faqat `Order`da.
 
-model ProductRoute {         // mahsulot → adapter (ustuvorlik tartibida)
-  id         String  @id @default(cuid())
-  productId  String
-  product    Product @relation(fields: [productId], references: [id])
-  adapter    String  // FRAGMENT | RESELLER_STARS | FAZERCARDS | ...
-  priority   Int
-  isEnabled  Boolean @default(true)
-  @@unique([productId, adapter])
-}
+4. **Yangi `LedgerKind.REFERRAL_BONUS_REVERSAL` (−).** Yetkazilgan buyurtma admin tomonidan qaytarilsa,
+   referal bonusi shu tur bilan bekor qilinadi. Keshbek uchun yangi tur kerak emas: `CoinKind.REVERSAL` bor.
+   `LedgerEntry` ishora jadvali:
 
-enum VoucherStatus {
-  AVAILABLE
-  RESERVED
-  SOLD
-  INVALID
-}
-model Voucher {
-  id          String        @id @default(cuid())
-  skuId       String
-  sku         Sku           @relation(fields: [skuId], references: [id])
-  codeEnc     String        // shifrlangan
-  codeHash    String        @unique
-  status      VoucherStatus @default(AVAILABLE)
-  orderId     String?       @unique
-  costMicroUsdt BigInt
-  createdAt   DateTime      @default(now())
-  @@index([skuId, status])
-}
+   | `kind`                    | `amountTiyin` |
+   | ------------------------- | ------------- |
+   | `TOPUP`                   | > 0           |
+   | `REFUND`                  | > 0           |
+   | `REFERRAL_BONUS`          | > 0           |
+   | `TOPUP_REVERSAL`          | < 0           |
+   | `PURCHASE`                | < 0           |
+   | `REFERRAL_BONUS_REVERSAL` | < 0           |
+   | `ADJUSTMENT`              | ≠ 0           |
 
-// ---------- Narx ----------
-model FxRate {
-  id        String   @id @default(cuid())
-  pair      String   // USDT_UZS, TON_USDT, TON_UZS
-  rate      String   // o‘nlik qator (decimal string), hisob BigInt'da
-  source    String
-  createdAt DateTime @default(now())
-  @@index([pair, createdAt])
-}
+5. **`refType` kelishuvi.** `(refType, refId, kind)` unique — idempotentlik himoyasi, shuning uchun bitta
+   buyurtmaga bitta `REFUND`. Avtomatik qaytarish (xato/bekor) va admin'ning to‘liq qaytarishi
+   `ORDER/<orderId>` bilan yoziladi. Admin'ning **qisman** qaytarishi va tuzatishlari
+   `refType = 'ADMIN_ACTION'`, `refId = AuditLog.id` bilan yoziladi — shunda bir buyurtmaga bir necha
+   qisman qaytarish to‘qnashmaydi, bir xil audit amali esa ikki marta yozilmaydi. `refType` qiymatlari:
+   `PAYMENT | ORDER | REFERRAL | ADMIN_ACTION`.
+6. **`FulfillmentAttempt (adapter, externalRef)` unique.** `NULL` qiymatlar Postgres'da to‘qnashmaydi.
+   Oddiy `@@index([externalRef])` saqlab qolindi: reconciler zanjirdan olingan hash bo‘yicha faqat
+   `externalRef` bilan qidiradi, unique esa `adapter` bilan boshlangani uchun bunga yaramaydi.
+7. **`createdAt` qo‘shildi:** `Category`, `Sku`, `ProductRoute`, `DiscountTier`, `Setting`,
+   `FragmentSession`. Endi hamma modelda `createdAt` bor (sxema testi tekshiradi).
+8. **`Payment.provider` uchun alohida indeks kerak emas:** `@@unique([provider, providerTxnId])` indeksi
+   `provider` bilan boshlanadi va shu so‘rovlarga xizmat qiladi.
 
-model Quote {
-  id             String   @id @default(cuid())
-  userId         String
-  skuId          String?
-  productId      String
-  quantity       Int
-  recipient      Json     // tekshirilgan qabul qiluvchi: {username, displayName, ...}
-  costCurrency   String   // TON | USDT
-  costMinor      BigInt   // nanoTON yoki microUSDT
-  fxRateId       String
-  priceTiyin     BigInt
-  maxCostMinor   BigInt   // shu chegaradan oshsa — HELD
-  discountCodeId String?
-  expiresAt      DateTime
-  usedAt         DateTime?
-  createdAt      DateTime @default(now())
-  @@index([userId, createdAt])
-}
+## Migratsiya 3: `20261101100000_discount_below_full_price`
 
-// ---------- Buyurtma ----------
-enum OrderStatus {
-  PAID
-  QUEUED
-  PROCESSING
-  HELD
-  NEEDS_REVIEW
-  DELIVERED
-  FAILED
-  CANCELLED
-  REFUNDED
-}
+Faqat `CHECK` cheklovlari o‘chirilib, qatʼiyroq shaklda qayta yaratildi; ustun, jadval va maʼlumotga
+tegilmadi.
 
-model Order {
-  id             String      @id @default(cuid())
-  number         Int         @unique @default(autoincrement())  // foydalanuvchiga ko‘rinadigan #
-  userId         String
-  quoteId        String      @unique
-  productId      String
-  skuId          String?
-  quantity       Int
-  recipient      Json
-  priceTiyin     BigInt
-  discountTiyin  BigInt      @default(0)
-  costCurrency   String
-  costMinor      BigInt
-  maxCostMinor   BigInt
-  status         OrderStatus
-  statusReason   String?
-  idempotencyKey String
-  deliveredAt    DateTime?
-  voucherId      String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  attempts       FulfillmentAttempt[]
-  events         OrderEvent[]
-  @@unique([userId, idempotencyKey])
-  @@index([status, createdAt])
-  @@index([userId, createdAt])
-}
-
-model OrderEvent {           // holat tarixi (audit)
-  id        String      @id @default(cuid())
-  orderId   String
-  order     Order       @relation(fields: [orderId], references: [id])
-  from      OrderStatus?
-  to        OrderStatus
-  actor     String      // SYSTEM | WORKER | ADMIN:<id>
-  note      String?
-  createdAt DateTime    @default(now())
-  @@index([orderId, createdAt])
-}
-
-enum AttemptStatus {
-  SENDING
-  SENT
-  CONFIRMED
-  FAILED
-  UNKNOWN
-}
-model FulfillmentAttempt {
-  id            String        @id @default(cuid())
-  orderId       String
-  order         Order         @relation(fields: [orderId], references: [id])
-  attemptNo     Int
-  adapter       String
-  status        AttemptStatus
-  externalRef   String?       // TON message hash / supplier order id / Fragment req_id
-  request       Json          // sirlarsiz
-  response      Json?
-  costMinor     BigInt?
-  error         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  @@unique([orderId, attemptNo])
-  @@index([externalRef])
-}
-
-// ---------- To‘lovlar ----------
-enum PaymentProviderCode {
-  CLICK
-  PAYME
-  UZUM
-  RAHMAT
-  TG_STARS
-}
-enum IntentStatus {
-  PENDING
-  PAID
-  CANCELLED
-  EXPIRED
-}
-
-model PaymentIntent {
-  id           String              @id @default(cuid())
-  userId       String
-  provider     PaymentProviderCode
-  amountTiyin  BigInt
-  status       IntentStatus        @default(PENDING)
-  purpose      String              // TOPUP | TOPUP_AND_BUY
-  quoteId      String?             // TOPUP_AND_BUY bo‘lsa
-  expiresAt    DateTime
-  createdAt    DateTime            @default(now())
-  payments     Payment[]
-  @@index([userId, createdAt])
-}
-
-enum PaymentStatus {
-  CREATED
-  CONFIRMED
-  CANCELLED
-}
-model Payment {
-  id             String              @id @default(cuid())
-  intentId       String
-  intent         PaymentIntent       @relation(fields: [intentId], references: [id])
-  provider       PaymentProviderCode
-  providerTxnId  String
-  amountTiyin    BigInt
-  status         PaymentStatus
-  raw            Json                // redakt qilingan
-  confirmedAt    DateTime?
-  cancelledAt    DateTime?
-  createdAt      DateTime            @default(now())
-  @@unique([provider, providerTxnId])
-}
-
-// ---------- Promo ----------
-model BonusCode {
-  id          String   @id @default(cuid())
-  codeHash    String   @unique
-  rewardType  String   // WALLET_TIYIN | COINS
-  rewardValue BigInt
-  maxUses     Int
-  usedCount   Int      @default(0)
-  expiresAt   DateTime?
-  createdById String
-  createdAt   DateTime @default(now())
-  redemptions BonusRedemption[]
-}
-model BonusRedemption {
-  id        String    @id @default(cuid())
-  codeId    String
-  code      BonusCode @relation(fields: [codeId], references: [id])
-  userId    String
-  createdAt DateTime  @default(now())
-  @@unique([codeId, userId])
-}
-
-model DiscountTier {
-  id         String  @id @default(cuid())
-  bps        Int
-  priceCoins BigInt
-  isActive   Boolean @default(true)
-}
-model DiscountCode {
-  id        String   @id @default(cuid())
-  userId    String
-  tierId    String
-  bps       Int
-  code      String   @unique
-  usedOrderId String? @unique
-  expiresAt DateTime?
-  createdAt DateTime @default(now())
-  @@index([userId])
-}
-
-// ---------- Fragment / hamyon ----------
-model FragmentSession {
-  id          String   @id @default(cuid())
-  cookiesEnc  String           // shifrlangan cookie jar
-  pageHash    String?
-  status      String           // ACTIVE | DEAD
-  lastOkAt    DateTime?
-  lastError   String?
-  updatedAt   DateTime @updatedAt
-}
-
-model WalletSnapshot {          // hot wallet balansi tarixi (admin grafik uchun)
-  id          String   @id @default(cuid())
-  network     String
-  address     String
-  tonNano     BigInt
-  usdtMicro   BigInt
-  createdAt   DateTime @default(now())
-}
-
-// ---------- Auth / admin ----------
-model WebSession {
-  id          String   @id @default(cuid())
-  userId      String
-  refreshHash String   @unique
-  familyId    String
-  userAgent   String?
-  ip          String?
-  revokedAt   DateTime?
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  @@index([userId])
-}
-
-model LoginRequest {            // web va admin OTP
-  id         String   @id @default(cuid())
-  nonce      String   @unique
-  kind       String   // USER | ADMIN
-  telegramId BigInt?
-  codeHash   String?
-  attempts   Int      @default(0)
-  status     String   // PENDING | CODE_SENT | USED | EXPIRED | DENIED
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-}
-
-enum AdminRole {
-  OWNER
-  OPERATOR
-  SUPPORT
-}
-model AdminUser {
-  id         String    @id @default(cuid())
-  telegramId BigInt    @unique
-  name       String
-  role       AdminRole
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-}
-model AdminSession {
-  id         String   @id @default(cuid())
-  adminId    String
-  tokenHash  String   @unique
-  lastUsedAt DateTime
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  ip         String?
-  createdAt  DateTime @default(now())
-}
-model AuditLog {
-  id        String   @id @default(cuid())
-  actorType String   // ADMIN | SYSTEM
-  actorId   String?
-  action    String   // ORDER_REFUND, WALLET_ADJUST, PRODUCT_UPDATE ...
-  targetType String
-  targetId  String
-  before    Json?
-  after     Json?
-  reason    String?
-  ip        String?
-  createdAt DateTime @default(now())
-  @@index([targetType, targetId])
-  @@index([createdAt])
-}
-
-model Broadcast {
-  id         String   @id @default(cuid())
-  textUz     String
-  textRu     String
-  audience   Json
-  status     String   // DRAFT | SENDING | DONE | CANCELLED
-  sentCount  Int      @default(0)
-  failCount  Int      @default(0)
-  createdById String
-  createdAt  DateTime @default(now())
-}
-
-model Setting {                 // admin'dan o‘zgaradigan sozlamalar
-  key       String   @id      // REFERRAL_BPS, CASHBACK_BPS, TOPUP_MIN_TIYIN ...
-  value     Json
-  updatedAt DateTime @updatedAt
-  updatedBy String?
-}
-```
+- Muammo: 2-migratsiyada `bps BETWEEN 0 AND 10000` va `discountTiyin <= priceTiyin` 100% chegirmaga
+  ruxsat berar edi. Lekin xarid `LedgerEntry(PURCHASE)` yozadi (summa **< 0**), qaytarish esa
+  `REFUND` (**> 0**): to‘liq chegirmali buyurtmaning yozuvi `LedgerEntry` cheklovidan o‘tmay, checkout
+  tranzaksiyasi DB xatosi bilan yiqilar edi. PRDʼdagi chegirma darajalari 0,2–1,5%, yaʼni 100% kerak emas.
+- Yangi qoida: `DiscountTier.bps`, `DiscountCode.bps` ∈ [0, 9999]; `Order.discountTiyin` ∈ [0, `priceTiyin`).
+  Cheklov nomlari o‘zgarmadi (`DiscountTier_values_check`, `DiscountCode_bps_check`, `Order_discount_check`).
+- Xavfsizlik: qo‘llashdan oldin dev va test bazalarida chegaradagi qator (`bps >= 10000`,
+  `discountTiyin >= priceTiyin`) yo‘qligi tekshirildi, shuning uchun qayta qo‘shish xatosiz o‘tadi.
+- Servis qatlamida (keyingi fazalar) chegirma hisoblash ham shu qoidaga amal qiladi: narx kamida 1 tiyin.
 
 ## Nima qayerda hisoblanadi
 
-| Ko‘rsatkich | Qayerda |
-|---|---|
-| Balans | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh |
-| Keshbek tangalari | `SUM(CoinEntry.coins)` |
-| Referal daromadi | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)` |
+| Ko‘rsatkich              | Qayerda                                                                     |
+| ------------------------ | --------------------------------------------------------------------------- |
+| Balans                   | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh                    |
+| Keshbek tangalari        | `SUM(CoinEntry.coins)`                                                      |
+| Referal daromadi         | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)`                                |
 | Buyurtma foydasi (admin) | `priceTiyin − discountTiyin − costMinor × fx` (buyurtmadagi snapshot bilan) |
-| Hot wallet balansi | worker, zanjirdan + `WalletSnapshot` |
+| Hot wallet balansi       | worker, zanjirdan + `WalletSnapshot`                                        |

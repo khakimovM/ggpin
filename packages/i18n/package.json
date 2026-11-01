@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@repo/shared": "^0.0.0",
     "vitest": "^4.1.12"
   }
 }

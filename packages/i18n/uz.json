@@ -2,11 +2,46 @@
   "common": {
     "loading": "Yuklanmoqda…",
     "retry": "Qayta urinish",
-    "comingSoon": "Tez orada"
+    "comingSoon": "Tez orada",
+    "money": {
+      "uzs": "{amount} so‘m",
+      "usdt": "{amount} USDT",
+      "ton": "{amount} TON",
+      "stars": "{amount} Stars"
+    }
   },
   "admin": {
     "shell": {
       "title": "Admin panel"
     }
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Kiritilgan maʼlumotlarda xatolik bor. Tekshirib, qayta urinib ko‘ring.",
+    "UNAUTHORIZED": "Avval tizimga kiring.",
+    "INITDATA_INVALID": "Telegram orqali kirish tasdiqlanmadi. Ilovani qayta oching.",
+    "INITDATA_EXPIRED": "Kirish muddati tugadi. Ilovani qayta oching.",
+    "TOKEN_REUSE_DETECTED": "Xavfsizlik uchun sessiya yopildi. Iltimos, qayta kiring.",
+    "USER_BLOCKED": "Hisobingiz bloklangan. Yordam xizmatiga murojaat qiling.",
+    "PURCHASE_FROZEN": "Xaridlar vaqtincha cheklangan. Yordam xizmatiga murojaat qiling.",
+    "NOT_FOUND": "Topilmadi.",
+    "IDEMPOTENCY_CONFLICT": "Bu so‘rov kaliti boshqa maʼlumot bilan allaqachon ishlatilgan.",
+    "QUOTE_EXPIRED": "Narx muddati tugadi. Narxni yangilab, qayta urinib ko‘ring.",
+    "PAYLOAD_TOO_LARGE": "So‘rov hajmi juda katta.",
+    "INSUFFICIENT_BALANCE": "Balansingizda mablag‘ yetarli emas.",
+    "RECIPIENT_NOT_FOUND": "Qabul qiluvchi topilmadi. Kiritilgan maʼlumotni tekshiring.",
+    "RECIPIENT_INVALID": "Qabul qiluvchi maʼlumotlari noto‘g‘ri.",
+    "RECIPIENT_HAS_PREMIUM": "Bu foydalanuvchida Telegram Premium allaqachon bor.",
+    "PRODUCT_UNAVAILABLE": "Mahsulot hozircha mavjud emas.",
+    "OUT_OF_STOCK": "Mahsulot tugagan.",
+    "QTY_OUT_OF_RANGE": "Miqdor ruxsat etilgan chegaradan tashqarida.",
+    "TOPUP_AMOUNT_OUT_OF_RANGE": "To‘ldirish summasi ruxsat etilgan chegaradan tashqarida.",
+    "CODE_INVALID": "Kod noto‘g‘ri.",
+    "CODE_EXPIRED": "Kodning muddati tugagan.",
+    "CODE_ALREADY_USED": "Bu kod allaqachon ishlatilgan.",
+    "NOT_ENOUGH_COINS": "Tangalar yetarli emas.",
+    "RATE_LIMITED": "So‘rovlar juda ko‘p. Birozdan so‘ng qayta urinib ko‘ring.",
+    "INTERNAL_ERROR": "Ichki xatolik yuz berdi. Keyinroq qayta urinib ko‘ring.",
+    "FULFILLMENT_UNAVAILABLE": "Yetkazib berish hozircha ishlamayapti. Keyinroq qayta urinib ko‘ring.",
+    "RECIPIENT_CHECK_UNAVAILABLE": "Qabul qiluvchini tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring."
   }
 }

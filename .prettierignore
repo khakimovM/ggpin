@@ -5,4 +5,6 @@ dist
 coverage
 package-lock.json
 next-env.d.ts
+packages/db/src/generated
+packages/db/prisma/migrations
 design/handoff

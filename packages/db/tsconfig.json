@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // Typecheck (src + tests + prisma.config.ts) with bundler resolution: vitest ships ESM-only
+  // types and prisma.config.ts uses import.meta. The emitted build stays CommonJS via
+  // tsconfig.build.json so NestJS can require() it.
+  "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "noEmit": true
+  },
+  "include": ["src", "test", "prisma.config.ts", "vitest.config.mjs", "vitest.e2e.config.mjs"]
+}
