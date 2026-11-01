@@ -115,6 +115,9 @@ export function nextStatuses(from: OrderStatus, actor: OrderActor): OrderStatus[
  * so UI polling must not use this to decide when to stop (see CLIENT_STATUS_GROUP).
  */
 export function isTerminalStatus(status: OrderStatus): boolean {
+  // Own-key check first: a status read from a DB row or job payload is not guaranteed to match
+  // the type, and `constructor` / `__proto__` would otherwise resolve through the prototype.
+  if (!Object.hasOwn(ORDER_TRANSITIONS, status)) return false;
   return Object.keys(ORDER_TRANSITIONS[status]).length === 0;
 }
 

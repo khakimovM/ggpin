@@ -271,6 +271,12 @@ describe('order state machine', () => {
       expect(canTransition('PAID', '__proto__' as OrderStatus, 'system')).toBe(false);
     });
 
+    it('treats an unknown status as not terminal instead of throwing', () => {
+      for (const bogus of ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'NOPE', '']) {
+        expect(isTerminalStatus(bogus as OrderStatus), bogus).toBe(false);
+      }
+    });
+
     it('leaves the prototype clean afterwards', () => {
       for (const status of ORDER_STATUSES) expect(status in Object.prototype).toBe(false);
     });
