@@ -59,7 +59,7 @@ const EnvSchema = z.object({
   ADMIN_URL: httpOrigin,
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY: trustedProxies,
-  // Swagger is off unless explicitly enabled, in every environment including production.
+  // Swagger is off unless explicitly enabled; NODE_ENV=production refuses "true" (checked below).
   SWAGGER_ENABLED: bool('false'),
 
   // ---- Optional now; the named phase makes them required (and checks them at boot). ----
