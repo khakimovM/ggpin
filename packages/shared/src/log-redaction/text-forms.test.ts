@@ -101,7 +101,8 @@ describe('scrubSecretsInText: phone numbers in more shapes', () => {
 describe('scrubSecretsInText: length cap', () => {
   it('scans a prefix and replaces the rest with [Truncated]', () => {
     const out = scrubSecretsInText(`token=abc ${'x'.repeat(100)} password=tail`, 20);
-    expect(out).toBe(`token=${REDACTED} xxxxxxxxxx[Truncated]`);
+    // The cut moves back to the last delimiter so it cannot split a secret (text-cut.test.ts).
+    expect(out).toBe(`token=${REDACTED}[Truncated]`);
     expect(out).not.toContain('tail');
   });
 

@@ -9,6 +9,7 @@ import { MAX_SCRUBBED_LENGTH, scrubSecretsInText } from './index';
 const ONE_MB = 1_000_000;
 const BOUND_MS = 500;
 
+const TAB = String.fromCharCode(9);
 const fill = (unit: string): string => unit.repeat(Math.ceil(ONE_MB / unit.length));
 
 const SHAPES: Record<string, string> = {
@@ -21,6 +22,14 @@ const SHAPES: Record<string, string> = {
   'many k=v pairs': fill('k=v&'),
   'many sensitive k=v pairs': fill('password=x;'),
   'unterminated quotes': fill('a="'),
+  'quoted harmless value hiding pairs': fill('m="x host=db password='),
+  'sensitive quote opens': fill('password="'),
+  'spaced quoted keys': fill('"a b "'),
+  'key then long whitespace runs': fill('password:' + ' '.repeat(50) + 'code' + TAB.repeat(50)),
+  'dotted keys': fill('a.b.c.d.code = '),
+  'line-valued key': fill('mnemonic=a b c '),
+  'sensitive key then 1 MB of whitespace': `password:${' '.repeat(ONE_MB)}`,
+  'key then 1 MB of whitespace before =': `password${' '.repeat(ONE_MB)}=x`,
   'long digit run': '1'.repeat(ONE_MB),
   'digits and colons': fill('123456789:'),
   'long quote run': '"'.repeat(ONE_MB),
