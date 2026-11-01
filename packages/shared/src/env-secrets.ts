@@ -107,8 +107,12 @@ export const WORKER_ENV_PREFIXES = [
 ] as const;
 
 // Rule 1: a worker-prefixed name that is shaped like a credential. SSID and HASH are the
-// Fragment cookie / page-hash spellings; "_ENC" is a sealed blob.
-const SECRET_SHAPED = /KEY|SECRET|TOKEN|PASSWORD|SSID|HASH|COOKIE|MNEMONIC|PRIVATE|SEED|_ENC$/;
+// Fragment cookie / page-hash spellings; "_ENC" is a sealed blob; PASS (WDGZONE_PASS), SESSION
+// (FRAGMENT_SESSION), AUTH and CREDENTIAL are the other common spellings, and a bare PK / SK
+// segment is a private / secret key (HOT_WALLET_PK, TON_WALLET_SK). Only worker prefixes
+// reach this rule, so the broad words cannot hit unrelated developer-shell variables.
+const SECRET_SHAPED =
+  /KEY|SECRET|TOKEN|PASS|SSID|HASH|COOKIE|MNEMONIC|PRIVATE|SEED|SESSION|AUTH|CREDENTIAL|(^|_)(PK|SK)$|_ENC$/;
 
 // Rule 2: wallet material is refused under ANY name or prefix: the mnemonic / seed phrase and
 // the Fragment session cookies. Deliberately nothing broader (no bare SEED, COOKIE or

@@ -43,6 +43,14 @@ const MUST_REFUSE = [
   'APP_SEED_PHRASE',
   'SEEDPHRASE',
   'ROBLOX_COOKIE',
+  // Shapes the first fix set missed (fix set D).
+  'FRAGMENT_SESSION',
+  'WDGZONE_PASS',
+  'HOT_WALLET_PK',
+  'TON_WALLET_SK',
+  'MOOGOLD_AUTH',
+  'UNIPIN_CREDENTIALS',
+  'SUPPLIER_X_PASSWD',
 ];
 
 // Legitimate names that previously stopped the API from booting, generic developer-shell
@@ -70,6 +78,10 @@ const MUST_ALLOW = [
   'RESELLER_STARS_API_URL',
   'SUPPLIER_MAX_PER_ORDER_MICRO_USDT',
   'FRAGMENT_BASE_URL',
+  'TON_NETWORK_ID',
+  'SUPPLIER_PUBG_ENDPOINT',
+  'SUPPLIER_DISK', // ends in SK but is not a SK segment
+  'TON_PKG_NAME',
   'STEAM_COMPAT_CLIENT_INSTALL_PATH',
   'DATABASE_URL',
   'JWT_ACCESS_SECRET',
