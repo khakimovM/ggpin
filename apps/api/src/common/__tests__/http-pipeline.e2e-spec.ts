@@ -102,17 +102,36 @@ describe('HTTP pipeline (envelope, errors, validation, headers, CORS, limits)', 
       expect(res.text).not.toMatch(/hunter2|ECONNREFUSED|\bat \S+ \(|\.ts:\d+/);
     });
 
+    // app.inject, not supertest: Fastify answers 413 from the Content-Length header and closes the
+    // socket while a real client is still writing the body, which made supertest fail now and
+    // then with ECONNRESET. inject drives the same request pipeline without a socket.
+    const postRaw = (bytes: number) => {
+      const head = '{"amount":"1","note":"';
+      const tail = '"}';
+      const filler = 'x'.repeat(bytes - head.length - tail.length);
+      return app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: 'POST',
+          url: `${BASE}/echo`,
+          headers: { 'content-type': 'application/json' },
+          payload: `${head}${filler}${tail}`,
+        });
+    };
+
     it('body above the limit -> 413 PAYLOAD_TOO_LARGE', async () => {
-      const big = JSON.stringify({ amount: '1', note: 'x'.repeat(BODY_LIMIT_BYTES) });
-      const res = await http()
-        .post(`${BASE}/echo`)
-        .set('content-type', 'application/json')
-        .send(big);
-      expect(res.status).toBe(413);
-      expect(res.body).toEqual({
+      const res = await postRaw(BODY_LIMIT_BYTES + 1);
+      expect(res.statusCode).toBe(413);
+      expect(res.json()).toEqual({
         success: false,
         error: { code: 'PAYLOAD_TOO_LARGE', message: 'errors.PAYLOAD_TOO_LARGE' },
       });
+    });
+
+    it('a body of exactly the limit is not rejected as too large', async () => {
+      const res = await postRaw(BODY_LIMIT_BYTES);
+      expect(res.statusCode).not.toBe(413);
     });
 
     it('malformed JSON -> 400 VALIDATION_ERROR', async () => {
