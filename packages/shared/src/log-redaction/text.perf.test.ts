@@ -4,10 +4,12 @@ import { MAX_SCRUBBED_LENGTH, scrubSecretsInText } from './index';
 // Regression for RA-1: `'"a":['.repeat(n)` took 59 s at 160 KB because every `"key":` match
 // scanned to the end of the text. The shapes below are the adversarial ones for each pattern.
 // The scan cap is lifted to the full input so the REGEXES themselves are measured, not only
-// the cap in front of them. Linear code needs a few tens of milliseconds for 1 MB here;
-// quadratic code needs minutes, so the generous bound catches it without being flaky.
+// the cap in front of them. Linear code needs ~50-150 ms for 1 MB on a dev machine and up to
+// ~1 s on a shared CI runner under v8 coverage (a 500 ms bound failed there). Quadratic code
+// needs tens of minutes at this size (the old code took 59 s at 160 KB), so a bound with wide
+// headroom over the slowest runner still separates the two by orders of magnitude.
 const ONE_MB = 1_000_000;
-const BOUND_MS = 500;
+const BOUND_MS = 5_000;
 
 const TAB = String.fromCharCode(9);
 const fill = (unit: string): string => unit.repeat(Math.ceil(ONE_MB / unit.length));
