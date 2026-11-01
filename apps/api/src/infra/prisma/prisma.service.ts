@@ -15,8 +15,13 @@ export class PrismaService implements OnApplicationShutdown {
   }
 
   // onApplicationShutdown, not onModuleDestroy: Nest calls onModuleDestroy FIRST, while the HTTP
-  // server and BullMQ workers may still be finishing a request/job that needs the database.
-  // onApplicationShutdown runs after the server has stopped and after beforeApplicationShutdown.
+  // server may still be finishing a request that needs the database. onApplicationShutdown runs
+  // after the server has stopped and after every beforeApplicationShutdown.
+  //
+  // This hook alone does NOT make BullMQ workers drain first: @nestjs/bullmq closes them in ITS
+  // onApplicationShutdown, and hooks of one phase are not ordered against each other (the probe
+  // showed this disconnect running first). BullWorkersShutdown (infra/queue) closes the workers
+  // in beforeApplicationShutdown instead; queue-shutdown.e2e-spec.ts proves the order.
   async onApplicationShutdown(): Promise<void> {
     await this.client.$disconnect();
   }

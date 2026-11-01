@@ -1,8 +1,10 @@
 import { Global, Module } from '@nestjs/common';
+import { DiscoveryModule } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES } from '@repo/shared';
 import type { QueueOptions } from 'bullmq';
 import { WORKER_CONFIG, type WorkerConfig } from '../../config/config.module';
+import { BullWorkersShutdown } from './bull-workers-shutdown';
 import { QueueErrorLogger } from './queue-error-logger';
 
 // BullMQ Workers use blocking commands and refuse a connection whose maxRetriesPerRequest is
@@ -27,8 +29,9 @@ const queues = BullModule.registerQueue(
       useFactory: (config: WorkerConfig) => workerBullOptions(config),
     }),
     queues,
+    DiscoveryModule,
   ],
-  providers: [QueueErrorLogger],
+  providers: [BullWorkersShutdown, QueueErrorLogger],
   exports: [queues],
 })
 export class QueueModule {}

@@ -12,8 +12,9 @@ import { PrismaService } from '../prisma.service';
 
 const calls: string[] = [];
 
-// Stands in for "something that still needs the database while shutting down" (a BullMQ worker
-// finishing a job, an in-flight request): it records every lifecycle phase Nest drives.
+// Records every lifecycle phase Nest drives. This only proves the Nest hook phases: a stand-in
+// cannot show how BullMQ workers are ordered, so that is covered with a real BullMQ worker and
+// Redis in queue/__tests__/queue-shutdown.e2e-spec.ts.
 @Injectable()
 class LifecycleRecorder
   implements OnModuleDestroy, BeforeApplicationShutdown, OnApplicationShutdown

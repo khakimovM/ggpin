@@ -1,9 +1,11 @@
 import { Global, Module } from '@nestjs/common';
+import { DiscoveryModule } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES } from '@repo/shared';
 import type { QueueOptions } from 'bullmq';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { FulfillOrderEnqueuer } from './fulfill-order-enqueuer';
+import { BullWorkersShutdown } from './bull-workers-shutdown';
 import { QueueErrorLogger } from './queue-error-logger';
 
 // Producer-only connection. enableOfflineQueue=false makes `queue.add` fail fast while Redis
@@ -30,8 +32,9 @@ const queues = BullModule.registerQueue(
       useFactory: (config: AppConfig) => apiBullOptions(config),
     }),
     queues,
+    DiscoveryModule,
   ],
-  providers: [QueueErrorLogger, FulfillOrderEnqueuer],
+  providers: [BullWorkersShutdown, QueueErrorLogger, FulfillOrderEnqueuer],
   exports: [queues, FulfillOrderEnqueuer],
 })
 export class QueueModule {}
