@@ -11,7 +11,7 @@ useDefault = true
 description = "generic-api-key swallowed the next non-secret assignment after an empty placeholder"
 targetRules = ["generic-api-key"]
 condition = "AND"
-paths = ['''(^|/)\.env\.example$''']
+paths = ['''(^|/)\.env(\.[\w-]+)*\.(example|sample|template)$''']
 regexTarget = "secret"
 regexes = ['''^[A-Z][A-Z0-9_]*=(?:[0-9]+|true|false)?$''']
 
@@ -21,7 +21,7 @@ regexes = ['''^[A-Z][A-Z0-9_]*=(?:[0-9]+|true|false)?$''']
 [[rules]]
 id = "env-example-secret-value"
 description = "Secret-named variable has a real value in an .env.example template"
-path = '''(^|/)\.env\.example$'''
+path = '''(^|/)\.env(\.[\w-]+)*\.(example|sample|template)$'''
 regex = '''(?m)^[ \t]*(?:export[ \t]+)?[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|MNEMONIC|COOKIE|PRIVATE|_KEY|_ENC)[A-Z0-9_]*[ \t]*=[ \t]*["']?([^\s"'#]+)'''
 secretGroup = 1
 [[rules.allowlists]]
@@ -35,5 +35,23 @@ regex = '''(?i)(mnemonic|seed)\s*[:=]\s*["']([a-z]{3,8}\s+){11,23}[a-z]{3,8}["']
 
 [[rules]]
 id = "fragment-cookie"
-description = "Fragment session cookie"
-regex = '''stel_(ssid|token|ton_token)\s*[:=]\s*["'][A-Za-z0-9%._-]{16,}'''
+description = "Fragment session cookie (quoted, or a bare Cookie header: stel_ssid=...; stel_token=...)"
+regex = '''(?i)stel_(ssid|dt|token|ton_token)["']?\s*[:=]\s*["']?[A-Za-z0-9%._-]{16,}'''
+[[rules.allowlists]]
+description = "fake cookie values in tests that prove log redaction"
+paths = ['''(^|/)__tests__/''', '''\.(test|spec)\.[cm]?[jt]sx?$''', '''\.e2e-spec\.ts$''']
+
+# scheme://user:password@host in code, docs or config: a credential inside a connection string.
+# The user part may be empty (redis://:password@host). Only the documented local dev value is
+# allowed; staging/production credentials must come from env, never from git.
+[[rules]]
+id = "url-credentials"
+description = "Credentials embedded in a URL (scheme://user:password@host)"
+regex = '''(?i)\b[a-z][a-z0-9+.-]{1,20}://[^\s/:@"'<>]*:[^\s/@"'<>]{3,}@[^\s/"'<>]+'''
+[[rules.allowlists]]
+description = "local development database credentials from docker-compose, and the generic user:pass@host placeholder in comments/docs"
+regexTarget = "match"
+regexes = ['''ggpin:ggpin@localhost''', '''://user:pass(word)?@host''']
+[[rules.allowlists]]
+description = "fake credentials in tests that prove URL redaction (hunter2, postgres://...@db); real values still hit the default rules"
+paths = ['''(^|/)__tests__/''', '''\.(test|spec)\.[cm]?[jt]sx?$''', '''\.e2e-spec\.ts$''']

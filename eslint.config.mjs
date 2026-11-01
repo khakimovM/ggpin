@@ -35,41 +35,114 @@ const PROCESS_ENV_IMPORTS = ['process', 'node:process'].map((name) => ({
   message: ENV_MESSAGE,
 }));
 
-// Worker-only code: TON libraries (current and legacy package names) and apps/worker itself.
+// Worker-only code: TON libraries (current and legacy package names, and the wider ecosystems
+// `@ton-community/*`, `@ton-*/*`, `ton-*`, `tonweb*`) and apps/worker itself.
 // The regexes are esquery literals (between slashes), so a slash inside them is escaped with a backslash.
-const TON_RE = String.raw`^(@ton\/.+|ton|ton-core|ton-crypto|tonweb)$`;
-const WORKER_RE = String.raw`(^worker$|^worker\/|apps\/worker\/|^(\.\.\/)+.*worker\/(src|dist)\/)`;
+const TON_RE = String.raw`^(@ton\/.+|@ton-[^\/]+(\/.*)?|ton|ton-.+|tonweb.*)$`;
+// Directory imports count too: `../../worker/src` has no trailing slash.
+const WORKER_RE = String.raw`(^worker$|^worker\/|apps\/worker(\/|$)|^(\.\.\/)+(.*\/)?worker\/(src|dist)(\/|$))`;
 const TON_MESSAGE = 'TON code belongs to apps/worker only.';
 const WORKER_MESSAGE = 'Do not import from apps/worker; share code through packages/*.';
-const WORKER_ONLY_PATHS = ['ton', 'ton-core', 'ton-crypto', 'tonweb', 'worker'].map((name) => ({
+const TON_PATHS = ['ton', 'ton-core', 'ton-crypto', 'tonweb'].map((name) => ({
   name,
-  message: name === 'worker' ? WORKER_MESSAGE : TON_MESSAGE,
+  message: TON_MESSAGE,
 }));
-const WORKER_ONLY_PATTERNS = [
-  { group: ['@ton/*', 'ton-*'], message: TON_MESSAGE },
+const TON_PATTERNS = [
   {
-    group: ['worker/*', '**/apps/worker/**', '../**/worker/src/**', '../**/worker/dist/**'],
+    group: ['@ton/*', '@ton-*', '@ton-*/**', 'ton-*', 'tonweb*'],
+    message: TON_MESSAGE,
+  },
+];
+const WORKER_ONLY_PATHS = [...TON_PATHS, { name: 'worker', message: WORKER_MESSAGE }];
+const WORKER_ONLY_PATTERNS = [
+  ...TON_PATTERNS,
+  {
+    group: [
+      'worker/*',
+      '**/apps/worker',
+      '**/apps/worker/**',
+      '../**/worker/src',
+      '../**/worker/src/**',
+      '../**/worker/dist',
+      '../**/worker/dist/**',
+    ],
     message: WORKER_MESSAGE,
   },
 ];
+
 const dynamicImport = (re, message) => [
   { selector: `ImportExpression[source.value=/${re}/]`, message },
-  { selector: `CallExpression[callee.name='require'][arguments.0.value=/${re}/]`, message },
+  {
+    selector: `CallExpression[callee.name='require'][arguments.0.value=/${re}/]`,
+    message,
+  },
+  // import(`@ton/ton`): a template literal without substitutions is still a constant string.
+  {
+    selector: `ImportExpression[source.type='TemplateLiteral'][source.quasis.0.value.cooked=/${re}/]`,
+    message,
+  },
+  {
+    selector: `CallExpression[callee.name='require'][arguments.0.type='TemplateLiteral'][arguments.0.quasis.0.value.cooked=/${re}/]`,
+    message,
+  },
 ];
+
+// import(x) / require(x) with a computed specifier defeats every static check above, so it is
+// refused where the boundary matters. Use a string literal.
+const DYNAMIC_MESSAGE =
+  'Use a string-literal specifier: a computed import()/require() bypasses the import-boundary rules.';
+const NON_LITERAL_LOADERS = [
+  {
+    selector: "ImportExpression:not([source.type='Literal'])",
+    message: DYNAMIC_MESSAGE,
+  },
+  {
+    selector: "CallExpression[callee.name='require']:not([arguments.0.type='Literal'])",
+    message: DYNAMIC_MESSAGE,
+  },
+];
+
+const TON_SYNTAX = dynamicImport(TON_RE, TON_MESSAGE);
 const WORKER_ONLY_SYNTAX = [
-  ...dynamicImport(TON_RE, TON_MESSAGE),
+  ...TON_SYNTAX,
   ...dynamicImport(WORKER_RE, WORKER_MESSAGE),
+  ...NON_LITERAL_LOADERS,
+];
+
+// pino's `logger.setBindings()` rewrites the bindings printed on every later line and does not
+// pass through formatters.bindings or onChild, i.e. it bypasses log redaction. Use
+// `logger.child({...})` (redacted by onChild) or pass the fields to the log call.
+const SET_BINDINGS_MESSAGE =
+  'logger.setBindings() bypasses log redaction; use logger.child({ ... }) or log call fields.';
+const SET_BINDINGS_SYNTAX = [
+  {
+    selector: "MemberExpression[property.name='setBindings']",
+    message: SET_BINDINGS_MESSAGE,
+  },
+  {
+    selector: "MemberExpression[property.value='setBindings']",
+    message: SET_BINDINGS_MESSAGE,
+  },
 ];
 
 // The reverse direction: apps/worker must not reach into apps/api (it would drag HTTP, bot and
 // payment-webhook code into the only process that holds wallet keys). Shared code goes through
-// packages/*. The package name of apps/api is "api"; the relative form is `../**/api/(src|dist)/`.
-const API_RE = String.raw`(^api$|^api\/|apps\/api\/|^(\.\.\/)+(.*\/)?api\/(src|dist)\/)`;
+// packages/*. The package name of apps/api is "api"; the relative form is `../**/api/(src|dist)`,
+// with or without a trailing path (`../../api/src` is the directory index).
+const API_RE = String.raw`(^api$|^api\/|apps\/api(\/|$)|^(\.\.\/)+(.*\/)?api\/(src|dist)(\/|$))`;
 const API_MESSAGE = 'Do not import from apps/api; share code through packages/*.';
 const API_ONLY_PATHS = [{ name: 'api', message: API_MESSAGE }];
 const API_ONLY_PATTERNS = [
   {
-    group: ['api/*', '**/apps/api/**', '../**/api/src/**', '../**/api/dist/**'],
+    group: [
+      'api/*',
+      '**/apps/api',
+      '**/apps/api/**',
+      '../**/api/src',
+      '../**/api/src/**',
+      '../**/api/dist',
+      '../**/api/dist/**',
+    ],
     message: API_MESSAGE,
   },
 ];
@@ -121,7 +194,7 @@ export default defineConfig(
         'error',
         { object: 'process', property: 'env', message: ENV_MESSAGE },
       ],
-      'no-restricted-syntax': ['error', ...PROCESS_ENV_SYNTAX],
+      'no-restricted-syntax': ['error', ...PROCESS_ENV_SYNTAX, ...SET_BINDINGS_SYNTAX],
       'no-restricted-imports': ['error', { paths: PROCESS_ENV_IMPORTS }],
     },
   },
@@ -135,7 +208,7 @@ export default defineConfig(
         'error',
         { paths: WORKER_ONLY_PATHS, patterns: WORKER_ONLY_PATTERNS },
       ],
-      'no-restricted-syntax': ['error', ...WORKER_ONLY_SYNTAX],
+      'no-restricted-syntax': ['error', ...WORKER_ONLY_SYNTAX, ...SET_BINDINGS_SYNTAX],
     },
   },
   {
@@ -151,14 +224,19 @@ export default defineConfig(
           patterns: WORKER_ONLY_PATTERNS,
         },
       ],
-      'no-restricted-syntax': ['error', ...PROCESS_ENV_SYNTAX, ...WORKER_ONLY_SYNTAX],
+      'no-restricted-syntax': [
+        'error',
+        ...PROCESS_ENV_SYNTAX,
+        ...WORKER_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+      ],
     },
   },
   {
     files: ['apps/worker/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', { paths: API_ONLY_PATHS, patterns: API_ONLY_PATTERNS }],
-      'no-restricted-syntax': ['error', ...API_ONLY_SYNTAX],
+      'no-restricted-syntax': ['error', ...API_ONLY_SYNTAX, ...SET_BINDINGS_SYNTAX],
     },
   },
   {
@@ -170,7 +248,21 @@ export default defineConfig(
         'error',
         { paths: [...PROCESS_ENV_IMPORTS, ...API_ONLY_PATHS], patterns: API_ONLY_PATTERNS },
       ],
-      'no-restricted-syntax': ['error', ...PROCESS_ENV_SYNTAX, ...API_ONLY_SYNTAX],
+      'no-restricted-syntax': [
+        'error',
+        ...PROCESS_ENV_SYNTAX,
+        ...API_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+      ],
+    },
+  },
+  {
+    // packages/* are imported by api, web and admin: a TON import there would put wallet code
+    // into every one of them.
+    files: ['packages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: TON_PATHS, patterns: TON_PATTERNS }],
+      'no-restricted-syntax': ['error', ...TON_SYNTAX, ...SET_BINDINGS_SYNTAX],
     },
   },
   {
