@@ -43,10 +43,16 @@ const TON_RE = String.raw`^(@ton\/.+|@ton-[^\/]+(\/.*)?|ton|ton-.+|tonweb.*)$`;
 const WORKER_RE = String.raw`(^worker$|^worker\/|apps\/worker(\/|$)|^(\.\.\/)+(.*\/)?worker\/(src|dist)(\/|$))`;
 const TON_MESSAGE = 'TON code belongs to apps/worker only.';
 const WORKER_MESSAGE = 'Do not import from apps/worker; share code through packages/*.';
-const TON_PATHS = ['ton', 'ton-core', 'ton-crypto', 'tonweb'].map((name) => ({
+// node:module (createRequire) is a second require() the checks cannot follow, so it is refused
+// wherever the TON boundary applies.
+const MODULE_MESSAGE =
+  'node:module (createRequire) is a second require() that bypasses the import-boundary rules.';
+const MODULE_PATHS = ['module', 'node:module'].map((name) => ({ name, message: MODULE_MESSAGE }));
+const TON_PACKAGE_PATHS = ['ton', 'ton-core', 'ton-crypto', 'tonweb'].map((name) => ({
   name,
   message: TON_MESSAGE,
 }));
+const TON_PATHS = [...TON_PACKAGE_PATHS, ...MODULE_PATHS];
 const TON_PATTERNS = [
   {
     group: ['@ton/*', '@ton-*', '@ton-*/**', 'ton-*', 'tonweb*'],
@@ -70,21 +76,26 @@ const WORKER_ONLY_PATTERNS = [
   },
 ];
 
+// The two spellings of a CommonJS load: `require(x)` and `module.require(x)`.
+const REQUIRE_CALLEES = [
+  "[callee.name='require']",
+  "[callee.object.name='module'][callee.property.name='require']",
+];
+
 const dynamicImport = (re, message) => [
   { selector: `ImportExpression[source.value=/${re}/]`, message },
-  {
-    selector: `CallExpression[callee.name='require'][arguments.0.value=/${re}/]`,
-    message,
-  },
   // import(`@ton/ton`): a template literal without substitutions is still a constant string.
   {
     selector: `ImportExpression[source.type='TemplateLiteral'][source.quasis.0.value.cooked=/${re}/]`,
     message,
   },
-  {
-    selector: `CallExpression[callee.name='require'][arguments.0.type='TemplateLiteral'][arguments.0.quasis.0.value.cooked=/${re}/]`,
-    message,
-  },
+  ...REQUIRE_CALLEES.flatMap((callee) => [
+    { selector: `CallExpression${callee}[arguments.0.value=/${re}/]`, message },
+    {
+      selector: `CallExpression${callee}[arguments.0.type='TemplateLiteral'][arguments.0.quasis.0.value.cooked=/${re}/]`,
+      message,
+    },
+  ]),
 ];
 
 // import(x) / require(x) with a computed specifier defeats every static check above, so it is
@@ -96,13 +107,37 @@ const NON_LITERAL_LOADERS = [
     selector: "ImportExpression:not([source.type='Literal'])",
     message: DYNAMIC_MESSAGE,
   },
-  {
-    selector: "CallExpression[callee.name='require']:not([arguments.0.type='Literal'])",
+  ...REQUIRE_CALLEES.map((callee) => ({
+    selector: `CallExpression${callee}:not([arguments.0.type='Literal'])`,
     message: DYNAMIC_MESSAGE,
-  },
+  })),
 ];
 
-const TON_SYNTAX = dynamicImport(TON_RE, TON_MESSAGE);
+// `require` used as a value instead of being called directly: `const r = require`,
+// `require.call(null, '@ton/ton')`, `Reflect.apply(require, ...)`. Each hands the loader to code
+// the specifier checks above never see. `require.resolve` / `require.cache` stay allowed.
+const REQUIRE_ALIAS_MESSAGE =
+  'Call require() directly with a string literal: aliasing it or using .call/.apply/.bind bypasses the import-boundary rules.';
+const REQUIRE_ALIAS_SYNTAX = [
+  "VariableDeclarator[init.name='require']",
+  "AssignmentExpression[right.name='require']",
+  "CallExpression > Identifier.arguments[name='require']",
+  "ArrayExpression > Identifier[name='require']",
+  "MemberExpression[object.name='require'][property.name=/^(call|apply|bind)$/]",
+  "MemberExpression[object.name='require'][property.value=/^(call|apply|bind)$/]",
+].map((selector) => ({ selector, message: REQUIRE_ALIAS_MESSAGE }));
+
+// `createRequire` (node:module) is a second require() the checks above cannot follow, so the
+// whole module is off limits where the boundary matters; getBuiltinModule reaches it too.
+const MODULE_RE = String.raw`^(node:)?module$`;
+const MODULE_SYNTAX = [
+  ...dynamicImport(MODULE_RE, MODULE_MESSAGE),
+  { selector: "MemberExpression[property.name='createRequire']", message: MODULE_MESSAGE },
+  { selector: "MemberExpression[property.name='getBuiltinModule']", message: MODULE_MESSAGE },
+];
+
+const TON_REQUIRE_SYNTAX = [...dynamicImport(TON_RE, TON_MESSAGE), ...REQUIRE_ALIAS_SYNTAX];
+const TON_SYNTAX = [...TON_REQUIRE_SYNTAX, ...MODULE_SYNTAX];
 const WORKER_ONLY_SYNTAX = [
   ...TON_SYNTAX,
   ...dynamicImport(WORKER_RE, WORKER_MESSAGE),
@@ -187,7 +222,7 @@ export default defineConfig(
   },
   {
     // .claude/rules/10-backend-nestjs.md: config only through the validated config module.
-    files: ['apps/api/src/**/*.ts', 'apps/worker/src/**/*.ts'],
+    files: ['apps/api/src/**/*.{ts,mts,cts}', 'apps/worker/src/**/*.{ts,mts,cts}'],
     ignores: ['apps/*/src/config/**'],
     rules: {
       'no-restricted-properties': [
@@ -202,7 +237,11 @@ export default defineConfig(
     // CLAUDE.md §5.7: wallet code and its secrets live in apps/worker only. Closes the
     // bypasses of a plain static `@ton/*` import: dynamic import()/require(), the legacy
     // package names, and reaching into apps/worker by relative path or package name.
-    files: ['apps/api/**/*.{ts,tsx}', 'apps/web/**/*.{ts,tsx}', 'apps/admin/**/*.{ts,tsx}'],
+    files: [
+      'apps/api/**/*.{ts,tsx,mts,cts}',
+      'apps/web/**/*.{ts,tsx,mts,cts}',
+      'apps/admin/**/*.{ts,tsx,mts,cts}',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -214,7 +253,7 @@ export default defineConfig(
   {
     // apps/api (outside config) is under both rule sets above; flat config replaces a rule's
     // options instead of merging them, so the combined set is restated for these files.
-    files: ['apps/api/src/**/*.ts'],
+    files: ['apps/api/src/**/*.{ts,mts,cts}'],
     ignores: ['apps/*/src/config/**'],
     rules: {
       'no-restricted-imports': [
@@ -233,7 +272,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['apps/worker/**/*.{ts,tsx}'],
+    files: ['apps/worker/**/*.{ts,tsx,mts,cts}'],
     rules: {
       'no-restricted-imports': ['error', { paths: API_ONLY_PATHS, patterns: API_ONLY_PATTERNS }],
       'no-restricted-syntax': ['error', ...API_ONLY_SYNTAX, ...SET_BINDINGS_SYNTAX],
@@ -241,7 +280,7 @@ export default defineConfig(
   },
   {
     // Same restating as for apps/api above: the worker (outside config) is under both rule sets.
-    files: ['apps/worker/src/**/*.ts'],
+    files: ['apps/worker/src/**/*.{ts,mts,cts}'],
     ignores: ['apps/*/src/config/**'],
     rules: {
       'no-restricted-imports': [
@@ -259,10 +298,19 @@ export default defineConfig(
   {
     // packages/* are imported by api, web and admin: a TON import there would put wallet code
     // into every one of them.
-    files: ['packages/**/*.{ts,tsx}'],
+    files: ['packages/**/*.{ts,tsx,mts,cts}'],
     rules: {
       'no-restricted-imports': ['error', { paths: TON_PATHS, patterns: TON_PATTERNS }],
       'no-restricted-syntax': ['error', ...TON_SYNTAX, ...SET_BINDINGS_SYNTAX],
+    },
+  },
+  {
+    // Test harness code is never imported at runtime; packages/db/test/global-setup.ts resolves
+    // the Prisma CLI through createRequire. Restated because flat config replaces rule options.
+    files: ['packages/*/test/**/*.{ts,tsx,mts,cts}'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: TON_PACKAGE_PATHS, patterns: TON_PATTERNS }],
+      'no-restricted-syntax': ['error', ...TON_REQUIRE_SYNTAX, ...SET_BINDINGS_SYNTAX],
     },
   },
   {

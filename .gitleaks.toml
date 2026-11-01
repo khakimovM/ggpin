@@ -33,13 +33,30 @@ id = "ton-mnemonic"
 description = "24-word mnemonic in code"
 regex = '''(?i)(mnemonic|seed)\s*[:=]\s*["']([a-z]{3,8}\s+){11,23}[a-z]{3,8}["']'''
 
+# The same phrase written as an array literal: ['abandon', 'ability', ...] (12+ quoted lowercase
+# words), whatever the variable is called. The rule above needs a `mnemonic:`/`seed=` key and a
+# single string.
+[[rules]]
+id = "ton-mnemonic-array"
+description = "Mnemonic as an array of 12+ quoted lowercase words"
+regex = '''\[\s*(?:["'][a-z]{3,8}["']\s*,\s*){11,23}["'][a-z]{3,8}["']\s*,?\s*\]'''
+
+# Test-file allowlists below are deliberately two-sided (condition = "AND"): a finding is
+# ignored only when it sits in a test SOURCE file AND its value is one of the fake values the
+# tests use. A path alone is not enough: recorded provider fixtures (JSON/HAR under
+# __tests__/ or test/) are exactly where a real stel_ssid or production DB URL would land, and
+# those must still be reported. Never widen the paths; extend the fake-value list instead.
+
 [[rules]]
 id = "fragment-cookie"
 description = "Fragment session cookie (quoted, or a bare Cookie header: stel_ssid=...; stel_token=...)"
 regex = '''(?i)stel_(ssid|dt|token|ton_token)["']?\s*[:=]\s*["']?[A-Za-z0-9%._-]{16,}'''
 [[rules.allowlists]]
-description = "fake cookie values in tests that prove log redaction"
-paths = ['''(^|/)__tests__/''', '''\.(test|spec)\.[cm]?[jt]sx?$''', '''\.e2e-spec\.ts$''']
+description = "fake cookie values in test source files that prove log redaction"
+condition = "AND"
+paths = ['''\.(test|spec|e2e-spec)\.[cm]?[jt]sx?$''']
+regexTarget = "match"
+regexes = ['''(?i)=["']?[a-z0-9]+(?:-[a-z0-9]+)*-secret-[0-9]+$''', '''(?i)=["']?fake[a-z0-9_-]*$''']
 
 # scheme://user:password@host in code, docs or config: a credential inside a connection string.
 # The user part may be empty (redis://:password@host). Only the documented local dev value is
@@ -48,10 +65,25 @@ paths = ['''(^|/)__tests__/''', '''\.(test|spec)\.[cm]?[jt]sx?$''', '''\.e2e-spe
 id = "url-credentials"
 description = "Credentials embedded in a URL (scheme://user:password@host)"
 regex = '''(?i)\b[a-z][a-z0-9+.-]{1,20}://[^\s/:@"'<>]*:[^\s/@"'<>]{3,}@[^\s/"'<>]+'''
+# Anchored on both ends of the match (the host part runs up to the first / or delimiter, so
+# `$` is the end of the host): `://user:pass@hostile.example.com` and
+# `://ggpin:ggpin@localhost.evil.test` do not match.
 [[rules.allowlists]]
 description = "local development database credentials from docker-compose, and the generic user:pass@host placeholder in comments/docs"
 regexTarget = "match"
-regexes = ['''ggpin:ggpin@localhost''', '''://user:pass(word)?@host''']
+regexes = [
+  '''(?i)^[a-z][a-z0-9+.-]*://ggpin:ggpin@localhost(?::[0-9]+)?(?:[?#].*)?$''',
+  '''(?i)^[a-z][a-z0-9+.-]*://user:pass(?:word)?@host(?::[0-9]+)?(?:[?#].*)?$''',
+]
 [[rules.allowlists]]
-description = "fake credentials in tests that prove URL redaction (hunter2, postgres://...@db); real values still hit the default rules"
-paths = ['''(^|/)__tests__/''', '''\.(test|spec)\.[cm]?[jt]sx?$''', '''\.e2e-spec\.ts$''']
+description = "fake passwords in test source files that prove URL redaction (hunter2, p4ss, p%40ss, secret, *-pw-secret, ${interpolated})"
+condition = "AND"
+paths = ['''\.(test|spec|e2e-spec)\.[cm]?[jt]sx?$''']
+regexTarget = "match"
+regexes = ['''(?i)^[a-z][a-z0-9+.-]*://[^\s/:@]*:(?:hunter2|p4ss|p%40ss|secret|[a-z]+-pw-secret|\$\{[^}]*\})@''']
+[[rules.allowlists]]
+description = "the one test helper controller that is not named *.spec/*.test; it carries the same fake hunter2 password"
+condition = "AND"
+paths = ['''(^|/)apps/api/src/common/__tests__/http-test\.controller\.ts$''']
+regexTarget = "match"
+regexes = ['''(?i)^[a-z][a-z0-9+.-]*://[^\s/:@]*:hunter2@''']
