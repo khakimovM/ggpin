@@ -221,4 +221,58 @@ describe('order state machine', () => {
     expect(CLIENT_STATUS_GROUP.DELIVERED).toBe('DELIVERED');
     expect(CLIENT_STATUS_GROUP.PROCESSING).toBe('PROCESSING');
   });
+
+  describe('prototype pollution', () => {
+    // `Object.prototype.FAILED = [...]` would make every row look like it has a FAILED edge.
+    // The prototype is restored in `finally` so a failure here cannot poison other tests.
+    function withPollutedPrototype(check: () => void): void {
+      const polluted = ORDER_STATUSES.filter((status) => !(status in Object.prototype));
+      const actors: OrderActor[] = ['system', 'admin', 'reconciler'];
+      try {
+        for (const status of polluted) {
+          Object.defineProperty(Object.prototype, status, {
+            value: actors,
+            configurable: true,
+            writable: true,
+            enumerable: false,
+          });
+        }
+        check();
+      } finally {
+        for (const status of polluted) Reflect.deleteProperty(Object.prototype, status);
+      }
+    }
+
+    it('never opens an edge that is not an own property of the table', () => {
+      withPollutedPrototype(() => {
+        expect(canTransition('PAID', 'FAILED', 'system')).toBe(false);
+        expect(canTransition('PAID', 'DELIVERED', 'admin')).toBe(false);
+        expect(canTransition('REFUNDED', 'PAID', 'admin')).toBe(false);
+        expect(() => assertTransition('PAID', 'FAILED', 'system')).toThrow(
+          IllegalOrderTransitionError,
+        );
+        expect(nextStatuses('PAID', 'system')).toEqual(['QUEUED']);
+        expect(isTerminalStatus('REFUNDED')).toBe(true);
+      });
+    });
+
+    it('still honours every legal edge while the prototype is polluted', () => {
+      withPollutedPrototype(() => {
+        for (const [from, to, actors] of LEGAL) {
+          for (const actor of actors) expect(canTransition(from, to, actor)).toBe(true);
+        }
+      });
+    });
+
+    it('rejects a status that is not an own key of the table', () => {
+      // Runtime values (DB rows, job payloads) are not guaranteed to match the type.
+      const bogus = 'constructor' as OrderStatus;
+      expect(canTransition(bogus, 'QUEUED', 'system')).toBe(false);
+      expect(canTransition('PAID', '__proto__' as OrderStatus, 'system')).toBe(false);
+    });
+
+    it('leaves the prototype clean afterwards', () => {
+      for (const status of ORDER_STATUSES) expect(status in Object.prototype).toBe(false);
+    });
+  });
 });

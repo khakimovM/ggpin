@@ -82,8 +82,14 @@ export class IllegalOrderTransitionError extends Error {
   }
 }
 
+// Own properties only: the status names are plain object keys, so an inherited one
+// (`Object.prototype.FAILED = ['system']` from a prototype-pollution bug anywhere in the
+// process) would otherwise appear as an edge in every row and let money move without a rule.
+// `from`/`to` are typed, but they also arrive from DB rows and job payloads at runtime.
 function allowedActors(from: OrderStatus, to: OrderStatus): readonly OrderActor[] | undefined {
-  return ORDER_TRANSITIONS[from][to];
+  if (!Object.hasOwn(ORDER_TRANSITIONS, from)) return undefined;
+  const edges = ORDER_TRANSITIONS[from];
+  return Object.hasOwn(edges, to) ? edges[to] : undefined;
 }
 
 export function canTransition(from: OrderStatus, to: OrderStatus, actor: OrderActor): boolean {
