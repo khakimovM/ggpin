@@ -61,13 +61,13 @@ describe('redactSecrets', () => {
       nonce: 'n-1',
       code: REDACTED,
     });
-    expect(redactSecrets({ code: 4821 })).toEqual({ code: REDACTED });
-    expect(redactSecrets({ code: '1234' })).toEqual({ code: REDACTED });
-    expect(redactSecrets({ code: '12345678' })).toEqual({ code: REDACTED });
-    for (const code of [-31050, 500, 'ETIMEDOUT', 'INSUFFICIENT_BALANCE', '123', '123456789']) {
+    expect(redactSecrets({ code: 482100 })).toEqual({ code: REDACTED });
+    // The spec's OTP is exactly six digits: SQLSTATEs (23505, 23514, 40001, 57014) stay.
+    const keep = [-31050, 500, 'ETIMEDOUT', 'INSUFFICIENT_BALANCE', '123', '123456789', '1234'];
+    for (const code of [...keep, '23505', '23514', '40001', '57014', 99001, '12345678']) {
       expect(redactSecrets({ code })).toEqual({ code });
     }
-    expect(redactSecrets({ code: true, err: { code: 99001 } })).toEqual({
+    expect(redactSecrets({ code: true, err: { code: 990011 } })).toEqual({
       code: true,
       err: { code: REDACTED },
     });

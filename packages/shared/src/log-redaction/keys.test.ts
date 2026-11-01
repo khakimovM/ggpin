@@ -108,8 +108,10 @@ describe('isSensitiveField', () => {
 
   it('flags `code` only for OTP-shaped strings and numbers', () => {
     expect(isSensitiveField('code', '123456')).toBe(true);
-    expect(isSensitiveField('Code', 1234)).toBe(true);
+    expect(isSensitiveField('Code', 123456)).toBe(true);
     expect(isSensitiveField('code', '123')).toBe(false);
+    expect(isSensitiveField('code', '12345')).toBe(false);
+    expect(isSensitiveField('code', '1234567')).toBe(false);
     expect(isSensitiveField('code', '123456789')).toBe(false);
     expect(isSensitiveField('code', -31050)).toBe(false);
     expect(isSensitiveField('code', 'ETIMEDOUT')).toBe(false);

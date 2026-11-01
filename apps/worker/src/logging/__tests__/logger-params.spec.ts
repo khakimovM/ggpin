@@ -88,7 +88,7 @@ describe('worker logger policy', () => {
   it('keeps useful non-secret fields and redacts an OTP-shaped code', () => {
     const { stream, logger } = createLogger();
     logger.info(
-      { idempotencyKey: 'k-1', txHash: 'h-1', jobId: 'j-1', queue: 'fulfill-order', code: 4821 },
+      { idempotencyKey: 'k-1', txHash: 'h-1', jobId: 'j-1', queue: 'fulfill-order', code: 482913 },
       'fields',
     );
     logger.error({ err: Object.assign(new Error('x'), { code: 'ETIMEDOUT' }) }, 'fields');

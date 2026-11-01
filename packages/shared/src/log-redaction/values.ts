@@ -7,10 +7,9 @@
 // stronger guarantee. The copy never mutates the caller's object (it may be a live request,
 // config or domain object), handles cycles and Errors, and is bounded in depth.
 import { REDACTED, isSensitiveField } from './keys';
-import { scrubSecretsInText } from './text';
+import { TRUNCATED, scrubSecretsInText } from './text';
 
 const CIRCULAR = '[Circular]';
-const TRUNCATED = '[Truncated]';
 const UNSERIALIZABLE = '[Unserializable]';
 
 /** Deeper structures are cut off: bounds the cost of logging a huge graph by mistake. */
@@ -130,6 +129,41 @@ export function redactLogRecord(
   return copyProperties(record, 0, new Set([record]), passthroughKeys);
 }
 
+// JSON.parse turns 12345678901234567891 into a double and loses digits. Pino prints a bigint
+// binding as a bare integer literal, so every integer too large for a double is quoted before
+// parsing and stays an exact decimal string (the response envelope carries money as strings
+// too). Strings are skipped, so quoted text that merely looks like a number is untouched.
+const NUMBER_TOKEN = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+
+function quoteUnsafeIntegers(json: string): string {
+  let out = '';
+  let inString = false;
+  let i = 0;
+  while (i < json.length) {
+    const char = json.charAt(i);
+    if (inString) {
+      const step = char === '\\' ? 2 : 1;
+      out += json.slice(i, i + step);
+      i += step;
+      if (char === '"') inString = false;
+    } else if (char === '"') {
+      inString = true;
+      out += char;
+      i += 1;
+    } else if (char === '-' || (char >= '0' && char <= '9')) {
+      NUMBER_TOKEN.lastIndex = i;
+      const token = NUMBER_TOKEN.exec(json)?.[0] ?? char;
+      const isInteger = /^-?\d+$/.test(token);
+      out += isInteger && !Number.isSafeInteger(Number(token)) ? `"${token}"` : token;
+      i += token.length;
+    } else {
+      out += char;
+      i += 1;
+    }
+  }
+  return out;
+}
+
 /**
  * Redacts the pre-serialised bindings string Pino keeps for a logger (`,"k":v,"k2":v2`).
  * Fails closed: text that is not the expected JSON fragment is dropped, not passed through.
@@ -137,7 +171,7 @@ export function redactLogRecord(
 export function redactSerializedBindings(chindings: string): string {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(`{${chindings.replace(/^,/, '')}}`);
+    parsed = JSON.parse(quoteUnsafeIntegers(`{${chindings.replace(/^,/, '')}}`));
   } catch {
     return '';
   }

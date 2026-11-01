@@ -1,0 +1,115 @@
+import { REDACTED, isSensitiveField, isSensitiveKey, isValueDependentKey } from './keys';
+
+// `key: value` forms inside free text: stringified JSON (`"apiKey":"x"`, also stringified
+// twice: `\"apiKey\":\"x\"`), util.inspect / axios dumps (`{ apiKey: 'x' }`, `{'token': 'x'}`)
+// and header-style lines (`x-api-key: x`, `Authorization: Paycom:x`).
+//
+// Cost model (reviewer / auditor RA-1): the key is classified BEFORE its value is looked at,
+// and only a sensitive key triggers a value scan. A value scan is bounded and, when it hits
+// the bound or the end of the text without closing, swallows the rest of the text (fail
+// closed). Because the scan consumes what it redacts, the total work stays linear.
+const KEY_COLON = /(?<![A-Za-z0-9_.-])(\\?["']?)([A-Za-z0-9_.-]{1,64})(\\?["']?)\s{0,8}:\s{0,8}/g;
+
+const MAX_VALUE_SCAN = 4096;
+
+// Values that are a phrase, not one token: seed words, whole header lines. They run to the end
+// of the line. This is about how far the value extends, not about what is secret: the secrecy
+// verdict always comes from isSensitiveField.
+const LINE_VALUE_KEY = /mnemonic|seed|authorization|cookie|authheader|basicauth/i;
+
+// `Authorization: Basic <token>` keeps the scheme word, which is useful in a log.
+const AUTH_SCHEME_PREFIX = /^(?:Bearer|Basic)[ \t]+/i;
+
+// A one-time code value: six digits, optionally quoted (also JSON-escaped).
+const OTP_VALUE = /^(\\?["']?)(\d{6})(?!\d)(\\?["']?)/;
+
+function isBareStop(char: string, untilLineEnd: boolean): boolean {
+  if (untilLineEnd) return char === '\n' || char === '\r';
+  return /[\s,;)}\]]/.test(char);
+}
+
+// Where the value starting at `start` ends: a string, a balanced {...} / [...] (string
+// aware, both quote kinds), or a bare run of characters.
+function valueEnd(text: string, start: number, untilLineEnd: boolean): number {
+  const first = text.charAt(start);
+  const limit = Math.min(text.length, start + MAX_VALUE_SCAN);
+  if (first === '\\' && text.charAt(start + 1) === '"') {
+    const close = text.indexOf('\\"', start + 2);
+    return close === -1 || close + 2 > limit ? text.length : close + 2;
+  }
+  if (first === '"' || first === "'" || first === '{' || first === '[') {
+    const isString = first === '"' || first === "'";
+    let depth = isString ? 0 : 1;
+    let quote = isString ? first : '';
+    for (let i = start + 1; i < limit; i += 1) {
+      const char = text.charAt(i);
+      if (quote !== '') {
+        if (char === '\\') {
+          i += 1;
+        } else if (char === quote) {
+          quote = '';
+          if (depth === 0) return i + 1;
+        }
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === '{' || char === '[') {
+        depth += 1;
+      } else if (char === '}' || char === ']') {
+        depth -= 1;
+        if (depth === 0) return i + 1;
+      }
+    }
+    return text.length;
+  }
+  let end = start;
+  while (end < limit && !isBareStop(text.charAt(end), untilLineEnd)) end += 1;
+  return end === limit && limit < text.length ? text.length : end;
+}
+
+// Where the secret value of this key ends, or -1 when this key/value pair is not a secret.
+function secretValueEnd(text: string, key: string, valueStart: number): number {
+  const leaf = key.slice(key.lastIndexOf('.') + 1);
+  if (isSensitiveKey(key) || isSensitiveKey(leaf)) {
+    return valueEnd(text, valueStart, LINE_VALUE_KEY.test(key));
+  }
+  if (isValueDependentKey(key) || isValueDependentKey(leaf)) {
+    // Only an OTP-shaped scalar counts; never scan structure for a non-sensitive key.
+    const otp = OTP_VALUE.exec(text.slice(valueStart, valueStart + 16));
+    if (otp !== null && isSensitiveField(key, otp[2])) return valueStart + otp[0].length;
+  }
+  return -1;
+}
+
+function replacement(openQuote: string, raw: string): string {
+  const first = raw.charAt(0);
+  const wrap =
+    openQuote === '\\"' || openQuote === '"'
+      ? openQuote
+      : first === '"' || first === "'"
+        ? first
+        : raw.startsWith('\\"')
+          ? '\\"'
+          : '';
+  if (wrap === '') {
+    const scheme = AUTH_SCHEME_PREFIX.exec(raw);
+    return scheme === null ? REDACTED : `${scheme[0]}${REDACTED}`;
+  }
+  return `${wrap}${REDACTED}${wrap}`;
+}
+
+export function scrubKeyedFields(text: string): string {
+  let out = '';
+  let cursor = 0;
+  for (const match of text.matchAll(KEY_COLON)) {
+    const [whole, openQuote = '', key = ''] = match;
+    if (match.index < cursor) continue; // inside a value that is already replaced
+    const valueStart = match.index + whole.length;
+    const end = secretValueEnd(text, key, valueStart);
+    if (end <= valueStart) continue;
+    const raw = text.slice(valueStart, end);
+    if (raw === 'null') continue; // nothing to protect
+    out += text.slice(cursor, valueStart) + replacement(openQuote, raw);
+    cursor = end;
+  }
+  return out + text.slice(cursor);
+}
