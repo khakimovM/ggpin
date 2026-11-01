@@ -22,8 +22,12 @@ export type JobStateName = (typeof JOB_STATES)[number];
  * - `add`:     no job with this id exists; add it.
  * - `replace`: a FINISHED job (completed/failed) still holds the id; BullMQ would silently drop
  *              a new `add()` with it, so remove it first and add again.
- * - `keep`:    a live job (queued, delayed, running, ...) already exists; the new request is a
- *              true duplicate and must not create or disturb anything.
+ * - `keep`:    a live job (queued, delayed, running, ...) already exists; the request must not
+ *              create or disturb anything. Usually a true duplicate, but NOT for `active`: a
+ *              request that arrives while the previous run is still finishing (HELD released
+ *              before the job that set HELD is marked completed) is dropped too. That gap is
+ *              closed by the phase-5 safeguards in docs/06-FULFILLMENT.md (end-of-run status
+ *              re-check, reconcile sweep), not here.
  */
 export type EnqueueAction = 'add' | 'replace' | 'keep';
 

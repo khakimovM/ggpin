@@ -133,6 +133,33 @@ katalogda qoldiq soni ("69 ta" / "Tugagan"); kam qolganda egaga xabar.
 Ogohlantirishlar egaga Telegram orqali: hamyon kam, sessiya o‘ldi, NEEDS_REVIEW paydo bo‘ldi,
 navbat 5 daqiqadan ko‘p turib qoldi, ta'minotchi balansi kam.
 
+Worker egaga bevosita yozmaydi: unda `TELEGRAM_BOT_TOKEN` yo‘q (u faqat api envʼda). Ogohlantirish
+APIʼning `tg-outbox` navbatiga job sifatida qo‘yiladi va xabarni APIʼdagi bot yuboradi.
+
+## Phase 5 majburiy talablari (fulfill-order va holat mashinasi)
+
+Quyidagilar 1-fazada ataylab bajarilmagan; ularsiz `fulfill-order` processori tayyor hisoblanmaydi.
+
+**Navbatga qo‘yishdagi poyga.** `FulfillOrderEnqueuer` (`jobId = orderId`) faqat tugagan
+(completed/failed) jobni almashtiradi. `active` holat har doim ham haqiqiy dublikat emas: oldingi
+run hali tugamayotgan paytda yangi enqueue kelishi mumkin (masalan, HELDʼni QUEUEDʼga qaytargan
+job hali completed deb belgilanmagan). Bunday enqueue `keep` qilinadi (tashlanadi) va buyurtma
+QUEUEDʼda qolib ketishi mumkin. Shuning uchun uchta himoya shart:
+
+1. Processor har bir run oxirida buyurtma holatini qayta o‘qiydi; hamon `QUEUED` bo‘lsa — o‘zini
+   qayta navbatga qo‘yadi (enqueuer orqali).
+2. Reconcile sweep: `QUEUED` holatida N daqiqadan ortiq turgan va navbatda waiting/delayed/active
+   jobi yo‘q buyurtmalarni qayta navbatga qo‘yadi.
+3. Worker ham xuddi shu enqueuerʼdan foydalanadi (`packages/shared` mantig‘i); `fulfill-order`
+   navbatiga oddiy `queue.add` hech qachon ishlatilmaydi.
+
+**NEEDS_REVIEWʼdan chiqish isboti.** Holat mashinasi (`packages/shared/src/order-state.ts`)
+`NEEDS_REVIEW` dan chiqishni faqat tegishli tranzitsiya orqali ruxsat etadi, lekin isbotni
+tekshirmaydi. Phase 5ʼda chiqish "isbot obyekti" talab qilsin: TON tranzaksiya xeshi yoki
+Fragment/taʼminotchi holati (to‘lov chiqmaganiga yoki chiqqaniga dalil), kim va nima uchun
+tasdiqlagani; isbotsiz `NEEDS_REVIEW → DELIVERED` va `NEEDS_REVIEW → FAILED` o‘tishlari (FAILED pulni
+qaytaradi) bajarilmaydi.
+
 ## Dev va test
 
 - `FULFILLMENT_DRY_RUN=true` (standart): barcha adapterlar simulyator bilan almashadi.
