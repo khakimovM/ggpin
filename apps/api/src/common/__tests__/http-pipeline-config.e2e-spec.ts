@@ -41,7 +41,7 @@ describe('HTTP pipeline configuration', () => {
 
     it('trusted CIDR (IPv4 and IPv6) is honoured; a trusted proxy hop in the chain is skipped', async () => {
       const app = await createHttpTestApp({
-        env: { TRUST_PROXY: '10.0.0.0/8, fd00::/8' },
+        env: { TRUST_PROXY: '10.0.0.0/8, fd00::/32' },
         rateLimit: { ttl: 60_000, limit: 1 },
       });
       try {
