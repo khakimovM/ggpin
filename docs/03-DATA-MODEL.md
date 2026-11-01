@@ -1,8 +1,9 @@
 # 03 — Ma'lumotlar modeli
 
 > **Haqiqat manbai — `packages/db/prisma/schema.prisma`** (Prisma 7, D-22). Migratsiyalar:
-> `packages/db/prisma/migrations/20261029185158_init` va `20261031120000_domain_guardrails`
-> ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda). Bu hujjat sxemani tushuntiradi, nusxasini
+> `packages/db/prisma/migrations/20261029185158_init`, `20261031120000_domain_guardrails`
+> ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda) va `20261101100000_discount_below_full_price`
+> ("Migratsiya 3"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -96,7 +97,7 @@ Prisma ifodalay olmaydigan qismlar (trigger va `CHECK`) xom SQL sifatida shu mig
    | `LedgerEntry`                  | ishora turga qarab (jadval pastda); noma'lum tur rad etiladi (`ELSE false`) — yangi tur qo‘shilsa, cheklov ham yangilanadi |
    | `CoinEntry`                    | `EARN` > 0; `SPEND`, `EXPIRE` < 0; `ADJUSTMENT`, `REVERSAL` ≠ 0 (`REVERSAL` EARN yoki SPEND'ni bekor qilishi mumkin)       |
    | `Order`, `Quote`               | `quantity` > 0, `priceTiyin` > 0, `costMinor` > 0, `maxCostMinor` ≥ `costMinor`                                            |
-   | `Order`                        | `0 ≤ discountTiyin ≤ priceTiyin` (`priceTiyin` — chegirmadan oldingi narx)                                                 |
+   | `Order`                        | `0 ≤ discountTiyin < priceTiyin` (`priceTiyin` — chegirmadan oldingi narx; 3-migratsiyada qat'iylashtirilgan)              |
    | `PaymentIntent`, `Payment`     | `amountTiyin` > 0                                                                                                          |
    | `Sku`                          | `quantity` > 0, `minMarginTiyin` ≥ 0, `markupBps` ≥ 0 (ustama 100% dan oshishi mumkin, shuning uchun yuqori chegara yo‘q)  |
    | `Product`                      | `minQty`, `maxQty` > 0 va `minQty` ≤ `maxQty`                                                                              |
@@ -104,7 +105,7 @@ Prisma ifodalay olmaydigan qismlar (trigger va `CHECK`) xom SQL sifatida shu mig
    | `FulfillmentAttempt`           | `attemptNo` > 0, `costMinor` ≥ 0                                                                                           |
    | `WalletSnapshot`               | `tonNano` ≥ 0, `usdtMicro` ≥ 0                                                                                             |
    | `BonusCode`                    | `rewardValue` > 0, `maxUses` > 0, `0 ≤ usedCount ≤ maxUses`                                                                |
-   | `DiscountTier`, `DiscountCode` | `bps` 0..10000; `DiscountTier.priceCoins` > 0                                                                              |
+   | `DiscountTier`, `DiscountCode` | `bps` 0..9999 (3-migratsiyada qat'iylashtirilgan); `DiscountTier.priceCoins` > 0                                           |
    | `FxRate`                       | `rate` — musbat o‘nlik qator, ko‘pi bilan 18 xona (`money.ts` bilan bir xil)                                               |
    | `User`                         | `referredById` ≠ `id` (o‘zini o‘zi taklif qila olmaydi)                                                                    |
 
@@ -137,6 +138,21 @@ Prisma ifodalay olmaydigan qismlar (trigger va `CHECK`) xom SQL sifatida shu mig
    `FragmentSession`. Endi hamma modelda `createdAt` bor (sxema testi tekshiradi).
 8. **`Payment.provider` uchun alohida indeks kerak emas:** `@@unique([provider, providerTxnId])` indeksi
    `provider` bilan boshlanadi va shu so‘rovlarga xizmat qiladi.
+
+## Migratsiya 3: `20261101100000_discount_below_full_price`
+
+Faqat `CHECK` cheklovlari o‘chirilib, qatʼiyroq shaklda qayta yaratildi; ustun, jadval va maʼlumotga
+tegilmadi.
+
+- Muammo: 2-migratsiyada `bps BETWEEN 0 AND 10000` va `discountTiyin <= priceTiyin` 100% chegirmaga
+  ruxsat berar edi. Lekin xarid `LedgerEntry(PURCHASE)` yozadi (summa **< 0**), qaytarish esa
+  `REFUND` (**> 0**): to‘liq chegirmali buyurtmaning yozuvi `LedgerEntry` cheklovidan o‘tmay, checkout
+  tranzaksiyasi DB xatosi bilan yiqilar edi. PRDʼdagi chegirma darajalari 0,2–1,5%, yaʼni 100% kerak emas.
+- Yangi qoida: `DiscountTier.bps`, `DiscountCode.bps` ∈ [0, 9999]; `Order.discountTiyin` ∈ [0, `priceTiyin`).
+  Cheklov nomlari o‘zgarmadi (`DiscountTier_values_check`, `DiscountCode_bps_check`, `Order_discount_check`).
+- Xavfsizlik: qo‘llashdan oldin dev va test bazalarida chegaradagi qator (`bps >= 10000`,
+  `discountTiyin >= priceTiyin`) yo‘qligi tekshirildi, shuning uchun qayta qo‘shish xatosiz o‘tadi.
+- Servis qatlamida (keyingi fazalar) chegirma hisoblash ham shu qoidaga amal qiladi: narx kamida 1 tiyin.
 
 ## Nima qayerda hisoblanadi
 

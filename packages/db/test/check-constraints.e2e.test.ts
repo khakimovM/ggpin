@@ -91,9 +91,16 @@ describe('order and quote amounts', () => {
     }
   });
 
-  it('Order discount must be within 0..price', async () => {
+  it('Order discount must be below the price: a 100% discount cannot write its PURCHASE entry', async () => {
     const { order } = await orderData();
-    await db.order.update({ where: { id: order.id }, data: { discountTiyin: order.priceTiyin } });
+    await db.order.update({
+      where: { id: order.id },
+      data: { discountTiyin: order.priceTiyin - 1n },
+    });
+    await expectCheck(
+      db.order.update({ where: { id: order.id }, data: { discountTiyin: order.priceTiyin } }),
+      'Order_discount_check',
+    );
     await expectCheck(
       db.order.update({ where: { id: order.id }, data: { discountTiyin: order.priceTiyin + 1n } }),
       'Order_discount_check',
@@ -208,13 +215,16 @@ describe('catalog, promo and misc families', () => {
     );
   });
 
-  it('basis points stay within 0..10000 (DiscountTier, DiscountCode)', async () => {
+  it('basis points stay within 0..9999: 10000 (100%) would zero the PURCHASE amount', async () => {
     const user = await createUser();
-    const tier = await db.discountTier.create({ data: { bps: 10_000, priceCoins: 1n } });
-    await expectCheck(
-      db.discountTier.create({ data: { bps: 10_001, priceCoins: 1n } }),
-      'DiscountTier_values_check',
-    );
+    const tier = await db.discountTier.create({ data: { bps: 9_999, priceCoins: 1n } });
+    await db.discountTier.create({ data: { bps: 0, priceCoins: 1n } });
+    for (const bps of [10_000, 10_001]) {
+      await expectCheck(
+        db.discountTier.create({ data: { bps, priceCoins: 1n } }),
+        'DiscountTier_values_check',
+      );
+    }
     await expectCheck(
       db.discountTier.create({ data: { bps: -1, priceCoins: 1n } }),
       'DiscountTier_values_check',
@@ -224,10 +234,13 @@ describe('catalog, promo and misc families', () => {
       'DiscountTier_values_check',
     );
     const code = { userId: user.id, tierId: tier.id };
-    await expectCheck(
-      db.discountCode.create({ data: { ...code, bps: 10_001, code: 'c1' } }),
-      'DiscountCode_bps_check',
-    );
+    await db.discountCode.create({ data: { ...code, bps: 9_999, code: 'ok' } });
+    for (const bps of [10_000, 10_001]) {
+      await expectCheck(
+        db.discountCode.create({ data: { ...code, bps, code: `c${String(bps)}` } }),
+        'DiscountCode_bps_check',
+      );
+    }
     await expectCheck(
       db.discountCode.create({ data: { ...code, bps: -1, code: 'c2' } }),
       'DiscountCode_bps_check',
