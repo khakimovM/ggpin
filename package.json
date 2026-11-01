@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "packageManager": "npm@11.13.0",
   "engines": {
-    "node": ">=22.22.1"
+    "node": ">=24.9.0"
   },
   "workspaces": [
     "apps/*",
