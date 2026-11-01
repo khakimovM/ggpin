@@ -47,6 +47,10 @@
     "db:generate": {
       "outputs": ["src/generated/**"]
     },
+    "@repo/db#build": {
+      "dependsOn": ["^build", "db:generate"],
+      "outputs": ["dist/**"]
+    },
     "@repo/db#lint": {
       "dependsOn": ["^build", "db:generate"]
     },
