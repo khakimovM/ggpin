@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
+import { ClockModule } from './common/clock/clock.module';
 import type { RateLimit } from './common/http/http-limits';
 import { HttpPipelineModule } from './common/http/http-pipeline.module';
 import { buildLoggerParams } from './common/logging/logger-params';
@@ -28,6 +29,7 @@ export class AppModule {
         AppConfigModule.forRoot(config),
         LoggerModule.forRoot(buildLoggerParams(config, options.logDestination)),
         HttpPipelineModule.register(options.rateLimit),
+        ClockModule,
         PrismaModule,
         RedisModule,
         QueueModule,
