@@ -8,23 +8,25 @@ Bot — kirish eshigi va xabarnoma kanali. Xarid Mini App'da bo‘ladi; bot hech
 2. Aks holda Telegram `language_code`: `ru`, `be`, `uk`, `kk` → **ru**, qolganlari → **uz**.
 3. Birinchi `/start`da til tanlash xabari:
    `🇺🇿 O‘zbekcha` · `🇷🇺 Русский` (har doim ikkala tilda yozilgan).
-Til Mini App va web bilan sinxron (bitta `User.locale`).
+   Til Mini App va web bilan sinxron (bitta `User.locale`).
 
 ## /start
 
 Payload'lar:
-| Payload | Natija |
-|---|---|
-| — | salomlashish xabari |
-| `ref_<code>` | referal bog‘lanadi (faqat birinchi marta, o‘zini taklif qilish mumkin emas) + salomlashish |
-| `p_<slug>` | mahsulotni Mini App'da ochish tugmasi |
-| `login_<nonce>` | web kirish: telefon ulashish (yangi foydalanuvchi bo‘lsa) → 6 xonali kod |
-| `admin_<nonce>` | admin kirish (faqat allowlist); boshqalarga oddiy "havola eskirgan" |
+
+| Payload         | Natija                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| —               | salomlashish xabari                                                                        |
+| `ref_<code>`    | referal bog‘lanadi (faqat birinchi marta, o‘zini taklif qilish mumkin emas) + salomlashish |
+| `p_<slug>`      | mahsulotni Mini App'da ochish tugmasi                                                      |
+| `login_<nonce>` | web kirish: telefon ulashish (yangi foydalanuvchi bo‘lsa) → 6 xonali kod                   |
+| `admin_<nonce>` | admin kirish (faqat allowlist); boshqalarga oddiy "havola eskirgan"                        |
 
 Salomlashish xabari (rasm/banner + matn):
+
 - uz: "👋 Xush kelibsiz, {name}! Telegram Stars, Premium va o‘yin donatlari — tez, xavfsiz va qulay narxda."
 - ru: "👋 Добро пожаловать, {name}! Telegram Stars, Premium и донат в игры — быстро, безопасно и выгодно."
-Tugmalar: `🛍 Xaridni boshlash` (web_app), `📢 Yangiliklar` (kanal), `💬 Yordam`, `🌐 Til`.
+  Tugmalar: `🛍 Xaridni boshlash` (web_app), `📢 Yangiliklar` (kanal), `💬 Yordam`, `🌐 Til`.
 
 ## Menyu tugmasi va buyruqlar
 
@@ -36,16 +38,16 @@ Tugmalar: `🛍 Xaridni boshlash` (web_app), `📢 Yangiliklar` (kanal), `💬 Y
 
 ## Bildirishnomalar (outbox orqali)
 
-| Hodisa | Xabar (uz) |
-|---|---|
-| Balans to‘ldirildi | "✅ Hisobingiz {amount} ga to‘ldirildi. Balans: {balance}" |
-| Buyurtma qabul qilindi | "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}" |
-| Yetkazildi | "🎉 #{number} yetkazildi! {product} → {recipient}" (+ "Buyurtmani ko‘rish" tugmasi) |
-| Voucher | "🎟 #{number}: kodingiz Mini App'da" (kod chatga yuborilmaydi — faqat ilovada) |
-| Muvaffaqiyatsiz | "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi." |
-| Tekshirilmoqda | "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz." |
-| Referal bonus | "🎁 Do‘stingiz xarid qildi — sizga {amount} bonus!" |
-| Bonus kod | "🎁 Bonus kod faollashtirildi: +{amount}" |
+| Hodisa                 | Xabar (uz)                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| Balans to‘ldirildi     | "✅ Hisobingiz {amount} ga to‘ldirildi. Balans: {balance}"                          |
+| Buyurtma qabul qilindi | "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}"                      |
+| Yetkazildi             | "🎉 #{number} yetkazildi! {product} → {recipient}" (+ "Buyurtmani ko‘rish" tugmasi) |
+| Voucher                | "🎟 #{number}: kodingiz Mini App'da" (kod chatga yuborilmaydi — faqat ilovada)       |
+| Muvaffaqiyatsiz        | "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi."                      |
+| Tekshirilmoqda         | "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz."                  |
+| Referal bonus          | "🎁 Do‘stingiz xarid qildi — sizga {amount} bonus!"                                 |
+| Bonus kod              | "🎁 Bonus kod faollashtirildi: +{amount}"                                           |
 
 Ruscha matnlar `ru.json`da. Xabarlar HTML parse mode, foydalanuvchi matnlari escape qilinadi.
 
@@ -53,7 +55,8 @@ Ruscha matnlar `ru.json`da. Xabarlar HTML parse mode, foydalanuvchi matnlari esc
 
 - Admin paneldan: uz va ru matnlari, rasm (ixtiyoriy), tugma, auditoriya (hammasi / til / oxirgi N kun faol /
   xarid qilganlar).
-- Har bir foydalanuvchiga o‘z tilida; 25 xabar/s; botni bloklaganlar `isBlocked=true` (botni) belgilanadi.
+- Har bir foydalanuvchiga o‘z tilida; 25 xabar/s, bitta chatga 1 xabar/s (`tg-outbox` navbati);
+  botni bloklaganlarga `User.botBlockedAt` yoziladi (admin bloki `isBlocked` emas, D-28).
 - Hisobot: yuborildi / xato / bloklangan.
 
 ## Yordam (support)

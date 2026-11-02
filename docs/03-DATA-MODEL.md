@@ -163,7 +163,7 @@ o‘zgarmadi. Yozilgan paytda `LoginRequest` dev va test bazalarida bo‘sh edi.
   yoki `sendMessage` 403). Bu admin bloki **`isBlocked` emas**: `isBlocked` `403 USER_BLOCKED` beradi va
   Mini App/vebga kirishni yopadi, `botBlockedAt` esa faqat bot xabarlarini to‘xtatadi. Foydalanuvchi
   botni qayta ishga tushirsa (`/start` yoki `member`) — `null` bo‘ladi. docs/07 dagi "`isBlocked=true`"
-  iborasi shu ustun bilan almashtiriladi.
+  iborasi shu ustun bilan almashtirildi (D-28).
 - **`LoginRequest` indeksi** `(status, expiresAt)` — muddati o‘tgan so‘rovlarni tozalovchi sweep uchun.
 - **`LoginRequest` `CHECK`lari** (`kind`/`status` matn bo‘lib qoladi — enumʼga o‘tkazish tur
   o‘zgarishi bo‘lardi; cheklovlar xuddi shu himoyani beradi va yangi qiymat aniq qo‘shilmaguncha rad etadi):
