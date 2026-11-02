@@ -9,6 +9,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
+import { UsersModule } from './modules/users/users.module';
 
 export interface AppModuleOptions {
   /** Overrides the default per-IP limit; tests use a tiny window instead of 120 requests. */
@@ -31,6 +32,7 @@ export class AppModule {
         RedisModule,
         QueueModule,
         HealthModule,
+        UsersModule,
       ],
     };
   }
