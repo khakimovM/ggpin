@@ -22,6 +22,23 @@ Payload'lar:
 | `login_<nonce>` | web kirish: telefon ulashish (yangi foydalanuvchi bo‘lsa) → 6 xonali kod                   |
 | `admin_<nonce>` | admin kirish (faqat allowlist); boshqalarga oddiy "havola eskirgan"                        |
 
+`login_<nonce>` oqimi (2-faza, D-27):
+
+1. Havola tekshiriladi. Eskirgan yoki boshqa hisob olgan havolaga mos xabar chiqadi
+   (`bot.login.expired` / `usedByOther`), telefon so‘ralmaydi.
+2. `phone` bo‘sh bo‘lsa — «Raqamni ulashish» tugmasi (`request_contact`). Faqat o‘z kontakti
+   qabul qilinadi (`contact.user_id = from.id`), boshqasi — `bot.login.contactNotYours`.
+   Kutilayotgan havola Redis’da (`tg:login-contact:<telegramId>`, 10 daqiqa) turadi; login
+   bo‘lmasa raqam saqlanmaydi.
+3. Kod `<code>` ichida, "hech kimga bermang" ogohlantirishi bilan, `protect_content` bilan
+   (forward qilib bo‘lmaydi) yuboriladi. Kod faqat shu javobda bo‘ladi: logga ham, navbatga ham
+   tushmaydi.
+4. Kod ostida «Bu men emasman» tugmasi (`ld:<nonce>`): so‘rov `DENIED` bo‘ladi, xabar
+   tahrirlanib kod chatdan o‘chadi.
+5. Takroriy `/start login_` (masalan, webhook ikki marta kelsa) ikkinchi kod bermaydi:
+   `bot.login.alreadySent`. Bitta hisobga 10 daqiqada 5 tadan ortiq kod berilmaydi:
+   `bot.login.rateLimited`.
+
 Salomlashish xabari (rasm/banner + matn):
 
 - uz: "👋 Xush kelibsiz, {name}! Telegram Stars, Premium va o‘yin donatlari — tez, xavfsiz va qulay narxda."

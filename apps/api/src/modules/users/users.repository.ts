@@ -82,6 +82,15 @@ export class UsersRepository {
     });
   }
 
+  /** Stores the phone only while none is set; returns whether this call stored it. */
+  async setPhoneIfAbsent(id: string, phone: string): Promise<boolean> {
+    const { count } = await this.prisma.client.user.updateMany({
+      where: { id, phone: null },
+      data: { phone },
+    });
+    return count === 1;
+  }
+
   async setBotBlockedAt(telegramId: bigint, at: Date | null): Promise<void> {
     // Idempotent by predicate: re-blocking keeps the first timestamp, clearing a clear is a no-op.
     await this.prisma.client.user.updateMany({

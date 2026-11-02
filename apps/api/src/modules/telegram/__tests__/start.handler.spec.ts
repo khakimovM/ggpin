@@ -25,13 +25,12 @@ describe('/start', () => {
     expect(h.refCodes).toEqual(['abcd1234', undefined, undefined]);
   });
 
-  it('p_<slug> and login_<nonce> behave like a plain /start', async () => {
+  it('p_<slug> behaves like a plain /start', async () => {
     const h = createHarness({ users: [makeUser(BigInt(ID))] });
     await h.send(textUpdate({ id: ID }, '/start'));
     await h.send(textUpdate({ id: ID }, '/start p_some-product'));
-    await h.send(textUpdate({ id: ID }, `/start login_${'a'.repeat(43)}`));
     const texts = h.callsOf('sendMessage').map((c) => c.payload['text']);
-    expect(texts).toHaveLength(3);
+    expect(texts).toHaveLength(2);
     expect(new Set(texts).size).toBe(1);
   });
 

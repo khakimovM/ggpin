@@ -2,6 +2,7 @@ import { parseStartPayload } from '@repo/shared';
 import type { BotContext } from '../bot-context';
 import type { BotDeps } from '../bot-deps';
 import type { TelegramBot } from '../bot.provider';
+import { handleLoginStart } from './login.handler';
 import { languageKeyboard, startKeyboard } from '../keyboards';
 
 export function registerStart(bot: TelegramBot, deps: BotDeps): void {
@@ -16,9 +17,8 @@ export function registerStart(bot: TelegramBot, deps: BotDeps): void {
         await ctx.reply(ctx.t('bot.admin.linkExpired'), { parse_mode: 'HTML' });
         return;
       case 'login':
-        // S7b plugs in here: handle `payload.nonce` (web OTP login) and `return`. Until then
-        // a login link behaves like a plain /start.
-        break;
+        await handleLoginStart(ctx, deps, payload.nonce);
+        return;
       case 'ref': // already bound by the user-context middleware (new users only)
       case 'product': // p_<slug> behaves like a plain /start until product deep links exist
       case 'none':

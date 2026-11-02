@@ -53,6 +53,20 @@
       "open": "🛍 Do‘konni ochish uchun quyidagi tugmani bosing.",
       "unavailable": "🛍 Do‘kon hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
     },
+    "login": {
+      "sharePhone": "📱 Saytga kirish uchun telefon raqamingizni ulashing. Pastdagi tugmani bosing.",
+      "shareButton": "📱 Raqamni ulashish",
+      "phoneSaved": "✅ Raqam saqlandi.",
+      "code": "🔐 Saytga kirish kodi: <code>{code}</code>\n\nKod 3 daqiqa amal qiladi. Uni hech kimga bermang: ggpin xodimlari kodni hech qachon so‘ramaydi.",
+      "deny": "🚫 Bu men emasman",
+      "denied": "🚫 Kirish bekor qilindi. Kod endi ishlamaydi.",
+      "expired": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+      "alreadySent": "✅ Kod allaqachon yuborilgan. Yuqoridagi xabarni tekshiring.",
+      "usedByOther": "⚠️ Bu kirish havolasi boshqa hisob uchun ishlatilgan. Saytda yangi havola oling.",
+      "rateLimited": "⏳ Juda ko‘p kod so‘raldi. Bir necha daqiqadan keyin qayta urinib ko‘ring.",
+      "contactNotYours": "⚠️ Faqat o‘zingizning raqamingizni yuboring: pastdagi tugmadan foydalaning.",
+      "contactInvalid": "⚠️ Raqam noto‘g‘ri ko‘rinadi. Pastdagi tugma orqali qayta yuboring."
+    },
     "admin": {
       "linkExpired": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring."
     },

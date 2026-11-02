@@ -14,6 +14,10 @@ export interface BotHarness extends FakeTelegram {
   readonly store: Map<bigint, User>;
   readonly logs: { warn: string[]; error: string[] };
   readonly refCodes: (string | undefined)[];
+  /** Nonces waiting for a phone contact, by Telegram id (the Redis store's stand-in). */
+  readonly pendingContacts: Map<bigint, string>;
+  /** Arguments of every OtpLoginService call, in order. */
+  readonly loginCalls: { method: string; nonce: string }[];
   send(update: Update): Promise<void>;
   /** Calls made to the Bot API, without the boot-independent noise: payloads only. */
   payloads(): unknown[];
@@ -22,6 +26,7 @@ export interface BotHarness extends FakeTelegram {
 export interface HarnessOptions {
   readonly config?: Partial<BotConfig>;
   readonly users?: readonly User[];
+  readonly login?: Partial<BotDeps['login']>;
 }
 
 export function makeUser(telegramId: bigint, overrides: Partial<User> = {}): User {
@@ -82,6 +87,12 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
       if (found !== undefined) store.set(telegramId, { ...found, botBlockedAt: at });
       return Promise.resolve();
     },
+    setPhone: (userId, phone) => {
+      const found = [...store.values()].find((u) => u.id === userId);
+      if (found === undefined || found.phone !== null) return Promise.resolve(false);
+      store.set(found.telegramId, { ...found, phone });
+      return Promise.resolve(true);
+    },
     clearBotBlocked: (telegramId) => {
       const found = store.get(telegramId);
       if (found !== undefined) store.set(telegramId, { ...found, botBlockedAt: null });
@@ -89,9 +100,39 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     },
   };
 
+  const pendingContacts = new Map<bigint, string>();
+  const loginCalls: BotHarness['loginCalls'] = [];
+  const login: BotDeps['login'] = {
+    issueCode: (input) => {
+      loginCalls.push({ method: 'issueCode', nonce: input.nonce });
+      return options.login?.issueCode?.(input) ?? Promise.resolve({ ok: true, code: '482913' });
+    },
+    deny: (input) => {
+      loginCalls.push({ method: 'deny', nonce: input.nonce });
+      return options.login?.deny?.(input) ?? Promise.resolve(true);
+    },
+    status: (nonce, now) => {
+      loginCalls.push({ method: 'status', nonce });
+      return options.login?.status?.(nonce, now) ?? Promise.resolve({ status: 'PENDING' });
+    },
+  };
+  const loginContact: BotDeps['loginContact'] = {
+    remember: (telegramId, nonce) => {
+      pendingContacts.set(telegramId, nonce);
+      return Promise.resolve();
+    },
+    take: (telegramId) => {
+      const nonce = pendingContacts.get(telegramId) ?? null;
+      pendingContacts.delete(telegramId);
+      return Promise.resolve(nonce);
+    },
+  };
+
   const setup = new BotSetupService(fake.bot, config);
   installHandlers(fake.bot, {
     users,
+    login,
+    loginContact,
     clock: CLOCK,
     config,
     menu: setup,
@@ -103,6 +144,8 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     store,
     logs,
     refCodes,
+    pendingContacts,
+    loginCalls,
     send: (update) => fake.bot.handleUpdate(update),
     payloads: () => fake.calls.map((c) => ({ [c.method]: c.payload })),
   };

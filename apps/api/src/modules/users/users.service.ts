@@ -78,6 +78,14 @@ export class UsersService {
     return toMe(user);
   }
 
+  /**
+   * The bot saves the phone a user shared about themselves (the caller has checked that the
+   * contact belongs to the sender). Never overwrites a stored phone; returns whether it saved.
+   */
+  setPhone(userId: string, phone: string): Promise<boolean> {
+    return this.repo.setPhoneIfAbsent(userId, phone);
+  }
+
   markBotBlocked(telegramId: bigint, at: Date): Promise<void> {
     return this.repo.setBotBlockedAt(telegramId, at);
   }

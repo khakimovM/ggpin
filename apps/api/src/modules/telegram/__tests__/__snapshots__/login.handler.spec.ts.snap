@@ -1,0 +1,364 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`contact message rejects somebody else's contact: not stored, nonce kept, keyboard stays 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⚠️ Отправьте только свой номер: воспользуйтесь кнопкой ниже.",
+    },
+  },
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⚠️ Отправьте только свой номер: воспользуйтесь кнопкой ниже.",
+    },
+  },
+]
+`;
+
+exports[`contact message stores an own contact as +digits, drops the keyboard, then issues the code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "remove_keyboard": true,
+      },
+      "text": "✅ Номер сохранён.",
+    },
+  },
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "protect_content": true,
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "ld:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "text": "🚫 Это не я",
+            },
+          ],
+        ],
+      },
+      "text": "🔐 Код для входа на сайт: <code>482913</code>
+
+Код действует 3 минуты. Никому его не сообщайте: сотрудники ggpin никогда не спрашивают код.",
+    },
+  },
+]
+`;
+
+exports[`contact message without a pending login the phone is not stored 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "remove_keyboard": true,
+      },
+      "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+    },
+  },
+]
+`;
+
+exports[`deny button (ru) deny false only answers the callback with the expired text 1`] = `
+[
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1036",
+      "text": "⌛ Ссылка устарела. Начните вход на сайте заново.",
+    },
+  },
+]
+`;
+
+exports[`deny button (ru) deny true edits the message (code gone, keyboard gone) and answers 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700301,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Вход отменён. Код больше не действует.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1035",
+    },
+  },
+]
+`;
+
+exports[`deny button (uz) deny false only answers the callback with the expired text 1`] = `
+[
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1032",
+      "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+    },
+  },
+]
+`;
+
+exports[`deny button (uz) deny true edits the message (code gone, keyboard gone) and answers 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700301,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Kirish bekor qilindi. Kod endi ishlamaydi.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1031",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (ru) answers the alreadySent outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "✅ Код уже отправлен. Проверьте сообщение выше.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (ru) answers the expired outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⌛ Ссылка устарела. Начните вход на сайте заново.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (ru) answers the rateLimited outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⏳ Слишком много запросов кода. Попробуйте ещё раз через несколько минут.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (ru) answers the usedByOther outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⚠️ Эта ссылка для входа использована другим аккаунтом. Получите новую на сайте.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (ru) sends the code in <code>, protected, with the deny button 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "protect_content": true,
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "ld:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "text": "🚫 Это не я",
+            },
+          ],
+        ],
+      },
+      "text": "🔐 Код для входа на сайт: <code>482913</code>
+
+Код действует 3 минуты. Никому его не сообщайте: сотрудники ggpin никогда не спрашивают код.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (uz) answers the alreadySent outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "✅ Kod allaqachon yuborilgan. Yuqoridagi xabarni tekshiring.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (uz) answers the expired outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (uz) answers the rateLimited outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⏳ Juda ko‘p kod so‘raldi. Bir necha daqiqadan keyin qayta urinib ko‘ring.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (uz) answers the usedByOther outcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⚠️ Bu kirish havolasi boshqa hisob uchun ishlatilgan. Saytda yangi havola oling.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user with a phone (uz) sends the code in <code>, protected, with the deny button 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "protect_content": true,
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "ld:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "text": "🚫 Bu men emasman",
+            },
+          ],
+        ],
+      },
+      "text": "🔐 Saytga kirish kodi: <code>482913</code>
+
+Kod 3 daqiqa amal qiladi. Uni hech kimga bermang: ggpin xodimlari kodni hech qachon so‘ramaydi.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user without a phone a DENIED link is "expired" and no phone is asked for 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user without a phone a EXPIRED link is "expired" and no phone is asked for 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user without a phone a NOT_FOUND link is "expired" and no phone is asked for 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user without a phone asks for the contact with a request_contact button (ru) 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "keyboard": [
+          [
+            {
+              "request_contact": true,
+              "text": "📱 Поделиться номером",
+            },
+          ],
+        ],
+        "one_time_keyboard": true,
+        "resize_keyboard": true,
+      },
+      "text": "📱 Для входа на сайт поделитесь номером телефона. Нажмите кнопку ниже.",
+    },
+  },
+]
+`;
+
+exports[`web login via the bot, user without a phone asks for the contact with a request_contact button (uz) 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700301,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "keyboard": [
+          [
+            {
+              "request_contact": true,
+              "text": "📱 Raqamni ulashish",
+            },
+          ],
+        ],
+        "one_time_keyboard": true,
+        "resize_keyboard": true,
+      },
+      "text": "📱 Saytga kirish uchun telefon raqamingizni ulashing. Pastdagi tugmani bosing.",
+    },
+  },
+]
+`;

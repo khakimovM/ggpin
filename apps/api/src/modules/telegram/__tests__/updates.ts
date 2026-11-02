@@ -59,6 +59,23 @@ export function callbackUpdate(sender: Sender, data: string): Update {
   };
 }
 
+export function contactUpdate(
+  sender: Sender,
+  contact: { phone_number: string; user_id?: number },
+): Update {
+  updateSeq += 1;
+  return {
+    update_id: updateSeq,
+    message: {
+      message_id: updateSeq,
+      date: 1_700_000_000,
+      chat: { id: sender.id, type: 'private', first_name: sender.first_name ?? 'Ann' },
+      from: person(sender),
+      contact: { first_name: 'Ann', ...contact },
+    },
+  };
+}
+
 export function myChatMemberUpdate(sender: Sender, status: 'kicked' | 'member'): Update {
   updateSeq += 1;
   const user = person(sender);
