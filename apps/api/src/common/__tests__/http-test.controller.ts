@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
+import { Public } from '../auth/public.decorator';
+import { SkipCsrf } from '../auth/skip-csrf.decorator';
 import { AppError } from '../exceptions/app-error';
 import { paginated } from '../http/with-meta';
 
@@ -31,7 +33,12 @@ class DenyGuard implements CanActivate {
 
 // Test-only routes (registered by the e2e test module, never by AppModule) that exercise each
 // branch of the global pipeline: envelope, BigInt, pagination, validation, domain and
-// unexpected errors.
+// unexpected errors. @Public() and @SkipCsrf() keep these tests about the pipeline itself:
+// without them the global UserAuthGuard / CsrfGuard would answer first and every case here
+// (including the POSTs without X-CSRF-Token) would stop being what it claims to test. The
+// guards have their own specs (guard-order, auth-webapp e2e).
+@Public()
+@SkipCsrf()
 @Controller('pipeline-test')
 export class HttpTestController {
   @Get('ok')

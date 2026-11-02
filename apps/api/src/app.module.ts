@@ -9,7 +9,10 @@ import { AppConfigModule, type AppConfig } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 import { UsersModule } from './modules/users/users.module';
 
 export interface AppModuleOptions {
@@ -35,6 +38,10 @@ export class AppModule {
         QueueModule,
         HealthModule,
         UsersModule,
+        // After HttpPipelineModule: its APP_GUARDs must run after the throttler.
+        AuthModule,
+        NotificationsModule,
+        TelegramModule,
       ],
     };
   }
