@@ -3,11 +3,16 @@ import { APP_GUARD } from '@nestjs/core';
 import { CsrfGuard } from '../../common/auth/csrf.guard';
 import { UserAuthGuard } from '../../common/auth/user-auth.guard';
 import { UsersModule } from '../users/users.module';
+import { AuthOtpController } from './auth-otp.controller';
+import { AuthSessionsController } from './auth-sessions.controller';
 import { AuthWebappController } from './auth-webapp.controller';
 import { InitDataVerifier } from './init-data.verifier';
+import { LoginRequestRepository } from './login-request.repository';
 import { MiniAppAuthService } from './mini-app-auth.service';
+import { OtpLoginService } from './otp-login.service';
 import { TokenCodec } from './token-codec';
 import { WebSessionRepository } from './web-session.repository';
+import { WebSessionService } from './web-session.service';
 
 // ORDER MATTERS. Nest runs APP_GUARDs in the order they were registered, which follows module
 // order: AppModule imports HttpPipelineModule (ThrottlerGuard) BEFORE this module, and the two
@@ -18,16 +23,19 @@ import { WebSessionRepository } from './web-session.repository';
 // common/__tests__/guard-order.e2e-spec.ts proves it by behaviour.
 @Module({
   imports: [UsersModule],
-  controllers: [AuthWebappController],
+  controllers: [AuthWebappController, AuthOtpController, AuthSessionsController],
   providers: [
     TokenCodec,
     InitDataVerifier,
     MiniAppAuthService,
     WebSessionRepository,
+    WebSessionService,
+    LoginRequestRepository,
+    OtpLoginService,
     { provide: APP_GUARD, useClass: UserAuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
   ],
-  // S6 (web OTP, refresh, sessions) signs access tokens and extends the session repository.
-  exports: [TokenCodec, WebSessionRepository],
+  // OtpLoginService is the bot's door into login requests (issueCode / deny).
+  exports: [TokenCodec, WebSessionRepository, WebSessionService, OtpLoginService],
 })
 export class AuthModule {}

@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
+import type { DestinationStream } from 'pino';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
 import { CLOCK, type Clock } from '../../../common/clock/clock';
@@ -27,14 +28,25 @@ export interface AuthE2e {
     telegramId: number,
     extra?: { startParam?: string; ageSec?: number; languageCode?: string },
   ) => string;
+  /** A unique client address per call, so each request gets its own per-IP throttle bucket. */
+  readonly nextIp: () => string;
+  /** Remember a login nonce so cleanup removes its LoginRequest row. */
+  readonly trackNonce: (nonce: string) => void;
   readonly post: (
     url: string,
     payload: unknown,
     headers?: Record<string, string>,
+    ip?: string,
   ) => ReturnType<NestFastifyApplication['inject']>;
   readonly get: (
     url: string,
     headers?: Record<string, string>,
+    ip?: string,
+  ) => ReturnType<NestFastifyApplication['inject']>;
+  readonly del: (
+    url: string,
+    headers?: Record<string, string>,
+    ip?: string,
   ) => ReturnType<NestFastifyApplication['inject']>;
   readonly patch: (
     url: string,
@@ -48,8 +60,9 @@ export interface AuthE2e {
 // Registers beforeAll/afterAll for the calling describe: boots the real app on the `*_test`
 // database (fresh in-memory throttler per call, so each describe has its own 5/min budget) with a
 // movable clock, and deletes only the rows it created. Contains no test.
-export function useAuthE2e(): AuthE2e {
-  const env = buildE2eEnv();
+export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}): AuthE2e {
+  const base = buildE2eEnv();
+  const env = options.logs === undefined ? base : { ...base, LOG_LEVEL: 'info' as const };
   const clock: MutableClock = (() => {
     let current = new Date();
     return {
@@ -63,12 +76,16 @@ export function useAuthE2e(): AuthE2e {
     };
   })();
   const used = new Set<number>();
+  const nonces = new Set<string>();
+  let ipSeq = 0;
   let app: NestFastifyApplication;
   let db: PrismaService['client'];
   let codec: TokenCodec;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule.register(env)] })
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule.register(env, { logDestination: options.logs })],
+    })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();
@@ -88,6 +105,11 @@ export function useAuthE2e(): AuthE2e {
       select: { id: true },
     });
     const ids = rows.map((r) => r.id);
+    await db.loginRequest.deleteMany({
+      where: {
+        OR: [{ nonce: { in: [...nonces] } }, { telegramId: { in: [...used].map(BigInt) } }],
+      },
+    });
     await db.webSession.deleteMany({ where: { userId: { in: ids } } });
     await db.user.updateMany({ where: { id: { in: ids } }, data: { referredById: null } });
     await db.wallet.deleteMany({ where: { userId: { in: ids } } });
@@ -100,6 +122,13 @@ export function useAuthE2e(): AuthE2e {
     env,
     clock,
     csrfHeaders,
+    trackNonce: (nonce) => {
+      nonces.add(nonce);
+    },
+    nextIp: () => {
+      ipSeq += 1;
+      return `10.${String(Math.floor(ipSeq / 65536) % 256)}.${String(Math.floor(ipSeq / 256) % 256)}.${String((ipSeq % 255) + 1)}`;
+    },
     get codec() {
       return codec;
     },
@@ -130,9 +159,28 @@ export function useAuthE2e(): AuthE2e {
         },
         ...(extra.startParam !== undefined ? { startParam: extra.startParam } : {}),
       }),
-    post: (url, payload, headers = {}) =>
-      app.inject({ method: 'POST', url, payload: payload as object, headers }),
-    get: (url, headers = {}) => app.inject({ method: 'GET', url, headers }),
+    post: (url, payload, headers = {}, ip) =>
+      app.inject({
+        method: 'POST',
+        url,
+        payload: payload as object,
+        headers,
+        ...(ip !== undefined ? { remoteAddress: ip } : {}),
+      }),
+    get: (url, headers = {}, ip) =>
+      app.inject({
+        method: 'GET',
+        url,
+        headers,
+        ...(ip !== undefined ? { remoteAddress: ip } : {}),
+      }),
+    del: (url, headers = {}, ip) =>
+      app.inject({
+        method: 'DELETE',
+        url,
+        headers,
+        ...(ip !== undefined ? { remoteAddress: ip } : {}),
+      }),
     patch: (url, payload, headers = {}) =>
       app.inject({ method: 'PATCH', url, payload: payload as object, headers }),
   };

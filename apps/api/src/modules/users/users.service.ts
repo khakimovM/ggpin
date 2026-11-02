@@ -61,6 +61,11 @@ export class UsersService {
     return this.repo.findById(id);
   }
 
+  /** For the OTP login: the account a verified Telegram identity belongs to, or null. */
+  findByTelegramId(telegramId: bigint): Promise<User | null> {
+    return this.repo.findByTelegramId(telegramId);
+  }
+
   async getMe(userId: string): Promise<Me> {
     const user = await this.repo.findById(userId);
     if (user === null) throw new AppError('NOT_FOUND');
