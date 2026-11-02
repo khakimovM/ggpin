@@ -1,3 +1,4 @@
+import * as referralCode from '../referral-code';
 import { useUsersE2e } from './users-e2e.helpers';
 
 describe('UsersService referral binding (real Postgres)', () => {
@@ -64,6 +65,26 @@ describe('UsersService referral binding (real Postgres)', () => {
       );
       expect(created).toBe(true);
       expect(user.referredById).toBeNull();
+    });
+
+    it('the service ignores a user’s own code: new user whose code is the ref code, and an existing user', async () => {
+      const ownCode = 'selfref1';
+      const spy = jest.spyOn(referralCode, 'generateReferralCode').mockReturnValueOnce(ownCode);
+      const telegramId = newId();
+      const fresh = await ctx.users.ensureTelegramUser({ telegramId }, { now, refCode: ownCode });
+      spy.mockRestore();
+      expect(fresh.created).toBe(true);
+      expect(fresh.user.referralCode).toBe(ownCode);
+      expect(fresh.user.referredById).toBeNull();
+
+      const existing = await ctx.users.ensureTelegramUser(
+        { telegramId },
+        { now, refCode: fresh.user.referralCode },
+      );
+      expect(existing.created).toBe(false);
+      expect(existing.user.referredById).toBeNull();
+      const row = await ctx.db.user.findUniqueOrThrow({ where: { telegramId } });
+      expect(row.referredById).toBeNull();
     });
 
     it('the DB still rejects a self-referral (CHECK referredById <> id)', async () => {

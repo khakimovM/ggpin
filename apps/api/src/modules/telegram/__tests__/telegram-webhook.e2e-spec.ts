@@ -1,6 +1,7 @@
 import { Writable } from 'node:stream';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
+import { HttpError } from 'grammy';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
 import { createHttpAdapter } from '../../../common/http/create-http-adapter';
@@ -137,5 +138,26 @@ describe('POST /api/v1/telegram/webhook (real app, fake Bot API)', () => {
     expect(logs).toContain('failed');
     expect(logs).not.toContain('secret-user-text');
     expect(logs).not.toContain(TEST_BOT_TOKEN);
+  });
+
+  it('a network error that quotes the bot token in its message is logged scrubbed', async () => {
+    const id = newId();
+    const url = `https://api.telegram.org/bot${TEST_BOT_TOKEN}/sendMessage`;
+    let armed = true;
+    fake.bot.api.config.use((prev, method, payload, signal) => {
+      if (!armed || method !== 'sendMessage') return prev(method, payload, signal);
+      throw new HttpError(
+        `Network request for 'sendMessage' failed! request to ${url} failed`,
+        new Error(`request to ${url} failed, reason: connect ETIMEDOUT`),
+      );
+    });
+    logLines.length = 0;
+    const res = await post(textUpdate({ id }, '/start'), TEST_WEBHOOK_SECRET);
+    armed = false;
+    expect(res.statusCode).toBe(200);
+    const logs = logLines.join('');
+    expect(logs).toContain('HttpError');
+    expect(logs).not.toContain(TEST_BOT_TOKEN);
+    expect(logs).not.toContain('a'.repeat(32));
   });
 });
