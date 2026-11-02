@@ -20,10 +20,11 @@ const queues = BullModule.registerQueue(
   ...QUEUE_NAMES.map((name) => ({ name, defaultJobOptions: QUEUE_JOB_DEFAULTS[name] })),
 );
 
-// The API only produces jobs; it registers no processors. Inject a queue with
+// This module only produces jobs; it registers no processors. Inject a queue with
 // `@InjectQueue(QUEUES.FULFILL_ORDER)`, but enqueue fulfill-order only through
-// FulfillOrderEnqueuer. (tg-outbox and payment-reconcile consumers live in the API per
-// docs/02-ARCHITECTURE.md and arrive with phases 2 and 4.)
+// FulfillOrderEnqueuer. The tg-outbox consumer lives in NotificationsModule (TgOutboxWorker,
+// its own Worker connection with the offline queue enabled); the payment-reconcile consumer
+// arrives with phase 4 (docs/02-ARCHITECTURE.md).
 @Global()
 @Module({
   imports: [
