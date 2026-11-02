@@ -67,6 +67,37 @@ describe('LoginRequest CHECK constraints', () => {
   });
 });
 
+describe('LoginRequest session link', () => {
+  it('sessionFamilyId is allowed on USED and DENIED, rejected on any other status', async () => {
+    const sessionFamilyId = 'family-1';
+    const used = await create({ status: 'USED', sessionFamilyId });
+    expect(used.sessionFamilyId).toBe(sessionFamilyId);
+    expect((await create({ status: 'DENIED', sessionFamilyId })).status).toBe('DENIED');
+    expect((await create({ status: 'PENDING' })).sessionFamilyId).toBeNull();
+
+    for (const status of ['PENDING', 'EXPIRED']) {
+      await expectCheck(create({ status, sessionFamilyId }), 'LoginRequest_session_family_check');
+    }
+    await expectCheck(
+      create({ status: 'CODE_SENT', codeHash: 'c'.repeat(64), telegramId: 999n, sessionFamilyId }),
+      'LoginRequest_session_family_check',
+    );
+  });
+
+  it('an update cannot attach a session to a request that was never used', async () => {
+    const pending = await create({});
+    await expectCheck(
+      db.loginRequest.update({ where: { id: pending.id }, data: { sessionFamilyId: 'family-2' } }),
+      'LoginRequest_session_family_check',
+    );
+    const used = await db.loginRequest.update({
+      where: { id: pending.id },
+      data: { status: 'USED', sessionFamilyId: 'family-2' },
+    });
+    expect(used.sessionFamilyId).toBe('family-2');
+  });
+});
+
 describe('User.botBlockedAt', () => {
   it('is null by default and round-trips independently of isBlocked', async () => {
     const user = await createUser();

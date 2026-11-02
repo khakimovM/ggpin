@@ -12,6 +12,8 @@ import {
   REFRESH_COOKIE_NAME,
   REFRESH_COOKIE_PATH,
   REFRESH_TOKEN_TTL_SEC,
+  SESSION_END_CALLBACK_PREFIX,
+  sessionEndCallbackData,
 } from './auth-constants';
 
 // The values are owner decisions (.claude/rules/60-security.md, phase 2 Q4/Q11/Q12); a change
@@ -30,5 +32,18 @@ describe('auth constants', () => {
     expect(REFRESH_COOKIE_NAME).toBe('refresh_token');
     expect(REFRESH_COOKIE_PATH).toBe('/api/v1/auth');
     expect(CSRF_HEADER).toBe('x-csrf-token');
+  });
+});
+
+describe('sessionEndCallbackData', () => {
+  it('prefixes the family id and stays within 64 bytes for a UUID', () => {
+    const familyId = '123e4567-e89b-42d3-a456-426614174000';
+    const data = sessionEndCallbackData(familyId);
+    expect(data).toBe(`${SESSION_END_CALLBACK_PREFIX}${familyId}`);
+    expect(new TextEncoder().encode(data).length).toBeLessThanOrEqual(64);
+  });
+
+  it('refuses an id that would overflow the callback_data limit', () => {
+    expect(() => sessionEndCallbackData('x'.repeat(62))).toThrow(/64 bytes/);
   });
 });

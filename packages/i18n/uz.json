@@ -67,6 +67,13 @@
       "contactNotYours": "⚠️ Faqat o‘zingizning raqamingizni yuboring: pastdagi tugmadan foydalaning.",
       "contactInvalid": "⚠️ Raqam noto‘g‘ri ko‘rinadi. Pastdagi tugma orqali qayta yuboring."
     },
+    "session": {
+      "newLogin": "🔔 {brand} saytiga yangi kirish\n\nQurilma: {device}\nIP: {ip}\nVaqt: {time}\n\nBu siz bo‘lmasangiz, pastdagi tugmani bosing: sessiya darhol tugatiladi.",
+      "unknownDevice": "nomaʼlum qurilma",
+      "end": "🚫 Bu men emasman",
+      "ended": "🚫 Sessiya tugatildi. Bu qurilma hisobingizdan chiqarildi.",
+      "alreadyEnded": "ℹ️ Bu sessiya allaqachon tugatilgan."
+    },
     "admin": {
       "linkExpired": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring."
     },

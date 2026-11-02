@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { LoginRequest } from '@repo/db';
 import {
   BOT_CODE_ISSUE_LIMIT,
@@ -14,8 +14,16 @@ import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { toMe } from '../users/entities/me.mapper';
 import { UsersService } from '../users/users.service';
 import { LoginRequestRepository } from './login-request.repository';
+import { NewLoginNoticeService } from './new-login-notice.service';
 import { generateNonce, generateOtpCode, hashOtpCode, otpCodeMatches } from './otp-code';
 import { WebSessionService, type SessionLogin, type SessionMeta } from './web-session.service';
+
+/**
+ * Outcome of the "this was not me" button: `denied` (the code was cancelled before use),
+ * `sessionEnded` (the code had already opened a session and that session was ended) or
+ * `expired` (nothing of this account's to cancel).
+ */
+export type DenyResult = 'denied' | 'sessionEnded' | 'expired';
 
 /** Why the bot may not hand out a code for a login link. */
 export type IssueCodeFailure = 'expired' | 'alreadySent' | 'usedByOther' | 'rateLimited';
@@ -36,6 +44,14 @@ export interface DenyInput {
   readonly now: Date;
 }
 
+export interface ReleaseCodeInput {
+  readonly nonce: string;
+  readonly telegramId: bigint;
+  /** The plain code that could not be delivered; only its HMAC is compared. */
+  readonly code: string;
+  readonly now: Date;
+}
+
 export interface VerifyInput {
   readonly nonce: string;
   readonly code: string;
@@ -50,11 +66,13 @@ const MS = 1000;
 export class OtpLoginService {
   private readonly pepper: string;
   private readonly botUsername: string;
+  private readonly logger = new Logger('Security');
 
   constructor(
     private readonly requests: LoginRequestRepository,
     private readonly sessions: WebSessionService,
     private readonly users: UsersService,
+    private readonly notice: NewLoginNoticeService,
     @Inject(APP_CONFIG) config: Pick<AppConfig, 'OTP_PEPPER' | 'TELEGRAM_BOT_USERNAME'>,
   ) {
     this.pepper = config.OTP_PEPPER;
@@ -64,7 +82,11 @@ export class OtpLoginService {
   /** Web: opens a login request that waits LOGIN_NONCE_TTL_SEC for the user to open the bot. */
   async start(now: Date): Promise<LoginStartResponse> {
     const nonce = generateNonce();
-    await this.requests.create(nonce, new Date(now.getTime() + LOGIN_NONCE_TTL_SEC * MS));
+    await this.requests.create({
+      nonce,
+      now,
+      expiresAt: new Date(now.getTime() + LOGIN_NONCE_TTL_SEC * MS),
+    });
     return { nonce, botUrl: `https://t.me/${this.botUsername}?start=login_${nonce}` };
   }
 
@@ -86,7 +108,7 @@ export class OtpLoginService {
   }
 
   /**
-   * FOR THE BOT (slice S7b). Hands out the login code for `nonce` to the Telegram account that
+   * FOR THE BOT. Hands out the login code for `nonce` to the Telegram account that
    * opened the link. The plain code is only ever in the returned value: it is not stored (only
    * its HMAC), not logged and must not be put in a queue job, so the bot has to send it from
    * inside the update handler.
@@ -130,14 +152,70 @@ export class OtpLoginService {
   }
 
   /**
-   * FOR THE BOT ("this was not me"). CODE_SENT -> DENIED, only for the account that holds the
-   * code. Idempotent: true when the request is DENIED by this account afterwards (this call or an
-   * earlier one), false when it is not theirs to deny (unknown, other account, wrong state).
+   * FOR THE BOT ("this was not me"). Idempotent, and only ever acts for the account the request
+   * belongs to:
+   * - a live CODE_SENT held by this account becomes DENIED (`denied`);
+   * - a USED request of this account (the code was already exchanged for a session) is DENIED
+   *   and that session's family is revoked in the same transaction (`sessionEnded`), with no
+   *   time limit;
+   * - a replay of either returns the same answer;
+   * - anything else (unknown, another account, PENDING, expired) is `expired`.
+   * A deny racing a verify ends consistently: the guarded UPDATEs serialise on the row, so
+   * either the code dies before it opens a session or the session it opened is ended.
    */
-  async deny(input: DenyInput): Promise<boolean> {
-    if (await this.requests.deny(input.nonce, input.telegramId, input.now)) return true;
-    const row = await this.requests.findByNonce(input.nonce);
-    return row?.status === 'DENIED' && row.telegramId === input.telegramId;
+  async deny(input: DenyInput): Promise<DenyResult> {
+    const { nonce, telegramId, now } = input;
+    if (await this.requests.deny(nonce, telegramId, now)) {
+      const denied = await this.requests.findByNonce(nonce);
+      this.logger.warn(`security event=LOGIN_DENIED loginRequestId=${denied?.id ?? 'unknown'}`);
+      return 'denied';
+    }
+    const row = await this.requests.findByNonce(nonce);
+    if (row === null || row.kind !== 'USER' || row.telegramId !== telegramId) return 'expired';
+    if (row.status === 'DENIED') return row.sessionFamilyId === null ? 'denied' : 'sessionEnded';
+    if (row.status === 'USED' && row.sessionFamilyId !== null) {
+      return this.endUsedLogin(row.id, nonce, telegramId, row.sessionFamilyId, now);
+    }
+    return 'expired';
+  }
+
+  private async endUsedLogin(
+    id: string,
+    nonce: string,
+    telegramId: bigint,
+    familyId: string,
+    now: Date,
+  ): Promise<DenyResult> {
+    // Looked up before the transaction (one pooled connection at a time).
+    const user = await this.users.findByTelegramId(telegramId);
+    if (user === null) return 'expired';
+    const ended = await this.requests.transaction(async (tx) => {
+      if (!(await this.requests.denyUsed(nonce, telegramId, tx))) return false;
+      await this.sessions.revokeFamilyIn({ userId: user.id, familyId, now }, tx);
+      return true;
+    });
+    if (ended) {
+      this.logger.warn(
+        `security event=LOGIN_SESSION_ENDED userId=${user.id} familyId=${familyId} loginRequestId=${id}`,
+      );
+      return 'sessionEnded';
+    }
+    // A parallel deny of the same request got there first.
+    const after = await this.requests.findByNonce(nonce);
+    const done = after?.status === 'DENIED' && after.telegramId === telegramId;
+    return done ? 'sessionEnded' : 'expired';
+  }
+
+  /**
+   * FOR THE BOT. The code message could not be sent, so the code is worthless to the user:
+   * put the request back to PENDING (same nonce, its own original lifetime) so the link can be
+   * opened again. True only when this account still held exactly this untried code.
+   */
+  async releaseCode(input: ReleaseCodeInput): Promise<boolean> {
+    const { nonce, telegramId, code, now } = input;
+    if (!LOGIN_NONCE_PATTERN.test(nonce)) return false;
+    const codeHash = hashOtpCode(this.pepper, nonce, code);
+    return this.requests.release({ nonce, telegramId, codeHash, now });
   }
 
   /**
@@ -155,6 +233,9 @@ export class OtpLoginService {
       throw new AppError('CODE_EXPIRED');
     }
     if (!otpCodeMatches(this.pepper, nonce, code, attempt.codeHash)) {
+      if (attempt.attempts >= OTP_MAX_ATTEMPTS) {
+        this.logger.warn(`security event=OTP_ATTEMPTS_EXHAUSTED loginRequestId=${attempt.id}`);
+      }
       throw new AppError('CODE_INVALID', {
         attemptsLeft: Math.max(0, OTP_MAX_ATTEMPTS - attempt.attempts),
       });
@@ -167,16 +248,26 @@ export class OtpLoginService {
     if (user.isBlocked) throw new AppError('USER_BLOCKED');
 
     const meta: SessionMeta = { userAgent: input.userAgent, ip: input.ip };
-    return this.requests.transaction(async (tx) => {
+    const { login, familyId } = await this.requests.transaction(async (tx) => {
       // The guarded UPDATE is the gate: of several parallel correct codes exactly one gets here.
       if (!(await this.requests.markUsed(attempt.id, now, tx))) throw new AppError('CODE_EXPIRED');
       const session = await this.sessions.createSession(user.id, meta, now, tx);
+      // Same transaction: a USED request without its session would make "this was not me" a no-op.
+      if (!(await this.requests.linkSession(attempt.id, session.familyId, tx))) {
+        throw new Error('login request lost its USED state inside the verify transaction');
+      }
       return {
-        user: toMe(user),
-        refreshToken: session.refreshToken,
-        accessToken: this.sessions.issueAccessToken(user.id, session.familyId, now),
+        familyId: session.familyId,
+        login: {
+          user: toMe(user),
+          refreshToken: session.refreshToken,
+          accessToken: this.sessions.issueAccessToken(user.id, session.familyId, now),
+        },
       };
     });
+    // After the commit and never fatal: the login already succeeded.
+    await this.notice.send({ user, familyId, meta, now });
+    return login;
   }
 }
 

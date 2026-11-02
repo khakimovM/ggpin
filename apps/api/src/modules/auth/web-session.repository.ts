@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@repo/db';
+import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-
-/** The Prisma client inside a `$transaction` callback (also accepts the root client). */
-export type Db = Prisma.TransactionClient;
 
 export interface NewSessionRow {
   readonly userId: string;
@@ -26,7 +23,12 @@ export interface RefreshRowState {
   readonly userId: string;
   readonly familyId: string;
   readonly revokedAt: Date | null;
-  readonly expiresAt: Date;
+}
+
+/** A session family of one user; named fields because two bare strings are easy to swap. */
+export interface FamilyRef {
+  readonly userId: string;
+  readonly familyId: string;
 }
 
 export interface ActiveSessionRow {
@@ -57,7 +59,8 @@ export class WebSessionRepository {
    * this user. Scoped by userId too, so a token can never vouch for another user's family.
    * `now` is passed in (the injectable clock), never SQL now().
    */
-  async isFamilyActive(familyId: string, userId: string, now: Date): Promise<boolean> {
+  async isFamilyActive(ref: FamilyRef, now: Date): Promise<boolean> {
+    const { familyId, userId } = ref;
     const row = await this.prisma.client.webSession.findFirst({
       where: { familyId, userId, revokedAt: null, expiresAt: { gt: now } },
       select: { id: true },
@@ -94,13 +97,17 @@ export class WebSessionRepository {
   findByHash(refreshHash: string): Promise<RefreshRowState | null> {
     return this.prisma.client.webSession.findUnique({
       where: { refreshHash },
-      select: { userId: true, familyId: true, revokedAt: true, expiresAt: true },
+      select: { userId: true, familyId: true, revokedAt: true },
     });
   }
 
   /** Revokes every live row of the user's family; returns how many were live (0 = not theirs). */
-  async revokeFamily(familyId: string, userId: string, now: Date): Promise<number> {
-    const { count } = await this.prisma.client.webSession.updateMany({
+  async revokeFamily(
+    ref: FamilyRef & { readonly now: Date },
+    db: Db = this.prisma.client,
+  ): Promise<number> {
+    const { familyId, userId, now } = ref;
+    const { count } = await db.webSession.updateMany({
       where: { familyId, userId, revokedAt: null },
       data: { revokedAt: now },
     });

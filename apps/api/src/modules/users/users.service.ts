@@ -4,7 +4,8 @@ import { localeFromTelegram, REFERRAL_CODE_LENGTH, type Locale, type Me } from '
 import { AppError } from '../../common/exceptions/app-error';
 import { toMe } from './entities/me.mapper';
 import { generateReferralCode } from './referral-code';
-import { UsersRepository, type Db } from './users.repository';
+import type { Db } from '../../infra/prisma/db';
+import { UsersRepository } from './users.repository';
 
 export interface TelegramProfile {
   readonly telegramId: bigint;
@@ -56,8 +57,8 @@ export class UsersService {
     });
   }
 
-  /** For the auth guard: the user, or null when the id is unknown. The guard checks `isBlocked`. */
-  findActiveById(id: string): Promise<User | null> {
+  /** The user by id, or null when unknown. Blocked users are returned too: callers check `isBlocked`. */
+  findById(id: string): Promise<User | null> {
     return this.repo.findById(id);
   }
 

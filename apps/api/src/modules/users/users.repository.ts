@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { Locale, Prisma, User } from '@repo/db';
+import type { Locale, User } from '@repo/db';
+import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-
-/** The Prisma client inside a `$transaction` callback (also accepts the root client). */
-export type Db = Prisma.TransactionClient;
 
 export interface NewUserData {
   readonly telegramId: bigint;

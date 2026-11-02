@@ -47,16 +47,16 @@ describe('auth abuse cases (real Postgres)', () => {
     expect((await webapp({ initData })).statusCode).toBe(200); // the same body without the extras
   });
 
-  it('the 6th POST /auth/telegram/verify from one IP within a minute -> 429 RATE_LIMITED', async () => {
+  it('the 31st POST /auth/telegram/verify from one IP within a minute -> 429 RATE_LIMITED', async () => {
     const ip = t.nextIp();
     const nonce = 'B'.repeat(43);
     const codes: number[] = [];
     let last: Awaited<ReturnType<typeof verify>> | undefined;
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 31; i += 1) {
       last = await t.post(VERIFY, { nonce, code: '123456' }, t.csrfHeaders, ip);
       codes.push(last.statusCode);
     }
-    expect(codes).toEqual([422, 422, 422, 422, 422, 429]);
+    expect(codes).toEqual([...Array<number>(30).fill(422), 429]);
     expect(last === undefined ? undefined : bodyOf(last).error?.code).toBe('RATE_LIMITED');
     expect(last?.headers['retry-after']).toBeDefined();
   });

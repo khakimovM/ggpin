@@ -1,9 +1,9 @@
 import { BOT_CODE_ISSUE_LIMIT, OTP_CODE_TTL_SEC } from '@repo/shared';
-import { OtpLoginService, type IssueCodeResult } from '../otp-login.service';
+import { OtpLoginService, type DenyResult, type IssueCodeResult } from '../otp-login.service';
 import { useAuthE2e } from './auth-e2e.helpers';
 import { bodyOf, botIssue, makeUser, startNonce, statusUrl, verify } from './auth-otp.helpers';
 
-// The bot (slice S7b) talks to OtpLoginService directly; these tests drive it the same way.
+// The bot talks to OtpLoginService directly; these tests drive it the same way.
 describe('OtpLoginService.issueCode / deny, as the bot uses them (real Postgres)', () => {
   const t = useAuthE2e();
   beforeEach(() => t.clock.set(new Date()));
@@ -11,7 +11,7 @@ describe('OtpLoginService.issueCode / deny, as the bot uses them (real Postgres)
   const otp = (): OtpLoginService => t.app().get(OtpLoginService);
   const issue = (nonce: string, telegramId: number): Promise<IssueCodeResult> =>
     otp().issueCode({ nonce, telegramId: BigInt(telegramId), now: t.clock.now() });
-  const deny = (nonce: string, telegramId: number): Promise<boolean> =>
+  const deny = (nonce: string, telegramId: number): Promise<DenyResult> =>
     otp().deny({ nonce, telegramId: BigInt(telegramId), now: t.clock.now() });
   const statusOf = async (nonce: string): Promise<unknown> =>
     bodyOf(await t.get(statusUrl(nonce), {}, t.nextIp())).data?.['status'];
@@ -35,7 +35,7 @@ describe('OtpLoginService.issueCode / deny, as the bot uses them (real Postgres)
     const nonce = await startNonce(t);
     const issued = await issue(nonce, owner.telegramId);
     expect(await issue(nonce, intruder.telegramId)).toEqual({ ok: false, reason: 'usedByOther' });
-    expect(await deny(nonce, intruder.telegramId)).toBe(false);
+    expect(await deny(nonce, intruder.telegramId)).toBe('expired');
     expect(await statusOf(nonce)).toBe('CODE_SENT');
     // The owner's code still works.
     const code = issued.ok ? issued.code : '';
@@ -97,8 +97,8 @@ describe('OtpLoginService.issueCode / deny, as the bot uses them (real Postgres)
     const nonce = await startNonce(t);
     const code = await botIssue(t, nonce, user.telegramId);
 
-    expect(await deny(nonce, user.telegramId)).toBe(true);
-    expect(await deny(nonce, user.telegramId)).toBe(true); // replayed callback
+    expect(await deny(nonce, user.telegramId)).toBe('denied');
+    expect(await deny(nonce, user.telegramId)).toBe('denied'); // replayed callback
     expect(await statusOf(nonce)).toBe('DENIED');
 
     const res = await verify(t, nonce, code);
@@ -111,13 +111,13 @@ describe('OtpLoginService.issueCode / deny, as the bot uses them (real Postgres)
   it('deny does nothing for a PENDING request, an unknown nonce or an expired code', async () => {
     const user = await makeUser(t);
     const pending = await startNonce(t);
-    expect(await deny(pending, user.telegramId)).toBe(false);
+    expect(await deny(pending, user.telegramId)).toBe('expired');
     expect(await statusOf(pending)).toBe('PENDING');
-    expect(await deny('A'.repeat(43), user.telegramId)).toBe(false);
+    expect(await deny('A'.repeat(43), user.telegramId)).toBe('expired');
 
     await botIssue(t, pending, user.telegramId);
     t.clock.advanceSec(OTP_CODE_TTL_SEC + 1);
-    expect(await deny(pending, user.telegramId)).toBe(false);
+    expect(await deny(pending, user.telegramId)).toBe('expired');
   });
 
   it('an exhausted code is reported expired to the bot too, not alreadySent', async () => {

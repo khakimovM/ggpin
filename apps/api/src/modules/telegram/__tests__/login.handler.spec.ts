@@ -165,7 +165,7 @@ describe.each(['uz', 'ru'] as const)('deny button (%s)', (locale) => {
   it('deny false only answers the callback with the expired text', async () => {
     const h = createHarness({
       users: withPhone(locale),
-      login: { deny: () => Promise.resolve(false) },
+      login: { deny: () => Promise.resolve('expired' as const) },
     });
     await h.send(callbackUpdate({ id: ID }, data));
     expect(h.payloads()).toMatchSnapshot();

@@ -8,6 +8,7 @@ import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import { buildTestEnv, TEST_WEBHOOK_SECRET } from '../../../config/__tests__/test-env';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { cookieValue, ME, START, statusUrl, VERIFY } from '../../auth/__tests__/auth-otp.helpers';
+import { TG_OUTBOX_SENDER } from '../../notifications/tg-outbox.sender';
 import { BOT } from '../bot.provider';
 import { denyCallbackData } from '../login-keyboards';
 import { createFakeTelegram } from './fake-telegram-api';
@@ -89,6 +90,9 @@ describe('web login through the bot (real app, fake Bot API)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule.register(env)] })
       .overrideProvider(BOT)
       .useValue(fake.bot)
+      // The webhook-mode app runs a real outbox worker on the shared queue: nothing may reach Telegram.
+      .overrideProvider(TG_OUTBOX_SENDER)
+      .useValue({ send: () => Promise.resolve() })
       .compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(createHttpAdapter(env), {
       logger: false,

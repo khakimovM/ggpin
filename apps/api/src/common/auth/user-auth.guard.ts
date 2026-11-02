@@ -2,7 +2,7 @@ import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@ne
 import { Reflector } from '@nestjs/core';
 import { ACCESS_COOKIE_NAME } from '@repo/shared';
 import { TokenCodec, type TokenPayload } from '../../modules/auth/token-codec';
-import { WebSessionRepository } from '../../modules/auth/web-session.repository';
+import { WebSessionService } from '../../modules/auth/web-session.service';
 import { UsersService } from '../../modules/users/users.service';
 import { CLOCK, type Clock } from '../clock/clock';
 import { AppError } from '../exceptions/app-error';
@@ -22,7 +22,7 @@ export class UserAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly codec: TokenCodec,
     private readonly users: UsersService,
-    private readonly sessions: WebSessionRepository,
+    private readonly sessions: WebSessionService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -43,12 +43,12 @@ export class UserAuthGuard implements CanActivate {
     if (claims.typ === 'web') {
       const familyId = claims.sid;
       if (familyId === undefined) throw new AppError('UNAUTHORIZED');
-      if (!(await this.sessions.isFamilyActive(familyId, claims.sub, now))) {
+      if (!(await this.sessions.isFamilyActive({ familyId, userId: claims.sub }, now))) {
         throw new AppError('UNAUTHORIZED');
       }
     }
 
-    const user = await this.users.findActiveById(claims.sub);
+    const user = await this.users.findById(claims.sub);
     if (user === null) throw new AppError('UNAUTHORIZED');
     if (user.isBlocked) throw new AppError('USER_BLOCKED');
 

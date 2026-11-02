@@ -30,7 +30,8 @@ import { OtpLoginService } from './otp-login.service';
 const MINUTE_MS = 60_000;
 
 // Web login through the bot. All three routes are public (that is how a session begins) and
-// rate limited per IP; CSRF still applies to the POSTs (a victim's browser must not be made to
+// rate limited per IP (a flood cap: many users share one CGNAT address, so the budgets are
+// generous; the real brute-force guard is the per-nonce cap of OTP_MAX_ATTEMPTS); CSRF still applies to the POSTs (a victim's browser must not be made to
 // submit an attacker's nonce and code).
 @Controller('auth/telegram')
 export class AuthOtpController {
@@ -41,7 +42,7 @@ export class AuthOtpController {
   ) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: MINUTE_MS } })
+  @Throttle({ default: { limit: 30, ttl: MINUTE_MS } })
   @HttpCode(HttpStatus.OK)
   @Post('start')
   start(@Body() _body: LoginStartDto): Promise<LoginStartResponse> {
@@ -51,7 +52,7 @@ export class AuthOtpController {
   // Polled by the login page, hence the higher budget. A malformed nonce is a 404, not a 400,
   // so the route cannot be used to learn what a valid nonce looks like.
   @Public()
-  @Throttle({ default: { limit: 60, ttl: MINUTE_MS } })
+  @Throttle({ default: { limit: 300, ttl: MINUTE_MS } })
   @Get('status/:nonce')
   status(@Param('nonce') nonce: string): Promise<LoginStatusResponse> {
     const params = loginStatusParamsSchema.safeParse({ nonce });
@@ -60,7 +61,7 @@ export class AuthOtpController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: MINUTE_MS } })
+  @Throttle({ default: { limit: 30, ttl: MINUTE_MS } })
   @HttpCode(HttpStatus.OK)
   @Post('verify')
   async verify(

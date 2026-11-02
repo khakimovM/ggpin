@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { TgOutboxJob } from '@repo/shared';
 import { Api } from 'grammy';
-import type { InlineKeyboardMarkup } from 'grammy/types';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import type { TgOutboxSender } from './tg-outbox.sender';
 
@@ -22,10 +21,8 @@ export class GrammyTgOutboxSender implements TgOutboxSender {
   async send(job: TgOutboxJob): Promise<void> {
     await this.api.sendMessage(job.chatId, job.text, {
       parse_mode: 'HTML',
-      // Producers build the markup; Telegram validates its shape and rejects bad input with 400.
-      ...(job.replyMarkup === undefined
-        ? {}
-        : { reply_markup: job.replyMarkup as unknown as InlineKeyboardMarkup }),
+      // The job schema already guarantees an inline keyboard of text + callback_data/url buttons.
+      ...(job.replyMarkup === undefined ? {} : { reply_markup: job.replyMarkup }),
       ...(job.disableNotification === undefined
         ? {}
         : { disable_notification: job.disableNotification }),

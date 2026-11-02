@@ -3,7 +3,8 @@
 > **Haqiqat manbai — `packages/db/prisma/schema.prisma`** (Prisma 7, D-22). Migratsiyalar:
 > `packages/db/prisma/migrations/20261029185158_init`, `20261031120000_domain_guardrails`
 > ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda), `20261101100000_discount_below_full_price`
-> ("Migratsiya 3") va `20261102105448_auth_bot_guardrails` ("Migratsiya 4"). Bu hujjat sxemani tushuntiradi, nusxasini
+> ("Migratsiya 3"), `20261102105448_auth_bot_guardrails` ("Migratsiya 4") va
+> `20261102171806_login_session_link` + `20261102172000_login_session_link_check` ("Migratsiya 5"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -175,6 +176,22 @@ o‘zgarmadi. Yozilgan paytda `LoginRequest` dev va test bazalarida bo‘sh edi.
 - **DDLsiz maʼno o‘zgarishi:** `LoginRequest.codeHash` = hex HMAC-SHA256(`OTP_PEPPER`, `nonce:code`);
   `WebSession.refreshHash` = HMAC-SHA256(`JWT_REFRESH_SECRET`, token). Peppersiz oddiy sha256 6 xonali
   kodni DB nusxasidan bir zumda topishga imkon berardi. Jadvallar bo‘sh edi, backfill kerak emas.
+- Isbot: `packages/db/test/check-constraints-auth.e2e.test.ts`.
+
+## Migratsiya 5: `20261102171806_login_session_link` + `20261102172000_login_session_link_check`
+
+2-faza review tuzatishlari (D-29). Faqat qo‘shimcha. Ikkiga bo‘lingan, chunki birinchisi dev
+bazaga allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
+
+- **`LoginRequest.sessionFamilyId String?`** — shu kod bilan ochilgan web sessiya oilasi.
+  `verify` uni `USED` bilan bitta tranzaksiyada yozadi. Botdagi «Bu men emasman» kod
+  ishlatilgandan keyin bosilsa, aynan shu oila bekor qilinadi va so‘rov `DENIED` bo‘ladi.
+- **Indeks `(telegramId, expiresAt)`** — botning "10 daqiqada 5 kod" sanog‘i uchun. Bu sanoq
+  oldin butun jadvalni ko‘rib chiqardi (Seq Scan).
+- **`LoginRequest_session_family_check`:** `sessionFamilyId` faqat `USED` yoki `DENIED` holatida
+  bo‘lishi mumkin.
+- `createdAt` endi servisdagi soatdan yoziladi (DB `now()` emas). Kod yetkazilmay qolganda
+  so‘rov `PENDING` holatiga qaytariladi va `expiresAt = createdAt + 10 daqiqa` bo‘ladi.
 - Isbot: `packages/db/test/check-constraints-auth.e2e.test.ts`.
 
 ## Nima qayerda hisoblanadi

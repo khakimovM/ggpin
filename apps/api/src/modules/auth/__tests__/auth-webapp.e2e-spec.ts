@@ -4,6 +4,8 @@ import {
   meSchema,
   webAppLoginResponseSchema,
 } from '@repo/shared';
+import { RedisService } from '../../../infra/redis/redis.service';
+import { webappLimitKey } from '../mini-app-auth.service';
 import { buildInitData, fixtureBotToken } from './init-data.fixtures';
 import { useAuthE2e, type AuthE2e } from './auth-e2e.helpers';
 
@@ -15,8 +17,8 @@ type Res = Awaited<ReturnType<AuthE2e['get']>>;
 const body = (res: Res): Body => res.json<Body>();
 const bearer = (token: string): Record<string, string> => ({ authorization: `Bearer ${token}` });
 
-// Each describe boots its own app, so each has its own 5/min/IP budget on the webapp route.
-// Per describe, no more than 5 calls to WEBAPP (a CSRF refusal and a 429 count too).
+// Each describe boots its own app, so each has its own per-IP budget (120/min) on the webapp
+// route. The per-account budget (10/min) lives in Redis and is keyed by a fresh Telegram id.
 
 describe('POST /auth/telegram/webapp + /me (real Postgres)', () => {
   const t = useAuthE2e();
@@ -190,19 +192,67 @@ describe('referral from start_param (real Postgres)', () => {
   });
 });
 
-describe('rate limit on the webapp login (real Postgres)', () => {
+describe('rate limits on the webapp login (real Postgres and Redis)', () => {
   const t = useAuthE2e();
+  const track = (telegramId: number): number => {
+    t.trackRedisKey(webappLimitKey(telegramId));
+    return telegramId;
+  };
 
-  it('the 6th call within a minute -> 429 RATE_LIMITED', async () => {
-    const initData = t.initDataFor(t.newTelegramId());
-    for (let i = 1; i <= 5; i += 1) {
+  it('10 logins a minute per Telegram account, the 11th -> 429 RATE_LIMITED', async () => {
+    const initData = t.initDataFor(track(t.newTelegramId()));
+    for (let i = 1; i <= 10; i += 1) {
       const res = await t.post(WEBAPP, { initData }, t.csrfHeaders);
       expect(res.statusCode).toBe(200);
     }
-    const sixth = await t.post(WEBAPP, { initData }, t.csrfHeaders);
-    expect(sixth.statusCode).toBe(429);
-    expect(body(sixth).error?.code).toBe('RATE_LIMITED');
-    expect(sixth.headers['retry-after']).toBeDefined();
+    const eleventh = await t.post(WEBAPP, { initData }, t.csrfHeaders);
+    expect(eleventh.statusCode).toBe(429);
+    expect(body(eleventh).error?.code).toBe('RATE_LIMITED');
+  });
+
+  it('the budget is per account: another account behind the same IP still gets in', async () => {
+    const ip = t.nextIp();
+    const busy = t.initDataFor(track(t.newTelegramId()));
+    for (let i = 0; i < 11; i += 1) await t.post(WEBAPP, { initData: busy }, t.csrfHeaders, ip);
+    expect((await t.post(WEBAPP, { initData: busy }, t.csrfHeaders, ip)).statusCode).toBe(429);
+
+    const other = t.initDataFor(track(t.newTelegramId()));
+    expect((await t.post(WEBAPP, { initData: other }, t.csrfHeaders, ip)).statusCode).toBe(200);
+  });
+
+  it('the window starts at the first hit and the key always has a TTL (never stuck)', async () => {
+    const telegramId = track(t.newTelegramId());
+    await t.post(WEBAPP, { initData: t.initDataFor(telegramId) }, t.csrfHeaders);
+    const redis = t.app().get(RedisService).client;
+    const ttl = await redis.ttl(webappLimitKey(telegramId));
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(60);
+  });
+
+  it('forged initData never touches the account counter', async () => {
+    const victim = track(t.newTelegramId());
+    const real = t.initDataFor(victim);
+    const forged = real.replace(/hash=[0-9a-f]+/, `hash=${'0'.repeat(64)}`);
+    expect(forged).not.toBe(real);
+    for (let i = 0; i < 15; i += 1) {
+      const res = await t.post(WEBAPP, { initData: forged }, t.csrfHeaders, t.nextIp());
+      expect(res.statusCode).toBe(401);
+    }
+    expect(await t.app().get(RedisService).client.exists(webappLimitKey(victim))).toBe(0);
+    expect((await t.post(WEBAPP, { initData: real }, t.csrfHeaders, t.nextIp())).statusCode).toBe(
+      200,
+    );
+  });
+
+  it('per IP it is only a flood cap: 120 calls pass, the 121st -> 429', async () => {
+    const ip = t.nextIp();
+    const forged = t.initDataFor(1).replace(/hash=[0-9a-f]+/, `hash=${'0'.repeat(64)}`);
+    const codes: number[] = [];
+    for (let i = 0; i < 121; i += 1) {
+      codes.push((await t.post(WEBAPP, { initData: forged }, t.csrfHeaders, ip)).statusCode);
+    }
+    expect(codes.slice(0, 120).every((c) => c === 401)).toBe(true);
+    expect(codes[120]).toBe(429);
   });
 });
 

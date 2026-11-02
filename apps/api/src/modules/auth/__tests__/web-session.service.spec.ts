@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { REFRESH_TOKEN_TTL_SEC } from '@repo/shared';
 import { AppError } from '../../../common/exceptions/app-error';
 import {
@@ -16,16 +17,20 @@ const TOKEN = 'A'.repeat(43);
 const hashOf = (token: string): string =>
   createHmac('sha256', TEST_JWT_REFRESH_SECRET).update(token).digest('hex');
 
-function setup(rows: {
-  live?: { userId: string; familyId: string } | null;
-  state?: RefreshRowState | null;
-}) {
+function setup(
+  rows: {
+    live?: { userId: string; familyId: string } | null;
+    state?: RefreshRowState | null;
+  },
+  users: Partial<Record<'findByTelegramId' | 'findById', jest.Mock>> = {},
+) {
   const repo = {
     transaction: jest.fn(<T>(fn: (tx: unknown) => Promise<T>) => fn({})),
     revokeLiveByHash: jest.fn(() => Promise.resolve(rows.live ?? null)),
     insert: jest.fn(() => Promise.resolve()),
     findByHash: jest.fn(() => Promise.resolve(rows.state ?? null)),
     revokeFamily: jest.fn(() => Promise.resolve(1)),
+    isFamilyActive: jest.fn(() => Promise.resolve(true)),
   };
   const codec = new TokenCodec({
     JWT_ACCESS_SECRET: TEST_JWT_ACCESS_SECRET,
@@ -33,7 +38,7 @@ function setup(rows: {
   });
   const service = new WebSessionService(
     repo as unknown as WebSessionRepository,
-    {} as UsersService,
+    users as unknown as UsersService,
     codec,
     { JWT_REFRESH_SECRET: TEST_JWT_REFRESH_SECRET },
   );
@@ -44,7 +49,6 @@ const state = (over: Partial<RefreshRowState>): RefreshRowState => ({
   userId: 'u1',
   familyId: 'f1',
   revokedAt: null,
-  expiresAt: new Date(NOW.getTime() + 1000),
   ...over,
 });
 
@@ -89,13 +93,13 @@ describe('WebSessionService.rotate', () => {
     const error: unknown = await service.rotate(TOKEN, {}, NOW).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AppError);
     expect(error).toMatchObject({ code: 'TOKEN_REUSE_DETECTED' });
-    expect(repo.revokeFamily).toHaveBeenCalledWith('f1', 'u1', NOW);
+    expect(repo.revokeFamily).toHaveBeenCalledWith({ familyId: 'f1', userId: 'u1', now: NOW });
   });
 
-  it('an expired but never used token -> UNAUTHORIZED (not theft), family tidied up', async () => {
-    const { repo, service } = setup({ state: state({ expiresAt: new Date(NOW.getTime() - 1) }) });
+  it('a never-retired token that is not live (expired) -> UNAUTHORIZED, not theft, family tidied up', async () => {
+    const { repo, service } = setup({ state: state({}) });
     await expect(service.rotate(TOKEN, {}, NOW)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    expect(repo.revokeFamily).toHaveBeenCalledWith('f1', 'u1', NOW);
+    expect(repo.revokeFamily).toHaveBeenCalledWith({ familyId: 'f1', userId: 'u1', now: NOW });
   });
 });
 
@@ -103,9 +107,76 @@ describe('WebSessionService.revokeFamily', () => {
   it('is a NOT_FOUND when nothing of the caller matched (someone else, or already gone)', async () => {
     const { repo, service } = setup({});
     repo.revokeFamily.mockResolvedValueOnce(0);
-    await expect(service.revokeFamily('me', 'theirs', NOW)).rejects.toMatchObject({
+    await expect(
+      service.revokeFamily({ userId: 'me', familyId: 'theirs', now: NOW }),
+    ).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
-    expect(repo.revokeFamily).toHaveBeenCalledWith('theirs', 'me', NOW);
+    expect(repo.revokeFamily).toHaveBeenCalledWith({ userId: 'me', familyId: 'theirs', now: NOW });
+  });
+});
+
+describe('WebSessionService security events', () => {
+  it('TOKEN_REUSE_DETECTED is logged as a warn with user and family ids only', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const { service } = setup({ state: state({ revokedAt: NOW }) });
+      await expect(service.rotate(TOKEN, { ip: '203.0.113.45' }, NOW)).rejects.toMatchObject({
+        code: 'TOKEN_REUSE_DETECTED',
+      });
+      expect(warn).toHaveBeenCalledTimes(1);
+      const line = String(warn.mock.calls[0]?.[0]);
+      expect(line).toBe('security event=TOKEN_REUSE_DETECTED userId=u1 familyId=f1');
+      expect(line).not.toContain(TOKEN);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a merely expired token is not reported as reuse', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const { service } = setup({ state: state({}) });
+      await expect(service.rotate(TOKEN, {}, NOW)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('WebSessionService.isFamilyActive', () => {
+  it('asks the repository with the user and the family together', async () => {
+    const { repo, service } = setup({});
+    await expect(service.isFamilyActive({ userId: 'u1', familyId: 'f1' }, NOW)).resolves.toBe(true);
+    expect(repo.isFamilyActive).toHaveBeenCalledWith({ userId: 'u1', familyId: 'f1' }, NOW);
+  });
+});
+
+describe('WebSessionService.endSessionFromBot', () => {
+  const input = { telegramId: 555n, familyId: 'f1', now: NOW };
+
+  it('revokes the family of the user that owns the telegram id, scoped by that user', async () => {
+    const { repo, service } = setup(
+      {},
+      { findByTelegramId: jest.fn().mockResolvedValue({ id: 'u1' }) },
+    );
+    await expect(service.endSessionFromBot(input)).resolves.toBe(true);
+    expect(repo.revokeFamily).toHaveBeenCalledWith({ userId: 'u1', familyId: 'f1', now: NOW });
+  });
+
+  it('is false (and does not throw) for a family that is not theirs or already ended', async () => {
+    const { repo, service } = setup(
+      {},
+      { findByTelegramId: jest.fn().mockResolvedValue({ id: 'u1' }) },
+    );
+    repo.revokeFamily.mockResolvedValueOnce(0);
+    await expect(service.endSessionFromBot(input)).resolves.toBe(false);
+  });
+
+  it('is false for an unknown telegram id, without touching any session', async () => {
+    const { repo, service } = setup({}, { findByTelegramId: jest.fn().mockResolvedValue(null) });
+    await expect(service.endSessionFromBot(input)).resolves.toBe(false);
+    expect(repo.revokeFamily).not.toHaveBeenCalled();
   });
 });

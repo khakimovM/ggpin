@@ -109,7 +109,7 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     },
     deny: (input) => {
       loginCalls.push({ method: 'deny', nonce: input.nonce });
-      return options.login?.deny?.(input) ?? Promise.resolve(true);
+      return options.login?.deny?.(input) ?? Promise.resolve('denied' as const);
     },
     status: (nonce, now) => {
       loginCalls.push({ method: 'status', nonce });

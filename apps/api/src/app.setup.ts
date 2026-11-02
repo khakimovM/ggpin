@@ -3,6 +3,7 @@ import { VersioningType } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 import { registerRequestHooks } from './common/logging/request-logging';
+import { applyNoStore } from './common/http/no-store';
 import { applyCors, applySecurityHeaders } from './common/http/security-headers';
 import { setupSwagger } from './common/http/setup-swagger';
 import { APP_CONFIG, type AppConfig } from './config/config.module';
@@ -20,6 +21,7 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   await applySecurityHeaders(app, config);
   applyCors(app, config);
+  applyNoStore(app);
   // After helmet and CORS so preflights and security headers are already settled when a request
   // reaches cookie parsing. Deliberately no `secret`: session cookies carry self-authenticating
   // tokens (HMAC-signed access token / hashed-in-DB refresh), so cookie signing adds nothing.

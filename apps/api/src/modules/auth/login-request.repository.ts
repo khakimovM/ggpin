@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { LoginRequest } from '@repo/db';
-import { OTP_CODE_TTL_SEC, OTP_MAX_ATTEMPTS } from '@repo/shared';
+import { LOGIN_NONCE_TTL_SEC, OTP_CODE_TTL_SEC, OTP_MAX_ATTEMPTS } from '@repo/shared';
+import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import type { Db } from './web-session.repository';
 
 export interface AttemptSnapshot {
   readonly id: string;
@@ -10,6 +10,14 @@ export interface AttemptSnapshot {
   readonly attempts: number;
   readonly codeHash: string | null;
   readonly telegramId: bigint | null;
+}
+
+export interface CodeRelease {
+  readonly nonce: string;
+  readonly telegramId: bigint;
+  /** HMAC of the code that failed to reach the user; the row is only released if it still holds it. */
+  readonly codeHash: string;
+  readonly now: Date;
 }
 
 export interface CodeClaim {
@@ -34,9 +42,16 @@ export class LoginRequestRepository {
     return this.prisma.client.$transaction(fn);
   }
 
-  async create(nonce: string, expiresAt: Date): Promise<void> {
+  /** `createdAt` is the injected clock's now (not the DB default): release derives expiry from it. */
+  async create(input: { nonce: string; now: Date; expiresAt: Date }): Promise<void> {
     await this.prisma.client.loginRequest.create({
-      data: { nonce, kind: 'USER', status: 'PENDING', expiresAt },
+      data: {
+        nonce: input.nonce,
+        kind: 'USER',
+        status: 'PENDING',
+        expiresAt: input.expiresAt,
+        createdAt: input.now,
+      },
     });
   }
 
@@ -55,7 +70,8 @@ export class LoginRequestRepository {
 
   /**
    * Codes issued to this account at or after `issuedSince`. `telegramId` and `codeHash` are only
-   * ever written together when a code is issued, and that same write sets
+   * ever written together when a code is issued (a released code clears both and stops
+   * counting), and that same write sets
    * `expiresAt = sentAt + OTP_CODE_TTL_SEC` (nothing else moves `expiresAt` afterwards), so
    * `sentAt >= issuedSince` is `expiresAt >= issuedSince + TTL`. Rows in any final state count:
    * a used or denied code was still sent.
@@ -97,6 +113,52 @@ export class LoginRequestRepository {
     const { count } = await this.prisma.client.loginRequest.updateMany({
       where: { nonce, kind: 'USER', status: 'CODE_SENT', telegramId, expiresAt: { gt: now } },
       data: { status: 'DENIED' },
+    });
+    return count === 1;
+  }
+
+  /**
+   * CODE_SENT -> PENDING when the bot could not deliver the code. Guarded by account, code hash
+   * and attempts = 0, so it can only undo a code nobody has tried yet. The nonce goes back to
+   * its own lifetime (createdAt + LOGIN_NONCE_TTL_SEC) and forgets the account and the hash, so
+   * the same link can be opened again. Raw SQL because the new expiry is derived from a column
+   * of the same row; every value is a bound parameter.
+   */
+  async release(release: CodeRelease): Promise<boolean> {
+    const { nonce, telegramId, codeHash, now } = release;
+    const count = await this.prisma.client.$executeRaw`
+      UPDATE "LoginRequest"
+      SET "status" = 'PENDING',
+          "telegramId" = NULL,
+          "codeHash" = NULL,
+          "expiresAt" = "createdAt" + (${LOGIN_NONCE_TTL_SEC}::int * interval '1 second'),
+          "updatedAt" = ${now}
+      WHERE "nonce" = ${nonce}
+        AND "kind" = 'USER'
+        AND "status" = 'CODE_SENT'
+        AND "telegramId" = ${telegramId}
+        AND "codeHash" = ${codeHash}
+        AND "attempts" = 0`;
+    return count === 1;
+  }
+
+  /**
+   * USED -> DENIED for the account that used the code ("this was not me" after sign-in). Keeps
+   * `sessionFamilyId` (the CHECK allows it on DENIED) so a replay can be told apart.
+   */
+  async denyUsed(nonce: string, telegramId: bigint, db: Db): Promise<boolean> {
+    const { count } = await db.loginRequest.updateMany({
+      where: { nonce, kind: 'USER', status: 'USED', telegramId, sessionFamilyId: { not: null } },
+      data: { status: 'DENIED' },
+    });
+    return count === 1;
+  }
+
+  /** Records which web session a USED request opened; part of the same transaction as markUsed. */
+  async linkSession(id: string, sessionFamilyId: string, db: Db): Promise<boolean> {
+    const { count } = await db.loginRequest.updateMany({
+      where: { id, status: 'USED', sessionFamilyId: null },
+      data: { sessionFamilyId },
     });
     return count === 1;
   }

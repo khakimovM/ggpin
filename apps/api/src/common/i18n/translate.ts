@@ -1,7 +1,7 @@
 import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
 import { DEFAULT_LOCALE, type Locale } from '@repo/shared';
-import { escapeHtml } from '../html';
+import { escapeHtml } from './html';
 
 export type TranslateParams = Readonly<Record<string, string | number>>;
 

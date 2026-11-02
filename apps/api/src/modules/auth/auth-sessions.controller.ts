@@ -99,7 +99,7 @@ export class AuthSessionsController {
   ): Promise<LogoutResponse> {
     // An id that cannot be one of ours is "not found", same as someone else's.
     if (id.length === 0 || id.length > MAX_SESSION_ID_LENGTH) throw new AppError('NOT_FOUND');
-    await this.sessions.revokeFamily(user.id, id, this.clock.now());
+    await this.sessions.revokeFamily({ userId: user.id, familyId: id, now: this.clock.now() });
     // Ending the session this very browser uses: drop its cookies too.
     if (id === user.sessionFamilyId) clearSessionCookies(reply, this.config.NODE_ENV);
     return {};

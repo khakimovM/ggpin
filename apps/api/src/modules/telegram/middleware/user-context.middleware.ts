@@ -2,7 +2,7 @@ import { parseStartPayload } from '@repo/shared';
 import type { Middleware } from 'grammy';
 import type { BotContext } from '../bot-context';
 import type { BotDeps } from '../bot-deps';
-import { translate, translateLenient, type TranslateParams } from '../i18n/translate';
+import { translate, translateLenient, type TranslateParams } from '../../../common/i18n/translate';
 import { startPayloadText } from '../start-text';
 
 /**

@@ -1,18 +1,19 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   ACCESS_TOKEN_TTL_SEC,
   REFRESH_TOKEN_TTL_SEC,
   type Me,
   type SessionItem,
 } from '@repo/shared';
+import type { Db } from '../../infra/prisma/db';
 import { AppError } from '../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { toMe } from '../users/entities/me.mapper';
 import { UsersService } from '../users/users.service';
 import { maskIp, truncateUserAgent } from './mask-ip';
 import { TokenCodec } from './token-codec';
-import { WebSessionRepository, type Db } from './web-session.repository';
+import { WebSessionRepository, type FamilyRef } from './web-session.repository';
 
 export interface SessionMeta {
   readonly userAgent?: string | null;
@@ -49,6 +50,7 @@ const REFRESH_TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 @Injectable()
 export class WebSessionService {
   private readonly refreshSecret: string;
+  private readonly logger = new Logger('Security');
 
   constructor(
     private readonly repo: WebSessionRepository,
@@ -108,17 +110,22 @@ export class WebSessionService {
 
     const row = await this.repo.findByHash(hash);
     if (row === null) throw new AppError('UNAUTHORIZED');
-    await this.repo.revokeFamily(row.familyId, row.userId, now);
-    throw new AppError(row.revokedAt === null ? 'UNAUTHORIZED' : 'TOKEN_REUSE_DETECTED');
+    await this.repo.revokeFamily({ familyId: row.familyId, userId: row.userId, now });
+    if (row.revokedAt === null) throw new AppError('UNAUTHORIZED');
+    // Ids only: no token, hash or address in the line.
+    this.logger.warn(
+      `security event=TOKEN_REUSE_DETECTED userId=${row.userId} familyId=${row.familyId}`,
+    );
+    throw new AppError('TOKEN_REUSE_DETECTED');
   }
 
   /** Rotation + the checks only the account can answer, producing what the cookies need. */
   async refresh(refreshToken: string, meta: SessionMeta, now: Date): Promise<SessionLogin> {
     const rotated = await this.rotate(refreshToken, meta, now);
-    const user = await this.users.findActiveById(rotated.userId);
+    const user = await this.users.findById(rotated.userId);
     if (user === null || user.isBlocked) {
       // A blocked account must not keep a working session just because it asked politely.
-      await this.repo.revokeFamily(rotated.familyId, rotated.userId, now);
+      await this.repo.revokeFamily({ familyId: rotated.familyId, userId: rotated.userId, now });
       throw new AppError(user === null ? 'UNAUTHORIZED' : 'USER_BLOCKED');
     }
     return {
@@ -129,9 +136,42 @@ export class WebSessionService {
   }
 
   /** Ends one of the user's own sessions; anyone else's family is a 404, never a 403. */
-  async revokeFamily(userId: string, familyId: string, now: Date): Promise<void> {
-    const revoked = await this.repo.revokeFamily(familyId, userId, now);
-    if (revoked === 0) throw new AppError('NOT_FOUND');
+  async revokeFamily(ref: FamilyRef & { readonly now: Date }): Promise<void> {
+    if ((await this.repo.revokeFamily(ref)) === 0) throw new AppError('NOT_FOUND');
+  }
+
+  /**
+   * Whether the family behind an access token's `sid` still has a live refresh row for this
+   * user. The auth guard asks this on every cookie-authenticated request.
+   */
+  isFamilyActive(ref: FamilyRef, now: Date): Promise<boolean> {
+    return this.repo.isFamilyActive(ref, now);
+  }
+
+  /**
+   * FOR THE BOT ("this was not me" on the new-login notice). Ends the family only when it
+   * belongs to the user that owns `telegramId`; anything else (unknown account, someone
+   * else's family, an unknown or already ended one) is `false`, never an error, so a forged
+   * callback learns nothing.
+   */
+  async endSessionFromBot(input: {
+    readonly telegramId: bigint;
+    readonly familyId: string;
+    readonly now: Date;
+  }): Promise<boolean> {
+    const user = await this.users.findByTelegramId(input.telegramId);
+    if (user === null) return false;
+    const revoked = await this.repo.revokeFamily({
+      userId: user.id,
+      familyId: input.familyId,
+      now: input.now,
+    });
+    return revoked > 0;
+  }
+
+  /** Revokes the family inside the caller's transaction (used with the LoginRequest update). */
+  revokeFamilyIn(ref: FamilyRef & { readonly now: Date }, tx: Db): Promise<number> {
+    return this.repo.revokeFamily(ref, tx);
   }
 
   /**
@@ -141,7 +181,9 @@ export class WebSessionService {
   async revokeByRefreshToken(refreshToken: string, now: Date): Promise<void> {
     if (!REFRESH_TOKEN_SHAPE.test(refreshToken)) return;
     const row = await this.repo.findByHash(this.hashRefresh(refreshToken));
-    if (row !== null) await this.repo.revokeFamily(row.familyId, row.userId, now);
+    if (row !== null) {
+      await this.repo.revokeFamily({ familyId: row.familyId, userId: row.userId, now });
+    }
   }
 
   /** The user's active sessions, most recently used first. */

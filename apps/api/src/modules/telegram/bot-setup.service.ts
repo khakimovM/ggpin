@@ -4,7 +4,7 @@ import type { BotCommand, MenuButton } from 'grammy/types';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import type { ChatMenu } from './bot-deps';
 import { BOT, type TelegramBot } from './bot.provider';
-import { translate } from './i18n/translate';
+import { translate } from '../../common/i18n/translate';
 import { safeErrorText } from './safe-error';
 
 const COMMANDS = ['start', 'shop', 'ref', 'lang', 'help'] as const;

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { CsrfGuard } from '../../common/auth/csrf.guard';
 import { UserAuthGuard } from '../../common/auth/user-auth.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { AuthOtpController } from './auth-otp.controller';
 import { AuthSessionsController } from './auth-sessions.controller';
@@ -9,6 +10,7 @@ import { AuthWebappController } from './auth-webapp.controller';
 import { InitDataVerifier } from './init-data.verifier';
 import { LoginRequestRepository } from './login-request.repository';
 import { MiniAppAuthService } from './mini-app-auth.service';
+import { NewLoginNoticeService } from './new-login-notice.service';
 import { OtpLoginService } from './otp-login.service';
 import { TokenCodec } from './token-codec';
 import { WebSessionRepository } from './web-session.repository';
@@ -22,7 +24,7 @@ import { WebSessionService } from './web-session.service';
 //   3. CsrfGuard       (needs to know whether the caller is Bearer-authenticated)
 // common/__tests__/guard-order.e2e-spec.ts proves it by behaviour.
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, NotificationsModule],
   controllers: [AuthWebappController, AuthOtpController, AuthSessionsController],
   providers: [
     TokenCodec,
@@ -31,11 +33,13 @@ import { WebSessionService } from './web-session.service';
     WebSessionRepository,
     WebSessionService,
     LoginRequestRepository,
+    NewLoginNoticeService,
     OtpLoginService,
     { provide: APP_GUARD, useClass: UserAuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
   ],
-  // OtpLoginService is the bot's door into login requests (issueCode / deny).
-  exports: [TokenCodec, WebSessionRepository, WebSessionService, OtpLoginService],
+  // OtpLoginService is the bot's door into login requests (issueCode / deny / releaseCode);
+  // WebSessionService adds endSessionFromBot.
+  exports: [TokenCodec, WebSessionService, OtpLoginService],
 })
 export class AuthModule {}

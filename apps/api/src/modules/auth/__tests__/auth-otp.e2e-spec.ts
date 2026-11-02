@@ -266,14 +266,14 @@ describe('web OTP login (real Postgres)', () => {
     expect((await t.post(START, {}, { origin: t.env.WEB_URL }, t.nextIp())).statusCode).toBe(404);
   });
 
-  it('the 6th start from one IP within a minute -> 429', async () => {
+  it('the 31st start from one IP within a minute -> 429', async () => {
     const ip = t.nextIp();
     const codes: number[] = [];
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 31; i += 1) {
       const res = await t.post(START, {}, t.csrfHeaders, ip);
       codes.push(res.statusCode);
       if (res.statusCode === 200) t.trackNonce(String(bodyOf(res).data?.['nonce']));
     }
-    expect(codes).toEqual([200, 200, 200, 200, 200, 429]);
+    expect(codes).toEqual([...Array<number>(30).fill(200), 429]);
   });
 });

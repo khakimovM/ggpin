@@ -1,7 +1,7 @@
 import type { User } from '@repo/db';
 import { ACCESS_COOKIE_NAME } from '@repo/shared';
 import { TokenCodec, type TokenPayload } from '../../../modules/auth/token-codec';
-import type { WebSessionRepository } from '../../../modules/auth/web-session.repository';
+import type { WebSessionService } from '../../../modules/auth/web-session.service';
 import type { UsersService } from '../../../modules/users/users.service';
 import { AppError } from '../../exceptions/app-error';
 import { IS_PUBLIC_KEY } from '../public.decorator';
@@ -25,9 +25,7 @@ const userRow = (over: Partial<User> = {}): User =>
   ({ id: 'u1', telegramId: 555n, isBlocked: false, ...over }) as User;
 
 function setup(opts: { user?: User | null; familyActive?: boolean } = {}) {
-  const findActiveById = jest
-    .fn()
-    .mockResolvedValue(opts.user === undefined ? userRow() : opts.user);
+  const findById = jest.fn().mockResolvedValue(opts.user === undefined ? userRow() : opts.user);
   const isFamilyActive = jest.fn().mockResolvedValue(opts.familyActive ?? true);
   const run = (init: FakeRequestInit, metadata: Record<string, unknown> = {}) => {
     const request = fakeRequest(init);
@@ -35,13 +33,13 @@ function setup(opts: { user?: User | null; familyActive?: boolean } = {}) {
     const guard = new UserAuthGuard(
       reflector,
       codec,
-      { findActiveById } as unknown as UsersService,
-      { isFamilyActive } as unknown as WebSessionRepository,
+      { findById } as unknown as UsersService,
+      { isFamilyActive } as unknown as WebSessionService,
       { now: () => now },
     );
     return { request, result: guard.canActivate(context) };
   };
-  return { run, findActiveById, isFamilyActive };
+  return { run, findById, isFamilyActive };
 }
 
 async function codeOf(promise: Promise<unknown>): Promise<string> {
@@ -56,11 +54,11 @@ async function codeOf(promise: Promise<unknown>): Promise<string> {
 
 describe('UserAuthGuard', () => {
   it('skips @Public() routes without touching tokens or the database', async () => {
-    const { run, findActiveById } = setup();
+    const { run, findById } = setup();
     const { request, result } = run({}, { [IS_PUBLIC_KEY]: true });
     await expect(result).resolves.toBe(true);
     expect(request.authUser).toBeUndefined();
-    expect(findActiveById).not.toHaveBeenCalled();
+    expect(findById).not.toHaveBeenCalled();
   });
 
   it('Bearer tg token -> attaches { id, telegramId, channel: tg }', async () => {
@@ -81,14 +79,14 @@ describe('UserAuthGuard', () => {
       channel: 'web',
       sessionFamilyId: 'fam1',
     });
-    expect(isFamilyActive).toHaveBeenCalledWith('fam1', 'u1', now);
+    expect(isFamilyActive).toHaveBeenCalledWith({ familyId: 'fam1', userId: 'u1' }, now);
   });
 
   it('web token whose family is revoked/expired -> UNAUTHORIZED, user never loaded', async () => {
-    const { run, findActiveById } = setup({ familyActive: false });
+    const { run, findById } = setup({ familyActive: false });
     const { result } = run({ cookies: { [ACCESS_COOKIE_NAME]: webToken() } });
     await expect(codeOf(result)).resolves.toBe('UNAUTHORIZED');
-    expect(findActiveById).not.toHaveBeenCalled();
+    expect(findById).not.toHaveBeenCalled();
   });
 
   it('web token without sid -> UNAUTHORIZED', async () => {

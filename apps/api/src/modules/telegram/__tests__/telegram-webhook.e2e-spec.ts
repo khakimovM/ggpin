@@ -12,6 +12,7 @@ import {
   TEST_WEBHOOK_SECRET,
 } from '../../../config/__tests__/test-env';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { TG_OUTBOX_SENDER } from '../../notifications/tg-outbox.sender';
 import { BOT } from '../bot.provider';
 import { createFakeTelegram } from './fake-telegram-api';
 import { textUpdate } from './updates';
@@ -70,6 +71,9 @@ describe('POST /api/v1/telegram/webhook (real app, fake Bot API)', () => {
     })
       .overrideProvider(BOT)
       .useValue(fake.bot)
+      // The webhook-mode app runs a real outbox worker on the shared queue: nothing may reach Telegram.
+      .overrideProvider(TG_OUTBOX_SENDER)
+      .useValue({ send: () => Promise.resolve() })
       .compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(createHttpAdapter(env), {
       logger: false,

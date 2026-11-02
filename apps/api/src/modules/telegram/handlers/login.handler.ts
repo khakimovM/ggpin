@@ -107,11 +107,12 @@ export function registerLogin(bot: TelegramBot, deps: BotDeps): void {
     try {
       denied =
         nonce !== undefined &&
+        // F2 gives 'sessionEnded' its own message; until then it counts as a successful deny.
         (await deps.login.deny({
           nonce,
           telegramId: BigInt(ctx.from.id),
           now: deps.clock.now(),
-        }));
+        })) !== 'expired';
       // Editing replaces the message, so the code leaves the chat too.
       if (denied) {
         await ctx.editMessageText(ctx.t('bot.login.denied'), {

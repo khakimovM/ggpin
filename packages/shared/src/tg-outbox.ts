@@ -6,12 +6,38 @@ import { z } from 'zod';
 /** Telegram's sendMessage text limit. */
 export const TG_TEXT_MAX_LENGTH = 4096;
 
+/** Telegram caps callback_data at 64 BYTES; printable ASCII keeps bytes equal to characters. */
+export const TG_CALLBACK_DATA_PATTERN = /^[ -~]{1,64}$/;
+
+const BUTTON_TEXT_MAX_LENGTH = 64;
+const KEYBOARD_MAX_ROWS = 8;
+const KEYBOARD_MAX_BUTTONS_PER_ROW = 8;
+
+const inlineButtonSchema = z.union([
+  z.strictObject({
+    text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
+    callback_data: z.string().regex(TG_CALLBACK_DATA_PATTERN),
+  }),
+  z.strictObject({
+    text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
+    url: z.url({ protocol: /^https?$/ }),
+  }),
+]);
+
+/** Inline keyboard as Telegram expects it (`reply_markup` of sendMessage), strictly shaped. */
+export const tgInlineKeyboardSchema = z.strictObject({
+  inline_keyboard: z
+    .array(z.array(inlineButtonSchema).min(1).max(KEYBOARD_MAX_BUTTONS_PER_ROW))
+    .max(KEYBOARD_MAX_ROWS),
+});
+export type TgInlineKeyboard = z.infer<typeof tgInlineKeyboardSchema>;
+
 export const tgOutboxJobSchema = z.strictObject({
   // User chat ids only (digits); the bot never writes to groups.
   chatId: z.string().regex(/^\d{1,20}$/),
   // Pre-rendered HTML with user-controlled parts already escaped by the producer.
   text: z.string().min(1).max(TG_TEXT_MAX_LENGTH),
-  replyMarkup: z.record(z.string(), z.unknown()).optional(),
+  replyMarkup: tgInlineKeyboardSchema.optional(),
   disableNotification: z.boolean().optional(),
 });
 export type TgOutboxJob = z.infer<typeof tgOutboxJobSchema>;

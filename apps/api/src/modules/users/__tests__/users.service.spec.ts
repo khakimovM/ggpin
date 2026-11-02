@@ -19,10 +19,10 @@ describe('UsersService (mocked repository)', () => {
     await expect(svc.updateLocale('missing', 'ru')).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('findActiveById passes the repository result through', async () => {
+  it('findById passes the repository result through', async () => {
     const row = { id: 'u1' } as User;
     const svc = service({ findById: jest.fn().mockResolvedValue(row) });
-    await expect(svc.findActiveById('u1')).resolves.toBe(row);
+    await expect(svc.findById('u1')).resolves.toBe(row);
   });
 
   it('markBotBlocked / clearBotBlocked delegate with the timestamp or null', async () => {

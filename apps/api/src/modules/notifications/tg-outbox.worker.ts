@@ -5,6 +5,7 @@ import {
   type BeforeApplicationShutdown,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
+import { scrubSecretsInText } from '@repo/shared';
 import { Worker } from 'bullmq';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { TgOutboxConsumer } from './tg-outbox.consumer';
@@ -58,9 +59,11 @@ export class TgOutboxWorker implements OnApplicationBootstrap, BeforeApplication
     });
     // Without a listener ioredis prints every reconnect failure; log each reason once.
     worker.on('error', (error: Error) => {
-      if (error.message === this.lastError) return;
-      this.lastError = error.message;
-      this.logger.warn(`worker error: ${error.message}`);
+      // ioredis messages can quote the connection URL (password), so scrub before logging.
+      const message = scrubSecretsInText(error.message);
+      if (message === this.lastError) return;
+      this.lastError = message;
+      this.logger.warn(`worker error: ${message}`);
     });
     worker.on('ready', () => {
       this.lastError = undefined;

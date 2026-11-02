@@ -1,6 +1,9 @@
 import { randomBytes } from 'node:crypto';
+import { getQueueToken } from '@nestjs/bullmq';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
+import { QUEUES } from '@repo/shared';
+import type { Queue } from 'bullmq';
 import type { DestinationStream } from 'pino';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
@@ -9,6 +12,8 @@ import { createHttpAdapter } from '../../../common/http/create-http-adapter';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import type { Env } from '../../../config/env';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { RedisService } from '../../../infra/redis/redis.service';
+import { newLoginJobId } from '../new-login-notice.service';
 import { TokenCodec } from '../token-codec';
 import { buildInitData } from './init-data.fixtures';
 
@@ -32,6 +37,10 @@ export interface AuthE2e {
   readonly nextIp: () => string;
   /** Remember a login nonce so cleanup removes its LoginRequest row. */
   readonly trackNonce: (nonce: string) => void;
+  /** Remember a Redis key (rate-limit counter) to delete in cleanup. */
+  readonly trackRedisKey: (key: string) => void;
+  /** Remember a BullMQ tg-outbox job id to remove in cleanup. */
+  readonly trackJob: (jobId: string) => void;
   readonly post: (
     url: string,
     payload: unknown,
@@ -77,6 +86,8 @@ export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}):
   })();
   const used = new Set<number>();
   const nonces = new Set<string>();
+  const redisKeys = new Set<string>();
+  const jobIds = new Set<string>();
   let ipSeq = 0;
   let app: NestFastifyApplication;
   let db: PrismaService['client'];
@@ -100,6 +111,20 @@ export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}):
   });
 
   afterAll(async () => {
+    if (redisKeys.size > 0) await app.get(RedisService).client.del(...redisKeys);
+    const queue = app.get<Queue>(getQueueToken(QUEUES.TG_OUTBOX));
+    for (const jobId of jobIds) await queue.remove(jobId);
+    // Every web login queues a "new sign-in" notice under its session family: remove them too.
+    const userRows = await db.user.findMany({
+      where: { telegramId: { in: [...used].map(BigInt) } },
+      select: { id: true },
+    });
+    const sessions = await db.webSession.findMany({
+      where: { userId: { in: userRows.map((r) => r.id) } },
+      distinct: ['familyId'],
+      select: { familyId: true },
+    });
+    for (const { familyId } of sessions) await queue.remove(newLoginJobId(familyId));
     const rows = await db.user.findMany({
       where: { telegramId: { in: [...used].map(BigInt) } },
       select: { id: true },
@@ -124,6 +149,12 @@ export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}):
     csrfHeaders,
     trackNonce: (nonce) => {
       nonces.add(nonce);
+    },
+    trackRedisKey: (key) => {
+      redisKeys.add(key);
+    },
+    trackJob: (jobId) => {
+      jobIds.add(jobId);
     },
     nextIp: () => {
       ipSeq += 1;

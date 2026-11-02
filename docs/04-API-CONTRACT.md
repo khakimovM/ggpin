@@ -48,7 +48,9 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | POST  | `/auth/logout`                                 | joriy sessiya                                                              |
 | GET   | `/auth/sessions` · DELETE `/auth/sessions/:id` | faol sessiyalar                                                            |
 
-2-fazada aniqlangan shakllar (D-26, D-27). `user` — quyidagi `GET /me` shakli.
+2-fazada aniqlangan shakllar (D-26, D-27, D-29). `user` — quyidagi `GET /me` shakli.
+`/auth/*` va `/me*` javoblari (xatolar ham) `Cache-Control: no-store` bilan qaytadi. IP
+limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
 - **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh
   (`path=/api/v1/auth`, 30 kun), ikkalasi host-only, `HttpOnly`, `SameSite=Lax`, `Secure`.
@@ -59,12 +61,13 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 - `POST /auth/telegram/webapp` — `{ initData }` (≤ 4096 belgi) →
   `{ token, expiresIn: 3600, user }`. `initData` Telegram HMAC’i bilan tekshiriladi.
   Imzo to‘g‘ri, lekin `TG_INITDATA_MAX_AGE_SEC`dan (standart 24 soat) eski bo‘lsa —
-  `401 INITDATA_EXPIRED`; boshqa har qanday nosozlik — `401 INITDATA_INVALID`.
-  Limit: 5/daqiqa/IP.
+  `401 INITDATA_EXPIRED`; boshqa har qanday nosozlik — `401 INITDATA_INVALID`. Bloklangan
+  foydalanuvchi — `403 USER_BLOCKED`. Limit: bitta Telegram akkauntga 10/daqiqa (imzo
+  tekshirilgandan keyin sanaladi) va IP’ga 120/daqiqa; oshsa — `429 RATE_LIMITED`.
 - `POST /auth/telegram/start` — `{}` → `{ nonce, botUrl }`. `nonce` 43 belgi (base64url),
-  10 daqiqa yashaydi. Limit: 5/daqiqa/IP.
+  10 daqiqa yashaydi. Limit: 30/daqiqa/IP.
 - `GET /auth/telegram/status/:nonce` → `{ status }`. Ishlatilgan so‘rov `EXPIRED` bo‘lib
-  ko‘rinadi; noma’lum yoki noto‘g‘ri shakldagi nonce — `404`. Limit: 60/daqiqa/IP.
+  ko‘rinadi; noma’lum yoki noto‘g‘ri shakldagi nonce — `404`. Limit: 300/daqiqa/IP.
 - `POST /auth/telegram/verify` — `{ nonce, code }` (`code` — 6 raqam) → ikkala cookie +
   `{ user }`. Kod bot yuborganidan keyin 3 daqiqa amal qiladi, 5 urinish, bir martalik.
   Xatolar:
@@ -72,7 +75,9 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
   - `422 CODE_EXPIRED` (muddati o‘tgan, ishlatilgan, rad etilgan yoki urinishlar tugagan);
   - `403 USER_BLOCKED`.
 
-  Limit: 5/daqiqa/IP.
+  Limit: 30/daqiqa/IP (har bir nonce’ga 5 urinish alohida). Muvaffaqiyatli kirishdan keyin
+  bot foydalanuvchiga «yangi kirish» xabarini yuboradi (qurilma, yashirilgan IP, vaqt va
+  sessiyani yopish tugmasi).
 
 - `POST /auth/refresh` — refresh cookie → yangi cookie juftligi + `{ user }`. Refresh token
   har safar almashadi. Xatolarda cookie’lar ham tozalanadi:
