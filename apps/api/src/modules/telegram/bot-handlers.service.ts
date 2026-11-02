@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { OtpLoginService } from '../auth/otp-login.service';
+import { WebSessionService } from '../auth/web-session.service';
 import { UsersService } from '../users/users.service';
 import { BotSetupService } from './bot-setup.service';
 import { BOT, type TelegramBot } from './bot.provider';
@@ -20,6 +21,7 @@ export class BotHandlersService implements OnModuleInit {
     @Inject(CLOCK) private readonly clock: Clock,
     private readonly users: UsersService,
     private readonly login: OtpLoginService,
+    private readonly sessions: WebSessionService,
     private readonly loginContact: LoginContactStore,
     private readonly setup: BotSetupService,
   ) {}
@@ -28,9 +30,16 @@ export class BotHandlersService implements OnModuleInit {
     installHandlers(this.bot, {
       users: this.users,
       login: this.login,
+      sessions: this.sessions,
       loginContact: this.loginContact,
       clock: this.clock,
-      config: this.config,
+      // Only what the bot needs: AppConfig holds every secret.
+      config: {
+        TELEGRAM_BOT_USERNAME: this.config.TELEGRAM_BOT_USERNAME,
+        NODE_ENV: this.config.NODE_ENV,
+        MINI_APP_URL: this.config.MINI_APP_URL,
+        TELEGRAM_NEWS_CHANNEL_URL: this.config.TELEGRAM_NEWS_CHANNEL_URL,
+      },
       menu: this.setup,
       log: { warn: (m) => this.logger.warn(m), error: (m) => this.logger.error(m) },
     });

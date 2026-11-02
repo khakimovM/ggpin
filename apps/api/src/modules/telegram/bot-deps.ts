@@ -1,6 +1,7 @@
 import type { Locale } from '@repo/shared';
 import type { Clock } from '../../common/clock/clock';
 import type { OtpLoginService } from '../auth/otp-login.service';
+import type { WebSessionService } from '../auth/web-session.service';
 import type { UsersService } from '../users/users.service';
 import type { KeyboardConfig } from './keyboards';
 
@@ -32,7 +33,8 @@ export interface BotDeps {
     UsersService,
     'ensureTelegramUser' | 'updateLocale' | 'markBotBlocked' | 'clearBotBlocked' | 'setPhone'
   >;
-  readonly login: Pick<OtpLoginService, 'issueCode' | 'deny' | 'status'>;
+  readonly login: Pick<OtpLoginService, 'issueCode' | 'deny' | 'status' | 'releaseCode'>;
+  readonly sessions: Pick<WebSessionService, 'endSessionFromBot'>;
   readonly loginContact: PendingLoginStore;
   readonly clock: Clock;
   readonly config: BotConfig;

@@ -197,6 +197,25 @@ describe('web login through the bot (real app, fake Bot API)', () => {
     expect(String(messagesTo(id).at(-1)?.payload['text'])).toContain('allaqachon');
   });
 
+  it('a code message that cannot be sent puts the link back: opening it again issues a new code', async () => {
+    const id = newId();
+    await webhook(textUpdate({ id }, '/start'));
+    await db.user.update({ where: { telegramId: BigInt(id) }, data: { phone: '+998901116666' } });
+    const nonce = await webStart();
+
+    fake.failMethod('sendMessage');
+    await webhook(textUpdate({ id }, `/start login_${nonce}`));
+    fake.restoreMethod('sendMessage');
+    expect(await status(nonce)).toBe('PENDING');
+
+    await webhook(textUpdate({ id }, `/start login_${nonce}`));
+    expect(await status(nonce)).toBe('CODE_SENT');
+    const delivered = codeSentTo(id);
+    expect(delivered.length).toBeGreaterThan(0);
+    const code = delivered.at(-1) ?? '';
+    expect((await verify(nonce, code)).statusCode).toBe(200);
+  });
+
   it('a second account cannot take a link that already has a code', async () => {
     const owner = newId();
     const other = newId();

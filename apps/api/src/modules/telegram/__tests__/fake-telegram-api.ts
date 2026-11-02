@@ -14,6 +14,8 @@ export interface FakeTelegram {
   readonly calls: RecordedCall[];
   /** Makes the next calls to `method` fail with a Bot API error (400) instead of succeeding. */
   failMethod(method: string): void;
+  /** Undoes failMethod. */
+  restoreMethod(method: string): void;
   callsOf(method: string): RecordedCall[];
 }
 
@@ -70,6 +72,7 @@ export function createFakeTelegram(): FakeTelegram {
     bot,
     calls,
     failMethod: (method) => failing.add(method),
+    restoreMethod: (method) => failing.delete(method),
     callsOf: (method) => calls.filter((c) => c.method === method),
   };
 }

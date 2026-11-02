@@ -1,4 +1,5 @@
-import type { IssueCodeFailure } from '../../auth/otp-login.service';
+import { BRAND } from '@repo/shared';
+import type { DenyResult, IssueCodeFailure } from '../../auth/otp-login.service';
 import { AppError } from '../../../common/exceptions/app-error';
 import type { BotContext } from '../bot-context';
 import type { BotDeps } from '../bot-deps';
@@ -51,7 +52,6 @@ async function linkState(deps: BotDeps, nonce: string): Promise<'PENDING' | 'COD
   }
 }
 
-// The only place a plain code exists: it goes straight into this reply and nowhere else.
 async function issueAndReply(ctx: BotContext, deps: BotDeps, nonce: string): Promise<void> {
   const result = await deps.login.issueCode({
     nonce,
@@ -62,11 +62,39 @@ async function issueAndReply(ctx: BotContext, deps: BotDeps, nonce: string): Pro
     await ctx.reply(ctx.t(FAILURE_KEY[result.reason]), HTML);
     return;
   }
-  await ctx.reply(ctx.t('bot.login.code', { code: result.code }), {
-    ...HTML,
-    protect_content: true,
-    reply_markup: denyKeyboard(ctx, nonce),
-  });
+  await sendCode(ctx, deps, nonce, result.code);
+}
+
+// The only place a plain code exists: it goes straight into this reply and nowhere else.
+// If Telegram does not take the message the user never saw the code, so the link is put back
+// to PENDING (they can open it again) and the error goes on to bot.catch, which scrubs it.
+async function sendCode(
+  ctx: BotContext,
+  deps: BotDeps,
+  nonce: string,
+  code: string,
+): Promise<void> {
+  try {
+    await ctx.reply(ctx.t('bot.login.code', { code, brand: BRAND.name, domain: BRAND.domain }), {
+      ...HTML,
+      protect_content: true,
+      reply_markup: denyKeyboard(ctx, nonce),
+    });
+  } catch (error) {
+    try {
+      await deps.login.releaseCode({
+        nonce,
+        telegramId: ctx.user.telegramId,
+        code,
+        now: deps.clock.now(),
+      });
+    } catch (releaseError) {
+      deps.log.warn(
+        `login code release failed: ${releaseError instanceof Error ? releaseError.name : 'unknown'}`,
+      );
+    }
+    throw error;
+  }
 }
 
 export function registerLogin(bot: TelegramBot, deps: BotDeps): void {
@@ -91,6 +119,20 @@ export function registerLogin(bot: TelegramBot, deps: BotDeps): void {
       });
       return;
     }
+    // The phone is stored only together with a login that really starts: a dead or foreign
+    // link must not leave a number behind.
+    const result = await deps.login.issueCode({
+      nonce,
+      telegramId: ctx.user.telegramId,
+      now: deps.clock.now(),
+    });
+    if (!result.ok) {
+      await ctx.reply(ctx.t(FAILURE_KEY[result.reason]), {
+        ...HTML,
+        reply_markup: { remove_keyboard: true },
+      });
+      return;
+    }
     await deps.users.setPhone(ctx.user.id, phone);
     // One message carries one reply_markup, so the keyboard goes away with a short
     // confirmation and the code arrives as its own message with the inline button.
@@ -98,33 +140,32 @@ export function registerLogin(bot: TelegramBot, deps: BotDeps): void {
       ...HTML,
       reply_markup: { remove_keyboard: true },
     });
-    await issueAndReply(ctx, deps, nonce);
+    await sendCode(ctx, deps, nonce, result.code);
   });
 
   bot.callbackQuery(DENY_CALLBACK, async (ctx) => {
     const nonce = ctx.match[1];
-    let denied = false;
+    let result: DenyResult = 'expired';
     try {
-      denied =
-        nonce !== undefined &&
-        // F2 gives 'sessionEnded' its own message; until then it counts as a successful deny.
-        (await deps.login.deny({
+      if (nonce !== undefined) {
+        result = await deps.login.deny({
           nonce,
           telegramId: BigInt(ctx.from.id),
           now: deps.clock.now(),
-        })) !== 'expired';
-      // Editing replaces the message, so the code leaves the chat too.
-      if (denied) {
-        await ctx.editMessageText(ctx.t('bot.login.denied'), {
-          ...HTML,
-          reply_markup: { inline_keyboard: [] },
         });
+      }
+      // Editing replaces the message, so the code leaves the chat too.
+      if (result !== 'expired') {
+        const key = result === 'sessionEnded' ? 'bot.login.sessionEnded' : 'bot.login.denied';
+        await ctx.editMessageText(ctx.t(key), { ...HTML, reply_markup: { inline_keyboard: [] } });
       }
     } catch (error) {
       deps.log.warn(`login deny failed: ${error instanceof Error ? error.name : 'unknown'}`);
     }
     try {
-      await ctx.answerCallbackQuery(denied ? {} : { text: ctx.t('bot.login.expired') });
+      await ctx.answerCallbackQuery(
+        result === 'expired' ? { text: ctx.t('bot.login.expired') } : {},
+      );
     } catch {
       // The spinner is cosmetic; never throw out of a callback handler.
     }

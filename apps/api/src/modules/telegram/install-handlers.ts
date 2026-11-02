@@ -4,9 +4,11 @@ import { registerChatMember } from './handlers/chat-member.handler';
 import { registerHelp } from './handlers/help.handler';
 import { registerLang } from './handlers/lang.handler';
 import { registerLogin } from './handlers/login.handler';
+import { registerSession } from './handlers/session.handler';
 import { registerRef } from './handlers/ref.handler';
 import { registerShop } from './handlers/shop.handler';
 import { registerStart } from './handlers/start.handler';
+import { privateChatGuard } from './middleware/private-chat-guard.middleware';
 import { userContext } from './middleware/user-context.middleware';
 import { safeErrorText } from './safe-error';
 
@@ -19,11 +21,13 @@ export function installHandlers(bot: TelegramBot, deps: BotDeps): void {
     deps.log.error(`update ${err.ctx.update.update_id} failed: ${safeErrorText(err.error)}`);
   });
 
+  bot.use(privateChatGuard(deps.log));
   registerChatMember(bot, deps);
   bot.use(userContext(deps));
   registerStart(bot, deps);
   registerLang(bot, deps);
   registerLogin(bot, deps);
+  registerSession(bot, deps);
   registerHelp(bot);
   registerRef(bot, deps);
   registerShop(bot, deps);

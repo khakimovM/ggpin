@@ -48,7 +48,7 @@ exports[`contact message stores an own contact as +digits, drops the keyboard, t
       },
       "text": "🔐 Код для входа на сайт: <code>482913</code>
 
-Код действует 3 минуты. Никому его не сообщайте: сотрудники ggpin никогда не спрашивают код.",
+Вводите код только на сайте ggpin.uz. Код действует 3 минуты. Никому его не сообщайте: сотрудники ggpin никогда не спрашивают код.",
     },
   },
 ]
@@ -73,7 +73,7 @@ exports[`deny button (ru) deny false only answers the callback with the expired 
 [
   {
     "answerCallbackQuery": {
-      "callback_query_id": "cb-1036",
+      "callback_query_id": "cb-1043",
       "text": "⌛ Ссылка устарела. Начните вход на сайте заново.",
     },
   },
@@ -95,7 +95,28 @@ exports[`deny button (ru) deny true edits the message (code gone, keyboard gone)
   },
   {
     "answerCallbackQuery": {
-      "callback_query_id": "cb-1035",
+      "callback_query_id": "cb-1042",
+    },
+  },
+]
+`;
+
+exports[`deny button (ru) sessionEnded edits to its own text and removes the keyboard 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700301,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Вход отменён, эта сессия закрыта.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1044",
     },
   },
 ]
@@ -105,7 +126,7 @@ exports[`deny button (uz) deny false only answers the callback with the expired 
 [
   {
     "answerCallbackQuery": {
-      "callback_query_id": "cb-1032",
+      "callback_query_id": "cb-1038",
       "text": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
     },
   },
@@ -127,7 +148,28 @@ exports[`deny button (uz) deny true edits the message (code gone, keyboard gone)
   },
   {
     "answerCallbackQuery": {
-      "callback_query_id": "cb-1031",
+      "callback_query_id": "cb-1037",
+    },
+  },
+]
+`;
+
+exports[`deny button (uz) sessionEnded edits to its own text and removes the keyboard 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700301,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Kirish bekor qilindi va bu sessiya yopildi.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1039",
     },
   },
 ]
@@ -200,7 +242,7 @@ exports[`web login via the bot, user with a phone (ru) sends the code in <code>,
       },
       "text": "🔐 Код для входа на сайт: <code>482913</code>
 
-Код действует 3 минуты. Никому его не сообщайте: сотрудники ggpin никогда не спрашивают код.",
+Вводите код только на сайте ggpin.uz. Код действует 3 минуты. Никому его не сообщайте: сотрудники ggpin никогда не спрашивают код.",
     },
   },
 ]
@@ -273,7 +315,7 @@ exports[`web login via the bot, user with a phone (uz) sends the code in <code>,
       },
       "text": "🔐 Saytga kirish kodi: <code>482913</code>
 
-Kod 3 daqiqa amal qiladi. Uni hech kimga bermang: ggpin xodimlari kodni hech qachon so‘ramaydi.",
+Kodni faqat ggpin.uz saytiga kiriting. Kod 3 daqiqa amal qiladi. Uni hech kimga bermang: ggpin xodimlari kodni hech qachon so‘ramaydi.",
     },
   },
 ]

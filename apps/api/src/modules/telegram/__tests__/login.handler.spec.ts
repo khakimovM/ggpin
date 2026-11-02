@@ -1,5 +1,7 @@
+import { BotError } from 'grammy';
 import { AppError } from '../../../common/exceptions/app-error';
 import type { IssueCodeResult } from '../../auth/otp-login.service';
+import { safeErrorText } from '../safe-error';
 import { denyCallbackData } from '../login-keyboards';
 import { createHarness, makeUser } from './bot-harness';
 import { callbackUpdate, contactUpdate, textUpdate } from './updates';
@@ -148,6 +150,48 @@ describe('contact message', () => {
   });
 });
 
+describe('contact message when the login cannot start', () => {
+  it.each<[string, IssueCodeResult]>([
+    ['the link died meanwhile', { ok: false, reason: 'expired' }],
+    ['another account claimed the link', { ok: false, reason: 'usedByOther' }],
+  ])('%s: nothing is stored and the keyboard goes away', async (_name, result) => {
+    const h = createHarness({
+      users: noPhone(),
+      login: { issueCode: () => Promise.resolve(result) },
+    });
+    await h.send(textUpdate({ id: ID }, START));
+    h.calls.length = 0;
+    await h.send(contactUpdate({ id: ID }, { phone_number: '998901234567', user_id: ID }));
+    expect(h.store.get(BigInt(ID))?.phone).toBeNull();
+    const sent = h.callsOf('sendMessage');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.payload['reply_markup']).toEqual({ remove_keyboard: true });
+    expect(String(sent[0]?.payload['text'])).not.toContain('482913');
+  });
+});
+
+describe('the code message cannot be sent', () => {
+  it('releases the code, rethrows, and no log line holds the code', async () => {
+    const h = createHarness({ users: withPhone('uz') });
+    h.failMethod('sendMessage');
+    const failure: unknown = await h.send(textUpdate({ id: ID }, START)).catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(BotError);
+    expect(h.releaseCalls).toEqual([{ nonce: NONCE, telegramId: BigInt(ID), code: '482913' }]);
+    const cause = failure instanceof BotError ? failure.error : failure;
+    expect(JSON.stringify(h.logs) + safeErrorText(cause)).not.toContain('482913');
+  });
+
+  it('a failing release does not hide the send error and is logged without details', async () => {
+    const h = createHarness({
+      users: withPhone('uz'),
+      login: { releaseCode: () => Promise.reject(new Error('redis down 482913')) },
+    });
+    h.failMethod('sendMessage');
+    await expect(h.send(textUpdate({ id: ID }, START))).rejects.toBeInstanceOf(BotError);
+    expect(h.logs.warn).toEqual(['login code release failed: Error']);
+  });
+});
+
 describe.each(['uz', 'ru'] as const)('deny button (%s)', (locale) => {
   const data = denyCallbackData(NONCE);
 
@@ -170,6 +214,17 @@ describe.each(['uz', 'ru'] as const)('deny button (%s)', (locale) => {
     await h.send(callbackUpdate({ id: ID }, data));
     expect(h.payloads()).toMatchSnapshot();
     expect(h.callsOf('editMessageText')).toHaveLength(0);
+  });
+
+  it('sessionEnded edits to its own text and removes the keyboard', async () => {
+    const h = createHarness({
+      users: withPhone(locale),
+      login: { deny: () => Promise.resolve('sessionEnded' as const) },
+    });
+    await h.send(callbackUpdate({ id: ID }, data));
+    expect(h.payloads()).toMatchSnapshot();
+    const [edit] = h.callsOf('editMessageText');
+    expect(edit?.payload['reply_markup']).toEqual({ inline_keyboard: [] });
   });
 
   it('never throws when deny fails, and the logs hold no nonce', async () => {

@@ -18,6 +18,10 @@ export interface BotHarness extends FakeTelegram {
   readonly pendingContacts: Map<bigint, string>;
   /** Arguments of every OtpLoginService call, in order. */
   readonly loginCalls: { method: string; nonce: string }[];
+  /** Arguments of every releaseCode call. */
+  readonly releaseCalls: { nonce: string; telegramId: bigint; code: string }[];
+  /** Family ids passed to endSessionFromBot, in order. */
+  readonly endedFamilies: string[];
   send(update: Update): Promise<void>;
   /** Calls made to the Bot API, without the boot-independent noise: payloads only. */
   payloads(): unknown[];
@@ -27,6 +31,7 @@ export interface HarnessOptions {
   readonly config?: Partial<BotConfig>;
   readonly users?: readonly User[];
   readonly login?: Partial<BotDeps['login']>;
+  readonly sessions?: Partial<BotDeps['sessions']>;
 }
 
 export function makeUser(telegramId: bigint, overrides: Partial<User> = {}): User {
@@ -102,6 +107,8 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
 
   const pendingContacts = new Map<bigint, string>();
   const loginCalls: BotHarness['loginCalls'] = [];
+  const releaseCalls: BotHarness['releaseCalls'] = [];
+  const endedFamilies: string[] = [];
   const login: BotDeps['login'] = {
     issueCode: (input) => {
       loginCalls.push({ method: 'issueCode', nonce: input.nonce });
@@ -111,9 +118,19 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
       loginCalls.push({ method: 'deny', nonce: input.nonce });
       return options.login?.deny?.(input) ?? Promise.resolve('denied' as const);
     },
+    releaseCode: (input) => {
+      releaseCalls.push({ nonce: input.nonce, telegramId: input.telegramId, code: input.code });
+      return options.login?.releaseCode?.(input) ?? Promise.resolve(true);
+    },
     status: (nonce, now) => {
       loginCalls.push({ method: 'status', nonce });
       return options.login?.status?.(nonce, now) ?? Promise.resolve({ status: 'PENDING' });
+    },
+  };
+  const sessions: BotDeps['sessions'] = {
+    endSessionFromBot: (input) => {
+      endedFamilies.push(input.familyId);
+      return options.sessions?.endSessionFromBot?.(input) ?? Promise.resolve(true);
     },
   };
   const loginContact: BotDeps['loginContact'] = {
@@ -132,6 +149,7 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
   installHandlers(fake.bot, {
     users,
     login,
+    sessions,
     loginContact,
     clock: CLOCK,
     config,
@@ -146,6 +164,8 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     refCodes,
     pendingContacts,
     loginCalls,
+    releaseCalls,
+    endedFamilies,
     send: (update) => fake.bot.handleUpdate(update),
     payloads: () => fake.calls.map((c) => ({ [c.method]: c.payload })),
   };

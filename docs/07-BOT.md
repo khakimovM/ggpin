@@ -14,30 +14,40 @@ Bot — kirish eshigi va xabarnoma kanali. Xarid Mini App'da bo‘ladi; bot hech
 
 Payload'lar:
 
-| Payload         | Natija                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------ |
-| —               | salomlashish xabari                                                                        |
-| `ref_<code>`    | referal bog‘lanadi (faqat birinchi marta, o‘zini taklif qilish mumkin emas) + salomlashish |
-| `p_<slug>`      | mahsulotni Mini App'da ochish tugmasi                                                      |
-| `login_<nonce>` | web kirish: telefon ulashish (yangi foydalanuvchi bo‘lsa) → 6 xonali kod                   |
-| `admin_<nonce>` | admin kirish (faqat allowlist); boshqalarga oddiy "havola eskirgan"                        |
+| Payload         | Natija                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| —               | salomlashish xabari                                                                                        |
+| `ref_<code>`    | referal bog‘lanadi (faqat birinchi marta, o‘zini taklif qilish mumkin emas) + salomlashish                 |
+| `p_<slug>`      | mahsulotni Mini App'da ochish tugmasi (mahsulot sahifalari tayyor bo‘lguncha oddiy `/start` kabi ishlaydi) |
+| `login_<nonce>` | web kirish: telefon ulashish (yangi foydalanuvchi bo‘lsa) → 6 xonali kod                                   |
+| `admin_<nonce>` | admin kirish (faqat allowlist); boshqalarga oddiy "havola eskirgan"                                        |
 
-`login_<nonce>` oqimi (2-faza, D-27):
+`login_<nonce>` oqimi (2-faza, D-27, D-29):
 
 1. Havola tekshiriladi. Eskirgan yoki boshqa hisob olgan havolaga mos xabar chiqadi
    (`bot.login.expired` / `usedByOther`), telefon so‘ralmaydi.
 2. `phone` bo‘sh bo‘lsa — «Raqamni ulashish» tugmasi (`request_contact`). Faqat o‘z kontakti
    qabul qilinadi (`contact.user_id = from.id`), boshqasi — `bot.login.contactNotYours`.
-   Kutilayotgan havola Redis’da (`tg:login-contact:<telegramId>`, 10 daqiqa) turadi; login
-   bo‘lmasa raqam saqlanmaydi.
-3. Kod `<code>` ichida, "hech kimga bermang" ogohlantirishi bilan, `protect_content` bilan
-   (forward qilib bo‘lmaydi) yuboriladi. Kod faqat shu javobda bo‘ladi: logga ham, navbatga ham
-   tushmaydi.
-4. Kod ostida «Bu men emasman» tugmasi (`ld:<nonce>`): so‘rov `DENIED` bo‘ladi, xabar
-   tahrirlanib kod chatdan o‘chadi.
+   Kutilayotgan havola Redis’da (`tg:login-contact:<telegramId>`, 10 daqiqa) turadi. Raqam
+   faqat kod muvaffaqiyatli berilganda saqlanadi: havola eskirgan yoki boshqa hisobniki bo‘lsa,
+   raqam saqlanmaydi.
+3. Kod `<code>` ichida, `protect_content` bilan (forward qilib bo‘lmaydi) yuboriladi. Matnda:
+   "kodni faqat ggpin.uz saytiga kiriting" va "hech kimga bermang" (brend va domen
+   `packages/shared/src/brand.ts`dan). Kod faqat shu javobda bo‘ladi: logga ham, navbatga ham
+   tushmaydi. Xabar yetkazilmasa, so‘rov `PENDING`ga qaytariladi va havolani qayta ochish mumkin.
+4. Kod ostida «Bu men emasman» tugmasi (`ld:<nonce>`). Kod hali ishlatilmagan bo‘lsa, so‘rov
+   `DENIED` bo‘ladi. Kod allaqachon saytga kiritilgan bo‘lsa, o‘sha web sessiya darhol yopiladi
+   (`bot.login.sessionEnded`). Ikkala holda ham xabar tahrirlanadi va kod chatdan o‘chadi.
 5. Takroriy `/start login_` (masalan, webhook ikki marta kelsa) ikkinchi kod bermaydi:
    `bot.login.alreadySent`. Bitta hisobga 10 daqiqada 5 tadan ortiq kod berilmaydi:
    `bot.login.rateLimited`.
+6. Har bir muvaffaqiyatli web kirishdan keyin bot «yangi kirish» xabarini yuboradi
+   (`tg-outbox` orqali). Unda qurilma, yashirilgan IP, Toshkent vaqti va «Bu men emasman»
+   tugmasi (`se:<sessiya id>`) bor. Tugma o‘sha sessiyani yopadi, lekin faqat sessiya egasining
+   akkauntida ishlaydi.
+
+Xavfsizlik: shaxsiy chatdan kelgan update’da `chat.id ≠ from.id` bo‘lsa, update jimgina
+tashlab yuboriladi. Haqiqiy Telegram update’ida ular doim teng bo‘ladi.
 
 Salomlashish xabari (rasm/banner + matn):
 
