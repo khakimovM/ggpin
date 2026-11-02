@@ -5,3 +5,7 @@
 0c2eec9444f4077e08ac2713ddad2d3f78d7a69b:apps/api/src/common/logging/__tests__/logger-params.spec.ts:generic-api-key:14
 0c2eec9444f4077e08ac2713ddad2d3f78d7a69b:apps/worker/src/logging/__tests__/logger-params.spec.ts:generic-api-key:17
 0c2eec9444f4077e08ac2713ddad2d3f78d7a69b:apps/worker/src/logging/__tests__/logger-params.spec.ts:generic-api-key:19
+# 86093f6: fake Redis URL with the made-up password "s3cret" inside a unit test that proves an enqueue
+# error's text never reaches the log. Not a real credential; the next commit switches it to
+# the allowlisted fake value `secret`, so no new literal exists.
+86093f634a98b723f250d498dc414f8370f9da62:apps/api/src/modules/auth/__tests__/new-login-notice.service.spec.ts:url-credentials:114

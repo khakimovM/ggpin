@@ -111,7 +111,7 @@ describe('NewLoginNoticeService', () => {
   it('swallows an enqueue failure and logs a warning without PII or the error text', async () => {
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     try {
-      const failure = new Error('connect ECONNREFUSED redis://:s3cret@host chat 777000111');
+      const failure = new Error('connect ECONNREFUSED redis://:secret@host chat 777000111');
       const { service } = setup(jest.fn().mockRejectedValue(failure));
       await expect(
         service.send({
@@ -124,7 +124,7 @@ describe('NewLoginNoticeService', () => {
       expect(warn).toHaveBeenCalledTimes(1);
       const line = String(warn.mock.calls[0]?.[0]);
       expect(line).toBe('new-login notice not queued: Error');
-      for (const pii of ['777000111', '203.0.113', 's3cret', FAMILY]) {
+      for (const pii of ['777000111', '203.0.113', 'secret', FAMILY]) {
         expect(line).not.toContain(pii);
       }
     } finally {
