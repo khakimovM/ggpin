@@ -22,7 +22,13 @@ export function productionSecretProblems(source: Source): string[] {
 // Key separation: if two of these were equal, a token or code minted for one purpose could be
 // forged or verified under another (e.g. a refresh token accepted as a Mini App session).
 // Names only in the message, never values.
-const MUST_DIFFER = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'TG_SESSION_SECRET', 'OTP_PEPPER'];
+const MUST_DIFFER = [
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'TG_SESSION_SECRET',
+  'OTP_PEPPER',
+  'TELEGRAM_WEBHOOK_SECRET',
+];
 
 export function duplicateSecretProblems(source: Source): string[] {
   const problems: string[] = [];
@@ -37,11 +43,40 @@ export function duplicateSecretProblems(source: Source): string[] {
   return problems;
 }
 
+// Secrets that sign or key something must never keep their .env.example placeholder, in dev
+// either: a copied example file would otherwise ship forgeable tokens. Tests are exempt (they
+// pass fixed fake values). Names only in the message.
+const PLACEHOLDER_CHECKED = [
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'TG_SESSION_SECRET',
+  'OTP_PEPPER',
+  'TELEGRAM_WEBHOOK_SECRET',
+];
+
+export function placeholderSecretProblems(source: Source): string[] {
+  if (source.NODE_ENV === 'test') return [];
+  return PLACEHOLDER_CHECKED.flatMap((name) => {
+    const value = source[name];
+    if (value === undefined || isBlank(value)) return [];
+    return /change-me/i.test(value) || /<[^<>]*>/.test(value)
+      ? [
+          `${name}: is a placeholder (contains "change-me" or <...>); generate a real value, e.g. openssl rand -base64 48`,
+        ]
+      : [];
+  });
+}
+
 // Cross-field rules for the bot. Field formats live in the schema (env.ts); this adds what
 // depends on the mode or on NODE_ENV. A bad TELEGRAM_BOT_MODE is reported by the schema.
 export function telegramModeProblems(source: Source): string[] {
   const problems: string[] = [];
   const mode = isBlank(source.TELEGRAM_BOT_MODE) ? 'off' : source.TELEGRAM_BOT_MODE;
+  if (source.NODE_ENV === 'development' && mode === 'webhook') {
+    problems.push(
+      'TELEGRAM_BOT_MODE: "webhook" is not allowed with NODE_ENV=development (a dev process would take over the production webhook); use polling or off',
+    );
+  }
   if (source.NODE_ENV === 'production' && mode !== 'webhook') {
     problems.push(
       'TELEGRAM_BOT_MODE: must be "webhook" in production (long polling is for development)',

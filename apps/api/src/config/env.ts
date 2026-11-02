@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   duplicateSecretProblems,
   isBlank,
+  placeholderSecretProblems,
   productionSecretProblems,
   telegramModeProblems,
   workerSecretProblems,
@@ -60,7 +61,9 @@ const telegramIdList = z
   .transform((ids): readonly bigint[] => ids.map((id) => BigInt(id)));
 
 const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // No default: a forgotten NODE_ENV must not silently become "development" (insecure cookies,
+  // relaxed checks). apps/api/.env.example sets it; Jest sets "test".
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   BRAND_NAME: z.string().min(1).optional(),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(5000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
@@ -81,7 +84,8 @@ const EnvSchema = z.object({
   // Peppers the HMAC of one-time login codes: a 6-digit code is brute-forceable offline
   // without a server-side secret.
   OTP_PEPPER: z.string(),
-  TG_INITDATA_MAX_AGE_SEC: z.coerce.number().int().positive().default(86400),
+  // Capped at 24 h (60-security.md): a longer window would let a leaked initData log in for days.
+  TG_INITDATA_MAX_AGE_SEC: z.coerce.number().int().positive().max(86400).default(86400),
   // Always required, even with TELEGRAM_BOT_MODE=off: Mini App initData is verified with an
   // HMAC keyed by the bot token.
   TELEGRAM_BOT_TOKEN: z
@@ -169,9 +173,16 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   problems.push(...workerSecretProblems(clean));
   problems.push(...duplicateSecretProblems(clean));
   problems.push(...telegramModeProblems(clean));
+  let productionReported: readonly string[] = [];
 
   if (clean.NODE_ENV === 'production') {
-    problems.push(...productionSecretProblems(clean));
+    productionReported = productionSecretProblems(clean);
+    problems.push(...productionReported);
+    if (isBlank(clean.TRUST_PROXY)) {
+      problems.push(
+        'TRUST_PROXY: is required in production (without it every client shares the proxy address and rate limits collapse into one bucket)',
+      );
+    }
     if (clean.SWAGGER_ENABLED === 'true') {
       problems.push(
         'SWAGGER_ENABLED: must not be "true" in production (the API docs would be public)',
@@ -186,6 +197,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     // The Mini App button and bot links cannot work without it; dev may leave it empty.
     if (clean.MINI_APP_URL === undefined) problems.push('MINI_APP_URL: is required in production');
   }
+
+  // The production check above already names a placeholder; do not report it twice.
+  const named = new Set(productionReported.map((p) => p.split(':')[0]));
+  problems.push(...placeholderSecretProblems(clean).filter((p) => !named.has(p.split(':')[0])));
 
   if (!parsed.success || problems.length > 0) throw new EnvValidationError(problems);
   return Object.freeze(parsed.data);

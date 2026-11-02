@@ -216,6 +216,7 @@ describe('loadEnv', () => {
     const prod = {
       ...TEST_ENV_SOURCE,
       NODE_ENV: 'production',
+      TRUST_PROXY: '127.0.0.1',
       WEB_URL: 'https://ggpin.uz',
       ADMIN_URL: 'https://admin.ggpin.uz',
       MINI_APP_URL: 'https://ggpin.uz/tg',
@@ -246,9 +247,9 @@ describe('loadEnv', () => {
       expect(message).not.toContain('CLICK_SECRET_KEY');
     });
 
-    it('allows the same placeholders outside production', () => {
+    it('allows placeholders only under NODE_ENV=test (see env-hardening.spec.ts)', () => {
       expect(() =>
-        loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'development', JWT_ACCESS_SECRET: 'change-me' }),
+        loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'test', JWT_ACCESS_SECRET: 'change-me' }),
       ).not.toThrow();
     });
 

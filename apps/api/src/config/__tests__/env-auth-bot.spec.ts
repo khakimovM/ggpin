@@ -212,6 +212,7 @@ describe('auth and bot settings (phase 2)', () => {
     const prod = {
       ...TEST_ENV_SOURCE,
       NODE_ENV: 'production',
+      TRUST_PROXY: '127.0.0.1',
       WEB_URL: 'https://ggpin.uz',
       ADMIN_URL: 'https://admin.ggpin.uz',
       MINI_APP_URL: 'https://ggpin.uz/tg',

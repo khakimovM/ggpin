@@ -14,7 +14,8 @@ const bigintString = (fallback: string) =>
     .transform((v) => BigInt(v));
 
 const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // No default: a forgotten NODE_ENV must not silently become "development".
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   BRAND_NAME: z.string().min(1).optional(),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),

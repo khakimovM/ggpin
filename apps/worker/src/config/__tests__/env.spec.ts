@@ -43,6 +43,12 @@ describe('worker loadEnv', () => {
     expect(message).toContain('REDIS_URL: is required but not set');
   });
 
+  it('requires NODE_ENV: no default, so a forgotten value cannot become development', () => {
+    const { NODE_ENV: _removed, ...without } = TEST_ENV_SOURCE;
+    expect(messageOf(without)).toContain('NODE_ENV: is required but not set');
+    expect(messageOf({ ...TEST_ENV_SOURCE, NODE_ENV: 'staging' })).toContain('NODE_ENV');
+  });
+
   it('parses FULFILLMENT_DRY_RUN strictly', () => {
     expect(buildTestEnv({ FULFILLMENT_DRY_RUN: 'false' }).FULFILLMENT_DRY_RUN).toBe(false);
     for (const bad of ['yes', '0', 'FALSE']) {
