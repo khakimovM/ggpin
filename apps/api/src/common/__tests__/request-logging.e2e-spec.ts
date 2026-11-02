@@ -157,6 +157,25 @@ describe('request logging, request id and log redaction (real pipeline)', () => 
     expect((await completed())[0]).toMatchObject({ status: 500, level: 'error', reqId: id });
   });
 
+  it('never logs the login nonce from /auth/telegram/status/:nonce', async () => {
+    const nonce = 'e2e-login-nonce-abcdef123456';
+    // No such route exists in this test app, so each request is logged as an unmatched path:
+    // the case where the raw path is written to the log.
+    for (const url of [
+      `/api/v1/auth/telegram/status/${nonce}`,
+      `/api/v1/auth/telegram/status/${nonce}/?x=1`,
+      `/API/V1/AUTH/TELEGRAM/STATUS/${nonce}`,
+      `/api/v1/auth/%74elegram/status/${nonce}`,
+    ]) {
+      logs.clear();
+      await http().post(url).expect(404);
+      await completed();
+      expect(logs.text()).not.toContain(nonce);
+      const unmatched = logs.records().find((r) => r.route === 'unmatched');
+      expect(String(unmatched?.path)).toContain(REDACTED);
+    }
+  });
+
   it('does not log successful health probes at info, but still sets the request id', async () => {
     const res = await http().get('/api/v1/health/live').expect(200);
     expect(res.headers['x-request-id']).toMatch(UUID);

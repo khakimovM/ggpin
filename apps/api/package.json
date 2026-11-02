@@ -8,7 +8,7 @@
     "start": "node --env-file-if-exists=.env dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
     "test:e2e": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest-e2e.json --runInBand"
   },
   "jest": {
@@ -35,6 +35,7 @@
     "ts-jest": "^29.4.15"
   },
   "dependencies": {
+    "@fastify/cookie": "11.1.5",
     "@fastify/helmet": "13.2.0",
     "@fastify/static": "10.1.8",
     "@nestjs/bullmq": "11.0.5",
@@ -44,8 +45,10 @@
     "@nestjs/swagger": "11.4.7",
     "@nestjs/throttler": "6.7.1",
     "@repo/db": "^0.0.0",
+    "@repo/i18n": "^0.0.0",
     "@repo/shared": "^0.0.0",
     "bullmq": "5.81.5",
+    "grammy": "1.46.0",
     "ioredis": "5.11.1",
     "nestjs-pino": "5.3.1",
     "nestjs-zod": "5.5.0",

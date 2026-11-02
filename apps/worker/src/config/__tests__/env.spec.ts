@@ -86,6 +86,15 @@ describe('worker loadEnv', () => {
       expect(message).not.toContain(SECRET_VALUE);
     });
 
+    it('refuses OTP_PEPPER explicitly (phase 2): only the API hashes login codes', () => {
+      const message = messageOf({ ...TEST_ENV_SOURCE, OTP_PEPPER: SECRET_VALUE });
+      expect(message).toContain(
+        'OTP_PEPPER: API-only secret must not be set in the worker environment',
+      );
+      expect(message).not.toContain(SECRET_VALUE);
+      expect(API_ONLY_SECRETS).toContain('OTP_PEPPER');
+    });
+
     it('refuses in production too, and reports every offender at once', () => {
       const message = messageOf({
         ...TEST_ENV_SOURCE,

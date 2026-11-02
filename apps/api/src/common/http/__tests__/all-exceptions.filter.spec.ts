@@ -119,6 +119,8 @@ describe('AllExceptionsFilter', () => {
 
   it.each([
     [new UnauthorizedException(), 401, 'UNAUTHORIZED'],
+    [new ForbiddenException('role missing'), 404, 'NOT_FOUND'],
+    [new AppError('USER_BLOCKED'), 403, 'USER_BLOCKED'],
     [new BadRequestException('bad uuid'), 400, 'VALIDATION_ERROR'],
     [new HttpException('big', 413), 413, 'PAYLOAD_TOO_LARGE'],
   ])('HttpException %# maps to its contract code', (exception, status, code) => {
@@ -128,10 +130,10 @@ describe('AllExceptionsFilter', () => {
   });
 
   it('an HttpException status without a contract code -> 500 INTERNAL_ERROR, and is logged', () => {
-    const sent = run(new ForbiddenException('role missing'));
+    const sent = run(new HttpException('teapot details', 418));
     expect(sent.status).toBe(500);
     expect(sent.body).toMatchObject({ error: { code: 'INTERNAL_ERROR' } });
-    expect(JSON.stringify(sent.body)).not.toContain('role missing');
+    expect(JSON.stringify(sent.body)).not.toContain('teapot details');
     expect(errorLog).toHaveBeenCalledTimes(1);
   });
 

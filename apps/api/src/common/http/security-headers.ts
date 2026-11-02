@@ -1,5 +1,6 @@
 import helmet from '@fastify/helmet';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { CSRF_HEADER } from '@repo/shared';
 import type { AppConfig } from '../../config/config.module';
 import { corsOrigins } from './cors-origins';
 
@@ -52,9 +53,9 @@ export function applyCors(app: NestFastifyApplication, config: AppConfig): void 
     origin: corsOrigins(config),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    // X-CSRF-Token is the CSRF header for state-changing cookie-session routes
-    // (rules/60-security.md); the check itself arrives with auth in phase 2.
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-CSRF-Token'],
+    // The CSRF header is required on state-changing cookie-session routes (rules/60-security.md,
+    // D-26): a cross-site page cannot send it without a preflight, which this allowlist rejects.
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', CSRF_HEADER],
     exposedHeaders: ['Retry-After', 'X-Request-Id'],
     maxAge: 600,
   });

@@ -19,9 +19,15 @@ export interface FieldIssue {
 // becomes INTERNAL_ERROR rather than an invented code; the filter logs the original status
 // so a missing mapping is noticed. 415 is folded into VALIDATION_ERROR: from the client's
 // point of view the request was malformed, and the contract has no 415 code.
+// A generic 403 (a guard returned false, a role check, a failed CSRF/Origin check) is folded
+// into 404 NOT_FOUND (D-26): rules/60-security.md answers another user's resource with 404 and
+// the contract has no generic 403 code, so a refusal must not reveal that the thing exists.
+// Business 403s keep their own codes because they are thrown as AppError (USER_BLOCKED,
+// PURCHASE_FROZEN) and never reach this table.
 const STATUS_TO_CODE: Readonly<Record<number, ErrorCode>> = {
   400: 'VALIDATION_ERROR',
   401: 'UNAUTHORIZED',
+  403: 'NOT_FOUND',
   404: 'NOT_FOUND',
   413: 'PAYLOAD_TOO_LARGE',
   415: 'VALIDATION_ERROR',
