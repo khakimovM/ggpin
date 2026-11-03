@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 5 · Tarix, Profil</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:72px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1500px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 5</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Tarix, Profil &amp; services · 390</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Live frames from Account.dc.html. Tabs, filters, copy buttons, language, phone sharing, the reduced-motion switch, tier → confirm sheet → new code, the bonus-code input (GG5000 = success, ESKI… = expired, KUZ… = already used, anything else = wrong) and the FAQ all work. Tarix rows open the round 4 order screen.</p>
+  </header>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><p style="margin:0;max-width:1400px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">{{ g.note }}</p></div>
+      <sc-for list="{{ g.rows }}" as="row" hint-placeholder-count="1">
+        <div style="display:flex;gap:32px;align-items:flex-start">
+          <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="4">
+            <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="Account" screen="{{ it.screen }}" theme="{{ it.theme }}" tab="{{ it.tab }}" filter="{{ it.filter }}" history-state="{{ it.hs }}" phone-linked="{{ it.phone }}" referral-empty="{{ it.refEmpty }}" coins="{{ it.coins }}" sheet-tier="{{ it.sheet }}" codes-empty="{{ it.codesEmpty }}" bonus-state="{{ it.bs }}" tall="{{ it.tall }}" frozen="{{ it.frozen }}" art-slots="{{ it.art }}" hint-size="{{ it.hint }}"></dc-import></div></figure>
+          </sc-for>
+        </div>
+      </sc-for>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const F = (label, o) => ({ screen: 'history', theme: 'light', tab: 'orders', filter: 'all', hs: 'ready', phone: false, refEmpty: false, coins: 120, sheet: '', codesEmpty: false, bs: 'idle', tall: false, frozen: true, art: false, ...o, label, hint: o.tall ? '390px,1500px' : '390px,844px' });
+    const groups = [
+      { title: '1 · Tarix', note: 'Segmented Buyurtmalar / Moliya. Orders grouped by day with status chips; finance rows signed and coloured (+ green, − neutral).', rows: [
+        { items: [F('Buyurtmalar · light', { tall: true, frozen: false }), F('Buyurtmalar · dark', { theme: 'dark', tall: true }), F('Moliya · light', { tab: 'finance', tall: true }), F('Moliya · dark', { tab: 'finance', theme: 'dark', tall: true }), F('Filter “Kutilmoqda” · light', { filter: 'wait' })] },
+        { items: [F('Skeleton · light', { hs: 'skeleton' }), F('Skeleton · dark', { hs: 'skeleton', theme: 'dark' }), F('Error · light', { hs: 'error' }), F('Empty orders · light', { hs: 'empty' }), F('Empty orders · dark', { hs: 'empty', theme: 'dark' }), F('Empty finance · light', { hs: 'empty', tab: 'finance' })] },
+      ] },
+      { title: '2 · Profil', note: 'Phone: Telegram contact request → linked state (tap the button to link). Language segmented, services list, reduced-motion switch, footer links.', rows: [
+        { items: [F('Profil · phone not linked · light', { screen: 'profile', tall: true, frozen: false }), F('Profil · phone linked · dark', { screen: 'profile', theme: 'dark', tall: true, phone: true })] },
+      ] },
+      { title: '3 · Do‘stlarni taklif qilish', note: 'Hero illustration slot (drop art into the first frame), link field with copy, primary share, stats, invited friends list; empty state.', rows: [
+        { items: [F('Referral · light · drop art', { screen: 'referral', tall: true, art: true }), F('Referral · dark', { screen: 'referral', theme: 'dark', tall: true }), F('Empty · light', { screen: 'referral', refEmpty: true, tall: true })] },
+      ] },
+      { title: '4 · Chegirma kodlari', note: 'Tiers disable with “Yetarli emas” when coins run short (shown at 50 🪙). Tap a tier → confirm sheet → the code appears at the top of “Mening kodlarim”.', rows: [
+        { items: [F('120 🪙 · light', { screen: 'coupons', tall: true, frozen: false }), F('50 🪙 · dark', { screen: 'coupons', theme: 'dark', coins: 50, tall: true }), F('Confirm sheet · light', { screen: 'coupons', sheet: '1' }), F('Confirm sheet · dark', { screen: 'coupons', theme: 'dark', sheet: '1' }), F('No codes · light', { screen: 'coupons', codesEmpty: true })] },
+      ] },
+      { title: '5 · Bonus kod', note: 'Auto-uppercase input. Errors shake the card (off with reduced motion).', rows: [
+        { items: [F('Idle · light', { screen: 'bonus', frozen: false }), F('Success · light', { screen: 'bonus', bs: 'ok' }), F('Kod noto‘g‘ri · light', { screen: 'bonus', bs: 'invalid' }), F('Muddati tugagan · light', { screen: 'bonus', bs: 'expired' }), F('Allaqachon ishlatilgan · light', { screen: 'bonus', bs: 'used' })] },
+        { items: [F('Idle · dark', { screen: 'bonus', theme: 'dark' }), F('Loading · dark', { screen: 'bonus', theme: 'dark', bs: 'loading' }), F('Success · dark', { screen: 'bonus', theme: 'dark', bs: 'ok' }), F('Kod noto‘g‘ri · dark', { screen: 'bonus', theme: 'dark', bs: 'invalid' })] },
+      ] },
+      { title: '6 · Yordam', note: 'Six FAQ items and a support card that opens the chat with @ggpin_support.', rows: [
+        { items: [F('Yordam · light', { screen: 'help', tall: true, frozen: false }), F('Yordam · dark', { screen: 'help', theme: 'dark', tall: true })] },
+      ] },
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

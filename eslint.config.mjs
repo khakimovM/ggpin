@@ -194,6 +194,8 @@ export default defineConfig(
       // Prisma client output (packages/db/src/generated) is generated code.
       '**/generated/**',
       '**/next-env.d.ts',
+      // Claude Design export: generated runtime JS, kept verbatim (lint-staged would rewrite it).
+      'design/**',
     ],
   },
   js.configs.recommended,

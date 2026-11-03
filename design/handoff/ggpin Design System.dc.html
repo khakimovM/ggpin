@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Design system</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+:root,[data-theme="light"]{
+--background:#F2F4F9;--surface:#FFFFFF;--card:#FFFFFF;--elevated:#FFFFFF;--muted:#E9ECF4;--border:#E1E5EF;--input:#F6F7FB;--input-border:#D3D9E6;--ring:#3D4BF5;--overlay:rgba(8,12,24,.48);
+--text:#0B1020;--text-secondary:#3F4863;--text-muted:#5E6784;
+--primary:#3D4BF5;--primary-hover:#2F3BDB;--primary-pressed:#2732BF;--primary-foreground:#FFFFFF;--primary-soft:#E8EAFF;--primary-soft-foreground:#2C37C9;
+--accent:#FFC531;--accent-foreground:#231A00;--accent-soft:#FFF4D1;--accent-soft-foreground:#7A5600;
+--success:#12A150;--success-soft:#E2F6EA;--success-text:#0A6A34;
+--warning:#F59E0B;--warning-soft:#FEF3DC;--warning-text:#8A5300;
+--danger:#E5384B;--danger-hover:#CC2639;--danger-foreground:#FFFFFF;--danger-soft:#FDE7EA;--danger-text:#B0182B;
+--info:#2F80ED;--info-soft:#E4EFFD;--info-text:#1559B8;
+--status-queued:#4A5370;--status-queued-soft:#ECEFF5;
+--status-processing:var(--info-text);--status-processing-soft:var(--info-soft);
+--status-review:var(--warning-text);--status-review-soft:var(--warning-soft);
+--status-delivered:var(--success-text);--status-delivered-soft:var(--success-soft);
+--status-failed:var(--danger-text);--status-failed-soft:var(--danger-soft);
+--status-cancelled:var(--text-muted);--status-cancelled-soft:var(--muted);
+--star:#E89A00;--star-soft:#FFF2D6;--premium:#7C4DFF;--premium-soft:#EFE9FF;
+--chart-1:#3D4BF5;--chart-2:#F5A300;--chart-3:#12A150;--chart-4:#8B5CF6;--chart-5:#0EA5C6;--chart-6:#F2643D;--chart-7:#E0459A;--chart-8:#7A84A3;
+--skeleton:#E6E9F2;--skeleton-shine:rgba(255,255,255,.7);
+--shadow-sm:0 1px 2px rgba(16,24,48,.06),0 1px 1px rgba(16,24,48,.04);--shadow-md:0 6px 16px -4px rgba(16,24,48,.10);--shadow-lg:0 20px 48px -12px rgba(16,24,48,.22);--shadow-glow:0 10px 24px -10px rgba(61,75,245,.65);
+}
+[data-theme="dark"]{
+--background:#080C18;--surface:#0E1426;--card:#131B31;--elevated:#1A233D;--muted:#1C2540;--border:#232D4A;--input:#0F1629;--input-border:#2C3757;--ring:#7A84FF;--overlay:rgba(2,4,10,.66);
+--text:#F2F4FF;--text-secondary:#B7BFDA;--text-muted:#959DBB;
+--primary:#4A57FF;--primary-hover:#3F4CF0;--primary-pressed:#3540D6;--primary-foreground:#FFFFFF;--primary-soft:#1B2152;--primary-soft-foreground:#AEB5FF;
+--accent:#FFC94A;--accent-foreground:#231A00;--accent-soft:#2E2610;--accent-soft-foreground:#FFD36E;
+--success:#2BD17E;--success-soft:#0F2E22;--success-text:#5BE39C;
+--warning:#FFB627;--warning-soft:#33260A;--warning-text:#FFCB5C;
+--danger:#FF5468;--danger-hover:#E8364C;--danger-foreground:#FFFFFF;--danger-soft:#3A1219;--danger-text:#FF8B98;
+--info:#4DA3FF;--info-soft:#0E2440;--info-text:#86C1FF;
+--status-queued:#C3C9DE;--status-queued-soft:#1E2640;
+--star:#FFC531;--star-soft:#2E2610;--premium:#A58BFF;--premium-soft:#231B47;
+--chart-1:#5B67FF;--chart-2:#FFC531;--chart-3:#2BD17E;--chart-4:#A58BFF;--chart-5:#2CC6E8;--chart-6:#FF7A59;--chart-7:#F062B0;--chart-8:#8A94B0;
+--skeleton:#1A2239;--skeleton-shine:rgba(255,255,255,.06);
+--shadow-sm:0 1px 2px rgba(0,0,0,.4);--shadow-md:0 8px 24px -6px rgba(0,0,0,.55);--shadow-lg:0 24px 60px -12px rgba(0,0,0,.75);--shadow-glow:0 10px 28px -10px rgba(74,87,255,.8);
+}
+:root{--dur-instant:80ms;--dur-fast:140ms;--dur-base:220ms;--dur-slow:320ms;--dur-slower:480ms;--dur-shimmer:1400ms;--ease-standard:cubic-bezier(.2,0,0,1);--ease-out:cubic-bezier(.05,.7,.1,1);--ease-in:cubic-bezier(.3,0,.8,.15);--ease-spring:cubic-bezier(.34,1.56,.64,1)}
+*{box-sizing:border-box}
+html,body{margin:0;background:#DCE0EA;font-family:'Manrope',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#0B1020}
+button,input{font:inherit;color:inherit}
+a{color:var(--primary-soft-foreground);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--primary)}
+input::placeholder{color:var(--text-muted)}
+@keyframes gg-shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes gg-spin{to{transform:rotate(360deg)}}
+@keyframes gg-pulse{from{transform:scale(.8);opacity:.9}to{transform:scale(1.9);opacity:0}}
+@keyframes gg-slide{from{transform:translateX(0)}to{transform:translateX(220px)}}
+@keyframes gg-pop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+[data-reduced="true"] *{animation:none!important;transition:none!important}
+</style>
+</helmet>
+<div data-reduced="{{ reduced }}" style="max-width:1600px;margin:0 auto;padding:48px 40px 120px;display:flex;flex-direction:column;gap:72px">
+
+<header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="width:48px;height:48px;border-radius:14px;background:#3D4BF5;display:flex;align-items:center;justify-content:center;font:800 22px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:#fff;padding-right:3px">g<span style="color:#FFC531">g</span></div>
+      <span style="font:700 34px/1 Unbounded,sans-serif;letter-spacing:-.04em"><span style="color:#3D4BF5">gg</span>pin</span>
+    </div>
+    <h1 style="margin:0;font:800 44px/1.1 Manrope,sans-serif;letter-spacing:-.025em">Design system · v1.0</h1>
+    <p style="margin:0;max-width:720px;font:500 16px/24px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Tokens, type, motion and components for the Telegram Mini App (390), web store (1440 / 768) and admin. Every colour is a CSS variable with a light and a dark value; components are shown in both themes from the same markup.</p>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;font:700 12px/1 Manrope,sans-serif;color:#3F4863">
+    <span style="padding:10px 14px;border-radius:999px;background:#fff">Next.js · Tailwind</span>
+    <span style="padding:10px 14px;border-radius:999px;background:#fff">shadcn/ui style</span>
+    <span style="padding:10px 14px;border-radius:999px;background:#fff">lucide icons</span>
+    <span style="padding:10px 14px;border-radius:999px;background:#fff">Manrope + Unbounded</span>
+  </div>
+</header>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">01</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Logo</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Wordmark always lowercase. The second “g” is the accent — a quiet “good game”. ≤20px uses a single g.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:28px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+          <span style="font:700 64px/1 Unbounded,sans-serif;letter-spacing:-.045em"><span style="color:var(--primary)">gg</span>pin</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:96px;height:96px;border-radius:28px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 44px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:6px">g<span style="color:var(--accent)">g</span></div><span style="font:600 11px/1 Manrope,sans-serif;color:var(--text-muted)">App · 96</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:96px;height:96px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 40px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:6px">g<span style="color:var(--accent)">g</span></div><span style="font:600 11px/1 Manrope,sans-serif;color:var(--text-muted)">Bot avatar</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:48px;height:48px;border-radius:14px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 22px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:3px">g<span style="color:var(--accent)">g</span></div><span style="font:600 11px/1 Manrope,sans-serif;color:var(--text-muted)">48</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></div><span style="font:600 11px/1 Manrope,sans-serif;color:var(--text-muted)">Favicon 32</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;font:800 11px/1 Unbounded,sans-serif;color:var(--accent);padding-bottom:2px">g</div><span style="font:600 11px/1 Manrope,sans-serif;color:var(--text-muted)">16</span></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">02</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Colour tokens</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Left swatch light, right swatch dark. Values are read live from the CSS variables. Text pairs pass WCAG AA on card and soft backgrounds.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:16px;align-items:start">
+    <sc-for list="{{ tokenGroups }}" as="g" hint-placeholder-count="6">
+      <div style="background:#fff;border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="font:800 15px/20px Manrope,sans-serif">{{ g.title }}</div>
+        <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center">
+            <div style="display:flex;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px rgba(16,24,48,.1)"><span style="width:30px;height:36px;background:{{ r.lh }}"></span><span style="width:30px;height:36px;background:{{ r.dh }}"></span></div>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><code style="font:700 12px/16px ui-monospace,Menlo,monospace;color:#0B1020">{{ r.v }}</code><span style="font:500 11px/16px ui-monospace,Menlo,monospace;color:#5E6784">{{ r.lt }} · {{ r.dt }}</span></div>
+              <div style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">{{ r.use }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <div style="background:#0E1426;color:#B7BFDA;border-radius:20px;padding:20px 24px;display:flex;flex-direction:column;gap:10px">
+    <div style="font:800 13px/18px Manrope,sans-serif;color:#F2F4FF">Tailwind mapping</div>
+    <pre style="margin:0;font:500 12px/19px ui-monospace,Menlo,monospace;white-space:pre-wrap;color:#B7BFDA">// tailwind.config.ts — darkMode: ['class', '[data-theme="dark"]'] (Mini App sets data-theme from Telegram.WebApp.colorScheme)
+colors: {
+  background:'var(--background)', surface:'var(--surface)', card:'var(--card)', elevated:'var(--elevated)', muted:'var(--muted)',
+  border:'var(--border)', input:{ DEFAULT:'var(--input)', border:'var(--input-border)' }, ring:'var(--ring)', overlay:'var(--overlay)',
+  fg:{ DEFAULT:'var(--text)', secondary:'var(--text-secondary)', muted:'var(--text-muted)' },
+  primary:{ DEFAULT:'var(--primary)', hover:'var(--primary-hover)', pressed:'var(--primary-pressed)', foreground:'var(--primary-foreground)', soft:'var(--primary-soft)', 'soft-foreground':'var(--primary-soft-foreground)' },
+  accent:{ … }, success:{ DEFAULT, soft, text }, warning:{ … }, danger:{ DEFAULT, hover, foreground, soft, text }, info:{ … },
+  status:{ queued, 'queued-soft', processing, …, cancelled, 'cancelled-soft' }, star:{ DEFAULT, soft }, premium:{ DEFAULT, soft }, chart:{ 1…8 },
+}
+fontFamily: { sans:['Manrope', …], display:['Unbounded', …] }   ·   boxShadow: { sm:'var(--shadow-sm)', md:'var(--shadow-md)', lg:'var(--shadow-lg)', glow:'var(--shadow-glow)' }
+Money: format with U+00A0 between groups → "12 550 so‘m"; always class "tabular-nums".</pre>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">03</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Typography</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Manrope for UI (Latin Ext + Cyrillic, tabular figures). Unbounded only for display and the balance number. Sizes are mobile / desktop.</p></div>
+  <div style="background:#fff;border-radius:24px;padding:8px 28px;display:flex;flex-direction:column">
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">display</code><div style="font:700 40px/44px Unbounded,sans-serif;letter-spacing:-.03em">Tez. Arzon. Ishonchli.</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">Unbounded 700 · 40/44 → 64/68 · −3%</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">h1</code><div style="font:800 28px/34px Manrope,sans-serif;letter-spacing:-.02em">Telegram Stars sotib olish</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">800 · 28/34 → 40/48 · −2%</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">h2</code><div style="font:800 22px/28px Manrope,sans-serif;letter-spacing:-.01em">Mashhur mahsulotlar</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">800 · 22/28 → 28/36 · −1%</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">h3</code><div style="font:700 18px/24px Manrope,sans-serif">Qabul qiluvchini tasdiqlang</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">700 · 18/24 → 20/28</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">h4</code><div style="font:700 16px/22px Manrope,sans-serif">To‘lov usuli</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">700 · 16/22</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">body / body-strong</code><div style="font:500 15px/22px Manrope,sans-serif;max-width:560px">Buyurtma odatda 1–2 daqiqada avtomatik yetkaziladi. <b style="font-weight:700">Holatini “Tarix” bo‘limida kuzating.</b></div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">500 / 700 · 15/22 → 16/24</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">small</code><div style="font:500 13px/18px Manrope,sans-serif;color:#3F4863">Pul hamyoningizga qaytarildi</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">500 · 13/18</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">caption</code><div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5E6784">To‘lov usuli · Telefon raqami</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">700 · 11/14 · +6% · upper</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">num-balance</code><div style="display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums"><span style="font:600 40px/44px Unbounded,sans-serif;letter-spacing:-.03em">85 400</span><span style="font:700 17px/22px Manrope,sans-serif;color:#5E6784">so‘m</span></div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">Unbounded 600 · 40/44 · tnum · unit 17</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">num-price</code><div style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">120 750 so‘m · 500 ⭐</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">800 · 17/22 · tnum</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0;border-bottom:1px solid #E1E5EF"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">num-sm</code><div style="font:600 13px/18px Manrope,sans-serif;font-variant-numeric:tabular-nums;color:#3F4863">#10482 · Bugun, 14:05 · ID 1187712645</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">600 · 13/18 · tnum</span></div>
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 230px;gap:24px;align-items:center;padding:18px 0"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">glyph check</code><div style="font:600 18px/26px Manrope,sans-serif">o‘ g‘ ʼ O‘zbekcha · Ma’lumot · Быстро, дёшево, надёжно · Ўў Ққ Ғғ Ҳҳ</div><span style="font:500 12px/16px ui-monospace,Menlo,monospace;color:#5E6784">latin-ext + cyrillic subsets</span></div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">04</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Spacing · radius · elevation</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">4px grid = Tailwind default scale. Screen padding 16 (Mini App) / 24 (tablet) / 32 (desktop). Card padding 16, section gap 24.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px">
+    <div style="background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <div style="font:800 15px/20px Manrope,sans-serif;margin-bottom:6px">Spacing</div>
+      <sc-for list="{{ spacing }}" as="s" hint-placeholder-count="10">
+        <div style="display:grid;grid-template-columns:44px 56px minmax(0,1fr);align-items:center;gap:12px;font:600 12px/16px ui-monospace,Menlo,monospace;color:#5E6784"><span style="color:#0B1020">{{ s.k }}</span><span>{{ s.px }}px</span><span style="height:12px;border-radius:4px;background:#3D4BF5;width:{{ s.w }}"></span></div>
+      </sc-for>
+    </div>
+    <div style="background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="font:800 15px/20px Manrope,sans-serif">Radius</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:8px;background:#E8EAFF;border:1.5px solid #3D4BF5"></div><code style="font:700 12px/16px ui-monospace,Menlo,monospace">sm · 8</code><span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">badges, tags</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:12px;background:#E8EAFF;border:1.5px solid #3D4BF5"></div><code style="font:700 12px/16px ui-monospace,Menlo,monospace">md · 12</code><span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">buttons sm/md, inputs</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:16px;background:#E8EAFF;border:1.5px solid #3D4BF5"></div><code style="font:700 12px/16px ui-monospace,Menlo,monospace">lg · 16</code><span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">button lg, tiles, image slots</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:20px;background:#E8EAFF;border:1.5px solid #3D4BF5"></div><code style="font:700 12px/16px ui-monospace,Menlo,monospace">xl · 20</code><span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">cards</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:28px;background:#E8EAFF;border:1.5px solid #3D4BF5"></div><code style="font:700 12px/16px ui-monospace,Menlo,monospace">2xl · 28</code><span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">sheets, wallet card</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:999px;background:#E8EAFF;border:1.5px solid #3D4BF5"></div><code style="font:700 12px/16px ui-monospace,Menlo,monospace">full</code><span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">chips, segmented, avatar</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:16px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:18px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>Elevation · {{ t.label }}</div>
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;border-radius:16px;background:var(--surface);border:1px solid var(--border)"></div><code style="font:700 11px/14px ui-monospace,Menlo,monospace">0 · surface</code><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">nav bars, panels</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;border-radius:16px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-sm)"></div><code style="font:700 11px/14px ui-monospace,Menlo,monospace">sm · card</code><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">cards, tiles</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;border-radius:16px;background:var(--elevated);box-shadow:var(--shadow-md)"></div><code style="font:700 11px/14px ui-monospace,Menlo,monospace">md · elevated</code><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">dropdown, toast</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;border-radius:16px;background:var(--elevated);box-shadow:var(--shadow-lg)"></div><code style="font:700 11px/14px ui-monospace,Menlo,monospace">lg · elevated</code><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">sheet, modal</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;border-radius:16px;background:var(--primary);box-shadow:var(--shadow-glow)"></div><code style="font:700 11px/14px ui-monospace,Menlo,monospace">glow</code><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">main button only</span></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">05</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Motion</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Fast and decisive; the spring is reserved for selection and success. Toggle “Reduced motion” in Tweaks to preview fallbacks.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px;align-items:start">
+    <div style="background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="font:800 15px/20px Manrope,sans-serif">Easings &amp; durations</div>
+      <sc-for list="{{ easings }}" as="m" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:12px;border-bottom:1px solid #E1E5EF">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">{{ m.name }}</code><span style="font:500 11px/16px ui-monospace,Menlo,monospace;color:#5E6784">{{ m.val }}</span></div>
+          <div style="height:20px;border-radius:999px;background:#F2F4F9;position:relative;width:260px;max-width:100%;overflow:hidden;padding:4px">{{ m.dot }}</div>
+          <span style="font:500 12px/16px Manrope,sans-serif;color:#5E6784">{{ m.use }}</span>
+        </div>
+      </sc-for>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <sc-for list="{{ durations }}" as="d" hint-placeholder-count="6">
+          <div style="background:#F2F4F9;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px"><code style="font:700 12px/16px ui-monospace,Menlo,monospace">{{ d.k }}</code><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ d.v }}</span><span style="font:500 11px/14px Manrope,sans-serif;color:#5E6784">{{ d.use }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:4px">
+      <div style="font:800 15px/20px Manrope,sans-serif;margin-bottom:8px">Patterns &amp; springs (Framer Motion)</div>
+      <sc-for list="{{ patterns }}" as="p" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 16px;padding:12px 0;border-bottom:1px solid #E1E5EF">
+          <span style="font:800 13px/18px Manrope,sans-serif;grid-row:span 2">{{ p.k }}</span>
+          <span style="font:500 12px/17px ui-monospace,Menlo,monospace;color:#0B1020">{{ p.v }}</span>
+          <span style="font:600 12px/17px Manrope,sans-serif;color:#0A6A34"><i class="icon-accessibility" style="font-size:12px"></i> {{ p.rm }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">06</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Button</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">sm 36 (hit area padded to 44) · md 44 · lg 52 · icon 44. Labels keep ~30% spare width for Russian.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:24px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Variants · md</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+            <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 15px/1 Manrope,sans-serif;cursor:pointer;transition:background var(--dur-fast) var(--ease-standard),transform var(--dur-instant) var(--ease-standard)" style-hover="background:var(--primary-hover)" style-active="background:var(--primary-pressed);transform:scale(.97)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">Sotib olish</button>
+            <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:700 15px/1 Manrope,sans-serif;cursor:pointer;transition:filter var(--dur-fast) var(--ease-standard),transform var(--dur-instant) var(--ease-standard)" style-hover="filter:brightness(.96)" style-active="transform:scale(.97)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)"><i class="icon-plus" style="font-size:18px"></i>To‘ldirish</button>
+            <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 15px/1 Manrope,sans-serif;cursor:pointer;transition:background var(--dur-fast) var(--ease-standard),transform var(--dur-instant) var(--ease-standard)" style-hover="background:var(--muted)" style-active="transform:scale(.97)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">O‘zgartirish</button>
+            <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 14px;border-radius:12px;border:none;background:transparent;color:var(--text-secondary);font:700 15px/1 Manrope,sans-serif;cursor:pointer;transition:background var(--dur-fast) var(--ease-standard)" style-hover="background:var(--muted);color:var(--text)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">Bekor qilish</button>
+            <button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--danger);color:var(--danger-foreground);font:700 15px/1 Manrope,sans-serif;cursor:pointer;transition:background var(--dur-fast) var(--ease-standard),transform var(--dur-instant) var(--ease-standard)" style-hover="background:var(--danger-hover)" style-active="transform:scale(.97)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)"><i class="icon-trash-2" style="font-size:17px"></i>O‘chirish</button>
+            <button style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 4px;border:none;background:transparent;color:var(--primary-soft-foreground);font:700 15px/1 Manrope,sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:4px;text-decoration-color:transparent;transition:text-decoration-color var(--dur-fast)" style-hover="text-decoration-color:currentColor" style-focus="outline:none;box-shadow:0 0 0 2px var(--ring);border-radius:6px">Batafsil<i class="icon-arrow-right" style="font-size:16px"></i></button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:16px;font:600 11px/14px ui-monospace,Menlo,monospace;color:var(--text-muted)"><span>primary</span><span>secondary</span><span>outline</span><span>ghost</span><span>destructive</span><span>link</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Sizes</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+            <button style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 13px/1 Manrope,sans-serif;cursor:pointer">sm · Tanlash</button>
+            <button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 15px/1 Manrope,sans-serif;cursor:pointer">md · Sotib olish</button>
+            <button style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 24px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer">lg · To‘lash</button>
+            <button aria-label="Nusxalash" style="display:grid;place-items:center;width:44px;height:44px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:18px" style-hover="background:var(--muted)"><i class="icon-copy"></i></button>
+            <button aria-label="Qidirish" style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;border:none;background:var(--muted);color:var(--text);cursor:pointer;font-size:18px"><i class="icon-search"></i></button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">States · primary / outline</div>
+          <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px">
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch"><span style="height:44px;border-radius:12px;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif">Sotib olish</span><span style="height:44px;border-radius:12px;border:1.5px solid var(--border);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif">Tarix</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);text-align:center">Default</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="height:44px;border-radius:12px;background:var(--primary-hover);color:var(--primary-foreground);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif">Sotib olish</span><span style="height:44px;border-radius:12px;border:1.5px solid var(--border);background:var(--muted);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif">Tarix</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);text-align:center">Hover</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="height:44px;border-radius:12px;background:var(--primary-pressed);color:var(--primary-foreground);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif;transform:scale(.97)">Sotib olish</span><span style="height:44px;border-radius:12px;border:1.5px solid var(--input-border);background:var(--muted);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif;transform:scale(.97)">Tarix</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);text-align:center">Pressed · .97</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="height:44px;border-radius:12px;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">Sotib olish</span><span style="height:44px;border-radius:12px;border:1.5px solid var(--border);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">Tarix</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);text-align:center">Focus</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="height:44px;border-radius:12px;background:var(--muted);color:var(--text-muted);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif">Sotib olish</span><span style="height:44px;border-radius:12px;border:1.5px solid var(--border);color:var(--text-muted);display:grid;place-items:center;font:700 14px/1 Manrope,sans-serif">Tarix</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);text-align:center">Disabled</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="height:44px;border-radius:12px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;gap:8px;font:700 18px/1 Manrope,sans-serif">{{ spin }}</span><span style="height:44px;border-radius:12px;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font:700 18px/1 Manrope,sans-serif;color:var(--text-muted)">{{ spin }}</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted);text-align:center">Loading</span></div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">07</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Bottom action bar</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Matches Telegram MainButton (full width, 52 high). Web uses our bar; Mini App can hand the same label to MainButton. Padding-bottom = 12 + env(safe-area-inset-bottom).</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;min-width:0">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Default</span>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:12px 16px 12px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Hamyonda: 85 400 so‘m</span><span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">61 500 so‘m</span></div>
+            <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow);cursor:pointer;transition:transform var(--dur-instant) var(--ease-standard),background var(--dur-fast)" style-hover="background:var(--primary-hover)" style-active="transform:scale(.98);background:var(--primary-pressed)">To‘lash</button>
+            <div style="height:20px;border-radius:6px;background:repeating-linear-gradient(135deg,var(--muted) 0 6px,transparent 6px 12px);display:grid;place-items:center;font:600 10px/1 ui-monospace,Menlo,monospace;color:var(--text-muted)">safe-area-inset-bottom</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Loading · progress shimmer</span>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Hamyonda: 85 400 so‘m</span><span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">61 500 so‘m</span></div>
+            <div style="height:52px;border-radius:16px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;gap:10px;font:800 16px/1 Manrope,sans-serif;position:relative;overflow:hidden;opacity:.92"><span style="font-size:20px;display:flex">{{ spin }}</span>To‘lanmoqda…</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Disabled · says why</span>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Hamyonda: 85 400 so‘m</span><span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">110 000 so‘m</span></div>
+            <div style="height:52px;border-radius:16px;background:var(--muted);color:var(--text-muted);display:grid;place-items:center;font:800 16px/1 Manrope,sans-serif">Qabul qiluvchini tasdiqlang</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Insufficient balance</span>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="display:flex;align-items:center;gap:6px;font:700 13px/18px Manrope,sans-serif;color:var(--warning-text)"><i class="icon-triangle-alert" style="font-size:14px"></i>Yetishmaydi: 35 350 so‘m</span><span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">120 750 so‘m</span></div>
+            <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow);display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><i class="icon-wallet" style="font-size:18px"></i>Hamyonni to‘ldirish</button>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">08</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Inputs</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">48 high, label above, help/error below (error replaces help, never colour alone). All fields below are live.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px 24px;min-width:0;align-content:start">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Input · states</div>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif">Promokod</span><input placeholder="Masalan, GG2026" style="height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px;font:600 15px/1 Manrope,sans-serif;color:var(--text);outline:none;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Bo‘lsa, kiriting — chegirma darhol qo‘llanadi</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif">Promokod · focus</span><span style="height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--ring);box-shadow:0 0 0 3px var(--primary-soft);padding:0 14px;display:flex;align-items:center;font:600 15px/1 Manrope,sans-serif">GG2026<span style="width:1.5px;height:20px;background:var(--primary);margin-left:2px"></span></span></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif">Promokod · error</span><span style="height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--danger);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font:600 15px/1 Manrope,sans-serif">GG2025<i class="icon-circle-alert" style="color:var(--danger);font-size:18px"></i></span><span style="display:flex;gap:6px;align-items:center;font:600 12px/16px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:13px"></i>Promokod topilmadi yoki muddati tugagan</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px;opacity:.55"><span style="font:700 13px/18px Manrope,sans-serif">Promokod · disabled</span><span style="height:48px;border-radius:12px;background:var(--muted);border:1.5px solid var(--border);padding:0 14px;display:flex;align-items:center;font:600 15px/1 Manrope,sans-serif;color:var(--text-muted)">Bu mahsulotga qo‘llanmaydi</span></label>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Username · Player ID</div>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif">Telegram username</span>
+            <span style="position:relative;display:flex"><span style="position:absolute;left:14px;top:0;bottom:0;display:flex;align-items:center;font:700 15px/1 Manrope,sans-serif;color:var(--text-muted);pointer-events:none">@</span><input value="{{ username }}" onChange="{{ onUsername }}" autocapitalize="off" spellcheck="false" placeholder="username" style="flex:1;min-width:0;height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px 0 32px;font:600 15px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></span>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Stars shu akkauntga yuboriladi. “@” ni yozish shart emas</span></label>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:10px">
+            <label style="display:flex;flex-direction:column;gap:6px;min-width:0"><span style="font:700 13px/18px Manrope,sans-serif">Player ID</span><input value="{{ pid }}" onChange="{{ onPid }}" inputmode="numeric" placeholder="512345678" style="height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px;font:700 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.04em;color:var(--text);outline:none;min-width:0" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;min-width:0"><span style="font:700 13px/18px Manrope,sans-serif">Zone ID <span style="font-weight:500;color:var(--text-muted)">· ixt.</span></span><input value="{{ zone }}" onChange="{{ onZone }}" inputmode="numeric" placeholder="1234" style="height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);padding:0 14px;font:700 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);outline:none;min-width:0" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></label>
+          </div>
+          <sc-if value="{{ pidOk }}"><span style="display:flex;gap:6px;align-items:center;font:600 12px/16px Manrope,sans-serif;color:var(--success-text)"><i class="icon-circle-check" style="font-size:13px"></i>Format to‘g‘ri · {{ pidLen }} raqam. Nomini keyingi qadamda ko‘rsatamiz</span></sc-if>
+          <sc-if value="{{ pidShort }}"><span style="display:flex;gap:6px;align-items:center;font:600 12px/16px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:13px"></i>ID kamida 9 ta raqamdan iborat</span></sc-if>
+          <button style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 4px;border:none;background:none;color:var(--primary-soft-foreground);font:700 13px/1 Manrope,sans-serif;cursor:pointer"><i class="icon-circle-help" style="font-size:15px"></i>ID ni qayerdan topaman?</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">MoneyInput · live grouping</div>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif">To‘ldirish summasi</span>
+            <span style="position:relative;display:flex"><input value="{{ money }}" onChange="{{ onMoney }}" inputmode="numeric" placeholder="0" style="flex:1;min-width:0;height:60px;border-radius:14px;background:var(--input);border:1.5px solid var(--input-border);padding:0 64px 0 16px;font:600 24px/1 Unbounded,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:16px;top:0;bottom:0;display:flex;align-items:center;font:700 15px/1 Manrope,sans-serif;color:var(--text-muted);pointer-events:none">so‘m</span></span>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Minimal 1 000 so‘m · komissiyasiz</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ moneyChips }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.onClick }}" style="height:36px;padding:0 14px;border-radius:999px;border:1.5px solid var(--border);background:var(--card);color:var(--text-secondary);font:700 13px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer" style-hover="border-color:var(--input-border);color:var(--text)">{{ c.label }}</button></sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Quantity stepper · quick chips</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 13px/18px Manrope,sans-serif">Stars miqdori</span><span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">1 ⭐ = 220 so‘m</span></div>
+          <div style="display:grid;grid-template-columns:48px minmax(0,1fr) 48px;gap:8px">
+            <button onClick="{{ qtyDec }}" disabled="{{ qtyMinDisabled }}" aria-label="Kamaytirish" style="height:48px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:20px;display:grid;place-items:center;cursor:pointer" style-active="transform:scale(.94)"><i class="icon-minus"></i></button>
+            <span style="position:relative;display:flex"><input value="{{ qty }}" onChange="{{ onQty }}" inputmode="numeric" style="flex:1;min-width:0;height:48px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border);text-align:center;padding:0 28px 0 8px;font:800 18px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:12px;top:0;bottom:0;display:flex;align-items:center;font-size:15px;pointer-events:none">⭐</span></span>
+            <button onClick="{{ qtyInc }}" aria-label="Ko‘paytirish" style="height:48px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font-size:20px;display:grid;place-items:center;cursor:pointer" style-active="transform:scale(.94)"><i class="icon-plus"></i></button>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ qtyChips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" style="height:36px;padding:0 12px;border-radius:999px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 13px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;transition:all var(--dur-fast) var(--ease-standard)">{{ c.label }}</button></sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px dashed var(--border)"><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-muted)">Minimal 50 ⭐</span><span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ qtyPrice }}</span></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">09</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Selection controls</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Segmented for 2–3 views of one list, tabs for categories, chips for filters (horizontal scroll, no wrap on mobile).</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:24px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Segmented control</div>
+          <div role="tablist" style="display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--muted);max-width:390px">
+            <sc-for list="{{ segs }}" as="s" hint-placeholder-count="2"><button role="tab" onClick="{{ s.onClick }}" style="flex:1;height:40px;border-radius:999px;border:none;background:{{ s.bg }};color:{{ s.fg }};box-shadow:{{ s.sh }};font:700 14px/1 Manrope,sans-serif;cursor:pointer;transition:background var(--dur-base) var(--ease-standard),color var(--dur-base) var(--ease-standard)" style-focus="outline:none;box-shadow:0 0 0 2px var(--ring)">{{ s.label }}</button></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Tabs</div>
+          <div role="tablist" style="display:flex;gap:20px;border-bottom:1px solid var(--border);overflow-x:auto">
+            <sc-for list="{{ tabs }}" as="s" hint-placeholder-count="4"><button role="tab" onClick="{{ s.onClick }}" style="position:relative;height:44px;padding:0 2px;border:none;background:none;color:{{ s.fg }};font:700 15px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap;transition:color var(--dur-fast)">{{ s.label }}<span style="position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:{{ s.bar }};transition:background var(--dur-base) var(--ease-standard)"></span></button></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Filter chips</div>
+          <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px">
+            <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" aria-pressed="{{ c.on }}" style="flex:none;height:36px;padding:0 14px;border-radius:999px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 13px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap;transition:all var(--dur-fast) var(--ease-standard)">{{ c.label }}</button></sc-for>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 12px;border-radius:999px;background:var(--primary-soft);color:var(--primary-soft-foreground);font:700 13px/1 Manrope,sans-serif">PUBG Mobile<button aria-label="Olib tashlash" style="width:22px;height:22px;border-radius:50%;border:none;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer"><i class="icon-x" style="font-size:14px"></i></button></span>
+            <span style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:999px;background:var(--muted);color:var(--text-muted);font:700 13px/1 Manrope,sans-serif;opacity:.6">Disabled</span>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Removable chip · disabled</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Language switch</div>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+            <div style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)">
+              <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" style="min-width:44px;height:36px;padding:0 12px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 13px/1 Manrope,sans-serif;letter-spacing:.02em;cursor:pointer;transition:all var(--dur-fast)">{{ l.label }}</button></sc-for>
+            </div>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Web header &amp; Profil. Mini App defaults to Telegram language_code.</span>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">10</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Badges &amp; order status</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Status chips always carry icon + colour + text. “Bajarilmoqda” spins; reduced motion shows a static icon.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:24px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px 16px;align-items:center">
+          <span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Region</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:8px;background:var(--muted);color:var(--text-secondary);font:800 11px/1 Manrope,sans-serif"><i class="icon-globe" style="font-size:12px"></i>Global</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:8px;background:var(--muted);color:var(--text-secondary);font:800 11px/1 Manrope,sans-serif">SNG</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:8px;background:var(--muted);color:var(--text-secondary);font:800 11px/1 Manrope,sans-serif">UZ</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:8px;background:var(--primary);color:var(--primary-foreground);font:800 11px/1 Manrope,sans-serif">Global</span>
+            <span style="font:500 11px/24px Manrope,sans-serif;color:var(--text-muted)">← on image</span>
+          </div>
+          <span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Delivery</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:8px;background:var(--success-soft);color:var(--success-text);font:800 11px/1 Manrope,sans-serif">⚡ Avto</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:8px;background:var(--accent-soft);color:var(--accent-soft-foreground);font:800 11px/1 Manrope,sans-serif">🎟 Promokod</span>
+          </div>
+          <span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Merch</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:8px;background:var(--accent);color:var(--accent-foreground);font:800 11px/1 Manrope,sans-serif"><i class="icon-flame" style="font-size:12px"></i>Mashhur</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:8px;background:var(--muted);color:var(--text-muted);font:800 11px/1 Manrope,sans-serif"><i class="icon-package-x" style="font-size:12px"></i>Tugagan</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:8px;background:var(--warning-soft);color:var(--warning-text);font:800 11px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums">69 ta qoldi</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:8px;background:var(--premium-soft);color:var(--premium);font:800 11px/1 Manrope,sans-serif"><i class="icon-crown" style="font-size:12px"></i>Premium</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Status chip</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-queued-soft);color:var(--status-queued);font:700 12px/1 Manrope,sans-serif"><i class="icon-clock" style="font-size:14px"></i>Navbatda</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-processing-soft);color:var(--status-processing);font:700 12px/1 Manrope,sans-serif"><span style="font-size:14px;display:flex">{{ spin }}</span>Bajarilmoqda</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-review-soft);color:var(--status-review);font:700 12px/1 Manrope,sans-serif"><i class="icon-scan-search" style="font-size:14px"></i>Tekshirilmoqda</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-delivered-soft);color:var(--status-delivered);font:700 12px/1 Manrope,sans-serif"><i class="icon-circle-check" style="font-size:14px"></i>Yetkazildi</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-failed-soft);color:var(--status-failed);font:700 12px/1 Manrope,sans-serif"><i class="icon-undo-2" style="font-size:14px"></i>Bajarilmadi — pul qaytarildi</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--status-cancelled-soft);color:var(--status-cancelled);font:700 12px/1 Manrope,sans-serif"><i class="icon-ban" style="font-size:14px"></i>Bekor qilindi</span>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">11</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Product card · SKU tile</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Image slots are neutral placeholders (real art later). Grid: 2 cols @375, 3 @390+, 4 @768, 6 @1440. SKU tiles are selectable.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:24px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">
+          <a href="#" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;padding:8px 8px 12px;border-radius:20px;background:var(--card);border:1px solid var(--border);transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base)" style-hover="transform:translateY(-2px);box-shadow:var(--shadow-md)">
+            <div style="position:relative;aspect-ratio:1;border-radius:14px;background:var(--muted);display:grid;place-items:center;color:var(--text-muted)"><span style="display:flex;flex-direction:column;align-items:center;gap:6px;font:700 11px/14px Manrope,sans-serif"><i class="icon-image" style="font-size:22px"></i>PUBG Mobile</span><span style="position:absolute;top:6px;left:6px;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:7px;background:var(--accent);color:var(--accent-foreground);font:800 10px/1 Manrope,sans-serif"><i class="icon-flame" style="font-size:11px"></i>Mashhur</span><span style="position:absolute;top:6px;right:6px;height:22px;padding:0 7px;border-radius:7px;background:var(--primary);color:var(--primary-foreground);font:800 10px/22px Manrope,sans-serif">Global</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><span style="font:800 14px/18px Manrope,sans-serif">PUBG Mobile</span><span style="display:inline-flex;align-self:flex-start;height:20px;padding:0 6px;border-radius:6px;background:var(--success-soft);color:var(--success-text);font:800 10px/20px Manrope,sans-serif">⚡ Avto</span><span style="display:flex;flex-direction:column"><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">12 150 so‘m</span><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">dan boshlab</span></span></div>
+          </a>
+          <a href="#" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;padding:8px 8px 12px;border-radius:20px;background:var(--card);border:1px solid var(--border);transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base)" style-hover="transform:translateY(-2px);box-shadow:var(--shadow-md)">
+            <div style="position:relative;aspect-ratio:1;border-radius:14px;background:var(--star-soft);display:grid;place-items:center;color:var(--text-muted)"><span style="display:flex;flex-direction:column;align-items:center;gap:6px;font:700 11px/14px Manrope,sans-serif"><i class="icon-image" style="font-size:22px"></i>Telegram Stars</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><span style="font:800 14px/18px Manrope,sans-serif">Telegram Stars</span><span style="display:inline-flex;align-self:flex-start;height:20px;padding:0 6px;border-radius:6px;background:var(--success-soft);color:var(--success-text);font:800 10px/20px Manrope,sans-serif">⚡ Avto</span><span style="display:flex;flex-direction:column"><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">11 000 so‘m</span><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">dan boshlab · 50 ⭐</span></span></div>
+          </a>
+          <a href="#" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;padding:8px 8px 12px;border-radius:20px;background:var(--card);border:1px solid var(--border);transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base)" style-hover="transform:translateY(-2px);box-shadow:var(--shadow-md)">
+            <div style="position:relative;aspect-ratio:1;border-radius:14px;background:var(--premium-soft);display:grid;place-items:center;color:var(--text-muted)"><span style="display:flex;flex-direction:column;align-items:center;gap:6px;font:700 11px/14px Manrope,sans-serif"><i class="icon-image" style="font-size:22px"></i>Telegram Premium</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><span style="font:800 14px/18px Manrope,sans-serif">Telegram Premium</span><span style="display:inline-flex;align-self:flex-start;height:20px;padding:0 6px;border-radius:6px;background:var(--success-soft);color:var(--success-text);font:800 10px/20px Manrope,sans-serif">⚡ Avto</span><span style="display:flex;flex-direction:column"><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">165 000 so‘m</span><span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">dan boshlab · 3 oylik</span></span></div>
+          </a>
+          <div aria-disabled="true" style="display:flex;flex-direction:column;gap:10px;padding:8px 8px 12px;border-radius:20px;background:var(--card);border:1px solid var(--border)">
+            <div style="position:relative;aspect-ratio:1;border-radius:14px;background:var(--muted);display:grid;place-items:center;color:var(--text-muted);opacity:.55"><span style="display:flex;flex-direction:column;align-items:center;gap:6px;font:700 11px/14px Manrope,sans-serif"><i class="icon-image" style="font-size:22px"></i>Roblox $3</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><span style="font:800 14px/18px Manrope,sans-serif;color:var(--text-secondary)">Roblox $3 karta</span><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:3px;height:20px;padding:0 6px;border-radius:6px;background:var(--muted);color:var(--text-muted);font:800 10px/20px Manrope,sans-serif"><i class="icon-package-x" style="font-size:11px"></i>Tugagan</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Tez orada qaytadi</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">SKU tile · PUBG Mobile UC</div>
+          <div role="radiogroup" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding-top:8px">
+            <sc-for list="{{ skus }}" as="s" hint-placeholder-count="4">
+              <button role="radio" aria-checked="{{ s.on }}" onClick="{{ s.onClick }}" style="position:relative;text-align:left;display:flex;flex-direction:column;gap:4px;min-height:76px;padding:14px;border-radius:16px;border:1.5px solid {{ s.bd }};background:{{ s.bg }};color:var(--text);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-standard),background var(--dur-fast) var(--ease-standard),transform var(--dur-instant)" style-active="transform:scale(.97)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">
+                <sc-if value="{{ s.best }}"><span style="position:absolute;top:-9px;left:12px;height:18px;padding:0 8px;border-radius:6px;background:var(--accent);color:var(--accent-foreground);font:800 10px/18px Manrope,sans-serif">Eng foydali</span></sc-if>
+                <span style="position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font-size:12px;transform:scale({{ s.ck }});transition:transform var(--dur-base) var(--ease-spring)"><i class="icon-check"></i></span>
+                <span style="font:800 17px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ s.amt }}</span>
+                <span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ s.price }}</span>
+              </button>
+            </sc-for>
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;min-height:76px;padding:14px;border-radius:16px;border:1.5px solid var(--border);background:var(--card)">
+              <span style="font:800 17px/22px Manrope,sans-serif">Roblox $10</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">122 450 so‘m</span><span style="font:700 11px/14px Manrope,sans-serif;color:var(--warning-text)">69 ta qoldi</span>
+            </div>
+            <div aria-disabled="true" style="position:relative;display:flex;flex-direction:column;gap:4px;min-height:76px;padding:14px;border-radius:16px;border:1.5px dashed var(--border);background:var(--muted);color:var(--text-muted)">
+              <span style="font:800 17px/22px Manrope,sans-serif">Roblox $3</span><span style="display:flex;align-items:center;gap:4px;font:700 13px/18px Manrope,sans-serif"><i class="icon-package-x" style="font-size:13px"></i>Tugagan</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">12</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Recipient · wallet · payment</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">The recipient card is the anti-“wrong ID” moment: payment stays disabled until “Tasdiqlash”.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:24px;min-width:0;align-content:start">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Recipient card</div>
+          <div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:48px;height:48px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 16px/1 Manrope,sans-serif;flex:none">DK</div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:800 15px/20px Manrope,sans-serif">Dilnoza Karimova</span><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">@dilnoza_k</span></div>
+              <sc-if value="{{ confirmed }}"><span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;background:var(--success-soft);color:var(--success-text);font:800 12px/1 Manrope,sans-serif"><i class="icon-check" style="font-size:13px"></i>Tasdiqlandi</span></sc-if>
+            </div>
+            <sc-if value="{{ notConfirmed }}">
+              <span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Shu akkauntga yuboramizmi?</span>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button onClick="{{ onChange }}" style="height:44px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 14px/1 Manrope,sans-serif;cursor:pointer" style-hover="background:var(--muted)">O‘zgartirish</button>
+                <button onClick="{{ onConfirm }}" style="height:44px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 14px/1 Manrope,sans-serif;cursor:pointer" style-hover="background:var(--primary-hover)" style-active="transform:scale(.97)">Tasdiqlash</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ confirmed }}"><button onClick="{{ onChange }}" style="align-self:flex-start;height:36px;padding:0 2px;border:none;background:none;color:var(--primary-soft-foreground);font:700 13px/1 Manrope,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><i class="icon-pencil" style="font-size:14px"></i>O‘zgartirish</button></sc-if>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:12px;display:flex;align-items:center;gap:10px"><span style="position:relative;overflow:hidden;width:36px;height:36px;border-radius:50%;background:var(--skeleton);flex:none">{{ shimmer }}</span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="position:relative;overflow:hidden;height:10px;width:80%;border-radius:5px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:8px;width:50%;border-radius:4px;background:var(--skeleton)">{{ shimmer }}</span></span></div>
+            <div style="background:var(--danger-soft);border:1.5px solid var(--danger);border-radius:16px;padding:12px;display:flex;align-items:center;gap:8px;color:var(--danger-text);font:700 12px/16px Manrope,sans-serif"><i class="icon-user-x" style="font-size:18px;flex:none"></i>Akkaunt topilmadi. Username’ni tekshiring</div>
+          </div>
+          <span style="font:500 11px/14px Manrope,sans-serif;color:var(--text-muted)">Looking up · not found</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Wallet card · wallet chip</div>
+          <div style="background:var(--primary);color:var(--primary-foreground);border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:18px;box-shadow:var(--shadow-glow)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font:700 13px/18px Manrope,sans-serif;opacity:.85">Balans</span><span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 4px;border-radius:999px;background:color-mix(in oklab,var(--primary-foreground) 16%,transparent);font:800 12px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-foreground);display:grid;place-items:center;font:800 11px/1 Unbounded,sans-serif">g</span>120 tanga</span></div>
+            <div style="display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums"><span style="font:600 36px/40px Unbounded,sans-serif;letter-spacing:-.03em">85 400</span><span style="font:700 16px/20px Manrope,sans-serif;opacity:.85">so‘m</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <button style="height:44px;border-radius:14px;border:none;background:var(--primary-foreground);color:var(--primary);font:800 14px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer" style-active="transform:scale(.97)"><i class="icon-plus" style="font-size:17px"></i>To‘ldirish</button>
+              <button style="height:44px;border-radius:14px;border:none;background:color-mix(in oklab,var(--primary-foreground) 16%,transparent);color:var(--primary-foreground);font:800 14px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer" style-active="transform:scale(.97)"><i class="icon-history" style="font-size:16px"></i>Tarix</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px 0 6px;border-radius:999px;border:1px solid var(--border);background:var(--elevated);color:var(--text);box-shadow:var(--shadow-md);font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer"><span style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font-size:16px"><i class="icon-wallet"></i></span>85 400 so‘m</button>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Floating chip on Home + web header</span>
+          </div>
+        </div>
+
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Payment method tile</div>
+          <div role="radiogroup" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+            <sc-for list="{{ pays }}" as="p" hint-placeholder-count="4">
+              <button role="radio" onClick="{{ p.onClick }}" style="display:flex;align-items:center;gap:10px;min-height:64px;padding:10px 12px;border-radius:16px;border:1.5px solid {{ p.bd }};background:{{ p.bg }};color:var(--text);cursor:pointer;text-align:left;transition:border-color var(--dur-fast),background var(--dur-fast)" style-focus="outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)">
+                <span style="width:40px;height:40px;border-radius:12px;background:var(--muted);border:1px dashed var(--input-border);display:grid;place-items:center;font:800 13px/1 Manrope,sans-serif;color:var(--text-muted);flex:none">{{ p.ini }}</span>
+                <span style="flex:1;font:800 14px/18px Manrope,sans-serif">{{ p.name }}</span>
+                <span style="width:20px;height:20px;border-radius:50%;border:{{ p.dotBd }} solid {{ p.dotC }};background:var(--card);flex:none;transition:border-width var(--dur-base) var(--ease-spring)"></span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">13</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Order row · order timeline</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Rows open order detail. The timeline’s current step pulses; times use “Bugun / Kecha”.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;min-width:0;align-content:start">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 0;display:flex;flex-direction:column;align-self:start">
+          <a href="#" style="text-decoration:none;color:inherit;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;padding:12px 16px;align-items:start;transition:background var(--dur-fast)" style-hover="background:var(--muted)">
+            <span style="width:44px;height:44px;border-radius:12px;background:var(--star-soft);display:grid;place-items:center;color:var(--star);font-size:20px"><i class="icon-star"></i></span>
+            <span style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font:800 15px/20px Manrope,sans-serif">500 ⭐ → @dilnoza_k</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">#10482 · Bugun, 14:05</span><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-delivered-soft);color:var(--status-delivered);font:700 11px/1 Manrope,sans-serif"><i class="icon-circle-check" style="font-size:13px"></i>Yetkazildi</span></span>
+            <span style="font:800 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap">110 000 so‘m</span>
+          </a>
+          <div style="height:1px;background:var(--border);margin-left:72px"></div>
+          <a href="#" style="text-decoration:none;color:inherit;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;padding:12px 16px;align-items:start;transition:background var(--dur-fast)" style-hover="background:var(--muted)">
+            <span style="width:44px;height:44px;border-radius:12px;background:var(--premium-soft);display:grid;place-items:center;color:var(--premium);font-size:20px"><i class="icon-crown"></i></span>
+            <span style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font:800 15px/20px Manrope,sans-serif">Premium 3 oylik → @jasur_t</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">#10479 · Bugun, 14:02</span><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-processing-soft);color:var(--status-processing);font:700 11px/1 Manrope,sans-serif"><span style="font-size:13px;display:flex">{{ spin }}</span>Bajarilmoqda</span></span>
+            <span style="font:800 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap">165 000 so‘m</span>
+          </a>
+          <div style="height:1px;background:var(--border);margin-left:72px"></div>
+          <a href="#" style="text-decoration:none;color:inherit;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;padding:12px 16px;align-items:start;transition:background var(--dur-fast)" style-hover="background:var(--muted)">
+            <span style="width:44px;height:44px;border-radius:12px;background:var(--muted);display:grid;place-items:center;color:var(--text-muted);font:800 10px/1 Manrope,sans-serif">PUBG</span>
+            <span style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font:800 15px/20px Manrope,sans-serif">PUBG 660 UC → ID 5123456789</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">#10470 · Kecha, 21:18</span><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-failed-soft);color:var(--status-failed);font:700 11px/1 Manrope,sans-serif"><i class="icon-undo-2" style="font-size:13px"></i>Bajarilmadi — pul qaytarildi</span></span>
+            <span style="display:flex;flex-direction:column;align-items:flex-end"><span style="font:800 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--success-text)">+120 750 so‘m</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">qaytarildi</span></span>
+          </a>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font:800 15px/20px Manrope,sans-serif">Buyurtma #10479</span><span style="display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:999px;background:var(--status-processing-soft);color:var(--status-processing);font:700 12px/1 Manrope,sans-serif"><span style="font-size:13px;display:flex">{{ spin }}</span>Bajarilmoqda</span></div>
+          <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+            <li style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px"><span style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:50%;background:var(--success);color:var(--card);display:grid;place-items:center;font-size:13px"><i class="icon-check"></i></span><span style="flex:1;width:2px;min-height:18px;background:var(--success)"></span></span><span style="padding-bottom:16px;display:flex;flex-direction:column;gap:2px"><span style="font:700 14px/20px Manrope,sans-serif">Buyurtma qabul qilindi</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Bugun, 14:02</span></span></li>
+            <li style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px"><span style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:50%;background:var(--success);color:var(--card);display:grid;place-items:center;font-size:13px"><i class="icon-check"></i></span><span style="flex:1;width:2px;min-height:18px;background:linear-gradient(var(--success),var(--info))"></span></span><span style="padding-bottom:16px;display:flex;flex-direction:column;gap:2px"><span style="font:700 14px/20px Manrope,sans-serif">Hamyondan 165 000 so‘m yechildi</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Bugun, 14:02</span></span></li>
+            <li style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px"><span style="display:flex;flex-direction:column;align-items:center"><span style="position:relative;width:24px;height:24px;display:grid;place-items:center">{{ pulse }}<span style="position:relative;width:24px;height:24px;border-radius:50%;background:var(--info);color:var(--card);display:grid;place-items:center;font-size:14px">{{ spin }}</span></span><span style="flex:1;width:0;min-height:18px;border-left:2px dashed var(--border)"></span></span><span style="padding-bottom:16px;display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/20px Manrope,sans-serif;color:var(--info-text)">@jasur_t ga yuborilmoqda</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Odatda 1–2 daqiqa. Sahifani yopsangiz ham davom etadi</span></span></li>
+            <li style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px"><span style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:50%;border:2px solid var(--border);background:var(--card)"></span></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:700 14px/20px Manrope,sans-serif;color:var(--text-muted)">Yetkazildi</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">Botdan xabar keladi</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">14</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Overlays · toasts · success</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">One component: bottom sheet below 768, centred modal at 768+. Toasts: top on Mini App (clear of MainButton), bottom-right on desktop, 4s.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;min-width:0;align-content:start">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Bottom sheet · mobile</span>
+          <div style="position:relative;height:540px;border-radius:24px;overflow:hidden;background:var(--background);border:1px solid var(--border)">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:10px"><span style="height:120px;border-radius:20px;background:var(--card)"></span><span style="height:64px;border-radius:16px;background:var(--card)"></span><span style="height:64px;border-radius:16px;background:var(--card)"></span></div>
+            <div style="position:absolute;inset:0;background:var(--overlay)"></div>
+            <div role="dialog" aria-modal="true" style="position:absolute;left:0;right:0;bottom:0;background:var(--elevated);border-radius:28px 28px 0 0;box-shadow:var(--shadow-lg);padding:8px 16px 16px;display:flex;flex-direction:column;gap:14px">
+              <span style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--input-border);margin-bottom:4px"></span>
+              <span style="font:800 18px/24px Manrope,sans-serif">Buyurtmani tasdiqlang</span>
+              <div style="display:flex;flex-direction:column;gap:10px;font:600 14px/20px Manrope,sans-serif">
+                <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Mahsulot</span><span>PUBG Mobile · 325 UC</span></div>
+                <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Player ID</span><span style="font-variant-numeric:tabular-nums">5123456789</span></div>
+                <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:var(--text-muted)">Hamyonda qoladi</span><span style="font-variant-numeric:tabular-nums">23 900 so‘m</span></div>
+                <div style="height:1px;background:var(--border)"></div>
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline"><span style="font-weight:700">Jami</span><span style="font:800 20px/24px Manrope,sans-serif;font-variant-numeric:tabular-nums">61 500 so‘m</span></div>
+              </div>
+              <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;box-shadow:var(--shadow-glow);cursor:pointer">To‘lash</button>
+              <span style="display:flex;align-items:center;justify-content:center;gap:6px;font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)"><i class="icon-zap" style="font-size:13px;color:var(--success)"></i>Avtomatik yetkaziladi · 1–2 daqiqa</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Modal · desktop (same content, 480 max)</span>
+          <div role="dialog" style="background:var(--elevated);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font:800 18px/24px Manrope,sans-serif">Buyurtmani tasdiqlang</span><button aria-label="Yopish" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--muted);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:16px"><i class="icon-x"></i></button></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;font:600 14px/20px Manrope,sans-serif"><span style="color:var(--text-muted)">Jami</span><span style="font-weight:800;font-variant-numeric:tabular-nums">61 500 so‘m</span></div>
+            <div style="display:flex;justify-content:flex-end;gap:8px"><button style="height:44px;padding:0 16px;border-radius:12px;border:none;background:transparent;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer" style-hover="background:var(--muted)">Bekor qilish</button><button style="height:44px;padding:0 20px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 14px/1 Manrope,sans-serif;cursor:pointer">To‘lash</button></div>
+          </div>
+          <span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Confirm dialog</span>
+          <div role="alertdialog" style="background:var(--elevated);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center">
+            <span style="width:48px;height:48px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:22px"><i class="icon-triangle-alert"></i></span>
+            <span style="font:800 17px/22px Manrope,sans-serif">Buyurtmani bekor qilasizmi?</span>
+            <span style="font:500 14px/20px Manrope,sans-serif;color:var(--text-secondary)">61 500 so‘m hamyoningizga darhol qaytariladi.</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-top:4px"><button style="height:44px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 14px/1 Manrope,sans-serif;cursor:pointer">Ortga</button><button style="height:44px;border-radius:12px;border:none;background:var(--danger);color:var(--danger-foreground);font:700 14px/1 Manrope,sans-serif;cursor:pointer">Bekor qilish</button></div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Toast</span>
+          <div role="status" style="display:grid;grid-template-columns:32px minmax(0,1fr) 28px;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-md)"><span style="width:32px;height:32px;border-radius:50%;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-size:16px"><i class="icon-circle-check"></i></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/20px Manrope,sans-serif">Yetkazildi</span><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary)">500 ⭐ @dilnoza_k ga yuborildi</span></span><button aria-label="Yopish" style="width:28px;height:28px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:15px"><i class="icon-x"></i></button></div>
+          <div role="alert" style="display:grid;grid-template-columns:32px minmax(0,1fr) 28px;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-md)"><span style="width:32px;height:32px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:16px"><i class="icon-circle-x"></i></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/20px Manrope,sans-serif">To‘lov o‘tmadi</span><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Karta balansini tekshirib, qayta urinib ko‘ring</span></span><button aria-label="Yopish" style="width:28px;height:28px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:15px"><i class="icon-x"></i></button></div>
+          <div role="status" style="display:grid;grid-template-columns:32px minmax(0,1fr) 28px;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-md)"><span style="width:32px;height:32px;border-radius:50%;background:var(--warning-soft);color:var(--warning);display:grid;place-items:center;font-size:16px"><i class="icon-triangle-alert"></i></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/20px Manrope,sans-serif">ID ni tekshiring</span><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary)">Bu ID bilan o‘yinchi topilmadi</span></span><button aria-label="Yopish" style="width:28px;height:28px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:15px"><i class="icon-x"></i></button></div>
+          <div role="status" style="display:grid;grid-template-columns:32px minmax(0,1fr) 28px;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-md)"><span style="width:32px;height:32px;border-radius:50%;background:var(--info-soft);color:var(--info);display:grid;place-items:center;font-size:16px"><i class="icon-info"></i></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:800 14px/20px Manrope,sans-serif">Hamyon to‘ldirildi</span><span style="font:500 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">+150 000 so‘m · Click</span></span><button aria-label="Yopish" style="width:28px;height:28px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:15px"><i class="icon-x"></i></button></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Success moment</span>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+            {{ pop }}
+            <span style="font:800 20px/26px Manrope,sans-serif">Buyurtma qabul qilindi</span>
+            <span style="font:500 14px/20px Manrope,sans-serif;color:var(--text-secondary)">#10483 · odatda 1–2 daqiqada yetkaziladi. Holatini “Tarix”da kuzating.</span>
+            <button style="margin-top:6px;height:44px;padding:0 20px;border-radius:12px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:700 14px/1 Manrope,sans-serif;cursor:pointer">Buyurtmani kuzatish</button>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">15</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Data view states</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Every list ships all four. Skeletons copy the final layout; error = one line + “Qayta urinish”; empty = icon + one line + primary action.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;min-width:0;align-content:start">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Loading</span>
+          <div aria-busy="true" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:16px;min-height:260px">
+            <div style="display:flex;gap:10px"><span style="position:relative;overflow:hidden;width:36px;height:36px;border-radius:10px;background:var(--skeleton);flex:none">{{ shimmer }}</span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="position:relative;overflow:hidden;height:10px;width:90%;border-radius:5px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:8px;width:55%;border-radius:4px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:16px;width:60%;border-radius:8px;background:var(--skeleton)">{{ shimmer }}</span></span></div>
+            <div style="display:flex;gap:10px"><span style="position:relative;overflow:hidden;width:36px;height:36px;border-radius:10px;background:var(--skeleton);flex:none">{{ shimmer }}</span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="position:relative;overflow:hidden;height:10px;width:80%;border-radius:5px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:8px;width:50%;border-radius:4px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:16px;width:70%;border-radius:8px;background:var(--skeleton)">{{ shimmer }}</span></span></div>
+            <div style="display:flex;gap:10px"><span style="position:relative;overflow:hidden;width:36px;height:36px;border-radius:10px;background:var(--skeleton);flex:none">{{ shimmer }}</span><span style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="position:relative;overflow:hidden;height:10px;width:85%;border-radius:5px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:8px;width:45%;border-radius:4px;background:var(--skeleton)">{{ shimmer }}</span><span style="position:relative;overflow:hidden;height:16px;width:55%;border-radius:8px;background:var(--skeleton)">{{ shimmer }}</span></span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Error</span>
+          <div role="alert" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:260px">
+            <span style="width:52px;height:52px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:24px"><i class="icon-wifi-off"></i></span>
+            <span style="font:800 14px/20px Manrope,sans-serif">Yuklab bo‘lmadi</span>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Internetni tekshiring</span>
+            <button style="height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 13px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer" style-hover="background:var(--muted)"><i class="icon-refresh-cw" style="font-size:15px"></i>Qayta urinish</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Empty</span>
+          <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:260px">
+            <span style="width:52px;height:52px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:24px"><i class="icon-package-open"></i></span>
+            <span style="font:800 14px/20px Manrope,sans-serif">Hali buyurtma yo‘q</span>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Birinchi xaridingiz shu yerda ko‘rinadi</span>
+            <button style="height:44px;padding:0 16px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 13px/1 Manrope,sans-serif;cursor:pointer">Xarid qilish</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Filled</span>
+          <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:14px;min-height:260px">
+            <div style="display:flex;gap:10px"><span style="width:36px;height:36px;border-radius:10px;background:var(--star-soft);color:var(--star);display:grid;place-items:center;flex:none"><i class="icon-star"></i></span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font:800 13px/18px Manrope,sans-serif">500 ⭐ → @dilnoza_k</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Bugun, 14:05</span><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;background:var(--status-delivered-soft);color:var(--status-delivered);font:700 11px/1 Manrope,sans-serif"><i class="icon-circle-check" style="font-size:12px"></i>Yetkazildi</span></span></div>
+            <div style="display:flex;gap:10px"><span style="width:36px;height:36px;border-radius:10px;background:var(--premium-soft);color:var(--premium);display:grid;place-items:center;flex:none"><i class="icon-crown"></i></span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font:800 13px/18px Manrope,sans-serif">Premium 3 oylik</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Bugun, 14:02</span><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;background:var(--status-processing-soft);color:var(--status-processing);font:700 11px/1 Manrope,sans-serif"><span style="font-size:12px;display:flex">{{ spin }}</span>Bajarilmoqda</span></span></div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">16</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Avatar · copy field · accordion · stepper</h2></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:28px 24px;min-width:0;align-content:start">
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Avatar · 24 / 32 / 40 / 56</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:24px;height:24px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 9px/1 Manrope,sans-serif">SR</span>
+            <span style="width:32px;height:32px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif">SR</span>
+            <span style="width:40px;height:40px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif">SR</span>
+            <span style="position:relative;width:56px;height:56px;border-radius:50%;background:var(--muted);border:1.5px dashed var(--input-border);display:grid;place-items:center;color:var(--text-muted);font-size:20px"><i class="icon-user"></i><span style="position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-foreground);border:2px solid var(--background);display:grid;place-items:center;font:800 9px/1 Unbounded,sans-serif">g</span></span>
+            <span style="display:flex;flex-direction:column;gap:2px;margin-left:4px"><span style="font:800 15px/20px Manrope,sans-serif">Sardor Rahimov</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">@sardor_r · ID 1187712645</span></span>
+          </div>
+          <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">Telegram photo_url → image slot; fallback initials on primary-soft.</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Copy-to-clipboard field</div>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font:700 13px/18px Manrope,sans-serif">Taklif havolasi</span>
+            <span style="display:flex;align-items:center;gap:6px;height:48px;padding:0 4px 0 14px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border)"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1 ui-monospace,Menlo,monospace;color:var(--text-secondary)">t.me/ggpinbot?start=ref_1187712645</span>
+              <button onClick="{{ onCopy }}" style="height:40px;padding:0 12px;border-radius:10px;border:none;background:var(--primary-soft);color:var(--primary-soft-foreground);font:700 13px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer;flex:none;min-width:118px;justify-content:center">
+                <sc-if value="{{ notCopied }}" hint-placeholder-val="{{ true }}"><i class="icon-copy" style="font-size:15px"></i>Nusxalash</sc-if>
+                <sc-if value="{{ copied }}"><i class="icon-check" style="font-size:15px;color:var(--success-text)"></i><span style="color:var(--success-text)">Nusxalandi</span></sc-if>
+              </button></span>
+            <span style="font:500 12px/16px Manrope,sans-serif;color:var(--text-muted)">7 do‘st taklif qilingan · 18 300 so‘m bonus</span></label>
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 12px 12px 16px;border-radius:16px;background:var(--accent-soft);border:1.5px dashed var(--accent)"><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-soft-foreground)">Promokod</span><span style="font:700 18px/24px ui-monospace,Menlo,monospace;letter-spacing:.08em">XK7Q-92LM-PA3D</span></span><button aria-label="Nusxalash" style="width:44px;height:44px;border-radius:12px;border:none;background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:17px"><i class="icon-copy"></i></button></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Accordion · FAQ</div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden">
+            <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="3">
+              <div style="border-bottom:1px solid var(--border)">
+                <button onClick="{{ f.onClick }}" aria-expanded="{{ f.open }}" style="width:100%;min-height:56px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border:none;background:none;color:var(--text);font:700 14px/20px Manrope,sans-serif;text-align:left;cursor:pointer" style-hover="background:var(--muted)">{{ f.q }}<i class="icon-chevron-down" style="font-size:18px;color:var(--text-muted);transform:{{ f.rot }};transition:transform var(--dur-base) var(--ease-standard)"></i></button>
+                <sc-if value="{{ f.open }}"><div style="padding:0 16px 16px;font:500 14px/21px Manrope,sans-serif;color:var(--text-secondary)">{{ f.a }}</div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Stepper · progress</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+                <span style="width:28px;height:28px;border-radius:50%;background:{{ s.bg }};color:{{ s.fg }};box-shadow:0 0 0 1.5px {{ s.bd }};display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;flex:none;transition:all var(--dur-base) var(--ease-standard)"><sc-if value="{{ s.done }}"><i class="icon-check" style="font-size:14px"></i></sc-if><sc-if value="{{ s.notDone }}">{{ s.n }}</sc-if></span>
+                <span style="font:700 12px/16px Manrope,sans-serif;color:{{ s.lc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div role="progressbar" style="height:6px;border-radius:3px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ progress }};border-radius:3px;background:var(--primary);transition:width var(--dur-slow) var(--ease-out)"></span></div>
+          <button onClick="{{ stepNext }}" style="align-self:flex-start;height:36px;padding:0 14px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 13px/1 Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px">Keyingi qadam<i class="icon-arrow-right" style="font-size:15px"></i></button>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5">17</span><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;letter-spacing:-.02em">Admin</h2><p style="margin:0;font:500 14px/20px Manrope,sans-serif;color:#5E6784">Denser: body 14, rows 52. Table collapses to card rows below 768. Charts use --chart-1…8 (Recharts: stroke 2, area fill 16% opacity, grid = --border).</p></div>
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div data-theme="{{ t.id }}" style="background:var(--background);color:var(--text);border:1px solid var(--border);border-radius:28px;overflow:hidden;display:grid;grid-template-columns:240px minmax(0,1fr);min-width:0">
+        <nav style="background:var(--surface);border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;gap:10px;padding:0 8px 18px"><span style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 18px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span><span style="margin-left:auto;height:20px;padding:0 6px;border-radius:6px;background:var(--muted);color:var(--text-muted);font:800 10px/20px Manrope,sans-serif">ADMIN</span></div>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;background:var(--primary-soft);color:var(--primary-soft-foreground);text-decoration:none;font:800 14px/1 Manrope,sans-serif"><i class="icon-layout-dashboard" style="font-size:18px"></i>Boshqaruv</a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;color:var(--text-secondary);text-decoration:none;font:700 14px/1 Manrope,sans-serif;transition:background var(--dur-fast)" style-hover="background:var(--muted);color:var(--text)"><i class="icon-shopping-bag" style="font-size:18px"></i>Buyurtmalar<span style="margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--warning-soft);color:var(--warning-text);font:800 11px/22px Manrope,sans-serif;text-align:center">12</span></a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;color:var(--text-secondary);text-decoration:none;font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-box" style="font-size:18px"></i>Mahsulotlar</a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;color:var(--text-secondary);text-decoration:none;font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-users" style="font-size:18px"></i>Foydalanuvchilar</a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;color:var(--text-secondary);text-decoration:none;font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-credit-card" style="font-size:18px"></i>To‘lovlar</a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;color:var(--text-secondary);text-decoration:none;font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-ticket" style="font-size:18px"></i>Promokodlar</a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;color:var(--text-secondary);text-decoration:none;font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-settings" style="font-size:18px"></i>Sozlamalar</a>
+          <div style="margin-top:auto;padding-top:24px;display:flex;align-items:center;gap:10px;padding-left:8px"><span style="width:36px;height:36px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif">AO</span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font:800 13px/18px Manrope,sans-serif">Aziz O.</span><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Operator</span></span><i class="icon-log-out" style="margin-left:auto;font-size:16px;color:var(--text-muted)"></i></div>
+        </nav>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:20px;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;font:700 11px/1 Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)"><i class="{{ t.icon }}" style="font-size:14px"></i>{{ t.label }}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px"><span style="display:flex;align-items:center;gap:8px;font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)"><span style="width:28px;height:28px;border-radius:8px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:15px"><i class="icon-wallet"></i></span>Bugungi tushum</span><span style="font:800 24px/30px Manrope,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em">12 480 000 <span style="font-size:14px;color:var(--text-muted)">so‘m</span></span><span style="display:flex;align-items:center;gap:6px;font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)"><span style="display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:999px;background:var(--success-soft);color:var(--success-text);font-weight:800"><i class="icon-trending-up" style="font-size:12px"></i>+12,4%</span>kechagiga nisbatan</span></div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px"><span style="display:flex;align-items:center;gap:8px;font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)"><span style="width:28px;height:28px;border-radius:8px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:15px"><i class="icon-shopping-bag"></i></span>Buyurtmalar</span><span style="font:800 24px/30px Manrope,sans-serif;font-variant-numeric:tabular-nums">384</span><div style="display:flex;align-items:flex-end;gap:3px;height:28px"><span style="flex:1;height:40%;border-radius:3px;background:var(--chart-1);opacity:.35"></span><span style="flex:1;height:55%;border-radius:3px;background:var(--chart-1);opacity:.35"></span><span style="flex:1;height:45%;border-radius:3px;background:var(--chart-1);opacity:.35"></span><span style="flex:1;height:70%;border-radius:3px;background:var(--chart-1);opacity:.35"></span><span style="flex:1;height:60%;border-radius:3px;background:var(--chart-1);opacity:.35"></span><span style="flex:1;height:85%;border-radius:3px;background:var(--chart-1);opacity:.35"></span><span style="flex:1;height:100%;border-radius:3px;background:var(--chart-1)"></span></div></div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px"><span style="display:flex;align-items:center;gap:8px;font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary)"><span style="width:28px;height:28px;border-radius:8px;background:var(--success-soft);color:var(--success-text);display:grid;place-items:center;font-size:15px"><i class="icon-circle-check"></i></span>Muvaffaqiyat</span><span style="font:800 24px/30px Manrope,sans-serif;font-variant-numeric:tabular-nums">98,6%</span><span style="display:flex;align-items:center;gap:6px;font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)"><span style="display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:999px;background:var(--danger-soft);color:var(--danger-text);font-weight:800"><i class="icon-trending-down" style="font-size:12px"></i>−0,3%</span>5 ta qaytarildi</span></div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;align-items:center;gap:14px"><span style="width:72px;height:72px;border-radius:50%;background:conic-gradient(var(--chart-1) 0 42%,var(--chart-2) 42% 73%,var(--chart-5) 73% 91%,var(--chart-4) 91% 100%);display:grid;place-items:center;flex:none"><span style="width:44px;height:44px;border-radius:50%;background:var(--card)"></span></span><span style="display:flex;flex-direction:column;gap:4px;font:600 12px/16px Manrope,sans-serif;color:var(--text-secondary)"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text)">To‘lovlar</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-1)"></span>Click 42%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-2)"></span>Payme 31%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-5)"></span>Uzum 18%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-4)"></span>Rahmat 9%</span></span></div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+              <span style="font:800 15px/20px Manrope,sans-serif;margin-right:auto">Buyurtmalar</span>
+              <span style="position:relative;display:flex"><i class="icon-search" style="position:absolute;left:12px;top:0;bottom:0;display:flex;align-items:center;font-size:15px;color:var(--text-muted)"></i><input placeholder="ID, @username yoki #raqam" style="width:240px;height:40px;border-radius:10px;background:var(--input);border:1.5px solid var(--input-border);padding:0 12px 0 34px;font:600 13px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring)"></span>
+              <button style="height:40px;padding:0 12px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 13px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer"><i class="icon-list-filter" style="font-size:15px"></i>Holat</button>
+              <button style="height:40px;padding:0 12px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 13px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer"><i class="icon-download" style="font-size:15px"></i>Eksport</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font:600 13px/18px Manrope,sans-serif;font-variant-numeric:tabular-nums;min-width:720px">
+                <thead><tr style="text-align:left;color:var(--text-muted);font:700 11px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase"><th style="padding:10px 16px;font-weight:700;background:var(--surface)">Buyurtma</th><th style="padding:10px 12px;font-weight:700;background:var(--surface)">Mahsulot</th><th style="padding:10px 12px;font-weight:700;background:var(--surface)">Qabul qiluvchi</th><th style="padding:10px 12px;font-weight:700;background:var(--surface);text-align:right">Summa</th><th style="padding:10px 12px;font-weight:700;background:var(--surface)">Holat</th><th style="padding:10px 12px;font-weight:700;background:var(--surface)">Vaqt</th><th style="width:52px;background:var(--surface)"></th></tr></thead>
+                <tbody>
+                  <tr style="border-top:1px solid var(--border);height:52px" style-hover="background:var(--muted)"><td style="padding:0 16px;font-weight:800">#10482</td><td style="padding:0 12px">Telegram Stars · 500 ⭐</td><td style="padding:0 12px;color:var(--text-secondary)">@dilnoza_k</td><td style="padding:0 12px;text-align:right;font-weight:800">110 000 so‘m</td><td style="padding:0 12px"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-delivered-soft);color:var(--status-delivered);font:700 11px/1 Manrope,sans-serif;white-space:nowrap"><i class="icon-circle-check" style="font-size:13px"></i>Yetkazildi</span></td><td style="padding:0 12px;color:var(--text-muted);white-space:nowrap">Bugun, 14:05</td><td><button aria-label="Amallar" style="width:36px;height:36px;border-radius:10px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:16px"><i class="icon-ellipsis"></i></button></td></tr>
+                  <tr style="border-top:1px solid var(--border);height:52px" style-hover="background:var(--muted)"><td style="padding:0 16px;font-weight:800">#10480</td><td style="padding:0 12px">Mobile Legends · 86 olmos</td><td style="padding:0 12px;color:var(--text-secondary)">ID 384756201 (1234)</td><td style="padding:0 12px;text-align:right;font-weight:800">19 900 so‘m</td><td style="padding:0 12px"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-review-soft);color:var(--status-review);font:700 11px/1 Manrope,sans-serif;white-space:nowrap"><i class="icon-scan-search" style="font-size:13px"></i>Tekshirilmoqda</span></td><td style="padding:0 12px;color:var(--text-muted);white-space:nowrap">Bugun, 14:03</td><td><button aria-label="Amallar" style="width:36px;height:36px;border-radius:10px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:16px"><i class="icon-ellipsis"></i></button></td></tr>
+                  <tr style="border-top:1px solid var(--border);height:52px" style-hover="background:var(--muted)"><td style="padding:0 16px;font-weight:800">#10479</td><td style="padding:0 12px">Telegram Premium · 3 oylik</td><td style="padding:0 12px;color:var(--text-secondary)">@jasur_t</td><td style="padding:0 12px;text-align:right;font-weight:800">165 000 so‘m</td><td style="padding:0 12px"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-processing-soft);color:var(--status-processing);font:700 11px/1 Manrope,sans-serif;white-space:nowrap"><span style="font-size:13px;display:flex">{{ spin }}</span>Bajarilmoqda</span></td><td style="padding:0 12px;color:var(--text-muted);white-space:nowrap">Bugun, 14:02</td><td><button aria-label="Amallar" style="width:36px;height:36px;border-radius:10px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:16px"><i class="icon-ellipsis"></i></button></td></tr>
+                  <tr style="border-top:1px solid var(--border);height:52px" style-hover="background:var(--muted)"><td style="padding:0 16px;font-weight:800">#10470</td><td style="padding:0 12px">PUBG Mobile · 660 UC</td><td style="padding:0 12px;color:var(--text-secondary)">ID 5123456789</td><td style="padding:0 12px;text-align:right;font-weight:800">120 750 so‘m</td><td style="padding:0 12px"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-failed-soft);color:var(--status-failed);font:700 11px/1 Manrope,sans-serif;white-space:nowrap"><i class="icon-undo-2" style="font-size:13px"></i>Bajarilmadi — pul qaytarildi</span></td><td style="padding:0 12px;color:var(--text-muted);white-space:nowrap">Kecha, 21:18</td><td><button aria-label="Amallar" style="width:36px;height:36px;border-radius:10px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:16px"><i class="icon-ellipsis"></i></button></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid var(--border);font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums"><span>1–20 / 384</span><span style="display:flex;gap:6px"><button aria-label="Oldingi" style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer"><i class="icon-chevron-left"></i></button><button aria-label="Keyingi" style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer"><i class="icon-chevron-right"></i></button></span></div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:390px">
+            <span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Mobile card row (&lt; 768)</span>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;font-variant-numeric:tabular-nums">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font:800 14px/20px Manrope,sans-serif">#10480</span><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--status-review-soft);color:var(--status-review);font:700 11px/1 Manrope,sans-serif"><i class="icon-scan-search" style="font-size:13px"></i>Tekshirilmoqda</span></div>
+              <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font:600 13px/18px Manrope,sans-serif"><span style="color:var(--text-muted)">Mahsulot</span><span>Mobile Legends · 86 olmos</span><span style="color:var(--text-muted)">Kimga</span><span>ID 384756201 (1234)</span><span style="color:var(--text-muted)">Summa</span><span style="font-weight:800">19 900 so‘m · Bugun, 14:03</span></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button style="height:44px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:700 13px/1 Manrope,sans-serif;cursor:pointer">Qaytarish</button><button style="height:44px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:700 13px/1 Manrope,sans-serif;cursor:pointer">Tasdiqlash</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;both&quot;,&quot;tsType&quot;:&quot;'both'|'light'|'dark'&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { hex: { light: {}, dark: {} }, seg: 'orders', tab: 'all', chip: 'Barchasi', sku: '1800', qty: 500, money: '150000', username: 'dilnoza_k', pid: '512345678', zone: '', acc: 0, copied: false, lang: 'uz', pay: 'click', confirmed: false, step: 2 };
+
+  tokens() {
+    return [
+      { title: 'Surfaces', rows: [['--background', 'App / page background'], ['--surface', 'Nav bars, bottom bar, side panels'], ['--card', 'Cards, tiles, list groups'], ['--elevated', 'Sheets, modals, popovers, toasts'], ['--muted', 'Quiet fills: chips, segmented track'], ['--border', 'Dividers, card outlines'], ['--input', 'Field fill'], ['--input-border', 'Field outline (idle)'], ['--ring', 'Focus ring 2px + 2px offset'], ['--overlay', 'Scrim under sheets / modals']] },
+      { title: 'Text', rows: [['--text', 'Primary text, numbers'], ['--text-secondary', 'Descriptions, secondary values'], ['--text-muted', 'Captions, meta, placeholders']] },
+      { title: 'Brand', rows: [['--primary', 'Main actions, selection, links (light)'], ['--primary-hover', 'Hover'], ['--primary-pressed', 'Pressed'], ['--primary-foreground', 'Text/icon on primary'], ['--primary-soft', 'Selected tile fill, info badges'], ['--primary-soft-foreground', 'Text on soft, links on dark'], ['--accent', 'Cashback coins, “Eng foydali”, gg'], ['--accent-foreground', 'Text on accent'], ['--accent-soft', 'Accent tint'], ['--accent-soft-foreground', 'Text on accent tint']] },
+      { title: 'Feedback', rows: [['--success', 'Icons, dots'], ['--success-soft', 'Tint'], ['--success-text', 'Text on card / tint'], ['--warning', 'Icons'], ['--warning-soft', 'Tint'], ['--warning-text', 'Text'], ['--danger', 'Destructive button, errors'], ['--danger-soft', 'Tint'], ['--danger-text', 'Error text'], ['--info', 'Icons, progress'], ['--info-soft', 'Tint'], ['--info-text', 'Text']] },
+      { title: 'Order status', rows: [['--status-queued', 'Navbatda'], ['--status-queued-soft', ''], ['--status-processing', 'Bajarilmoqda (→ info)'], ['--status-processing-soft', ''], ['--status-review', 'Tekshirilmoqda (→ warning)'], ['--status-review-soft', ''], ['--status-delivered', 'Yetkazildi (→ success)'], ['--status-delivered-soft', ''], ['--status-failed', 'Bajarilmadi — pul qaytarildi'], ['--status-failed-soft', ''], ['--status-cancelled', 'Bekor qilindi (→ muted)'], ['--status-cancelled-soft', '']] },
+      { title: 'Domain', rows: [['--star', 'Telegram Stars amounts, ⭐ accents'], ['--star-soft', 'Stars tint'], ['--premium', 'Telegram Premium'], ['--premium-soft', 'Premium tint'], ['--skeleton', 'Skeleton base'], ['--skeleton-shine', 'Shimmer highlight']] },
+      { title: 'Charts (Recharts)', rows: [['--chart-1', 'Revenue / primary series'], ['--chart-2', 'Stars'], ['--chart-3', 'Delivered / success'], ['--chart-4', 'Premium'], ['--chart-5', 'Games'], ['--chart-6', 'Gift cards'], ['--chart-7', 'Other'], ['--chart-8', 'Comparison / previous period']] },
+    ];
+  }
+
+  componentDidMount() {
+    const names = this.tokens().flatMap(g => g.rows.map(r => r[0]));
+    const read = th => {
+      const d = document.createElement('div');
+      d.setAttribute('data-theme', th);
+      d.style.display = 'none';
+      document.body.appendChild(d);
+      const cs = getComputedStyle(d), o = {};
+      names.forEach(n => { o[n] = cs.getPropertyValue(n).trim().toUpperCase().replace('RGBA', 'rgba'); });
+      d.remove();
+      return o;
+    };
+    this.setState({ hex: { light: read('light'), dark: read('dark') } });
+  }
+
+  fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); }
+
+  renderVals() {
+    const h = React.createElement;
+    const rm = !!this.props.reducedMotion;
+    const s = this.state;
+    const mode = this.props.themes ?? 'both';
+    const all = [{ id: 'light', label: 'Light', icon: 'icon-sun' }, { id: 'dark', label: 'Dark', icon: 'icon-moon' }];
+    const themes = mode === 'light' ? [all[0]] : mode === 'dark' ? [all[1]] : all;
+
+    const shimmer = h('span', { style: { position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,var(--skeleton-shine),transparent)', transform: 'translateX(-100%)', animation: rm ? 'none' : 'gg-shimmer var(--dur-shimmer) var(--ease-standard) infinite', opacity: rm ? 0 : 1 } });
+    const spin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, animation: rm ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const pulse = h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)', animation: rm ? 'none' : 'gg-pulse 1600ms var(--ease-out) infinite', opacity: rm ? 0 : 1 } });
+    const pop = h('span', { style: { width: 72, height: 72, borderRadius: '50%', background: 'var(--success-soft)', color: 'var(--success-text)', display: 'grid', placeItems: 'center', fontSize: 34, animation: rm ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+
+    const dot = ease => h('span', { style: { display: 'block', width: 12, height: 12, borderRadius: '50%', background: '#3D4BF5', animation: rm ? 'none' : `gg-slide 1200ms ${ease} infinite alternate` } });
+    const easings = [
+      { name: '--ease-standard', val: 'cubic-bezier(.2,0,0,1)', use: 'Default for hover, colour, tabs, segmented thumb', dot: dot('var(--ease-standard)') },
+      { name: '--ease-out', val: 'cubic-bezier(.05,.7,.1,1)', use: 'Entering: page in, sheet up, toast in', dot: dot('var(--ease-out)') },
+      { name: '--ease-in', val: 'cubic-bezier(.3,0,.8,.15)', use: 'Leaving: page out, sheet dismiss', dot: dot('var(--ease-in)') },
+      { name: '--ease-spring', val: 'cubic-bezier(.34,1.56,.64,1)', use: 'CSS stand-in for springs: SKU select, success check', dot: dot('var(--ease-spring)') },
+    ];
+    const durations = [
+      { k: 'instant', v: '80ms', use: 'press scale' }, { k: 'fast', v: '140ms', use: 'hover, focus, toggles' }, { k: 'base', v: '220ms', use: 'selection, tabs, page in' },
+      { k: 'slow', v: '320ms', use: 'sheet, modal' }, { k: 'slower', v: '480ms', use: 'success moment' }, { k: 'shimmer', v: '1400ms', use: 'skeleton loop' },
+    ];
+    const patterns = [
+      { k: 'Page transition', v: 'in: x 16→0 + fade, 220ms ease-out · out: fade 140ms ease-in', rm: 'fade 120ms only' },
+      { k: 'Bottom sheet', v: 'spring { stiffness 380, damping 36 } · y 100%→0 · scrim fade 220ms · drag dismiss > 30% or v > 600', rm: 'fade 120ms, no slide' },
+      { k: 'Modal (desktop)', v: 'scale .96→1 + fade, 220ms ease-out', rm: 'fade 120ms' },
+      { k: 'Selection', v: 'spring { stiffness 500, damping 30 } · scale .97→1, border+tint 140ms', rm: 'instant colour change' },
+      { k: 'Press', v: 'scale .97, 80ms ease-standard', rm: 'no scale; colour only' },
+      { k: 'Success', v: 'spring { stiffness 260, damping 15 } · check scale .5→1, ring 480ms · haptic notificationOccurred("success")', rm: 'static check, haptic kept' },
+      { k: 'Skeleton', v: 'shimmer translateX −100%→100%, 1400ms loop', rm: 'static --skeleton fill' },
+      { k: 'Bajarilmoqda', v: 'loader rotate 900ms linear · timeline ring pulse 1600ms', rm: 'static icon + “…” text' },
+    ];
+    const spacing = [[0.5, 2], [1, 4], [2, 8], [3, 12], [4, 16], [5, 20], [6, 24], [8, 32], [10, 40], [12, 48], [16, 64]].map(([k, px]) => ({ k, px, w: px * 4 + 'px' }));
+
+    const tokenGroups = this.tokens().map(g => ({
+      title: g.title,
+      rows: g.rows.map(([v, use]) => ({ v, use, lh: s.hex.light[v] || `var(${v})`, dh: s.hex.dark[v] || '#000', lt: s.hex.light[v] || '…', dt: s.hex.dark[v] || '…' })),
+    }));
+
+    const qty = Math.max(50, Number(s.qty) || 0);
+    const moneyNum = Number(String(s.money).replace(/\D/g, '')) || 0;
+
+    const pick = (on, a, b) => on ? a : b;
+    const segs = [{ id: 'orders', label: 'Buyurtmalar' }, { id: 'finance', label: 'Moliya' }].map(x => ({ ...x, bg: pick(s.seg === x.id, 'var(--primary)', 'transparent'), fg: pick(s.seg === x.id, 'var(--primary-foreground)', 'var(--text-secondary)'), sh: pick(s.seg === x.id, 'var(--shadow-sm)', 'none'), onClick: () => this.setState({ seg: x.id }) }));
+    const tabs = [{ id: 'all', label: 'Hammasi' }, { id: 'games', label: 'O‘yinlar' }, { id: 'tg', label: 'Telegram' }, { id: 'cards', label: 'Kartalar' }].map(x => ({ ...x, fg: pick(s.tab === x.id, 'var(--text)', 'var(--text-muted)'), bar: pick(s.tab === x.id, 'var(--primary)', 'transparent'), onClick: () => this.setState({ tab: x.id }) }));
+    const chips = ['Barchasi', 'Yetkazildi', 'Bajarilmoqda', 'Qaytarildi', 'Bekor qilindi'].map(label => ({ label, on: s.chip === label, bg: pick(s.chip === label, 'var(--primary)', 'var(--card)'), fg: pick(s.chip === label, 'var(--primary-foreground)', 'var(--text-secondary)'), bd: pick(s.chip === label, 'var(--primary)', 'var(--border)'), onClick: () => this.setState({ chip: label }) }));
+    const langs = [{ id: 'uz', label: 'UZ' }, { id: 'ru', label: 'RU' }].map(x => ({ ...x, bg: pick(s.lang === x.id, 'var(--card)', 'transparent'), fg: pick(s.lang === x.id, 'var(--text)', 'var(--text-muted)'), sh: pick(s.lang === x.id, 'var(--shadow-sm)', 'none'), onClick: () => this.setState({ lang: x.id }) }));
+
+    const skus = [
+      { id: '60', amt: '60 UC', price: '12 150 so‘m' }, { id: '325', amt: '325 UC', price: '61 500 so‘m' },
+      { id: '660', amt: '660 UC', price: '120 750 so‘m' }, { id: '1800', amt: '1800 UC', price: '299 150 so‘m', best: true },
+    ].map(x => { const on = s.sku === x.id; return { ...x, on, bg: pick(on, 'var(--primary-soft)', 'var(--card)'), bd: pick(on, 'var(--primary)', 'var(--border)'), ck: pick(on, 1, 0), onClick: () => this.setState({ sku: x.id }) }; });
+
+    const pays = [{ id: 'click', name: 'Click', ini: 'C' }, { id: 'payme', name: 'Payme', ini: 'P' }, { id: 'uzum', name: 'Uzum', ini: 'U' }, { id: 'rahmat', name: 'Rahmat', ini: 'R' }].map(x => { const on = s.pay === x.id; return { ...x, bd: pick(on, 'var(--primary)', 'var(--border)'), bg: pick(on, 'var(--primary-soft)', 'var(--card)'), dotBd: pick(on, '6px', '2px'), dotC: pick(on, 'var(--primary)', 'var(--input-border)'), onClick: () => this.setState({ pay: x.id }) }; });
+
+    const faqs = [
+      { q: 'Buyurtma qancha vaqtda yetkaziladi?', a: 'Odatda 1–2 daqiqa. Holatini “Tarix” bo‘limida real vaqtda ko‘rasiz.' },
+      { q: 'ID ni noto‘g‘ri kiritsam nima bo‘ladi?', a: 'To‘lovdan oldin qabul qiluvchi nomini ko‘rsatamiz — tasdiqlamaguningizcha pul yechilmaydi.' },
+      { q: 'Buyurtma bajarilmasa-chi?', a: 'Pul avtomatik ravishda hamyoningizga qaytariladi.' },
+    ].map((x, i) => { const open = s.acc === i; return { ...x, open, rot: pick(open, 'rotate(180deg)', 'none'), onClick: () => this.setState({ acc: open ? -1 : i }) }; });
+
+    const steps = ['Mahsulot', 'Qabul qiluvchi', 'To‘lov'].map((label, i) => { const n = i + 1, done = n < s.step, cur = n === s.step; return { label, n, done, notDone: !done, bg: done ? 'var(--primary)' : cur ? 'var(--primary-soft)' : 'var(--muted)', fg: done ? 'var(--primary-foreground)' : cur ? 'var(--primary-soft-foreground)' : 'var(--text-muted)', bd: cur ? 'var(--primary)' : 'transparent', lc: n <= s.step ? 'var(--text)' : 'var(--text-muted)' }; });
+
+    return {
+      themes, reduced: String(rm), shimmer, spin, pulse, pop, easings, durations, patterns, spacing, tokenGroups,
+      segs, tabs, chips, langs, skus, pays, faqs, steps,
+      progress: Math.round(((s.step - 1) / 2) * 100) + '%',
+      stepNext: () => this.setState(p => ({ step: p.step >= 3 ? 1 : p.step + 1 })),
+      qty, qtyPrice: this.fmt(qty * 220) + ' so‘m', qtyMinDisabled: qty <= 50,
+      qtyChips: [50, 100, 250, 500, 1000].map(v => ({ v, label: v + ' ⭐', bg: pick(qty === v, 'var(--primary-soft)', 'var(--card)'), bd: pick(qty === v, 'var(--primary)', 'var(--border)'), fg: pick(qty === v, 'var(--primary-soft-foreground)', 'var(--text-secondary)'), onClick: () => this.setState({ qty: v }) })),
+      qtyDec: () => this.setState(p => ({ qty: Math.max(50, (Number(p.qty) || 50) - 50) })),
+      qtyInc: () => this.setState(p => ({ qty: (Number(p.qty) || 0) + 50 })),
+      onQty: e => this.setState({ qty: e.target.value.replace(/\D/g, '').slice(0, 6) }),
+      money: moneyNum ? this.fmt(moneyNum) : '', onMoney: e => this.setState({ money: e.target.value.replace(/\D/g, '').slice(0, 9) }),
+      moneyChips: [50000, 100000, 200000].map(v => ({ label: '+' + this.fmt(v), onClick: () => this.setState(p => ({ money: String((Number(p.money) || 0) + v) })) })),
+      username: s.username, onUsername: e => this.setState({ username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 32) }),
+      pid: s.pid, onPid: e => this.setState({ pid: e.target.value.replace(/\D/g, '').slice(0, 12) }),
+      zone: s.zone, onZone: e => this.setState({ zone: e.target.value.replace(/\D/g, '').slice(0, 5) }),
+      pidLen: s.pid.length, pidOk: s.pid.length >= 9, pidShort: s.pid.length > 0 && s.pid.length < 9,
+      copied: s.copied, notCopied: !s.copied,
+      onCopy: () => { try { navigator.clipboard.writeText('https://t.me/ggpinbot?start=ref_1187712645'); } catch (e) {} this.setState({ copied: true }); clearTimeout(this._ct); this._ct = setTimeout(() => this.setState({ copied: false }), 1800); },
+      confirmed: s.confirmed, notConfirmed: !s.confirmed,
+      onConfirm: () => this.setState({ confirmed: true }), onChange: () => this.setState({ confirmed: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

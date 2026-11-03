@@ -15,11 +15,12 @@ Bu bosqich davomida 0–2-bosqichlar (backend asosi) parallel ketishi mumkin.
 
 **Qabul mezonlari**
 
-- [ ] Dizayn tizimi (token'lar yorug‘/qorong‘i, komponentlar) tayyor
-- [ ] Landing, Mini App (bosh sahifa, mahsulot, tasdiqlash, holat, to‘ldirish, tarix, profil, referal) tayyor
-- [ ] Web do‘kon desktop varianti va admin panel ekranlari tayyor
-- [ ] Ruscha matn sig‘ishi tekshirilgan (yakuniy raund)
-- [ ] Handoff bundle `design/handoff/` da, `README.md` bilan
+- [x] Dizayn tizimi (token'lar yorug‘/qorong‘i, komponentlar) tayyor
+- [x] Landing, Mini App (bosh sahifa, mahsulot, tasdiqlash, holat, to‘ldirish, tarix, profil, referal) tayyor
+- [x] Web do‘kon desktop varianti va admin panel ekranlari tayyor
+- [x] Ruscha matn sig‘ishi tekshirilgan (yakuniy raund; qolgan RU bo‘shliqlari —
+      `design/handoff/README.md`)
+- [x] Handoff bundle `design/handoff/` da, `README.md` bilan
 
 ---
 

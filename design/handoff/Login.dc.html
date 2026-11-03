@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Kirish — ggpin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+</helmet>
+<div data-theme="{{ theme }}" data-reduced="{{ reduced }}" style="container-type:inline-size;position:relative;overflow:hidden;min-height:clamp(800px,60cqi,900px);background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif;display:flex;flex-direction:column">
+  <span aria-hidden="true" style="position:absolute;left:50%;top:-30%;width:1100px;height:900px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,var(--primary-soft),transparent);pointer-events:none"></span>
+  <header style="position:relative;width:100%;max-width:1264px;margin:0 auto;padding:0 clamp(16px,2.5cqi,32px);height:clamp(64px,5cqi,72px);display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <a href="/" aria-label="ggpin — bosh sahifa" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)"><span style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 20px/1 Unbounded,sans-serif;letter-spacing:-.04em"><span style="color:var(--primary)">gg</span>pin</span></a>
+    <sc-if value="{{ notAdmin }}" hint-placeholder-val="{{ true }}"><a href="/" style="height:44px;padding:0 12px;border-radius:12px;display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif" style-hover="background:var(--muted);color:var(--text)"><i class="icon-arrow-left" style="font-size:16px"></i>Bosh sahifaga</a></sc-if><sc-if value="{{ isAdmin }}"><span style="height:28px;padding:0 10px;border-radius:8px;background:{{ envBg }};color:{{ envFg }};font:800 11px/28px Manrope,sans-serif;letter-spacing:.06em">{{ envLabel }}</span></sc-if>
+  </header>
+
+  <main style="position:relative;flex:1;display:grid;place-items:center;padding:clamp(16px,4cqi,48px) 16px clamp(32px,5cqi,64px)">
+    <div style="width:min(100%,440px);background:var(--card);border:1px solid var(--border);border-radius:28px;box-shadow:var(--shadow-lg);padding:clamp(24px,2.4cqi,36px) clamp(20px,2.4cqi,36px);display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+        <span aria-hidden="true" style="width:56px;height:56px;border-radius:17px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 25px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:3px;box-shadow:var(--shadow-glow)">g<span style="color:var(--accent)">g</span></span>
+        <sc-if value="{{ notAdmin }}" hint-placeholder-val="{{ true }}"><h1 style="margin:0;font:800 26px/32px Manrope,sans-serif;letter-spacing:-.02em">ggpin’ga kirish</h1></sc-if><sc-if value="{{ isAdmin }}"><h1 style="margin:0;font:800 26px/32px Manrope,sans-serif;letter-spacing:-.02em">Admin panel</h1></sc-if>
+        <sc-if value="{{ notAdmin }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">Parol kerak emas: kirish kodi Telegram’dagi botimizga keladi. Birinchi marta kirsangiz, hisob avtomatik yaratiladi.</p></sc-if><sc-if value="{{ isAdmin }}"><p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">Kirish kodi Telegram’dagi ggpin botiga keladi.</p><div role="note" style="margin-top:4px;display:flex;gap:8px;align-items:center;justify-content:center;padding:10px 12px;border-radius:12px;background:var(--warning-soft);color:var(--warning-text);font:700 13px/18px Manrope,sans-serif"><i class="icon-shield-alert" style="font-size:16px;flex:none"></i>Faqat ruxsat berilgan xodimlar kira oladi</div></sc-if>
+      </div>
+
+      <sc-if value="{{ isError }}">
+        <div role="alert" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;background:var(--danger-soft);color:var(--danger-text);font:700 14px/20px Manrope,sans-serif"><i class="icon-circle-alert" style="font-size:18px;margin-top:1px;flex:none"></i><span style="display:flex;flex-direction:column;gap:2px">Telegram orqali kirish vaqtincha ishlamayapti<span style="font-weight:500;color:var(--text-secondary)">Bir necha daqiqadan so‘ng qayta urinib ko‘ring.</span></span></div>
+      </sc-if>
+
+      <sc-if value="{{ showStart }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ onStart }}" style="height:56px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;box-shadow:var(--shadow-glow);transition:background var(--dur-fast),transform var(--dur-instant)" style-hover="background:var(--primary-hover)" style-active="transform:scale(.98)" style-focus="outline:none;box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ring)"><i class="icon-send" style="font-size:19px"></i>Telegram orqali kirish</button>
+      </sc-if>
+      <sc-if value="{{ isLoading }}">
+        <button disabled="" aria-busy="true" style="height:56px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;opacity:.9;box-shadow:var(--shadow-glow)"><span style="display:flex;font-size:20px">{{ spin }}</span>Telegram ochilmoqda…</button>
+      </sc-if>
+
+      <sc-if value="{{ isWaiting }}">
+        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px">
+          <li style="display:flex;gap:12px;align-items:flex-start;font:600 15px/22px Manrope,sans-serif"><span style="width:28px;height:28px;border-radius:50%;background:var(--success);color:var(--card);display:grid;place-items:center;font-size:14px;flex:none"><i class="icon-check"></i></span><span style="padding-top:3px">1. Telegram’da botimiz ochiladi.</span></li>
+          <li style="display:flex;gap:12px;align-items:flex-start;font:700 15px/22px Manrope,sans-serif"><span style="width:28px;height:28px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);box-shadow:0 0 0 1.5px var(--primary);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;flex:none">2</span><span style="padding-top:3px">2. Start tugmasini bosing.</span></li>
+          <li style="display:flex;gap:12px;align-items:flex-start;font:600 15px/22px Manrope,sans-serif;color:var(--text-secondary)"><span style="width:28px;height:28px;border-radius:50%;background:var(--muted);color:var(--text-muted);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif;flex:none">3</span><span style="padding-top:3px">3. Bot yuborgan 6 xonali kodni shu yerga kiriting.</span></li>
+        </ol>
+        <a href="https://t.me/ggpinbot?start=login" style="height:52px;border-radius:16px;border:1.5px solid var(--border);color:var(--text);font:800 15px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none" style-hover="background:var(--muted);color:var(--text)"><i class="icon-external-link" style="font-size:17px"></i>Telegram’ni ochish</a>
+        <div role="status" aria-live="polite" style="display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px/20px Manrope,sans-serif;color:var(--info-text)"><span style="display:flex;font-size:16px">{{ spin }}</span>Telegram’dan javob kutilmoqda…</div>
+        <button onClick="{{ onRestart }}" style="align-self:center;height:36px;padding:0 10px;border:none;background:none;color:var(--text-muted);font:700 13px/1 Manrope,sans-serif;cursor:pointer" style-hover="color:var(--text)">Bekor qilish</button>
+      </sc-if>
+
+      <sc-if value="{{ showOtp }}">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:center;font:700 14px/20px Manrope,sans-serif;color:var(--success-text)"><i class="icon-circle-check" style="font-size:17px"></i>Kod Telegram’ga yuborildi</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label style="font:700 13px/18px Manrope,sans-serif;text-align:center;color:var(--text-secondary)">@ggpinbot yuborgan 6 xonali kod</label>
+          <div onPaste="{{ onPaste }}" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;animation:{{ shake }}">
+            <sc-for list="{{ boxes }}" as="b" hint-placeholder-count="6">
+              <input ref="{{ b.ref }}" value="{{ b.v }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKeyDown }}" disabled="{{ otpDisabled }}" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="{{ b.label }}" style="width:100%;min-width:0;height:60px;border-radius:14px;border:1.5px solid {{ b.bd }};background:{{ b.bg }};text-align:center;font:700 24px/1 Unbounded,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);outline:none;opacity:{{ otpOpacity }};transition:border-color var(--dur-fast),box-shadow var(--dur-fast)" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)">
+            </sc-for>
+          </div>
+          <sc-if value="{{ isWrong }}"><div role="alert" style="display:flex;align-items:center;justify-content:center;gap:6px;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-x" style="font-size:15px"></i>{{ wrongText }}</div></sc-if>
+          <sc-if value="{{ isExpired }}"><div role="alert" style="display:flex;align-items:center;justify-content:center;gap:6px;font:700 13px/18px Manrope,sans-serif;color:var(--warning-text)"><i class="icon-timer-off" style="font-size:15px"></i>Kod muddati tugadi</div></sc-if>
+          <sc-if value="{{ showTimer }}"><div style="display:flex;align-items:center;justify-content:center;gap:6px;font:600 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums"><i class="icon-timer" style="font-size:14px"></i>Kod {{ ttl }} amal qiladi</div></sc-if>
+        </div>
+        <sc-if value="{{ notExpired }}">
+          <button onClick="{{ onSubmit }}" disabled="{{ submitDisabled }}" style="height:56px;border-radius:16px;border:none;background:{{ submitBg }};color:{{ submitFg }};font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:background var(--dur-fast)"><sc-if value="{{ verifying }}"><span style="display:flex;font-size:20px">{{ spin }}</span></sc-if>{{ submitLabel }}</button>
+        </sc-if>
+        <sc-if value="{{ isExpired }}">
+          <button onClick="{{ onResend }}" style="height:56px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:var(--shadow-glow)"><i class="icon-refresh-cw" style="font-size:17px"></i>Yangi kod olish</button>
+        </sc-if>
+        <sc-if value="{{ notExpired }}">
+          <button onClick="{{ onResend }}" disabled="{{ resendDisabled }}" style="align-self:center;height:44px;padding:0 12px;border-radius:12px;border:none;background:none;color:{{ resendFg }};font:700 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="icon-rotate-ccw" style="font-size:15px"></i>Kodni qayta yuborish{{ resendSuffix }}</button>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ isRejected }}">
+        <div role="alert" style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:4px 0">
+          <span style="width:64px;height:64px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:30px"><i class="icon-circle-x"></i></span>
+          <span style="font:800 17px/24px Manrope,sans-serif">So‘rov Telegram’da rad etildi.</span>
+          <span style="font:500 14px/20px Manrope,sans-serif;color:var(--text-secondary)">Bu siz bo‘lsangiz, qaytadan boshlang va botda “Tasdiqlash”ni bosing.</span>
+        </div>
+        <button onClick="{{ onRestart }}" style="height:56px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:var(--shadow-glow)"><i class="icon-rotate-ccw" style="font-size:17px"></i>Qaytadan boshlash</button>
+      </sc-if>
+
+      <sc-if value="{{ isSuccess }}">
+        <div role="status" style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+          {{ pop }}
+          <span style="font:800 18px/24px Manrope,sans-serif">Xush kelibsiz, Sardor!</span>
+          <span style="display:flex;align-items:center;gap:8px;font:600 14px/20px Manrope,sans-serif;color:var(--text-muted)"><span style="display:flex">{{ spin }}</span>Do‘konga o‘tilmoqda…</span>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;gap:10px;align-items:flex-start;padding-top:18px;border-top:1px solid var(--border);font:600 13px/19px Manrope,sans-serif;color:var(--text-secondary)"><i class="icon-shield-check" style="font-size:18px;color:var(--success);flex:none;margin-top:1px"></i>Kodni hech kimga bermang — xodimlarimiz uni hech qachon so‘ramaydi.</div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;start&quot;,&quot;loading&quot;,&quot;waiting&quot;,&quot;code&quot;,&quot;wrong&quot;,&quot;expired&quot;,&quot;rejected&quot;,&quot;error&quot;],&quot;default&quot;:&quot;start&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;user&quot;,&quot;admin&quot;],&quot;default&quot;:&quot;user&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;env&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;production&quot;,&quot;staging&quot;],&quot;default&quot;:&quot;production&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const st = props.state ?? 'start';
+    this.refsArr = [0, 1, 2, 3, 4, 5].map(() => React.createRef());
+    this.state = { st, digits: this.initDigits(st), ttl: 161, cool: 45, tries: 3, verifying: false, shakeKey: 0 };
+  }
+  initDigits(st) { return st === 'wrong' ? '482913'.split('') : ['', '', '', '', '', '']; }
+
+  componentDidMount() {
+    this.iv = setInterval(() => {
+      if (this.props.frozen || !['code', 'wrong'].includes(this.state.st)) return;
+      this.setState(s => {
+        const ttl = Math.max(0, s.ttl - 1), cool = Math.max(0, s.cool - 1);
+        return ttl === 0 ? { ttl, cool, st: 'expired' } : { ttl, cool };
+      });
+    }, 1000);
+  }
+  componentDidUpdate(prev) {
+    if (prev.state !== this.props.state) { const st = this.props.state ?? 'start'; this.setState({ st, digits: this.initDigits(st), ttl: 161, cool: 45, tries: 3, verifying: false }); }
+  }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.t1); clearTimeout(this.t2); }
+
+  go(st, extra) { this.setState({ st, ...(extra || {}) }); }
+  start() {
+    this.go('loading');
+    clearTimeout(this.t1); clearTimeout(this.t2);
+    this.t1 = setTimeout(() => this.go('waiting'), 900);
+    this.t2 = setTimeout(() => this.go('code', { ttl: 161, cool: 45, digits: ['', '', '', '', '', ''] }), 3600);
+  }
+  submit(code) {
+    if (this.state.verifying) return;
+    this.setState({ verifying: true });
+    setTimeout(() => {
+      if (code === '000000' || code === '482913') {
+        const tries = Math.max(0, this.state.tries - 1);
+        this.setState({ verifying: false, st: tries === 0 ? 'rejected' : 'wrong', tries, shakeKey: this.state.shakeKey + 1 });
+      } else this.setState({ verifying: false, st: 'success' });
+    }, 800);
+  }
+  setDigits(d) {
+    this.setState({ digits: d, st: this.state.st === 'wrong' ? 'code' : this.state.st });
+    const code = d.join('');
+    if (code.length === 6 && /^\d{6}$/.test(code)) this.submit(code);
+  }
+
+  renderVals() {
+    const h = React.createElement, s = this.state, st = s.st, rm = !!this.props.reducedMotion;
+    const spin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, animation: rm ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const pop = h('span', { style: { width: 72, height: 72, borderRadius: '50%', background: 'var(--success-soft)', color: 'var(--success)', display: 'grid', placeItems: 'center', fontSize: 34, animation: rm ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+    const wrong = st === 'wrong', expired = st === 'expired';
+    const full = s.digits.join('').length === 6;
+    const mm = Math.floor(s.ttl / 60), ss = String(s.ttl % 60).padStart(2, '0');
+    const boxes = s.digits.map((v, i) => ({
+      v, ref: this.refsArr[i], label: `Kod, ${i + 1}-raqam`,
+      bd: wrong ? 'var(--danger)' : v ? 'var(--text-muted)' : 'var(--input-border)',
+      bg: wrong ? 'var(--danger-soft)' : 'var(--input)',
+      onChange: e => {
+        const val = e.target.value.replace(/\D/g, '');
+        const d = [...this.state.digits];
+        if (val.length > 1) { val.slice(0, 6 - i).split('').forEach((c, k) => { d[i + k] = c; }); }
+        else d[i] = val;
+        this.setDigits(d);
+        if (val && i < 5) { const n = this.refsArr[Math.min(5, i + val.length)].current; n && n.focus(); }
+      },
+      onKeyDown: e => { if (e.key === 'Backspace' && !this.state.digits[i] && i > 0) { const p = this.refsArr[i - 1].current; p && p.focus(); } },
+    }));
+    return {
+      theme: this.props.theme ?? 'light', reduced: String(rm), spin, pop,
+      isAdmin: this.props.variant === 'admin', notAdmin: this.props.variant !== 'admin', envLabel: this.props.env === 'staging' ? 'STAGING' : 'PRODUCTION', envBg: this.props.env === 'staging' ? 'var(--warning)' : 'var(--danger)', envFg: this.props.env === 'staging' ? 'var(--accent-foreground)' : '#fff',
+      isError: st === 'error', showStart: st === 'start' || st === 'error', isLoading: st === 'loading', isWaiting: st === 'waiting',
+      showOtp: ['code', 'wrong', 'expired'].includes(st), isWrong: wrong, isExpired: expired, notExpired: !expired, isRejected: st === 'rejected', isSuccess: st === 'success',
+      showTimer: !expired, ttl: `${mm}:${ss}`,
+      wrongText: `Kod noto‘g‘ri. Yana ${s.tries} ta urinish qoldi`,
+      boxes, otpDisabled: expired, otpOpacity: expired ? 0.5 : 1,
+      shake: wrong && !rm ? `gg-shake 360ms var(--ease-standard) ${s.shakeKey % 2 ? '' : '0ms'}` : 'none',
+      verifying: s.verifying, submitDisabled: !full || s.verifying,
+      submitBg: full ? 'var(--primary)' : 'var(--muted)', submitFg: full ? 'var(--primary-foreground)' : 'var(--text-muted)',
+      submitLabel: s.verifying ? 'Tekshirilmoqda…' : 'Tasdiqlash',
+      resendDisabled: s.cool > 0, resendFg: s.cool > 0 ? 'var(--text-muted)' : 'var(--primary-soft-foreground)',
+      resendSuffix: s.cool > 0 ? ` · 0:${String(s.cool).padStart(2, '0')}` : '',
+      onStart: () => this.start(), onRestart: () => this.go('start'),
+      onResend: () => this.go('code', { ttl: 161, cool: 45, digits: ['', '', '', '', '', ''] }),
+      onSubmit: () => this.submit(s.digits.join('')),
+      onPaste: e => { const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (t.length) { e.preventDefault(); this.setDigits(t.padEnd(6, ' ').split('').map(c => c.trim())); } },
+    };
+  }
+}
+</script>
+</body>
+</html>
