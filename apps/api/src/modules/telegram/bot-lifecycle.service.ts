@@ -42,6 +42,9 @@ export class BotLifecycleService implements OnApplicationBootstrap, BeforeApplic
       return;
     }
 
+    // grammY's start() deletes the webhook. With the production token that would silently switch
+    // the live bot off, so a dev process must find out first and refuse.
+    await this.refuseIfWebhookIsSet();
     await this.setup.run();
     this.polling = true;
     // start() resolves only when polling stops, so it must not be awaited.
@@ -49,6 +52,24 @@ export class BotLifecycleService implements OnApplicationBootstrap, BeforeApplic
       this.polling = false;
       this.logger.error(`long polling stopped: ${safeErrorText(error)}`);
     });
+  }
+
+  private async refuseIfWebhookIsSet(): Promise<void> {
+    let url: string | null = null;
+    let failure = '';
+    try {
+      url = (await this.bot.api.getWebhookInfo()).url ?? '';
+    } catch (error) {
+      failure = safeErrorText(error);
+    }
+    // Cannot prove there is no webhook, so do not risk taking it down.
+    if (url === null)
+      throw new Error(`could not check the bot's webhook before polling: ${failure}`);
+    if (url !== '') {
+      throw new Error(
+        'TELEGRAM_BOT_MODE=polling would delete the webhook this bot token is serving (a live bot is using it). Use a separate bot token from @BotFather for development.',
+      );
+    }
   }
 
   async beforeApplicationShutdown(): Promise<void> {

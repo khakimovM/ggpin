@@ -247,10 +247,10 @@ describe('loadEnv', () => {
       expect(message).not.toContain('CLICK_SECRET_KEY');
     });
 
-    it('allows placeholders only under NODE_ENV=test (see env-hardening.spec.ts)', () => {
+    it('rejects placeholders under NODE_ENV=test as well (see env-hardening.spec.ts)', () => {
       expect(() =>
         loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'test', JWT_ACCESS_SECRET: 'change-me' }),
-      ).not.toThrow();
+      ).toThrow(/JWT_ACCESS_SECRET/);
     });
 
     it('refuses SWAGGER_ENABLED=true in production, but not elsewhere', () => {

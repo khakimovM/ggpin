@@ -28,6 +28,20 @@ describe('Cache-Control: no-store on /auth/* and /me* (real pipeline)', () => {
     expect(anonymous.headers['cache-control']).toBe('no-store');
   });
 
+  it.each(['/api/v1/%6De', '/api/v1/%6de', '/api/v1/%61uth/sessions', '/api/v1/auth%2Fsessions'])(
+    'a percent-encoded spelling of a protected path (%s) is still no-store',
+    async (url) => {
+      const res = await t.get(url, {}, t.nextIp());
+      expect(res.headers['cache-control']).toBe('no-store');
+    },
+  );
+
+  it('a request that matches no route at all is no-store', async () => {
+    const res = await t.get('/nothing/here', {}, t.nextIp());
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
   it('does not touch unrelated routes', async () => {
     const res = await t.get('/api/v1/health/live');
     expect(res.headers['cache-control']).not.toBe('no-store');

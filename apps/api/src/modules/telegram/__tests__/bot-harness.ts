@@ -32,6 +32,7 @@ export interface HarnessOptions {
   readonly users?: readonly User[];
   readonly login?: Partial<BotDeps['login']>;
   readonly sessions?: Partial<BotDeps['sessions']>;
+  readonly usersOverride?: Partial<BotDeps['users']>;
 }
 
 export function makeUser(telegramId: bigint, overrides: Partial<User> = {}): User {
@@ -103,6 +104,7 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
       if (found !== undefined) store.set(telegramId, { ...found, botBlockedAt: null });
       return Promise.resolve();
     },
+    ...options.usersOverride,
   };
 
   const pendingContacts = new Map<bigint, string>();

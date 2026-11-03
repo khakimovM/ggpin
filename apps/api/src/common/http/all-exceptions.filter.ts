@@ -7,6 +7,7 @@ import { toJsonSafe } from './to-json-safe';
 // Structural subsets of the Fastify request/reply, so this file needs no direct `fastify`
 // import (a transitive dependency of @nestjs/platform-fastify).
 interface ErrorReply {
+  header(name: string, value: string): unknown;
   status(statusCode: number): { send(payload: unknown): unknown };
 }
 // The Fastify request, as far as logging needs it (id, route, per-request logger).
@@ -21,9 +22,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const reply = http.getResponse<ErrorReply>();
     const request = http.getRequest<ErrorRequest>();
-    const { code, details, log } = resolveError(exception);
+    const { code, details, headers, log } = resolveError(exception);
 
     if (log) this.logFailure(exception, request);
+    for (const [name, value] of Object.entries(headers ?? {})) void reply.header(name, value);
 
     const error =
       details === undefined

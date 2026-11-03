@@ -1,3 +1,4 @@
+import { testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import {
   duplicateSecretProblems,
@@ -178,7 +179,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (clean.NODE_ENV === 'production') {
     productionReported = productionSecretProblems(clean);
     problems.push(...productionReported);
-    if (isBlank(clean.TRUST_PROXY)) {
+    // The parsed list, not the raw string: "," or " , " is non-blank text but trusts nobody.
+    // (A malformed list is already reported by the schema.)
+    const proxies = parseTrustedProxies(clean.TRUST_PROXY ?? '');
+    if (proxies.ok && proxies.entries.length === 0) {
       problems.push(
         'TRUST_PROXY: is required in production (without it every client shares the proxy address and rate limits collapse into one bucket)',
       );
@@ -204,4 +208,16 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 
   if (!parsed.success || problems.length > 0) throw new EnvValidationError(problems);
   return Object.freeze(parsed.data);
+}
+
+/**
+ * The loader for the real process entry point (main.ts). On top of loadEnv it refuses
+ * NODE_ENV=test unless running under Jest: that mode relaxes checks meant for test suites, so a
+ * deployed process must not be able to opt into it. Kept out of loadEnv itself because tests
+ * parse the schema directly with NODE_ENV=test.
+ */
+export function loadProcessEnv(source: NodeJS.ProcessEnv = process.env): Env {
+  const problem = testModeOutsideJestProblem(source);
+  if (problem !== null) throw new EnvValidationError([problem]);
+  return loadEnv(source);
 }

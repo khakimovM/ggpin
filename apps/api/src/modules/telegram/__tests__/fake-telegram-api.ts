@@ -14,9 +14,13 @@ export interface FakeTelegram {
   readonly calls: RecordedCall[];
   /** Makes the next calls to `method` fail with a Bot API error (400) instead of succeeding. */
   failMethod(method: string): void;
+  /** Makes only the nth (1-based, counted from now) call to `method` fail; the others succeed. */
+  failNthCall(method: string, n: number): void;
   /** Undoes failMethod. */
   restoreMethod(method: string): void;
   callsOf(method: string): RecordedCall[];
+  /** What getWebhookInfo reports from now on (default: no webhook, an empty url). */
+  setWebhookUrl(url: string): void;
 }
 
 const BOT_INFO: UserFromGetMe = {
@@ -35,7 +39,7 @@ const BOT_INFO: UserFromGetMe = {
   supports_join_request_queries: false,
 };
 
-function fakeResult(method: string, payload: Record<string, unknown>): unknown {
+function fakeResult(method: string, payload: Record<string, unknown>, webhookUrl: string): unknown {
   if (method === 'sendMessage') {
     return {
       message_id: 1,
@@ -45,6 +49,9 @@ function fakeResult(method: string, payload: Record<string, unknown>): unknown {
     };
   }
   if (method === 'getMe') return BOT_INFO;
+  if (method === 'getWebhookInfo') {
+    return { url: webhookUrl, has_custom_certificate: false, pending_update_count: 0 };
+  }
   return true;
 }
 
@@ -54,6 +61,9 @@ function fakeResult(method: string, payload: Record<string, unknown>): unknown {
 export function createFakeTelegram(): FakeTelegram {
   const calls: RecordedCall[] = [];
   const failing = new Set<string>();
+  const failOnCall = new Map<string, number>();
+  const seen = new Map<string, number>();
+  let webhookUrl = '';
   const bot = new Bot<BotContext>(TEST_BOT_TOKEN, {
     botInfo: BOT_INFO,
     client: { apiRoot: 'http://telegram.invalid' },
@@ -62,9 +72,12 @@ export function createFakeTelegram(): FakeTelegram {
     // JSON round-trip: drops undefined keys and turns InlineKeyboard into the plain wire shape.
     const body = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
     calls.push({ method, payload: body });
-    const response = failing.has(method)
-      ? { ok: false, error_code: 400, description: 'Bad Request: fake failure' }
-      : { ok: true, result: fakeResult(method, body) };
+    const nth = (seen.get(method) ?? 0) + 1;
+    seen.set(method, nth);
+    const response =
+      failing.has(method) || failOnCall.get(method) === nth
+        ? { ok: false, error_code: 400, description: 'Bad Request: fake failure' }
+        : { ok: true, result: fakeResult(method, body, webhookUrl) };
     // The recorder answers for every method, so the generic result type cannot be narrowed.
     return Promise.resolve(response as never);
   });
@@ -72,7 +85,14 @@ export function createFakeTelegram(): FakeTelegram {
     bot,
     calls,
     failMethod: (method) => failing.add(method),
+    failNthCall: (method, n) => {
+      seen.set(method, 0);
+      failOnCall.set(method, n);
+    },
     restoreMethod: (method) => failing.delete(method),
     callsOf: (method) => calls.filter((c) => c.method === method),
+    setWebhookUrl: (url) => {
+      webhookUrl = url;
+    },
   };
 }

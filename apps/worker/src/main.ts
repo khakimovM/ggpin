@@ -3,13 +3,13 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { QUEUE_NAMES } from '@repo/shared';
-import { EnvValidationError, loadEnv, type Env } from './config/env';
+import { EnvValidationError, loadProcessEnv, type Env } from './config/env';
 import { WorkerModule } from './worker.module';
 
 // Misconfiguration must stop the process with a readable reason, not a stack trace.
 function loadEnvOrExit(): Env {
   try {
-    return loadEnv();
+    return loadProcessEnv();
   } catch (error) {
     if (error instanceof EnvValidationError) {
       process.stderr.write(`${error.message}\n`);

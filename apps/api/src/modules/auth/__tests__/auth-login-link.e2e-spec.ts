@@ -141,7 +141,10 @@ describe('login -> session link, deny after use, new-login notice (real Postgres
       const user = await makeUser(t);
       const nonce = await startNonce(t);
       const code = await botIssue(t, nonce, user.telegramId);
-      const res = await verify(t, nonce, code, { 'user-agent': 'Mozilla/5.0 NoticeTest/1.0' });
+      const res = await verify(t, nonce, code, {
+        'user-agent':
+          'Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 NoticeTest/1.0 https://evil.example',
+      });
       expect(res.statusCode).toBe(200);
       const family = (await t.db.loginRequest.findUniqueOrThrow({ where: { nonce } }))
         .sessionFamilyId;
@@ -153,7 +156,9 @@ describe('login -> session link, deny after use, new-login notice (real Postgres
       const data = job?.data as TgOutboxJob;
       expect(data.chatId).toBe(String(user.telegramId));
       expect(data.text).toContain('ggpin');
-      expect(data.text).toContain('Mozilla/5.0 NoticeTest/1.0');
+      expect(data.text).toContain('Chrome, Windows'); // a fixed label, never the raw header
+      expect(data.text).not.toContain('NoticeTest');
+      expect(data.text).not.toContain('evil.example');
       expect(data.text).toMatch(/10\.\d+\.\d+\.x/); // masked address, never the raw one
       const keyboard = data.replyMarkup?.inline_keyboard ?? [];
       expect(keyboard).toHaveLength(1);

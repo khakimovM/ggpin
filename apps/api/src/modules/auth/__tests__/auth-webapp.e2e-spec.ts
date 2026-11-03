@@ -208,6 +208,23 @@ describe('rate limits on the webapp login (real Postgres and Redis)', () => {
     const eleventh = await t.post(WEBAPP, { initData }, t.csrfHeaders);
     expect(eleventh.statusCode).toBe(429);
     expect(body(eleventh).error?.code).toBe('RATE_LIMITED');
+    const wait = Number(eleventh.headers['retry-after']);
+    expect(wait).toBeGreaterThan(0);
+    expect(wait).toBeLessThanOrEqual(60);
+  });
+
+  it('a counter key that lost its TTL gets one again on the next hit (never stuck)', async () => {
+    const telegramId = track(t.newTelegramId());
+    const key = webappLimitKey(telegramId);
+    const redis = t.app().get(RedisService).client;
+    await redis.set(key, '3'); // no expiry, as after a crash between INCR and EXPIRE
+    expect(await redis.ttl(key)).toBe(-1);
+    const res = await t.post(WEBAPP, { initData: t.initDataFor(telegramId) }, t.csrfHeaders);
+    expect(res.statusCode).toBe(200);
+    const ttl = await redis.ttl(key);
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(60);
+    expect(await redis.get(key)).toBe('4');
   });
 
   it('the budget is per account: another account behind the same IP still gets in', async () => {

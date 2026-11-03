@@ -4,12 +4,12 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { createHttpAdapter } from './common/http/create-http-adapter';
-import { EnvValidationError, loadEnv, type Env } from './config/env';
+import { EnvValidationError, loadProcessEnv, type Env } from './config/env';
 
 // Misconfiguration must stop the process with a readable reason, not a stack trace.
 function loadEnvOrExit(): Env {
   try {
-    return loadEnv();
+    return loadProcessEnv();
   } catch (error) {
     if (error instanceof EnvValidationError) {
       process.stderr.write(`${error.message}\n`);

@@ -11,6 +11,8 @@ export class AppError extends Error {
   constructor(
     readonly code: ErrorCode,
     readonly details?: Readonly<Record<string, unknown>>,
+    /** Response headers the exception filter sets (e.g. Retry-After on a RATE_LIMITED). */
+    readonly headers?: Readonly<Record<string, string>>,
   ) {
     super(errorMessageKey(code));
     this.name = 'AppError';

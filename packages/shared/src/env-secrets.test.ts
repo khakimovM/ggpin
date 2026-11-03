@@ -10,6 +10,7 @@ import {
   isWorkerOnlySecretName,
   placeholderReason,
   productionSecretProblems,
+  testModeOutsideJestProblem,
   workerSecretProblems,
 } from './env-secrets';
 
@@ -183,5 +184,19 @@ describe('placeholder policy', () => {
       ['ISS', 'BAD', 'MISSING'],
     );
     expect(problems.map((p) => p.split(':')[0])).toEqual(['GEN', 'BAD']);
+  });
+});
+
+describe('testModeOutsideJestProblem', () => {
+  it('refuses NODE_ENV=test when not running under Jest', () => {
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'test' })).toContain('NODE_ENV');
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'test', JEST_WORKER_ID: '' })).not.toBeNull();
+  });
+
+  it('allows NODE_ENV=test under Jest and every other NODE_ENV', () => {
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'test', JEST_WORKER_ID: '1' })).toBeNull();
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'production' })).toBeNull();
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'development' })).toBeNull();
+    expect(testModeOutsideJestProblem({})).toBeNull();
   });
 });

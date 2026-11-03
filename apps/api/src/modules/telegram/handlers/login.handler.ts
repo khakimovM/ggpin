@@ -66,15 +66,18 @@ async function issueAndReply(ctx: BotContext, deps: BotDeps, nonce: string): Pro
 }
 
 // The only place a plain code exists: it goes straight into this reply and nowhere else.
-// If Telegram does not take the message the user never saw the code, so the link is put back
-// to PENDING (they can open it again) and the error goes on to bot.catch, which scrubs it.
+// If anything up to and including the code message fails the user never saw the code, so the
+// link is put back to PENDING (they can open it again) and the error goes on to bot.catch,
+// which scrubs it. `before` is whatever must be sent first and is covered by the same release.
 async function sendCode(
   ctx: BotContext,
   deps: BotDeps,
   nonce: string,
   code: string,
+  before?: () => Promise<unknown>,
 ): Promise<void> {
   try {
+    await before?.();
     await ctx.reply(ctx.t('bot.login.code', { code, brand: BRAND.name, domain: BRAND.domain }), {
       ...HTML,
       protect_content: true,
@@ -133,14 +136,21 @@ export function registerLogin(bot: TelegramBot, deps: BotDeps): void {
       });
       return;
     }
-    await deps.users.setPhone(ctx.user.id, phone);
     // One message carries one reply_markup, so the keyboard goes away with a short
     // confirmation and the code arrives as its own message with the inline button.
-    await ctx.reply(ctx.t('bot.login.phoneSaved'), {
-      ...HTML,
-      reply_markup: { remove_keyboard: true },
-    });
-    await sendCode(ctx, deps, nonce, result.code);
+    await sendCode(ctx, deps, nonce, result.code, () =>
+      ctx.reply(ctx.t('bot.login.phoneSaved'), {
+        ...HTML,
+        reply_markup: { remove_keyboard: true },
+      }),
+    );
+    // Only now that the code reached the user: a failed send must not leave a number behind.
+    // A failure here must not stop the login (the code is out), so only the error name is logged.
+    try {
+      await deps.users.setPhone(ctx.user.id, phone);
+    } catch (error) {
+      deps.log.warn(`phone not saved: ${error instanceof Error ? error.name : 'unknown'}`);
+    }
   });
 
   bot.callbackQuery(DENY_CALLBACK, async (ctx) => {

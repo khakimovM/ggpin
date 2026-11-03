@@ -21,6 +21,8 @@ export class GrammyTgOutboxSender implements TgOutboxSender {
   async send(job: TgOutboxJob): Promise<void> {
     await this.api.sendMessage(job.chatId, job.text, {
       parse_mode: 'HTML',
+      // Whatever a message contains, Telegram must not fetch and show a preview of a link in it.
+      link_preview_options: { is_disabled: true },
       // The job schema already guarantees an inline keyboard of text + callback_data/url buttons.
       ...(job.replyMarkup === undefined ? {} : { reply_markup: job.replyMarkup }),
       ...(job.disableNotification === undefined

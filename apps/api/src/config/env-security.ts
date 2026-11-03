@@ -44,8 +44,9 @@ export function duplicateSecretProblems(source: Source): string[] {
 }
 
 // Secrets that sign or key something must never keep their .env.example placeholder, in dev
-// either: a copied example file would otherwise ship forgeable tokens. Tests are exempt (they
-// pass fixed fake values). Names only in the message.
+// either: a copied example file would otherwise ship forgeable tokens. Applies in every
+// NODE_ENV including test (a deploy that sets NODE_ENV=test must not boot on the public example
+// values); the test suites use non-placeholder fakes. Names only in the message.
 const PLACEHOLDER_CHECKED = [
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
@@ -55,7 +56,6 @@ const PLACEHOLDER_CHECKED = [
 ];
 
 export function placeholderSecretProblems(source: Source): string[] {
-  if (source.NODE_ENV === 'test') return [];
   return PLACEHOLDER_CHECKED.flatMap((name) => {
     const value = source[name];
     if (value === undefined || isBlank(value)) return [];

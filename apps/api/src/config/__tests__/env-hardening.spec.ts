@@ -1,4 +1,4 @@
-import { EnvValidationError, loadEnv } from '../env';
+import { EnvValidationError, loadEnv, loadProcessEnv } from '../env';
 import { TEST_ENV_SOURCE, TEST_WEBHOOK_SECRET } from './test-env';
 
 function messageOf(source: Record<string, string>): string {
@@ -49,7 +49,7 @@ describe('NODE_ENV=development with a webhook', () => {
   });
 });
 
-describe('placeholder secrets outside tests', () => {
+describe('placeholder secrets', () => {
   const names = [...SIGNING, 'TELEGRAM_WEBHOOK_SECRET'] as const;
 
   it.each(names)('%s: a change-me placeholder is rejected in development', (name) => {
@@ -72,10 +72,14 @@ describe('placeholder secrets outside tests', () => {
     );
   });
 
-  it('is accepted under NODE_ENV=test', () => {
-    expect(() =>
-      loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'test', OTP_PEPPER: 'change-me-pepper' }),
-    ).not.toThrow();
+  it.each(names)('%s: a placeholder is rejected under NODE_ENV=test too (no bypass)', (name) => {
+    const message = messageOf({ ...TEST_ENV_SOURCE, NODE_ENV: 'test', [name]: 'change-me-pepper' });
+    expect(message).toContain(`${name}: is a placeholder`);
+    expect(message).not.toContain('change-me-pepper');
+  });
+
+  it('the shared test fixtures are not placeholders', () => {
+    expect(() => loadEnv({ ...TEST_ENV_SOURCE })).not.toThrow();
   });
 
   it('leaves provider credentials alone', () => {
@@ -102,6 +106,10 @@ describe('production extras', () => {
     const { TRUST_PROXY: _removed, ...without } = prod;
     expect(messageOf(without)).toContain('TRUST_PROXY: is required in production');
     expect(messageOf({ ...prod, TRUST_PROXY: '   ' })).toContain('TRUST_PROXY: is required');
+    // Non-blank text that parses to an empty list trusts nobody, so it is not "set" either.
+    for (const empty of [',', ' , , ', ',,,']) {
+      expect(messageOf({ ...prod, TRUST_PROXY: empty })).toContain('TRUST_PROXY: is required');
+    }
     expect(() => loadEnv(prod)).not.toThrow();
   });
 
@@ -139,5 +147,19 @@ describe('TG_INITDATA_MAX_AGE_SEC', () => {
     expect(messageOf({ ...TEST_ENV_SOURCE, TG_INITDATA_MAX_AGE_SEC: '86401' })).toContain(
       'TG_INITDATA_MAX_AGE_SEC',
     );
+  });
+});
+
+describe('loadProcessEnv (the real entry point)', () => {
+  it('refuses NODE_ENV=test when not running under Jest, naming the variable', () => {
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE })).toThrow(EnvValidationError);
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE })).toThrow(
+      /NODE_ENV: "test" is only for test runs/,
+    );
+  });
+
+  it('accepts it under Jest, and loads other environments as loadEnv does', () => {
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE, JEST_WORKER_ID: '1' })).not.toThrow();
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'development' })).not.toThrow();
   });
 });

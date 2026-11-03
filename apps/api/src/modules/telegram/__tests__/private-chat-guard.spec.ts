@@ -14,6 +14,17 @@ function forged(update: Update, chatId: number): Update {
   return copy;
 }
 
+describe('business connection guard', () => {
+  it('drops a message that came through a business connection: no handler, no reply', async () => {
+    const h = createHarness({ users: [makeUser(BigInt(ID))] });
+    const update = textUpdate({ id: ID }, '/start');
+    if (update.message !== undefined) update.message.business_connection_id = 'bc-1';
+    await h.send(update);
+    expect(h.calls).toHaveLength(0);
+    expect(h.logs.warn).toEqual(['update dropped: business connection']);
+  });
+});
+
 describe('private chat / sender guard', () => {
   it.each([
     ['message', textUpdate({ id: ID }, '/start')],

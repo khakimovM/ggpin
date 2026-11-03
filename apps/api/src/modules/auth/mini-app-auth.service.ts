@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { MINI_APP_TOKEN_TTL_SEC, parseStartPayload, type WebAppLoginResponse } from '@repo/shared';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
-import { FixedWindowCounter } from '../../infra/redis/fixed-window-counter';
+import { FixedWindowCounter, type WindowHit } from '../../infra/redis/fixed-window-counter';
 import { toMe } from '../users/entities/me.mapper';
 import { UsersService } from '../users/users.service';
 import { InitDataVerifier } from './init-data.verifier';
@@ -14,6 +14,9 @@ import { TokenCodec } from './token-codec';
  * thousands of users behind one IPv4 address (CGNAT), which a per-IP limit would punish.
  */
 export const WEBAPP_ACCOUNT_LIMIT = { max: 10, windowSec: 60 } as const;
+
+/** Longest the limiter may delay a login before it is skipped (fail open). */
+export const ACCOUNT_LIMIT_TIMEOUT_MS = 300;
 
 export const webappLimitKey = (telegramId: number | bigint): string =>
   `rl:webapp:${telegramId.toString()}`;
@@ -64,16 +67,44 @@ export class MiniAppAuthService {
   }
 
   private async enforceAccountLimit(telegramId: bigint): Promise<void> {
-    let hits: number;
+    let hit: WindowHit;
     try {
-      hits = await this.counter.hit(webappLimitKey(telegramId), WEBAPP_ACCOUNT_LIMIT.windowSec);
+      hit = await withTimeout(
+        this.counter.hit(webappLimitKey(telegramId), WEBAPP_ACCOUNT_LIMIT.windowSec),
+        ACCOUNT_LIMIT_TIMEOUT_MS,
+      );
     } catch (error) {
-      // initData is already verified and the per-IP throttle still applies: an outage of the
-      // counter must not lock every Mini App user out.
+      // initData is already verified and the per-IP throttle still applies: an outage (or a
+      // hang) of the counter must neither lock every Mini App user out nor stall each login
+      // for the length of a Redis reconnect.
       const reason = error instanceof Error ? error.name : 'unknown';
       this.logger.warn(`account rate limit unavailable: ${reason}`);
       return;
     }
-    if (hits > WEBAPP_ACCOUNT_LIMIT.max) throw new AppError('RATE_LIMITED');
+    if (hit.count > WEBAPP_ACCOUNT_LIMIT.max) {
+      throw new AppError('RATE_LIMITED', undefined, { 'Retry-After': String(hit.ttlSec) });
+    }
   }
+}
+
+class LimiterTimeoutError extends Error {
+  constructor() {
+    super('limiter timed out');
+    this.name = 'LimiterTimeout';
+  }
+}
+
+// Rejects after `ms`; the late result of the original promise is ignored (and its rejection
+// swallowed so it cannot surface as an unhandled one).
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new LimiterTimeoutError());
+    }, ms);
+  });
+  work.catch(() => undefined);
+  return Promise.race([work, timeout]).finally(() => {
+    clearTimeout(timer);
+  });
 }

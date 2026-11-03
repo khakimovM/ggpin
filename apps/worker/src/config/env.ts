@@ -1,3 +1,4 @@
+import { testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
 
@@ -100,4 +101,16 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 
   if (!parsed.success || problems.length > 0) throw new EnvValidationError(problems);
   return Object.freeze(parsed.data);
+}
+
+/**
+ * The loader for the real process entry point (main.ts). On top of loadEnv it refuses
+ * NODE_ENV=test unless running under Jest: that mode relaxes checks meant for test suites, so a
+ * deployed process must not be able to opt into it. Kept out of loadEnv itself because tests
+ * parse the schema directly with NODE_ENV=test.
+ */
+export function loadProcessEnv(source: NodeJS.ProcessEnv = process.env): Env {
+  const problem = testModeOutsideJestProblem(source);
+  if (problem !== null) throw new EnvValidationError([problem]);
+  return loadEnv(source);
 }

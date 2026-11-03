@@ -39,12 +39,12 @@ describe('NewLoginNoticeService', () => {
     await service.send({
       user: USER,
       familyId: FAMILY,
-      meta: { userAgent: 'Chrome/130', ip: '203.0.113.45' },
+      meta: { userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/130', ip: '203.0.113.45' },
       now: NOW,
     });
     const { text } = sentJob(enqueue);
     expect(text).toContain(BRAND.name);
-    expect(text).toContain('Chrome/130');
+    expect(text).toContain('Chrome, Windows');
     expect(text).toContain('203.0.113.x');
     expect(text).not.toContain('203.0.113.45');
     expect(text).toContain('22:30');
@@ -75,18 +75,35 @@ describe('NewLoginNoticeService', () => {
     expect(new TextEncoder().encode(`se:${FAMILY}`).length).toBeLessThanOrEqual(64);
   });
 
-  it('truncates a long user agent to 64 characters and escapes HTML in it', async () => {
+  it('never echoes the raw user agent: URLs, mentions and markup in it do not reach the message', async () => {
     const { service, enqueue } = setup();
     await service.send({
       user: USER,
       familyId: FAMILY,
-      meta: { userAgent: `<b>${'x'.repeat(200)}` },
+      meta: {
+        userAgent: `<b>Chrome/130 (Linux) https://evil.example @fake_support ${'x'.repeat(200)}`,
+      },
       now: NOW,
     });
     const { text } = sentJob(enqueue);
-    expect(text).not.toContain('<b>');
-    expect(text).toContain('&lt;b&gt;');
-    expect(text).not.toContain('x'.repeat(65));
+    expect(text).toContain('Chrome, Linux');
+    for (const leaked of ['evil.example', 'fake_support', '<b>', '&lt;b&gt;', 'xxx']) {
+      expect(text).not.toContain(leaked);
+    }
+  });
+
+  it('an unrecognised user agent is shown as the localized "unknown device", not as text', async () => {
+    const { service, enqueue } = setup();
+    await service.send({
+      user: USER,
+      familyId: FAMILY,
+      meta: { userAgent: 'https://evil.example @fake_support' },
+      now: NOW,
+    });
+    const { text } = sentJob(enqueue);
+    expect(text).toContain('неизвестное устройство');
+    expect(text).not.toContain('evil.example');
+    expect(text).not.toContain('fake_support');
   });
 
   it('says "unknown device" (localized) and a dash when the request carried nothing', async () => {

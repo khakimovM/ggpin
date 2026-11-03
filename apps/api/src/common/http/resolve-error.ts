@@ -6,6 +6,8 @@ import { AppError } from '../exceptions/app-error';
 export interface ResolvedError {
   readonly code: ErrorCode;
   readonly details?: Readonly<Record<string, unknown>>;
+  /** Extra response headers requested by the thrower (AppError only). */
+  readonly headers?: Readonly<Record<string, string>>;
   /** Server-side problem worth a log line (500s and unmapped statuses). */
   readonly log: boolean;
 }
@@ -74,6 +76,7 @@ export function resolveError(exception: unknown): ResolvedError {
     return {
       code: exception.code,
       details: exception.details,
+      headers: exception.headers,
       log: exception.code === 'INTERNAL_ERROR',
     };
   }

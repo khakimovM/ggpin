@@ -187,3 +187,14 @@ export function productionSecretProblems(
   check(issued, null);
   return problems;
 }
+
+/**
+ * Process entry points only (NOT the env schema, which tests parse directly): `NODE_ENV=test`
+ * relaxes behaviour meant for test suites (fake webhook modes, no CSRF-cookie hardening), so a
+ * deployed process must never run in it. Jest sets JEST_WORKER_ID in every worker; nothing else
+ * does. Returns the reason to refuse to start, or null.
+ */
+export function testModeOutsideJestProblem(source: Source): string | null {
+  if (source.NODE_ENV !== 'test' || !isBlank(source.JEST_WORKER_ID)) return null;
+  return 'NODE_ENV: "test" is only for test runs; refusing to start a server in it (use development or production)';
+}
