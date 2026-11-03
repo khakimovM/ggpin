@@ -465,7 +465,8 @@ model BonusCode {
   id          String            @id @default(cuid(2))
   codeHash    String            @unique
   rewardType  String // WALLET_TIYIN | COINS
-  rewardValue BigInt
+  rewardTiyin BigInt? // set only when rewardType = WALLET_TIYIN
+  rewardCoins BigInt? // set only when rewardType = COINS
   maxUses     Int
   usedCount   Int               @default(0)
   expiresAt   DateTime?
@@ -537,8 +538,8 @@ model WalletSnapshot {
   id        String   @id @default(cuid(2))
   network   String
   address   String
-  tonNano   BigInt
-  usdtMicro BigInt
+  nanoTon   BigInt
+  microUsdt BigInt
   createdAt DateTime @default(now())
 
   @@index([createdAt])

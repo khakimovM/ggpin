@@ -4,7 +4,8 @@
 > `packages/db/prisma/migrations/20261029185158_init`, `20261031120000_domain_guardrails`
 > ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda), `20261101100000_discount_below_full_price`
 > ("Migratsiya 3"), `20261102105448_auth_bot_guardrails` ("Migratsiya 4") va
-> `20261102171806_login_session_link` + `20261102172000_login_session_link_check` ("Migratsiya 5"). Bu hujjat sxemani tushuntiradi, nusxasini
+> `20261102171806_login_session_link` + `20261102172000_login_session_link_check` ("Migratsiya 5") va
+> `20261103164533_d30_column_renames` + `20261103165000_bonus_reward_check_null_safe` ("Migratsiya 6"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -93,22 +94,22 @@ Prisma ifodalay olmaydigan qismlar (trigger va `CHECK`) xom SQL sifatida shu mig
    kod ham, `… is append-only` matni ham klientgacha yetib boradi.
 3. **`CHECK` cheklovlari:**
 
-   | Jadval                         | Cheklov                                                                                                                    |
-   | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-   | `LedgerEntry`                  | ishora turga qarab (jadval pastda); noma'lum tur rad etiladi (`ELSE false`) — yangi tur qo‘shilsa, cheklov ham yangilanadi |
-   | `CoinEntry`                    | `EARN` > 0; `SPEND`, `EXPIRE` < 0; `ADJUSTMENT`, `REVERSAL` ≠ 0 (`REVERSAL` EARN yoki SPEND'ni bekor qilishi mumkin)       |
-   | `Order`, `Quote`               | `quantity` > 0, `priceTiyin` > 0, `costMinor` > 0, `maxCostMinor` ≥ `costMinor`                                            |
-   | `Order`                        | `0 ≤ discountTiyin < priceTiyin` (`priceTiyin` — chegirmadan oldingi narx; 3-migratsiyada qat'iylashtirilgan)              |
-   | `PaymentIntent`, `Payment`     | `amountTiyin` > 0                                                                                                          |
-   | `Sku`                          | `quantity` > 0, `minMarginTiyin` ≥ 0, `markupBps` ≥ 0 (ustama 100% dan oshishi mumkin, shuning uchun yuqori chegara yo‘q)  |
-   | `Product`                      | `minQty`, `maxQty` > 0 va `minQty` ≤ `maxQty`                                                                              |
-   | `Voucher`                      | `costMicroUsdt` > 0                                                                                                        |
-   | `FulfillmentAttempt`           | `attemptNo` > 0, `costMinor` ≥ 0                                                                                           |
-   | `WalletSnapshot`               | `tonNano` ≥ 0, `usdtMicro` ≥ 0                                                                                             |
-   | `BonusCode`                    | `rewardValue` > 0, `maxUses` > 0, `0 ≤ usedCount ≤ maxUses`                                                                |
-   | `DiscountTier`, `DiscountCode` | `bps` 0..9999 (3-migratsiyada qat'iylashtirilgan); `DiscountTier.priceCoins` > 0                                           |
-   | `FxRate`                       | `rate` — musbat o‘nlik qator, ko‘pi bilan 18 xona (`money.ts` bilan bir xil)                                               |
-   | `User`                         | `referredById` ≠ `id` (o‘zini o‘zi taklif qila olmaydi)                                                                    |
+   | Jadval                         | Cheklov                                                                                                                                         |
+   | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `LedgerEntry`                  | ishora turga qarab (jadval pastda); noma'lum tur rad etiladi (`ELSE false`) — yangi tur qo‘shilsa, cheklov ham yangilanadi                      |
+   | `CoinEntry`                    | `EARN` > 0; `SPEND`, `EXPIRE` < 0; `ADJUSTMENT`, `REVERSAL` ≠ 0 (`REVERSAL` EARN yoki SPEND'ni bekor qilishi mumkin)                            |
+   | `Order`, `Quote`               | `quantity` > 0, `priceTiyin` > 0, `costMinor` > 0, `maxCostMinor` ≥ `costMinor`                                                                 |
+   | `Order`                        | `0 ≤ discountTiyin < priceTiyin` (`priceTiyin` — chegirmadan oldingi narx; 3-migratsiyada qat'iylashtirilgan)                                   |
+   | `PaymentIntent`, `Payment`     | `amountTiyin` > 0                                                                                                                               |
+   | `Sku`                          | `quantity` > 0, `minMarginTiyin` ≥ 0, `markupBps` ≥ 0 (ustama 100% dan oshishi mumkin, shuning uchun yuqori chegara yo‘q)                       |
+   | `Product`                      | `minQty`, `maxQty` > 0 va `minQty` ≤ `maxQty`                                                                                                   |
+   | `Voucher`                      | `costMicroUsdt` > 0                                                                                                                             |
+   | `FulfillmentAttempt`           | `attemptNo` > 0, `costMinor` ≥ 0                                                                                                                |
+   | `WalletSnapshot`               | `nanoTon` ≥ 0, `microUsdt` ≥ 0 (6-migratsiyada ustunlar nomi o‘zgargan, CHECK nomi bilan birga ko‘chgan)                                        |
+   | `BonusCode`                    | `maxUses` > 0, `0 ≤ usedCount ≤ maxUses` (`_usage_check`); aynan bitta mukofot ustuni, `rewardType` ga mos, > 0 (`_reward_check`, 6-migratsiya) |
+   | `DiscountTier`, `DiscountCode` | `bps` 0..9999 (3-migratsiyada qat'iylashtirilgan); `DiscountTier.priceCoins` > 0                                                                |
+   | `FxRate`                       | `rate` — musbat o‘nlik qator, ko‘pi bilan 18 xona (`money.ts` bilan bir xil)                                                                    |
+   | `User`                         | `referredById` ≠ `id` (o‘zini o‘zi taklif qila olmaydi)                                                                                         |
 
    `Quote`da chegirma ustuni yo‘q, shuning uchun "chegirma ≤ narx" cheklovi faqat `Order`da.
 
@@ -193,6 +194,28 @@ bazaga allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
 - `createdAt` endi servisdagi soatdan yoziladi (DB `now()` emas). Kod yetkazilmay qolganda
   so‘rov `PENDING` holatiga qaytariladi va `expiresAt = createdAt + 10 daqiqa` bo‘ladi.
 - Isbot: `packages/db/test/check-constraints-auth.e2e.test.ts`.
+
+## Migratsiya 6: `20261103164533_d30_column_renames` + `20261103165000_bonus_reward_check_null_safe`
+
+D-30.2 (egasi tasdiqlagan): ustun nomlari `rules/40` nomlash qoidasiga (`nanoTon`, `microUsdt`) keltirildi
+va promo mukofoti tur bo‘yicha ajratildi. Ikkiga bo‘lingan, chunki birinchisi lokal bazalarga
+allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
+
+- **`WalletSnapshot.tonNano` → `nanoTon`, `usdtMicro` → `microUsdt`:** haqiqiy `RENAME COLUMN`
+  (Prisma DROP+ADD chiqargan edi, qo‘lda almashtirilgan). Ma'lumot saqlanadi;
+  `WalletSnapshot_balances_check` ustun nomi bilan birga o‘zi ko‘chadi.
+- **`BonusCode.rewardValue` o‘rniga `rewardTiyin BIGINT?` va `rewardCoins BIGINT?`.** `DO $` qo‘riqchisi:
+  jadvalda qator bo‘lsa migratsiya `RAISE EXCEPTION` bilan to‘xtaydi (ma'lumot jim yo‘qolmaydi).
+  `BonusCode_usage_check` qayta yaratildi: avvalgi semantika (`maxUses` > 0, `0 ≤ usedCount ≤ maxUses`),
+  faqat `rewardValue` > 0 sharti `BonusCode_reward_check` ga ko‘chdi.
+- **`BonusCode_reward_check`:** `WALLET_TIYIN` → `rewardTiyin` > 0 va `rewardCoins` NULL; `COINS` → `rewardCoins` > 0
+  va `rewardTiyin` NULL. Birinchi variant `IS NOT NULL`siz yozilgan edi va "ikkalasi ham NULL" holatini
+  o‘tkazib yuborardi (CHECK natija NULL bo‘lsa o‘tadi); ikkinchi migratsiya buni tuzatadi.
+- **Nega bitta (kichik) migratsiya yetarli:** productionda baza ham, deploy qilingan versiya ham yo‘q;
+  DB testlaridan tashqari hech narsa bu ustunlarni o‘qimaydi; `WalletSnapshot` o‘zgarishi ma'lumotni
+  saqlovchi RENAME; `BonusCode` ustunini olib tashlash bo‘shlik tekshiruvi bilan qo‘riqlangan; egasi
+  D-30.2 da tasdiqlagan. Qiymat bor bo‘lganda expand → backfill → contract kerak bo‘lardi.
+- Isbot: `packages/db/test/check-constraints-catalog.e2e.test.ts` (mukofot matritsasi, nomlar o‘zgargani).
 
 ## Nima qayerda hisoblanadi
 

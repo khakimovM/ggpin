@@ -1,7 +1,10 @@
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { expectCheck } from './check-helpers';
 import { db } from './client';
 import { createOrder, createUser } from './factories';
+
+const createAdmin = () =>
+  db.adminUser.create({ data: { telegramId: 42n, name: 'a', role: 'OWNER' } });
 
 describe('catalog, promo and misc families', () => {
   it('Sku: quantity > 0, margin and markup >= 0', async () => {
@@ -33,14 +36,12 @@ describe('catalog, promo and misc families', () => {
     await db.product.update({ where: { id: order.productId }, data: { minQty: 5, maxQty: 5 } });
   });
 
-  it('BonusCode: usedCount <= maxUses and positive reward', async () => {
-    const admin = await db.adminUser.create({
-      data: { telegramId: 42n, name: 'a', role: 'OWNER' },
-    });
+  it('BonusCode: usage counters stay within 0..maxUses and maxUses is positive', async () => {
+    const admin = await createAdmin();
     const code = {
       codeHash: 'h1',
       rewardType: 'COINS',
-      rewardValue: 5n,
+      rewardCoins: 5n,
       maxUses: 2,
       createdById: admin.id,
     };
@@ -50,13 +51,46 @@ describe('catalog, promo and misc families', () => {
       'BonusCode_usage_check',
     );
     await expectCheck(
-      db.bonusCode.create({ data: { ...code, codeHash: 'h2', rewardValue: 0n } }),
+      db.bonusCode.update({ where: { id: created.id }, data: { usedCount: -1 } }),
       'BonusCode_usage_check',
     );
     await expectCheck(
       db.bonusCode.create({ data: { ...code, codeHash: 'h3', maxUses: 0 } }),
       'BonusCode_usage_check',
     );
+  });
+
+  it('BonusCode: exactly one reward column, matching rewardType and strictly positive', async () => {
+    const admin = await createAdmin();
+    const base = { maxUses: 1, createdById: admin.id };
+    let n = 0;
+    const make = (data: {
+      rewardType: string;
+      rewardTiyin?: bigint | null;
+      rewardCoins?: bigint | null;
+    }) => db.bonusCode.create({ data: { ...base, codeHash: `r${String(n++)}`, ...data } });
+
+    // one valid row of each type
+    await make({ rewardType: 'WALLET_TIYIN', rewardTiyin: 1n });
+    await make({ rewardType: 'COINS', rewardCoins: 1n });
+
+    const rejected = [
+      { rewardType: 'WALLET_TIYIN', rewardTiyin: 100n, rewardCoins: 5n }, // both set
+      { rewardType: 'COINS', rewardTiyin: 100n, rewardCoins: 5n }, // both set
+      { rewardType: 'WALLET_TIYIN' }, // neither set
+      { rewardType: 'COINS' }, // neither set
+      { rewardType: 'WALLET_TIYIN', rewardCoins: 5n }, // type mismatch
+      { rewardType: 'COINS', rewardTiyin: 100n }, // type mismatch
+      { rewardType: 'WALLET_TIYIN', rewardTiyin: 0n },
+      { rewardType: 'WALLET_TIYIN', rewardTiyin: -1n },
+      { rewardType: 'COINS', rewardCoins: 0n },
+      { rewardType: 'COINS', rewardCoins: -1n },
+      { rewardType: 'WALLET_TIYIN', rewardTiyin: 100n, rewardCoins: 0n }, // zero is not NULL
+      { rewardType: 'OTHER', rewardTiyin: 100n }, // unknown type
+    ];
+    for (const data of rejected) {
+      await expectCheck(make(data), 'BonusCode_reward_check');
+    }
   });
 
   it('basis points stay within 0..9999: 10000 (100%) would zero the PURCHASE amount', async () => {
@@ -124,10 +158,48 @@ describe('catalog, promo and misc families', () => {
     );
     await expectCheck(
       db.walletSnapshot.create({
-        data: { network: 'testnet', address: 'a', tonNano: -1n, usdtMicro: 0n },
+        data: { network: 'testnet', address: 'a', nanoTon: -1n, microUsdt: 0n },
       }),
       'WalletSnapshot_balances_check',
     );
+    await expectCheck(
+      db.walletSnapshot.create({
+        data: { network: 'testnet', address: 'a', nanoTon: 0n, microUsdt: -1n },
+      }),
+      'WalletSnapshot_balances_check',
+    );
+    await db.walletSnapshot.create({
+      data: { network: 'testnet', address: 'a', nanoTon: 0n, microUsdt: 0n },
+    });
+  });
+
+  it('D-30.2 renames: old columns are gone and the CHECKs reference the new names', async () => {
+    const columns = await db.$queryRaw<{ table_name: string; column_name: string }[]>`
+      SELECT table_name, column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name IN ('WalletSnapshot', 'BonusCode')`;
+    const names = columns.map((c) => `${c.table_name}.${c.column_name}`);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'WalletSnapshot.nanoTon',
+        'WalletSnapshot.microUsdt',
+        'BonusCode.rewardTiyin',
+        'BonusCode.rewardCoins',
+      ]),
+    );
+    for (const old of [
+      'WalletSnapshot.tonNano',
+      'WalletSnapshot.usdtMicro',
+      'BonusCode.rewardValue',
+    ]) {
+      expect(names).not.toContain(old);
+    }
+    const defs = await db.$queryRaw<{ conname: string; def: string }[]>`
+      SELECT conname, pg_get_constraintdef(oid) AS def FROM pg_constraint
+      WHERE conname IN ('WalletSnapshot_balances_check', 'BonusCode_usage_check')`;
+    const byName = Object.fromEntries(defs.map((d) => [d.conname, d.def]));
+    expect(byName['WalletSnapshot_balances_check']).toContain('nanoTon');
+    expect(byName['WalletSnapshot_balances_check']).toContain('microUsdt');
+    expect(byName['BonusCode_usage_check']).not.toContain('rewardValue');
   });
 
   it('FulfillmentAttempt: attemptNo >= 1 and non-negative cost', async () => {
