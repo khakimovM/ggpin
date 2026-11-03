@@ -30,6 +30,7 @@ export const ERROR_CODES = [
   'INTERNAL_ERROR',
   'FULFILLMENT_UNAVAILABLE',
   'RECIPIENT_CHECK_UNAVAILABLE',
+  'PRICE_UNAVAILABLE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);
@@ -64,6 +65,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   FULFILLMENT_UNAVAILABLE: 503,
   RECIPIENT_CHECK_UNAVAILABLE: 503,
+  PRICE_UNAVAILABLE: 503,
 };
 
 /** The wire `message` for an error: the i18n key, never user-facing text. */

@@ -8,6 +8,10 @@ export default defineConfig({
       // Report only the money-critical modules; thresholds fail `vitest run` when they slip.
       include: [
         'src/money.ts',
+        'src/money-pricing.ts',
+        'src/money-schemas.ts',
+        'src/catalog/*.ts',
+        'src/pricing/*.ts',
         'src/order-state.ts',
         'src/env-secrets.ts',
         'src/job-enqueue.ts',

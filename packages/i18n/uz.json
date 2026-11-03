@@ -109,6 +109,7 @@
     "RATE_LIMITED": "So‘rovlar juda ko‘p. Birozdan so‘ng qayta urinib ko‘ring.",
     "INTERNAL_ERROR": "Ichki xatolik yuz berdi. Keyinroq qayta urinib ko‘ring.",
     "FULFILLMENT_UNAVAILABLE": "Yetkazib berish hozircha ishlamayapti. Keyinroq qayta urinib ko‘ring.",
-    "RECIPIENT_CHECK_UNAVAILABLE": "Qabul qiluvchini tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring."
+    "RECIPIENT_CHECK_UNAVAILABLE": "Qabul qiluvchini tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.",
+    "PRICE_UNAVAILABLE": "Narx hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
   }
 }

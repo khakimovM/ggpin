@@ -19,6 +19,7 @@ describe('error codes', () => {
     expect(ERROR_HTTP_STATUS.RATE_LIMITED).toBe(429);
     expect(ERROR_HTTP_STATUS.INTERNAL_ERROR).toBe(500);
     expect(ERROR_HTTP_STATUS.PAYLOAD_TOO_LARGE).toBe(413);
+    expect(ERROR_HTTP_STATUS.PRICE_UNAVAILABLE).toBe(503);
   });
 
   it('validates codes with the Zod enum and builds the i18n message key', () => {
