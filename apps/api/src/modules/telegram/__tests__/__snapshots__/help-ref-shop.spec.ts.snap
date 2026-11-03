@@ -1,0 +1,203 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`help, ref and shop (ru) /help 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "text": "💬 Помощь
+
+Через этого бота можно купить Telegram Stars, Premium и донат в игры. Покупка проходит внутри приложения магазина.
+
+Команды:
+/start — главное меню
+/shop — магазин
+/ref — реферальная ссылка
+/lang — сменить язык
+/help — помощь",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (ru) /ref sends the t.me link with the user referral code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "link_preview_options": {
+        "is_disabled": true,
+      },
+      "parse_mode": "HTML",
+      "text": "🎁 Ваша реферальная ссылка:
+https://t.me/ggpin_test_bot?start=ref_xyz98765
+
+Отправьте её друзьям: когда они совершат покупку через бота, вы получите бонус.",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (ru) /shop with the Mini App URL 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "🛍 Начать покупки",
+              "web_app": {
+                "url": "https://app.example.test/tg",
+              },
+            },
+          ],
+        ],
+      },
+      "text": "🛍 Нажмите кнопку ниже, чтобы открыть магазин.",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (ru) /shop without MINI_APP_URL has no web_app button 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "text": "🛍 Магазин пока недоступен. Попробуйте позже.",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (ru) the help button answers with the help text and closes the spinner 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "text": "💬 Помощь
+
+Через этого бота можно купить Telegram Stars, Premium и донат в игры. Покупка проходит внутри приложения магазина.
+
+Команды:
+/start — главное меню
+/shop — магазин
+/ref — реферальная ссылка
+/lang — сменить язык
+/help — помощь",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1007",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (uz) /help 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "text": "💬 Yordam
+
+Bu bot orqali Telegram Stars, Premium va o‘yin donatlarini xarid qilishingiz mumkin. Xarid Do‘kon ilovasi ichida amalga oshadi.
+
+Buyruqlar:
+/start — bosh menyu
+/shop — do‘kon
+/ref — referal havola
+/lang — tilni o‘zgartirish
+/help — yordam",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (uz) /ref sends the t.me link with the user referral code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "link_preview_options": {
+        "is_disabled": true,
+      },
+      "parse_mode": "HTML",
+      "text": "🎁 Sizning referal havolangiz:
+https://t.me/ggpin_test_bot?start=ref_xyz98765
+
+Uni do‘stlaringizga yuboring: ular bot orqali xarid qilganda siz bonus olasiz.",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (uz) /shop with the Mini App URL 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "🛍 Xaridni boshlash",
+              "web_app": {
+                "url": "https://app.example.test/tg",
+              },
+            },
+          ],
+        ],
+      },
+      "text": "🛍 Do‘konni ochish uchun quyidagi tugmani bosing.",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (uz) /shop without MINI_APP_URL has no web_app button 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "text": "🛍 Do‘kon hozircha mavjud emas. Keyinroq qayta urinib ko‘ring.",
+    },
+  },
+]
+`;
+
+exports[`help, ref and shop (uz) the help button answers with the help text and closes the spinner 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700201,
+      "parse_mode": "HTML",
+      "text": "💬 Yordam
+
+Bu bot orqali Telegram Stars, Premium va o‘yin donatlarini xarid qilishingiz mumkin. Xarid Do‘kon ilovasi ichida amalga oshadi.
+
+Buyruqlar:
+/start — bosh menyu
+/shop — do‘kon
+/ref — referal havola
+/lang — tilni o‘zgartirish
+/help — yordam",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1002",
+    },
+  },
+]
+`;

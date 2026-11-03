@@ -5,7 +5,7 @@ import {
   WORKER_PRODUCTION_GENERATED_SECRETS as PRODUCTION_GENERATED_SECRETS,
   WORKER_PRODUCTION_ISSUED_CREDENTIALS as PRODUCTION_ISSUED_CREDENTIALS,
 } from '@repo/shared';
-import { EnvValidationError, loadEnv } from '../env';
+import { EnvValidationError, loadEnv, loadProcessEnv } from '../env';
 import { TEST_ENV_SOURCE, buildTestEnv } from './test-env';
 
 const SECRET_VALUE = 'S3cr3t-VALUE-that-must-never-be-printed-9f8e7d';
@@ -41,6 +41,12 @@ describe('worker loadEnv', () => {
     const message = messageOf({ NODE_ENV: 'test' });
     expect(message).toContain('DATABASE_URL: is required but not set');
     expect(message).toContain('REDIS_URL: is required but not set');
+  });
+
+  it('requires NODE_ENV: no default, so a forgotten value cannot become development', () => {
+    const { NODE_ENV: _removed, ...without } = TEST_ENV_SOURCE;
+    expect(messageOf(without)).toContain('NODE_ENV: is required but not set');
+    expect(messageOf({ ...TEST_ENV_SOURCE, NODE_ENV: 'staging' })).toContain('NODE_ENV');
   });
 
   it('parses FULFILLMENT_DRY_RUN strictly', () => {
@@ -84,6 +90,15 @@ describe('worker loadEnv', () => {
       expect(message).toContain(name);
       expect(message).toContain('API-only');
       expect(message).not.toContain(SECRET_VALUE);
+    });
+
+    it('refuses OTP_PEPPER explicitly (phase 2): only the API hashes login codes', () => {
+      const message = messageOf({ ...TEST_ENV_SOURCE, OTP_PEPPER: SECRET_VALUE });
+      expect(message).toContain(
+        'OTP_PEPPER: API-only secret must not be set in the worker environment',
+      );
+      expect(message).not.toContain(SECRET_VALUE);
+      expect(API_ONLY_SECRETS).toContain('OTP_PEPPER');
     });
 
     it('refuses in production too, and reports every offender at once', () => {
@@ -155,5 +170,19 @@ describe('worker loadEnv', () => {
       expect(bad).toContain('DATABASE_URL');
       expect(bad).not.toContain(SECRET_VALUE);
     });
+  });
+});
+
+describe('loadProcessEnv (the real entry point)', () => {
+  it('refuses NODE_ENV=test when not running under Jest, naming the variable', () => {
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE })).toThrow(EnvValidationError);
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE })).toThrow(
+      /NODE_ENV: "test" is only for test runs/,
+    );
+  });
+
+  it('accepts it under Jest, and loads other environments as loadEnv does', () => {
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE, JEST_WORKER_ID: '1' })).not.toThrow();
+    expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'development' })).not.toThrow();
   });
 });

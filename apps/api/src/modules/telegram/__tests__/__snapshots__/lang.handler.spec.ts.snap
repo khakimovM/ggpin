@@ -1,0 +1,129 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`/lang lang:ru saves the locale and confirms in it 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700101,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "🛍 Начать покупки",
+              "web_app": {
+                "url": "https://app.example.test/tg",
+              },
+            },
+          ],
+          [
+            {
+              "callback_data": "help",
+              "text": "💬 Помощь",
+            },
+            {
+              "callback_data": "lang:menu",
+              "text": "🌐 Язык",
+            },
+          ],
+        ],
+      },
+      "text": "✅ Язык изменён: русский.",
+    },
+  },
+  {
+    "setChatMenuButton": {
+      "chat_id": 700101,
+      "menu_button": {
+        "text": "🛍 Магазин",
+        "type": "web_app",
+        "web_app": {
+          "url": "https://app.example.test/tg",
+        },
+      },
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1003",
+    },
+  },
+]
+`;
+
+exports[`/lang lang:uz saves the locale and confirms in it 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700101,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "🛍 Xaridni boshlash",
+              "web_app": {
+                "url": "https://app.example.test/tg",
+              },
+            },
+          ],
+          [
+            {
+              "callback_data": "help",
+              "text": "💬 Yordam",
+            },
+            {
+              "callback_data": "lang:menu",
+              "text": "🌐 Til",
+            },
+          ],
+        ],
+      },
+      "text": "✅ Til o‘zgartirildi: O‘zbekcha.",
+    },
+  },
+  {
+    "setChatMenuButton": {
+      "chat_id": 700101,
+      "menu_button": {
+        "text": "🛍 Do‘kon",
+        "type": "web_app",
+        "web_app": {
+          "url": "https://app.example.test/tg",
+        },
+      },
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1002",
+    },
+  },
+]
+`;
+
+exports[`/lang shows the picker 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700101,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "lang:uz",
+              "text": "🇺🇿 O‘zbekcha",
+            },
+            {
+              "callback_data": "lang:ru",
+              "text": "🇷🇺 Русский",
+            },
+          ],
+        ],
+      },
+      "text": "🌐 Tilni tanlang / Выберите язык",
+    },
+  },
+]
+`;

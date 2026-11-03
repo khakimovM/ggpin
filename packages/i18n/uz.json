@@ -15,6 +15,73 @@
       "title": "Admin panel"
     }
   },
+  "bot": {
+    "start": {
+      "welcome": "👋 Xush kelibsiz, {name}! Telegram Stars, Premium va o‘yin donatlari — tez, xavfsiz va qulay narxda.",
+      "buttons": {
+        "shop": "🛍 Xaridni boshlash",
+        "news": "📢 Yangiliklar",
+        "help": "💬 Yordam",
+        "language": "🌐 Til"
+      }
+    },
+    "lang": {
+      "prompt": "🌐 Tilni tanlang / Выберите язык",
+      "options": {
+        "uz": "🇺🇿 O‘zbekcha",
+        "ru": "🇷🇺 Русский"
+      },
+      "changed": "✅ Til o‘zgartirildi: O‘zbekcha."
+    },
+    "menu": {
+      "button": "🛍 Do‘kon"
+    },
+    "commands": {
+      "start": "Botni ishga tushirish",
+      "shop": "Do‘kon",
+      "ref": "Referal havola",
+      "lang": "Tilni o‘zgartirish",
+      "help": "Yordam"
+    },
+    "help": {
+      "text": "💬 Yordam\n\nBu bot orqali Telegram Stars, Premium va o‘yin donatlarini xarid qilishingiz mumkin. Xarid Do‘kon ilovasi ichida amalga oshadi.\n\nBuyruqlar:\n/start — bosh menyu\n/shop — do‘kon\n/ref — referal havola\n/lang — tilni o‘zgartirish\n/help — yordam"
+    },
+    "ref": {
+      "link": "🎁 Sizning referal havolangiz:\n{link}\n\nUni do‘stlaringizga yuboring: ular bot orqali xarid qilganda siz bonus olasiz."
+    },
+    "shop": {
+      "open": "🛍 Do‘konni ochish uchun quyidagi tugmani bosing.",
+      "unavailable": "🛍 Do‘kon hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
+    },
+    "login": {
+      "sharePhone": "📱 Saytga kirish uchun telefon raqamingizni ulashing. Pastdagi tugmani bosing.",
+      "shareButton": "📱 Raqamni ulashish",
+      "phoneSaved": "✅ Raqam saqlandi.",
+      "code": "🔐 Saytga kirish kodi: <code>{code}</code>\n\nKodni faqat {domain} saytiga kiriting. Kod 3 daqiqa amal qiladi. Uni hech kimga bermang: {brand} xodimlari kodni hech qachon so‘ramaydi.",
+      "deny": "🚫 Bu men emasman",
+      "denied": "🚫 Kirish bekor qilindi. Kod endi ishlamaydi.",
+      "sessionEnded": "🚫 Kirish bekor qilindi va bu sessiya yopildi.",
+      "expired": "⌛ Havola eskirgan. Saytda qaytadan kirishni boshlang.",
+      "alreadySent": "✅ Kod allaqachon yuborilgan. Yuqoridagi xabarni tekshiring.",
+      "usedByOther": "⚠️ Bu kirish havolasi boshqa hisob uchun ishlatilgan. Saytda yangi havola oling.",
+      "rateLimited": "⏳ Juda ko‘p kod so‘raldi. Bir necha daqiqadan keyin qayta urinib ko‘ring.",
+      "contactNotYours": "⚠️ Faqat o‘zingizning raqamingizni yuboring: pastdagi tugmadan foydalaning.",
+      "contactInvalid": "⚠️ Raqam noto‘g‘ri ko‘rinadi. Pastdagi tugma orqali qayta yuboring."
+    },
+    "session": {
+      "newLogin": "🔔 {brand} saytiga yangi kirish\n\nQurilma: {device}\nIP: {ip}\nVaqt: {time}\n\nBu siz bo‘lmasangiz, pastdagi tugmani bosing: sessiya darhol tugatiladi.",
+      "unknownDevice": "nomaʼlum qurilma",
+      "end": "🚫 Bu men emasman",
+      "ended": "🚫 Sessiya tugatildi. Bu qurilma hisobingizdan chiqarildi.",
+      "alreadyEnded": "ℹ️ Bu sessiya allaqachon tugatilgan."
+    },
+    "admin": {
+      "linkExpired": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring."
+    },
+    "errors": {
+      "blocked": "Hisobingiz bloklangan. Yordam xizmatiga murojaat qiling."
+    }
+  },
   "errors": {
     "VALIDATION_ERROR": "Kiritilgan maʼlumotlarda xatolik bor. Tekshirib, qayta urinib ko‘ring.",
     "UNAUTHORIZED": "Avval tizimga kiring.",

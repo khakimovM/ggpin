@@ -1,7 +1,9 @@
+import fastifyCookie from '@fastify/cookie';
 import { VersioningType } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 import { registerRequestHooks } from './common/logging/request-logging';
+import { applyNoStore } from './common/http/no-store';
 import { applyCors, applySecurityHeaders } from './common/http/security-headers';
 import { setupSwagger } from './common/http/setup-swagger';
 import { APP_CONFIG, type AppConfig } from './config/config.module';
@@ -19,5 +21,12 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   await applySecurityHeaders(app, config);
   applyCors(app, config);
+  applyNoStore(app);
+  // After helmet and CORS so preflights and security headers are already settled when a request
+  // reaches cookie parsing. Deliberately no `secret`: session cookies carry self-authenticating
+  // tokens (HMAC-signed access token / hashed-in-DB refresh), so cookie signing adds nothing.
+  // Cookies are host-only (no Domain), set per response by the auth module; CSRF is the
+  // X-CSRF-Token header plus the Origin allowlist (D-26).
+  await app.register(fastifyCookie);
   if (config.SWAGGER_ENABLED) setupSwagger(app);
 }

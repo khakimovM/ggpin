@@ -11,6 +11,8 @@ export default defineConfig({
         'src/order-state.ts',
         'src/env-secrets.ts',
         'src/job-enqueue.ts',
+        'src/auth/*.ts',
+        'src/tg-outbox.ts',
         'src/log-redaction/**/*.ts',
       ],
       thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },

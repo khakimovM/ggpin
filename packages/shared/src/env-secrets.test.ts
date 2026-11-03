@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   API_ONLY_SECRETS,
+  API_PRODUCTION_GENERATED_SECRETS,
+  MIN_GENERATED_SECRET_LENGTH,
   WORKER_ENV_PREFIXES,
   WORKER_ONLY_SECRETS,
   apiSecretProblems,
@@ -8,6 +10,7 @@ import {
   isWorkerOnlySecretName,
   placeholderReason,
   productionSecretProblems,
+  testModeOutsideJestProblem,
   workerSecretProblems,
 } from './env-secrets';
 
@@ -139,6 +142,15 @@ describe('workerSecretProblems / apiSecretProblems', () => {
     }
     expect(apiSecretProblems({ TON_API_KEY: VALUE, LOG_LEVEL: 'info' })).toEqual([]);
   });
+
+  it('OTP_PEPPER is API-only: the worker refuses it, the API accepts it', () => {
+    expect(API_ONLY_SECRETS).toContain('OTP_PEPPER');
+    expect(apiSecretProblems({ OTP_PEPPER: VALUE })).toEqual([
+      expect.stringContaining('OTP_PEPPER'),
+    ]);
+    expect(isWorkerOnlySecretName('OTP_PEPPER')).toBe(false);
+    expect(workerSecretProblems({ OTP_PEPPER: VALUE })).toEqual([]);
+  });
 });
 
 describe('placeholder policy', () => {
@@ -156,6 +168,15 @@ describe('placeholder policy', () => {
     expect(placeholderReason('a'.repeat(32), 32)).toBeNull();
   });
 
+  it('OTP_PEPPER is a generated secret: placeholder and short values fail in production', () => {
+    expect(API_PRODUCTION_GENERATED_SECRETS).toContain('OTP_PEPPER');
+    const problems = (value: string): string[] =>
+      productionSecretProblems({ OTP_PEPPER: value }, API_PRODUCTION_GENERATED_SECRETS, []);
+    expect(problems('change-me-pepper')).toHaveLength(1);
+    expect(problems('short')).toHaveLength(1);
+    expect(problems('x'.repeat(MIN_GENERATED_SECRET_LENGTH))).toEqual([]);
+  });
+
   it('productionSecretProblems applies length only to generated secrets', () => {
     const problems = productionSecretProblems(
       { GEN: 'short', ISS: 'short', BAD: '<x>' },
@@ -163,5 +184,19 @@ describe('placeholder policy', () => {
       ['ISS', 'BAD', 'MISSING'],
     );
     expect(problems.map((p) => p.split(':')[0])).toEqual(['GEN', 'BAD']);
+  });
+});
+
+describe('testModeOutsideJestProblem', () => {
+  it('refuses NODE_ENV=test when not running under Jest', () => {
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'test' })).toContain('NODE_ENV');
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'test', JEST_WORKER_ID: '' })).not.toBeNull();
+  });
+
+  it('allows NODE_ENV=test under Jest and every other NODE_ENV', () => {
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'test', JEST_WORKER_ID: '1' })).toBeNull();
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'production' })).toBeNull();
+    expect(testModeOutsideJestProblem({ NODE_ENV: 'development' })).toBeNull();
+    expect(testModeOutsideJestProblem({})).toBeNull();
   });
 });

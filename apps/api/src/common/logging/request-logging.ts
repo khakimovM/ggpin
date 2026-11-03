@@ -2,7 +2,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { PinoLogger } from 'nestjs-pino';
 import type { Logger } from 'pino';
 import { REQUEST_ID_HEADER } from './request-id';
-import { pathWithoutQuery } from './serializers';
+import { loggablePath } from './serializers';
 
 /** The slice of a Fastify request the logging code reads (structural: no direct fastify import). */
 export interface LogRequest {
@@ -62,7 +62,7 @@ export function logRequestCompleted(
   // An unmatched path is a scanner or a client bug; knowing which is useful. Matched routes
   // already have their pattern, and the query string is cut in both cases.
   if (route === 'unmatched') {
-    record.path = pathWithoutQuery(request.url).slice(0, MAX_PATH_LENGTH);
+    record.path = loggablePath(request.url).slice(0, MAX_PATH_LENGTH);
   }
   requestLogger(request)[levelFor(reply.statusCode, route)](record, 'request completed');
 }

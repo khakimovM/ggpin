@@ -15,14 +15,19 @@ import { AllExceptionsFilter } from '../all-exceptions.filter';
 interface Sent {
   status: number;
   body: unknown;
+  headers: Record<string, string>;
 }
 
 // The per-request pino child (carries reqId) that the filter logs through.
 const errorLog = jest.fn<void, [Record<string, unknown>, string]>();
 
 function run(exception: unknown): Sent {
-  const sent: Sent = { status: 0, body: undefined };
+  const sent: Sent = { status: 0, body: undefined, headers: {} };
   const reply = {
+    header(name: string, value: string) {
+      sent.headers[name] = value;
+      return reply;
+    },
     status(code: number) {
       sent.status = code;
       return {
@@ -61,8 +66,17 @@ describe('AllExceptionsFilter', () => {
     expect(sent).toEqual({
       status: 410,
       body: { success: false, error: { code: 'QUOTE_EXPIRED', message: 'errors.QUOTE_EXPIRED' } },
+      headers: {},
     });
     expect(errorLog).not.toHaveBeenCalled();
+  });
+
+  it('AppError headers are set on the reply, and only those', () => {
+    const sent = run(new AppError('RATE_LIMITED', undefined, { retryAfterSec: 42 }));
+    expect(sent.status).toBe(429);
+    expect(sent.headers).toEqual({ 'Retry-After': '42' });
+    expect(sent.body).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    expect(JSON.stringify(sent.body)).not.toContain('42');
   });
 
   it('AppError details with BigInt are serialised as strings', () => {
@@ -119,6 +133,8 @@ describe('AllExceptionsFilter', () => {
 
   it.each([
     [new UnauthorizedException(), 401, 'UNAUTHORIZED'],
+    [new ForbiddenException('role missing'), 404, 'NOT_FOUND'],
+    [new AppError('USER_BLOCKED'), 403, 'USER_BLOCKED'],
     [new BadRequestException('bad uuid'), 400, 'VALIDATION_ERROR'],
     [new HttpException('big', 413), 413, 'PAYLOAD_TOO_LARGE'],
   ])('HttpException %# maps to its contract code', (exception, status, code) => {
@@ -128,10 +144,10 @@ describe('AllExceptionsFilter', () => {
   });
 
   it('an HttpException status without a contract code -> 500 INTERNAL_ERROR, and is logged', () => {
-    const sent = run(new ForbiddenException('role missing'));
+    const sent = run(new HttpException('teapot details', 418));
     expect(sent.status).toBe(500);
     expect(sent.body).toMatchObject({ error: { code: 'INTERNAL_ERROR' } });
-    expect(JSON.stringify(sent.body)).not.toContain('role missing');
+    expect(JSON.stringify(sent.body)).not.toContain('teapot details');
     expect(errorLog).toHaveBeenCalledTimes(1);
   });
 
@@ -163,6 +179,7 @@ describe('AllExceptionsFilter', () => {
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'errors.INTERNAL_ERROR' },
       },
+      headers: {},
     });
     const wire = JSON.stringify(sent.body);
     expect(wire).not.toContain('hunter2');

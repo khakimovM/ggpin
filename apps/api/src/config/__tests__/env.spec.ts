@@ -2,10 +2,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { WORKER_ONLY_SECRETS } from '@repo/shared';
 import { EnvValidationError, loadEnv } from '../env';
-import { TEST_ENV_SOURCE, buildTestEnv } from './test-env';
+import { TEST_ENV_SOURCE, TEST_WEBHOOK_SECRET, buildTestEnv } from './test-env';
 
 const SECRET_VALUE = 'S3cr3t-VALUE-that-must-never-be-printed-9f8e7d';
-const LONG_SECRET = 'a'.repeat(40);
 
 function messageOf(source: Record<string, string>): string {
   try {
@@ -27,10 +26,12 @@ describe('loadEnv', () => {
       SWAGGER_ENABLED: false,
       PAYME_TEST_MODE: true,
       TG_INITDATA_MAX_AGE_SEC: 86400,
+      TELEGRAM_BOT_MODE: 'off',
       ADMIN_CONFIRM_THRESHOLD_TIYIN: 100000000n,
       TOPUP_MAX_TIYIN: 1000000000n,
     });
     expect(env.ADMIN_TELEGRAM_IDS).toEqual([]);
+    expect(env.TELEGRAM_NEWS_CHANNEL_URL).toBeUndefined();
   });
 
   it('returns a frozen object', () => {
@@ -53,14 +54,25 @@ describe('loadEnv', () => {
   });
 
   it('treats an empty value as unset', () => {
-    const env = buildTestEnv({ TELEGRAM_BOT_TOKEN: '', LOG_LEVEL: '' });
-    expect(env.TELEGRAM_BOT_TOKEN).toBeUndefined();
+    const env = buildTestEnv({ TELEGRAM_WEBHOOK_URL: '', LOG_LEVEL: '' });
+    expect(env.TELEGRAM_WEBHOOK_URL).toBeUndefined();
     expect(env.LOG_LEVEL).toBe('info');
   });
 
   it('names every missing required variable at once', () => {
     const message = messageOf({ NODE_ENV: 'test' });
-    for (const name of ['DATABASE_URL', 'REDIS_URL', 'WEB_URL', 'ADMIN_URL']) {
+    for (const name of [
+      'DATABASE_URL',
+      'REDIS_URL',
+      'WEB_URL',
+      'ADMIN_URL',
+      'JWT_ACCESS_SECRET',
+      'JWT_REFRESH_SECRET',
+      'TG_SESSION_SECRET',
+      'OTP_PEPPER',
+      'TELEGRAM_BOT_TOKEN',
+      'TELEGRAM_BOT_USERNAME',
+    ]) {
       expect(message).toContain(`${name}: is required but not set`);
     }
   });
@@ -204,14 +216,17 @@ describe('loadEnv', () => {
     const prod = {
       ...TEST_ENV_SOURCE,
       NODE_ENV: 'production',
+      TRUST_PROXY: '127.0.0.1',
       WEB_URL: 'https://ggpin.uz',
       ADMIN_URL: 'https://admin.ggpin.uz',
+      MINI_APP_URL: 'https://ggpin.uz/tg',
+      TELEGRAM_BOT_MODE: 'webhook',
+      TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
+      TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
     };
 
     it('accepts a strong configuration', () => {
-      expect(() =>
-        loadEnv({ ...prod, JWT_ACCESS_SECRET: LONG_SECRET, TELEGRAM_BOT_TOKEN: '123456:abc' }),
-      ).not.toThrow();
+      expect(() => loadEnv(prod)).not.toThrow();
     });
 
     it('rejects change-me and <...> placeholders', () => {
@@ -232,10 +247,10 @@ describe('loadEnv', () => {
       expect(message).not.toContain('CLICK_SECRET_KEY');
     });
 
-    it('allows the same placeholders outside production', () => {
+    it('rejects placeholders under NODE_ENV=test as well (see env-hardening.spec.ts)', () => {
       expect(() =>
-        loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'development', JWT_ACCESS_SECRET: 'change-me' }),
-      ).not.toThrow();
+        loadEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'test', JWT_ACCESS_SECRET: 'change-me' }),
+      ).toThrow(/JWT_ACCESS_SECRET/);
     });
 
     it('refuses SWAGGER_ENABLED=true in production, but not elsewhere', () => {

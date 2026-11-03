@@ -18,23 +18,23 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 
 ## Xato kodlari
 
-| HTTP | Kod                                                                            | Qachon                                                               |
-| ---- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| 400  | `VALIDATION_ERROR`                                                             | Zod xatosi (`details.fields`)                                        |
-| 401  | `UNAUTHORIZED`, `INITDATA_INVALID`, `INITDATA_EXPIRED`, `TOKEN_REUSE_DETECTED` | auth                                                                 |
-| 403  | `USER_BLOCKED`, `PURCHASE_FROZEN`                                              | bloklangan / to‘lov qaytarilgan foydalanuvchi                        |
-| 404  | `NOT_FOUND`                                                                    | resurs yo‘q yoki boshqa foydalanuvchiniki                            |
-| 409  | `IDEMPOTENCY_CONFLICT`                                                         | bir xil kalit, boshqa body                                           |
-| 410  | `QUOTE_EXPIRED`                                                                | kotirovka muddati tugagan                                            |
-| 413  | `PAYLOAD_TOO_LARGE`                                                            | so‘rov tanasi ruxsat etilgan hajmdan katta                           |
-| 422  | `INSUFFICIENT_BALANCE` (`details: {balance, required, shortfall}`)             | balans yetmaydi                                                      |
-| 422  | `RECIPIENT_NOT_FOUND`, `RECIPIENT_INVALID`, `RECIPIENT_HAS_PREMIUM`            | qabul qiluvchi                                                       |
-| 422  | `PRODUCT_UNAVAILABLE`, `OUT_OF_STOCK`, `QTY_OUT_OF_RANGE`                      | katalog                                                              |
-| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE`                                                    | to‘ldirish chegaralari                                               |
-| 422  | `CODE_INVALID`, `CODE_EXPIRED`, `CODE_ALREADY_USED`, `NOT_ENOUGH_COINS`        | promo                                                                |
-| 429  | `RATE_LIMITED`                                                                 | throttler                                                            |
-| 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi) |
-| 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                    |
+| HTTP | Kod                                                                            | Qachon                                                                  |
+| ---- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`                                                             | Zod xatosi (`details.fields`)                                           |
+| 401  | `UNAUTHORIZED`, `INITDATA_INVALID`, `INITDATA_EXPIRED`, `TOKEN_REUSE_DETECTED` | auth                                                                    |
+| 403  | `USER_BLOCKED`, `PURCHASE_FROZEN`                                              | bloklangan / to‘lov qaytarilgan foydalanuvchi                           |
+| 404  | `NOT_FOUND`                                                                    | resurs yo‘q yoki boshqa foydalanuvchiniki                               |
+| 409  | `IDEMPOTENCY_CONFLICT`                                                         | bir xil kalit, boshqa body                                              |
+| 410  | `QUOTE_EXPIRED`                                                                | kotirovka muddati tugagan                                               |
+| 413  | `PAYLOAD_TOO_LARGE`                                                            | so‘rov tanasi ruxsat etilgan hajmdan katta                              |
+| 422  | `INSUFFICIENT_BALANCE` (`details: {balance, required, shortfall}`)             | balans yetmaydi                                                         |
+| 422  | `RECIPIENT_NOT_FOUND`, `RECIPIENT_INVALID`, `RECIPIENT_HAS_PREMIUM`            | qabul qiluvchi                                                          |
+| 422  | `PRODUCT_UNAVAILABLE`, `OUT_OF_STOCK`, `QTY_OUT_OF_RANGE`                      | katalog                                                                 |
+| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE`                                                    | to‘ldirish chegaralari                                                  |
+| 422  | `CODE_INVALID`, `CODE_EXPIRED`, `CODE_ALREADY_USED`, `NOT_ENOUGH_COINS`        | promo; `CODE_INVALID`/`CODE_EXPIRED` web kirish OTP’si uchun ham (D-26) |
+| 429  | `RATE_LIMITED`                                                                 | throttler                                                               |
+| 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi)    |
+| 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                       |
 
 ## Auth
 
@@ -47,6 +47,59 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | POST  | `/auth/refresh`                                | cookie rotatsiyasi                                                         |
 | POST  | `/auth/logout`                                 | joriy sessiya                                                              |
 | GET   | `/auth/sessions` · DELETE `/auth/sessions/:id` | faol sessiyalar                                                            |
+
+2-fazada aniqlangan shakllar (D-26, D-27, D-29). `user` — quyidagi `GET /me` shakli.
+`/auth/*` va `/me*` javoblari (xatolar ham) `Cache-Control: no-store` bilan qaytadi. IP
+limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
+
+- **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh
+  (`path=/api/v1/auth`, 30 kun), ikkalasi host-only, `HttpOnly`, `SameSite=Lax`, `Secure`.
+  Mini App — `Authorization: Bearer <token>` (cookie’siz).
+- **CSRF.** Har bir yozuv so‘rovida (POST/PUT/PATCH/DELETE) `X-CSRF-Token` sarlavhasi va
+  ruxsat etilgan `Origin` talab qilinadi, ochiq login yo‘llarida ham. Bearer token qabul
+  qilingan so‘rov bundan ozod. Tekshiruv o‘tmasa — `404 NOT_FOUND`.
+- `POST /auth/telegram/webapp` — `{ initData }` (≤ 4096 belgi) →
+  `{ token, expiresIn: 3600, user }`. `initData` Telegram HMAC’i bilan tekshiriladi.
+  Imzo to‘g‘ri, lekin `TG_INITDATA_MAX_AGE_SEC`dan (standart 24 soat) eski bo‘lsa —
+  `401 INITDATA_EXPIRED`; boshqa har qanday nosozlik — `401 INITDATA_INVALID`. Bloklangan
+  foydalanuvchi — `403 USER_BLOCKED`. Limit: bitta Telegram akkauntga 10/daqiqa (imzo
+  tekshirilgandan keyin sanaladi) va IP’ga 120/daqiqa; oshsa — `429 RATE_LIMITED`
+  (`Retry-After` sarlavhasi bilan, har ikkala limitda ham).
+- `POST /auth/telegram/start` — `{}` → `{ nonce, botUrl }`. `nonce` 43 belgi (base64url),
+  10 daqiqa yashaydi. Limit: 30/daqiqa/IP.
+- `GET /auth/telegram/status/:nonce` → `{ status }`. Ishlatilgan so‘rov `EXPIRED` bo‘lib
+  ko‘rinadi. Botda «Bu men emasman» bosilgan bo‘lsa — `DENIED`, kod allaqachon ishlatilgan
+  bo‘lsa ham. Noma’lum yoki noto‘g‘ri shakldagi nonce — `404`. Limit: 300/daqiqa/IP.
+- `POST /auth/telegram/verify` — `{ nonce, code }` (`code` — 6 raqam) → ikkala cookie +
+  `{ user }`. Kod bot yuborganidan keyin 3 daqiqa amal qiladi, 5 urinish, bir martalik.
+  Xatolar:
+  - `422 CODE_INVALID` + `details.attemptsLeft`;
+  - `422 CODE_EXPIRED` (muddati o‘tgan, ishlatilgan, rad etilgan yoki urinishlar tugagan);
+  - `403 USER_BLOCKED`.
+
+  Limit: 30/daqiqa/IP (har bir nonce’ga 5 urinish alohida). Muvaffaqiyatli kirishdan keyin
+  bot foydalanuvchiga «yangi kirish» xabarini yuboradi (qurilma, yashirilgan IP, vaqt va
+  sessiyani yopish tugmasi).
+
+- `POST /auth/refresh` — refresh cookie → yangi cookie juftligi + `{ user }`. Refresh token
+  har safar almashadi. Xatolarda cookie’lar ham tozalanadi:
+  - `401 UNAUTHORIZED` — yo‘q, noma’lum yoki muddati o‘tgan token;
+  - `401 TOKEN_REUSE_DETECTED` — eski token qayta ishlatildi, butun sessiya oilasi bekor
+    qilinadi;
+  - `403 USER_BLOCKED`.
+- `POST /auth/logout` → `{}`. Har doim `200`, cookie’larni tozalaydi va refresh cookie
+  bo‘lsa uning sessiyasini yopadi.
+- `GET /auth/sessions` → `[{ id, userAgent, ipMasked, createdAt, lastUsedAt, current }]`.
+  `ipMasked`: IPv4 `203.0.113.x`, IPv6 `2001:db8:85a3::x`. Eng ko‘pi 100 ta, oxirgi
+  ishlatilgani birinchi.
+- `DELETE /auth/sessions/:id` → `{}`. O‘zining joriy sessiyasi bo‘lsa cookie’lar ham
+  tozalanadi; boshqa foydalanuvchiniki yoki noma’lum id — `404`.
+
+## Telegram
+
+| Metod | Yo‘l                | Tavsif                                                                                                                                                                                                            |
+| ----- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST  | `/telegram/webhook` | Telegram update’lari (faqat `TELEGRAM_BOT_MODE=webhook`). `X-Telegram-Bot-Api-Secret-Token` mos kelmasa — `404`. Javob konvertsiz `{ ok: true }`, handler xatosida ham `200` (Telegram qayta yubormasligi uchun). |
 
 ## Profil
 

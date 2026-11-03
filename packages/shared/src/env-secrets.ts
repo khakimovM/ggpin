@@ -26,6 +26,7 @@ export const API_ONLY_SECRETS = [
   'JWT_REFRESH_SECRET',
   'TG_SESSION_SECRET',
   'TELEGRAM_WEBHOOK_SECRET',
+  'OTP_PEPPER',
   'TELEGRAM_BOT_TOKEN',
   'CLICK_SECRET_KEY',
   'PAYME_KEY',
@@ -45,6 +46,7 @@ export const API_PRODUCTION_GENERATED_SECRETS = [
   'JWT_REFRESH_SECRET',
   'TG_SESSION_SECRET',
   'TELEGRAM_WEBHOOK_SECRET',
+  'OTP_PEPPER',
 ] as const;
 
 export const API_PRODUCTION_ISSUED_CREDENTIALS = [
@@ -184,4 +186,16 @@ export function productionSecretProblems(
   check(generated, MIN_GENERATED_SECRET_LENGTH);
   check(issued, null);
   return problems;
+}
+
+/**
+ * Process entry points only (NOT the env schema, which tests parse directly): `NODE_ENV=test`
+ * relaxes behaviour meant for test suites (fake webhook modes, no CSRF-cookie hardening), so a
+ * deployed process must never run in it. Jest sets JEST_WORKER_ID in every worker; nothing else
+ * does. This guards against an operator mistake, not an attacker: an env that sets
+ * JEST_WORKER_ID by hand gets past it. Returns the reason to refuse to start, or null.
+ */
+export function testModeOutsideJestProblem(source: Source): string | null {
+  if (source.NODE_ENV !== 'test' || !isBlank(source.JEST_WORKER_ID)) return null;
+  return 'NODE_ENV: "test" is only for test runs; refusing to start a server in it (use development or production)';
 }

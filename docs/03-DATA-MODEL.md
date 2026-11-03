@@ -2,8 +2,9 @@
 
 > **Haqiqat manbai — `packages/db/prisma/schema.prisma`** (Prisma 7, D-22). Migratsiyalar:
 > `packages/db/prisma/migrations/20261029185158_init`, `20261031120000_domain_guardrails`
-> ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda) va `20261101100000_discount_below_full_price`
-> ("Migratsiya 3"). Bu hujjat sxemani tushuntiradi, nusxasini
+> ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda), `20261101100000_discount_below_full_price`
+> ("Migratsiya 3"), `20261102105448_auth_bot_guardrails` ("Migratsiya 4") va
+> `20261102171806_login_session_link` + `20261102172000_login_session_link_check` ("Migratsiya 5"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -153,6 +154,45 @@ tegilmadi.
 - Xavfsizlik: qo‘llashdan oldin dev va test bazalarida chegaradagi qator (`bps >= 10000`,
   `discountTiyin >= priceTiyin`) yo‘qligi tekshirildi, shuning uchun qayta qo‘shish xatosiz o‘tadi.
 - Servis qatlamida (keyingi fazalar) chegirma hisoblash ham shu qoidaga amal qiladi: narx kamida 1 tiyin.
+
+## Migratsiya 4: `20261102105448_auth_bot_guardrails`
+
+2-faza (autentifikatsiya + bot). Faqat qo‘shimcha: ustun, jadval o‘chirilmadi, nomi yoki turi
+o‘zgarmadi. Yozilgan paytda `LoginRequest` dev va test bazalarida bo‘sh edi.
+
+- **`User.botBlockedAt DateTime?`** — foydalanuvchi botni bloklagan vaqt (`my_chat_member` → `kicked`
+  yoki `sendMessage` 403). Bu admin bloki **`isBlocked` emas**: `isBlocked` `403 USER_BLOCKED` beradi va
+  Mini App/vebga kirishni yopadi, `botBlockedAt` esa faqat bot xabarlarini to‘xtatadi. Foydalanuvchi
+  botni qayta ishga tushirsa (`/start` yoki `member`) — `null` bo‘ladi. docs/07 dagi "`isBlocked=true`"
+  iborasi shu ustun bilan almashtirildi (D-28).
+- **`LoginRequest` indeksi** `(status, expiresAt)` — muddati o‘tgan so‘rovlarni tozalovchi sweep uchun.
+- **`LoginRequest` `CHECK`lari** (`kind`/`status` matn bo‘lib qoladi — enumʼga o‘tkazish tur
+  o‘zgarishi bo‘lardi; cheklovlar xuddi shu himoyani beradi va yangi qiymat aniq qo‘shilmaguncha rad etadi):
+  - `LoginRequest_attempts_check`: `attempts BETWEEN 0 AND 5` — `packages/shared/src/auth/auth-constants.ts`
+    dagi `OTP_MAX_ATTEMPTS = 5` bilan birga o‘zgaradi.
+  - `LoginRequest_kind_check`: `kind IN ('USER','ADMIN')`.
+  - `LoginRequest_status_check`: `status IN ('PENDING','CODE_SENT','USED','EXPIRED','DENIED')`.
+  - `LoginRequest_code_sent_check`: `CODE_SENT` holatida `codeHash` va `telegramId` majburiy.
+- **DDLsiz maʼno o‘zgarishi:** `LoginRequest.codeHash` = hex HMAC-SHA256(`OTP_PEPPER`, `nonce:code`);
+  `WebSession.refreshHash` = HMAC-SHA256(`JWT_REFRESH_SECRET`, token). Peppersiz oddiy sha256 6 xonali
+  kodni DB nusxasidan bir zumda topishga imkon berardi. Jadvallar bo‘sh edi, backfill kerak emas.
+- Isbot: `packages/db/test/check-constraints-auth.e2e.test.ts`.
+
+## Migratsiya 5: `20261102171806_login_session_link` + `20261102172000_login_session_link_check`
+
+2-faza review tuzatishlari (D-29). Faqat qo‘shimcha. Ikkiga bo‘lingan, chunki birinchisi dev
+bazaga allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
+
+- **`LoginRequest.sessionFamilyId String?`** — shu kod bilan ochilgan web sessiya oilasi.
+  `verify` uni `USED` bilan bitta tranzaksiyada yozadi. Botdagi «Bu men emasman» kod
+  ishlatilgandan keyin bosilsa, aynan shu oila bekor qilinadi va so‘rov `DENIED` bo‘ladi.
+- **Indeks `(telegramId, expiresAt)`** — botning "10 daqiqada 5 kod" sanog‘i uchun. Bu sanoq
+  oldin butun jadvalni ko‘rib chiqardi (Seq Scan).
+- **`LoginRequest_session_family_check`:** `sessionFamilyId` faqat `USED` yoki `DENIED` holatida
+  bo‘lishi mumkin.
+- `createdAt` endi servisdagi soatdan yoziladi (DB `now()` emas). Kod yetkazilmay qolganda
+  so‘rov `PENDING` holatiga qaytariladi va `expiresAt = createdAt + 10 daqiqa` bo‘ladi.
+- Isbot: `packages/db/test/check-constraints-auth.e2e.test.ts`.
 
 ## Nima qayerda hisoblanadi
 

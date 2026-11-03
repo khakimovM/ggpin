@@ -64,10 +64,10 @@ menu button, payload'lar (`ref_`, `login_`), outbox navbati; `User`/`Wallet` yar
 
 **Qabul mezonlari**
 
-- [ ] initData: to‘g‘ri / soxta / eskirgan testlari
-- [ ] Web: start → botda kod → verify → cookie → `/me`; 5 urinish va muddat ishlaydi
-- [ ] Bot uz/ru: `/start`, til almashtirish, snapshot testlar
-- [ ] `ref_` payload faqat birinchi marta bog‘laydi, o‘zini taklif qilish rad etiladi
+- [x] initData: to‘g‘ri / soxta / eskirgan testlari
+- [x] Web: start → botda kod → verify → cookie → `/me`; 5 urinish va muddat ishlaydi
+- [x] Bot uz/ru: `/start`, til almashtirish, snapshot testlar
+- [x] `ref_` payload faqat birinchi marta bog‘laydi, o‘zini taklif qilish rad etiladi
 
 ---
 

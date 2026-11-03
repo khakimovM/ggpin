@@ -1,0 +1,155 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`/start a blocked user gets only the blocked notice 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700001,
+      "parse_mode": "HTML",
+      "text": "Hisobingiz bloklangan. Yordam xizmatiga murojaat qiling.",
+    },
+  },
+]
+`;
+
+exports[`/start a user created by this /start gets the bilingual language picker 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700001,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "lang:uz",
+              "text": "🇺🇿 O‘zbekcha",
+            },
+            {
+              "callback_data": "lang:ru",
+              "text": "🇷🇺 Русский",
+            },
+          ],
+        ],
+      },
+      "text": "🌐 Tilni tanlang / Выберите язык",
+    },
+  },
+  {
+    "setChatMenuButton": {
+      "chat_id": 700001,
+      "menu_button": {
+        "text": "🛍 Магазин",
+        "type": "web_app",
+        "web_app": {
+          "url": "https://app.example.test/tg",
+        },
+      },
+    },
+  },
+]
+`;
+
+exports[`/start admin_<nonce> answers "link expired" to everyone 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700001,
+      "parse_mode": "HTML",
+      "text": "⌛ Ссылка устарела. Попробуйте ещё раз.",
+    },
+  },
+]
+`;
+
+exports[`/start an existing ru user gets the welcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700001,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "🛍 Начать покупки",
+              "web_app": {
+                "url": "https://app.example.test/tg",
+              },
+            },
+          ],
+          [
+            {
+              "callback_data": "help",
+              "text": "💬 Помощь",
+            },
+            {
+              "callback_data": "lang:menu",
+              "text": "🌐 Язык",
+            },
+          ],
+        ],
+      },
+      "text": "👋 Добро пожаловать, Ann! Telegram Stars, Premium и донат в игры — быстро, безопасно и выгодно.",
+    },
+  },
+  {
+    "setChatMenuButton": {
+      "chat_id": 700001,
+      "menu_button": {
+        "text": "🛍 Магазин",
+        "type": "web_app",
+        "web_app": {
+          "url": "https://app.example.test/tg",
+        },
+      },
+    },
+  },
+]
+`;
+
+exports[`/start an existing uz user gets the welcome 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700001,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "🛍 Xaridni boshlash",
+              "web_app": {
+                "url": "https://app.example.test/tg",
+              },
+            },
+          ],
+          [
+            {
+              "callback_data": "help",
+              "text": "💬 Yordam",
+            },
+            {
+              "callback_data": "lang:menu",
+              "text": "🌐 Til",
+            },
+          ],
+        ],
+      },
+      "text": "👋 Xush kelibsiz, Ann! Telegram Stars, Premium va o‘yin donatlari — tez, xavfsiz va qulay narxda.",
+    },
+  },
+  {
+    "setChatMenuButton": {
+      "chat_id": 700001,
+      "menu_button": {
+        "text": "🛍 Do‘kon",
+        "type": "web_app",
+        "web_app": {
+          "url": "https://app.example.test/tg",
+        },
+      },
+    },
+  },
+]
+`;

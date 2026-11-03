@@ -1,6 +1,7 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Readiness } from '@repo/shared';
+import { Public } from '../../common/auth/public.decorator';
 import { RawResponse } from '../../common/http/raw-response.decorator';
 import { HealthService } from './health.service';
 
@@ -12,7 +13,8 @@ interface StatusReply {
 
 // Both routes are unenveloped (D-24, docs/04-API-CONTRACT.md#health): orchestrators and
 // uptime checks read `status` at the top level. Probes poll every few seconds, so both routes
-// are also exempt from the per-IP rate limit.
+// are also exempt from the per-IP rate limit. Public: probes carry no session.
+@Public()
 @RawResponse()
 @SkipThrottle()
 @Controller('health')

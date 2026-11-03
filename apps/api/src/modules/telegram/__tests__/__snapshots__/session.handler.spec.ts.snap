@@ -1,0 +1,83 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`end-session button (ru) an ended session edits the message and removes the button 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700401,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Сеанс завершён. Это устройство вышло из вашего аккаунта.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1008",
+    },
+  },
+]
+`;
+
+exports[`end-session button (ru) an unknown or foreign session only answers and removes the stale button 1`] = `
+[
+  {
+    "editMessageReplyMarkup": {
+      "chat_id": 700401,
+      "message_id": 1,
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1009",
+      "text": "ℹ️ Этот сеанс уже завершён.",
+    },
+  },
+]
+`;
+
+exports[`end-session button (uz) an ended session edits the message and removes the button 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700401,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Sessiya tugatildi. Bu qurilma hisobingizdan chiqarildi.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1001",
+    },
+  },
+]
+`;
+
+exports[`end-session button (uz) an unknown or foreign session only answers and removes the stale button 1`] = `
+[
+  {
+    "editMessageReplyMarkup": {
+      "chat_id": 700401,
+      "message_id": 1,
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1002",
+      "text": "ℹ️ Bu sessiya allaqachon tugatilgan.",
+    },
+  },
+]
+`;

@@ -1,0 +1,119 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`BotSetupService localizes the per-chat button 1`] = `
+[
+  {
+    "chat_id": 42,
+    "menu_button": {
+      "text": "🛍 Магазин",
+      "type": "web_app",
+      "web_app": {
+        "url": "https://app.example.test/tg",
+      },
+    },
+  },
+  {
+    "chat_id": 43,
+    "menu_button": {
+      "text": "🛍 Do‘kon",
+      "type": "web_app",
+      "web_app": {
+        "url": "https://app.example.test/tg",
+      },
+    },
+  },
+]
+`;
+
+exports[`BotSetupService sets a web_app default menu button when MINI_APP_URL is set 1`] = `
+[
+  {
+    "menu_button": {
+      "text": "🛍 Do‘kon",
+      "type": "web_app",
+      "web_app": {
+        "url": "https://app.example.test/tg",
+      },
+    },
+  },
+]
+`;
+
+exports[`BotSetupService sets commands for uz, ru and the default (uz) 1`] = `
+[
+  {
+    "commands": [
+      {
+        "command": "start",
+        "description": "Botni ishga tushirish",
+      },
+      {
+        "command": "shop",
+        "description": "Do‘kon",
+      },
+      {
+        "command": "ref",
+        "description": "Referal havola",
+      },
+      {
+        "command": "lang",
+        "description": "Tilni o‘zgartirish",
+      },
+      {
+        "command": "help",
+        "description": "Yordam",
+      },
+    ],
+    "language_code": "uz",
+  },
+  {
+    "commands": [
+      {
+        "command": "start",
+        "description": "Запустить бота",
+      },
+      {
+        "command": "shop",
+        "description": "Магазин",
+      },
+      {
+        "command": "ref",
+        "description": "Реферальная ссылка",
+      },
+      {
+        "command": "lang",
+        "description": "Сменить язык",
+      },
+      {
+        "command": "help",
+        "description": "Помощь",
+      },
+    ],
+    "language_code": "ru",
+  },
+  {
+    "commands": [
+      {
+        "command": "start",
+        "description": "Botni ishga tushirish",
+      },
+      {
+        "command": "shop",
+        "description": "Do‘kon",
+      },
+      {
+        "command": "ref",
+        "description": "Referal havola",
+      },
+      {
+        "command": "lang",
+        "description": "Tilni o‘zgartirish",
+      },
+      {
+        "command": "help",
+        "description": "Yordam",
+      },
+    ],
+  },
+]
+`;

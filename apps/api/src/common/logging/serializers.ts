@@ -1,4 +1,4 @@
-import { redactSecrets } from '@repo/shared';
+import { REDACTED, redactSecrets } from '@repo/shared';
 
 // Request and response are serialised to an allowlist, never copied: a Fastify/Node request
 // carries the whole header map (cookies, bearer tokens, webhook secrets) and the socket.
@@ -17,6 +17,40 @@ export function pathWithoutQuery(url: string): string {
   return end === -1 ? url : url.slice(0, end);
 }
 
+// The web login nonce travels in the PATH of GET /auth/telegram/status/:nonce. Anyone who reads
+// it from a log could poll that login request, so the segment never reaches a log line. The
+// match runs on the decoded path (a client may encode "telegram" or the slash), is
+// case-insensitive, ignores the version prefix, and swallows everything after "status/".
+const NONCE_ROUTE = /\/auth\/telegram\/status\/(.+)$/is;
+
+// Malformed escapes ("%zz", a lone "%") make decodeURIComponent throw; a client can send
+// them on purpose to dodge the redaction, so fall back to decoding byte by byte.
+function decodeForMatching(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path.replace(/%([0-9a-f]{2})/gi, (_m, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+  }
+}
+
+/** Replaces the nonce in `/auth/telegram/status/<nonce>` paths with the redaction marker. */
+export function redactLoginNonce(path: string): string {
+  const decoded = decodeForMatching(path);
+  const match = NONCE_ROUTE.exec(decoded);
+  if (match === null) return path;
+  const [whole = '', nonce = ''] = match;
+  const prefix = whole.slice(0, whole.length - nonce.length);
+  const trailingSlash = nonce.endsWith('/') ? '/' : '';
+  return `${decoded.slice(0, match.index)}${prefix}${REDACTED}${trailingSlash}`;
+}
+
+/** What a request path may look like in a log line: no query, no login nonce. */
+export function loggablePath(url: string): string {
+  return redactLoginNonce(pathWithoutQuery(url));
+}
+
 export function serializeRequest(req: unknown): unknown {
   if (!isRecord(req)) return undefined;
   const headers: Record<string, string> = {};
@@ -28,7 +62,7 @@ export function serializeRequest(req: unknown): unknown {
   return redactSecrets({
     id: req.id,
     method: req.method,
-    path: typeof req.url === 'string' ? pathWithoutQuery(req.url) : undefined,
+    path: typeof req.url === 'string' ? loggablePath(req.url) : undefined,
     headers,
   });
 }

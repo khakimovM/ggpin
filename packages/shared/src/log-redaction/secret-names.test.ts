@@ -39,6 +39,13 @@ describe('secret names from the shared lists', () => {
     }
   });
 
+  it('OTP_PEPPER is classified API-only, production-generated and redacted', () => {
+    expect(API_ONLY_SECRETS).toContain('OTP_PEPPER');
+    expect(API_PRODUCTION_GENERATED_SECRETS).toContain('OTP_PEPPER');
+    expect(ALL_SECRET_ENV_NAMES).toContain('OTP_PEPPER');
+    expect(redactSecrets({ OTP_PEPPER: 'value-1' })).toEqual({ OTP_PEPPER: REDACTED });
+  });
+
   it.each(ALL_SECRET_ENV_NAMES)('%s is redacted as a key', (name) => {
     expect(isSensitiveKey(name)).toBe(true);
     expect(redactSecrets({ [name]: 'value-1', keep: 'visible' })).toEqual({

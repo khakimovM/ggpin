@@ -2,14 +2,14 @@ import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Logger as PinoLogger } from 'nestjs-pino';
-import { QUEUE_NAMES } from '@repo/shared';
-import { EnvValidationError, loadEnv, type Env } from './config/env';
+import { QUEUE_NAMES, scrubSecretsInText } from '@repo/shared';
+import { EnvValidationError, loadProcessEnv, type Env } from './config/env';
 import { WorkerModule } from './worker.module';
 
 // Misconfiguration must stop the process with a readable reason, not a stack trace.
 function loadEnvOrExit(): Env {
   try {
-    return loadEnv();
+    return loadProcessEnv();
   } catch (error) {
     if (error instanceof EnvValidationError) {
       process.stderr.write(`${error.message}\n`);
@@ -37,4 +37,13 @@ async function bootstrap(): Promise<void> {
   );
 }
 
-void bootstrap();
+// Node prints an unhandled rejection with util.inspect, nested properties included (a client
+// error's request payload, a URL with a key). Only the scrubbed stack text is written.
+bootstrap().catch((error: unknown) => {
+  const text =
+    error instanceof Error
+      ? (error.stack ?? `${error.name}: ${error.message}`)
+      : 'non-Error thrown';
+  process.stderr.write(`boot failed: ${scrubSecretsInText(text)}\n`);
+  process.exit(1);
+});

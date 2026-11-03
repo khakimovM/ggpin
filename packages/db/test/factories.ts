@@ -83,3 +83,16 @@ export async function createIntent(
     },
   });
 }
+
+type LoginRequestInput = Parameters<typeof db.loginRequest.create>[0]['data'];
+
+/** A valid PENDING USER login request; override any column to build a case under test. */
+export function loginRequestData(overrides: Partial<LoginRequestInput> = {}): LoginRequestInput {
+  return {
+    nonce: `nonce-${next()}-${Date.now()}`,
+    kind: 'USER',
+    status: 'PENDING',
+    expiresAt: new Date(Date.now() + 600_000),
+    ...overrides,
+  };
+}
