@@ -245,6 +245,21 @@ allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
 - Isbot: `packages/db/test/check-constraints-pricing.e2e.test.ts` (har CHECK uchun qabul/rad matritsasi, NULL
   holatlari, triggerlar, FK), `src/schema.test.ts`.
 
+## Seed (boshlang‘ich ma’lumotlar)
+
+`npm run db:seed` → `packages/db`: `tsc -p tsconfig.seed.json` (`dist/seed` ga) → `prisma db seed`
+(`prisma.config.ts` → `migrations.seed`). Kod: `packages/db/prisma/seed.ts` va `prisma/seed/`.
+
+- **Yaratadi:** kategoriya `telegram`; `telegram-stars` (`TG_USERNAME`, erkin miqdor 50..100000, SKU 50/100/250/500/1000/2500)
+  va `telegram-premium` (SKU 3/6/12 oy); `ProductRoute`: Stars uchun `FRAGMENT` (1, yoqilgan) va `RESELLER_STARS` (2, o‘chirilgan),
+  Premium uchun `FRAGMENT` (1, yoqilgan). `markupBps` 1000, `minMarginTiyin` 0 — vaqtincha qiymat (Q8), egasi belgilaydi.
+  `inputSchema` yozishdan oldin `ProductInputSchema` bilan tekshiriladi; `label` kalitlari `packages/i18n` da (`fields.tgUsername`).
+- **Faqat yaratadi:** mavjud qator hech qachon qayta yozilmaydi (SKU `productId + quantity + tab` bo‘yicha topiladi), shuning uchun
+  qayta ishga tushirish xavfsiz va admin kiritgan o‘zgarishni bosib ketmaydi. Bir vaqtda ikki seed advisory lock bilan ketma-ket bajariladi.
+- **Production:** `NODE_ENV=production` bo‘lsa mahsulotlar `isActive=false` bilan yaratiladi (egasi admin'dan yoqadi); `NODE_ENV`
+  o‘rnatilmagan bo‘lsa production hisoblanmaydi.
+- Isbot: `packages/db/test/seed.e2e.test.ts`.
+
 ## Nima qayerda hisoblanadi
 
 | Ko‘rsatkich              | Qayerda                                                                     |

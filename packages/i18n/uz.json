@@ -82,6 +82,9 @@
       "blocked": "Hisobingiz bloklangan. Yordam xizmatiga murojaat qiling."
     }
   },
+  "fields": {
+    "tgUsername": "Telegram username"
+  },
   "errors": {
     "VALIDATION_ERROR": "Kiritilgan maʼlumotlarda xatolik bor. Tekshirib, qayta urinib ko‘ring.",
     "UNAUTHORIZED": "Avval tizimga kiring.",

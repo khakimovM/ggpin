@@ -8,5 +8,13 @@
     "moduleResolution": "Bundler",
     "noEmit": true
   },
-  "include": ["src", "test", "prisma.config.ts", "vitest.config.mjs", "vitest.e2e.config.mjs"]
+  "include": [
+    "src",
+    "test",
+    "prisma/seed.ts",
+    "prisma/seed",
+    "prisma.config.ts",
+    "vitest.config.mjs",
+    "vitest.e2e.config.mjs"
+  ]
 }

@@ -19,6 +19,7 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:seed": "node -e \"require('fs').rmSync('dist/seed',{recursive:true,force:true})\" && tsc -p tsconfig.seed.json && prisma db seed",
     "db:studio": "prisma studio"
   },
   "devDependencies": {
