@@ -120,6 +120,52 @@ katalogda qoldiq soni ("69 ta" / "Tugagan"); kam qolganda egaga xabar.
   bo‘lsa kotirovka berilmaydi.
 - Ta'minotchi narxlari: har soat.
 
+**Qayerda.** `apps/worker/src/pricing-sync/`. `price-sync` navbatida ikkita job: `fx` (kurslar) va
+`cost` (tannarx). Ular BullMQ job scheduler orqali har `PRICE_SYNC_EVERY_MS` (5 daqiqa) ishlaydi;
+scheduler idʼlari doimiy (`price-sync:fx`, `price-sync:cost`), shuning uchun worker necha marta qayta
+ishga tushmasin, schedulerlar soni 2 ta qoladi. Worker ishga tushganda har bir job bir marta darhol
+ishlaydi. Yozuvlar faqat qo‘shiladi: `FxRate` va `CostSnapshot` o‘zgartirilmaydi (UPDATE trigger
+bilan taqiqlangan), har bir yangilanish — yangi qator.
+
+**Kurslar (`fx`).** Manbadan faqat `USDT_UZS` va `TON_USDT` olinadi. Har bir kurs tekshiriladi
+(musbat o‘nlik qator, ko‘pi bilan 18 xona; bir juftlik ikki marta kelsa — yozilmaydi). Keyin
+**sakrash himoyasi**: yangi kurs shu juftlikning oxirgi saqlangan kursidan `FX_MAX_JUMP_BPS`
+(1000 bps = 10%) dan ko‘proq farq qilsa (yuqoriga ham, pastga ham), u yozilmaydi va warn log
+yoziladi (juftlik, oxirgi qator idʼsi, ikkala kurs — kurs maxfiy maʼlumot emas). Aynan 10% ruxsat
+etiladi. Taqqoslash `packages/shared` pul funksiyalari bilan, BigIntʼda qilinadi (float yo‘q).
+Sakrash odatda manba xatosi (raqam tushib qolgan, eski kesh, buzilgan manba) belgisidir: noto‘g‘ri
+narxda sotgandan ko‘ra, 30 daqiqadan keyin kotirovkani to‘xtatgan yaxshi. Haqiqiy kurs 10% dan
+ko‘p o‘zgargan bo‘lsa, bu holatdan chiqish uchun kursni qo‘lda kiritish kerak bo‘ladi (admin
+panel — keyingi fazalar).
+
+**Hosila kurs `TON_UZS`.** Manbadan olinmaydi: `TON_UZS = multiplyRates(TON_USDT, USDT_UZS, 'up')`
+— 18-xonada yuqoriga yaxlitlanadi (tannarx uchun ishlatiladi, kam hisoblamaslik kerak).
+`source = 'derived:<TON_USDT id>*<USDT_UZS id>'`. U faqat ikkala ota-kurs **shu ishga tushishda**
+yozilgan bo‘lsagina yoziladi (bittasi sakrash himoyasida to‘xtasa — `TON_UZS` ham yozilmaydi), uchala
+qator bitta tranzaksiyada saqlanadi. Shunday qilib yangi kurs eski kurs bilan aralashmaydi.
+
+**Tannarx (`cost`).** Har bir **faol** mahsulot uchun birinchi yoqilgan (`isEnabled`) route
+(`priority` bo‘yicha) olinadi; u `FRAGMENT` bo‘lsa — `CostSnapshot` yoziladi (valyuta TON,
+`adapter = 'FRAGMENT'`). Erkin miqdorli mahsulot (Stars, `allowCustomQty`): bitta mahsulot
+darajasidagi qator (`skuId` NULL, `basisQuantity` 1, 1 dona narxi). Tayyor paketli mahsulot
+(Premium): har bir faol SKU uchun bitta qator (`basisQuantity` = SKU miqdori, yaʼni oylar).
+Nofaol mahsulot, nofaol SKU va birinchi routeʼi boshqa adapter bo‘lgan mahsulot o‘tkazib yuboriladi.
+
+**Simulyator.** 3-fazada haqiqiy kurs manbai ham, Fragment narxini olish ham yo‘q (ega javobi Q6):
+faqat `FxSource` / `CostSource` interfeyslari va simulyatorlar. Simulyator qiymatlari soxta, doimiy
+va hech qayerdan olinmaydi: `USDT_UZS = 12650`, `TON_USDT = 3.2` (demak `TON_UZS = 40480`);
+1 Star = 0,0047 TON; Premium 3 oy = 3,75 TON, 6 oy = 5 TON, 12 oy = 9,1 TON
+(`apps/worker/src/pricing-sync/fx-sources/simulated-fx.source.ts`,
+`apps/worker/src/adapters/simulator/simulated-fragment-prices.ts`). Qatorlarda `source = 'simulator'`;
+productionʼdagi API `simulator` va undan hosil bo‘lgan kurslar bilan narx bermaydi (Q15).
+
+**Dry-run o‘chiq bo‘lsa — yopiq holatda to‘xtaydi.** Simulyator faqat `FULFILLMENT_DRY_RUN=true`
+bo‘lganda ishlatiladi (tekshiruv sync servislarining ichida). `FULFILLMENT_DRY_RUN=false` bo‘lsa,
+haqiqiy manba hali yo‘q: har bir ishga tushishda bitta error log yoziladi va hech narsa
+yozilmaydi. Natijada oxirgi kurs/tannarx 30 daqiqa (`FX_MAX_AGE_MS`, `COST_MAX_AGE_MS`) eskirgach,
+API kotirovka bermaydi (`503 PRICE_UNAVAILABLE`) — soxta narx bilan sotishdan ko‘ra sotmagan yaxshi.
+Worker hech qanday tarmoq xizmatiga (birja, Fragment, TON) murojaat qilmaydi.
+
 ## Limitlar va ogohlantirishlar
 
 | Sozlama                             | Ma'nosi                                                        |

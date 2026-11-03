@@ -35,6 +35,7 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 429  | `RATE_LIMITED`                                                                 | throttler                                                               |
 | 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi)    |
 | 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                       |
+| 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                         |
 
 ## Auth
 
@@ -49,8 +50,10 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | GET   | `/auth/sessions` · DELETE `/auth/sessions/:id` | faol sessiyalar                                                            |
 
 2-fazada aniqlangan shakllar (D-26, D-27, D-29). `user` — quyidagi `GET /me` shakli.
-`/auth/*` va `/me*` javoblari (xatolar ham) `Cache-Control: no-store` bilan qaytadi. IP
-limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
+Kesh siyosati: har bir javob (xatolar ham) odatda `Cache-Control: no-store` bilan qaytadi.
+Faqat `@PublicCache(N)` bilan belgilangan yo‘l — hozir uchta `GET /catalog/*` — muvaffaqiyatli
+(200) javobda `public, max-age=60` beradi; shu yo‘llarning 400/404/5xx javoblari ham
+`no-store`. IP limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
 - **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh
   (`path=/api/v1/auth`, 30 kun), ikkalasi host-only, `HttpOnly`, `SameSite=Lax`, `Secure`.
@@ -111,19 +114,69 @@ limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
 ## Katalog
 
-| GET | `/catalog/categories`            | kategoriyalar + mahsulotlar soni                   |
-| --- | -------------------------------- | -------------------------------------------------- |
-| GET | `/catalog/products?category=&q=` | ro‘yxat (lokalga mos nomlar)                       |
-| GET | `/catalog/products/:slug`        | mahsulot + SKU'lar + `inputSchema` + `help` + stok |
+Uchala yo‘l ochiq (sessiyasiz), javob hamma uchun bir xil, shuning uchun `200` javobda
+`Cache-Control: public, max-age=60`; xatolar `no-store`. Har bir IP uchun 600 so‘rov/daqiqa
+(`RATE_LIMITED`). Faqat faol (`isActive`) mahsulotlar ko‘rinadi; faol bo‘lmagan mahsulot
+ro‘yxatda yo‘q, tafsilotda `404 NOT_FOUND`. Hamma so‘rovlarda `?locale=uz|ru` (standart `uz`);
+boshqa qiymat yoki noma’lum kalit — `400 VALIDATION_ERROR`. Mahsulot brend nomlari (Telegram
+Stars, PUBG Mobile) ikkala tilda bir xil.
 
-Namuna (`GET /catalog/products/telegram-stars`):
+| GET | `/catalog/categories?locale=`                            | kategoriyalar (`sort` tartibida), faqat kamida 1 faol mahsuloti borlari |
+| --- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| GET | `/catalog/products?category=&q=&locale=&page=1&limit=20` | ro‘yxat; `limit` ≤ 100, `category` — slug, `q` ≤ 64 belgi               |
+| GET | `/catalog/products/:slug?locale=`                        | mahsulot + SKU'lar + `inputSchema` + `help` + stok                      |
+
+`q` — nomning (uz **yoki** ru) bir qismi, katta-kichik harfga e’tiborsiz; `%` va `_` oddiy
+belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
+
+**`GET /catalog/categories?locale=ru`** → `data` massiv (sahifalanmaydi, ko‘pi bilan 100):
+
+```json
+{
+  "success": true,
+  "data": [
+    { "slug": "telegram", "name": "Сервисы Telegram", "productCount": 2 },
+    { "slug": "games", "name": "Игры", "productCount": 4 }
+  ]
+}
+```
+
+**`GET /catalog/products?category=telegram&limit=2`**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "t8uqj5v97wzo7r850h24xis1",
+      "slug": "telegram-stars",
+      "categorySlug": "telegram",
+      "name": "Telegram Stars",
+      "imageUrl": "/images/stars.png",
+      "regionBadge": "GLOBAL",
+      "deliveryType": "TG_USERNAME",
+      "isAuto": true,
+      "isFeatured": false,
+      "inStock": true,
+      "fromPriceTiyin": "550000"
+    }
+  ],
+  "meta": { "page": 1, "limit": 2, "total": 2 }
+}
+```
+
+**`GET /catalog/products/telegram-stars?locale=ru`**:
 
 ```json
 {
   "success": true,
   "data": {
+    "id": "t8uqj5v97wzo7r850h24xis1",
     "slug": "telegram-stars",
     "name": "Telegram Stars",
+    "description": "Звёзды доставляются на ваш @username",
+    "help": "Введите имя пользователя без @",
+    "imageUrl": "/images/stars.png",
     "deliveryType": "TG_USERNAME",
     "regionBadge": "GLOBAL",
     "isAuto": true,
@@ -132,15 +185,38 @@ Namuna (`GET /catalog/products/telegram-stars`):
     "maxQty": 100000,
     "inputSchema": [{ "key": "username", "type": "tgUsername", "label": "fields.tgUsername" }],
     "skus": [
-      { "id": "sku_50", "label": "50 ⭐", "quantity": 50, "fromPriceTiyin": "1100000" },
-      { "id": "sku_100", "label": "100 ⭐", "quantity": 100, "fromPriceTiyin": "2200000" }
+      {
+        "id": "yjo81wz8x26v7v2m20s9imoh",
+        "label": "50 ⭐",
+        "quantity": 50,
+        "tab": null,
+        "fromPriceTiyin": "550000"
+      },
+      {
+        "id": "xw3zlokwzc4mpkeemvefxduo",
+        "label": "100 ⭐",
+        "quantity": 100,
+        "tab": null,
+        "fromPriceTiyin": "1100000"
+      }
     ],
-    "unitPriceTiyin": "22000"
+    "unitPriceTiyin": "11000",
+    "stock": null,
+    "currency": "UZS"
   }
 }
 ```
 
-`fromPriceTiyin` — ko‘rsatish uchun taxminiy narx; haqiqiy narx faqat kotirovkada.
+- `fromPriceTiyin` / `unitPriceTiyin` — faqat ko‘rsatish uchun taxminiy narx; haqiqiy narx faqat
+  kotirovkada. Yangi (≤ 30 daqiqa) kurs yoki tannarx bo‘lmasa `null` — mijoz narxni ko‘rsatmaydi
+  (xato emas, javob `200`). Ro‘yxatda `fromPriceTiyin` — eng arzon SKU narxi.
+- `unitPriceTiyin` — eng kichik SKU narxining bir birlikka bo‘lingani (yuqoriga yaxlitlanadi).
+- `skus` — faqat faol SKU'lar, miqdor bo‘yicha o‘sish tartibida. `tab` — guruh i18n kaliti
+  yoki `null`.
+- `stock` — `null` = cheksiz (voucher'siz mahsulotlar); voucher mahsulotlarda `AVAILABLE`
+  kodlar soni. Ro‘yxatda `inStock = stock > 0` (cheksizda `true`).
+- `description` / `help` tarjimasi bo‘lmasa `null` (boshqa tilga almashtirilmaydi).
+- `inputSchema` maydon `label`i — `packages/i18n` kaliti; matn klientda tarjima qilinadi.
 
 ## Qabul qiluvchi va kotirovka
 
@@ -207,3 +283,7 @@ amal qilsa avtomatik xarid qilinadi; amal qilmasa pul balansda qoladi va foydala
 ## Health
 
 `GET /health/live` → `{status:"ok"}` · `GET /health/ready` → `{status, db, redis, worker, fragment}`.
+Ikkala yo‘l konvertsiz (D-24) va `no-store`. `/health/ready`: Postgres va Redis ishlasa `200`;
+faqat worker yo‘q bo‘lsa ham `200`, lekin `status: "degraded"`, `worker: "down"` (D-30.1: worker
+qayta ishga tushganda API balansirovshchikdan chiqarilmaydi). `503` — faqat Postgres yoki Redis
+ishlamaganda, tana o‘sha shaklda.

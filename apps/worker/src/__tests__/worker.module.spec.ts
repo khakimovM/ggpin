@@ -1,25 +1,35 @@
 import { getQueueOptionsToken, getQueueToken } from '@nestjs/bullmq';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES, WORKER_HEARTBEAT_KEY } from '@repo/shared';
+import {
+  PRICE_SYNC_EVERY_MS,
+  QUEUE_JOB_DEFAULTS,
+  QUEUE_NAMES,
+  QUEUES,
+  WORKER_HEARTBEAT_KEY,
+} from '@repo/shared';
 import type { RegisterQueueOptions } from '@nestjs/bullmq';
 import { buildTestEnv } from '../config/__tests__/test-env';
 import { HeartbeatService } from '../heartbeat/heartbeat.service';
+import { PriceSyncScheduler } from '../pricing-sync/price-sync.scheduler';
 import { WorkerModule } from '../worker.module';
-import { fakeRedisClient, withFakeInfra, type FakeRedisClient } from './fake-infra';
+import { fakeRedisClient, withFakeInfra, type FakeQueue, type FakeRedisClient } from './fake-infra';
 
 // The real module graph with only the network edges (queue instances, Redis client) faked:
 // no Redis or Postgres is needed.
 describe('WorkerModule', () => {
   let moduleRef: TestingModule;
   let redis: FakeRedisClient;
+  let queues: Map<string, FakeQueue>;
 
   beforeEach(async () => {
     redis = fakeRedisClient();
+    queues = new Map();
     moduleRef = await withFakeInfra(
       Test.createTestingModule({
         imports: [WorkerModule.register(buildTestEnv({ REDIS_URL: 'redis://example.test:6380' }))],
       }),
       redis,
+      queues,
     ).compile();
     moduleRef.useLogger(false);
   });
@@ -54,5 +64,17 @@ describe('WorkerModule', () => {
 
     await moduleRef.close();
     expect(redis.eval).toHaveBeenCalledTimes(1);
+  });
+
+  it('schedules the fx and cost price-sync jobs on boot under fixed scheduler ids', async () => {
+    await moduleRef.init();
+    await moduleRef.get(PriceSyncScheduler).whenScheduled();
+    const queue = queues.get(QUEUES.PRICE_SYNC);
+    expect(queue?.upsertJobScheduler.mock.calls).toEqual([
+      ['price-sync:fx', { every: PRICE_SYNC_EVERY_MS }, { name: 'fx', data: {} }],
+      ['price-sync:cost', { every: PRICE_SYNC_EVERY_MS }, { name: 'cost', data: {} }],
+    ]);
+    // New schedulers run at once (delay 0), so no extra immediate job is added.
+    expect(queue?.add).not.toHaveBeenCalled();
   });
 });

@@ -56,7 +56,7 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
     removeOnComplete: { age: 7 * DAY_SEC, count: 10_000 },
     removeOnFail: { age: 30 * DAY_SEC, count: 10_000 },
   },
-  // The API waits ~10 s for the answer (phase 3), so only one quick retry fits in that window.
+  // The API waits ~10 s for the answer (phase 5), so only one quick retry fits in that window.
   [QUEUES.VALIDATE_RECIPIENT]: {
     attempts: 2,
     backoff: { type: 'exponential', delay: 1_000 },

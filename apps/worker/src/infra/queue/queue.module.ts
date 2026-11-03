@@ -19,7 +19,7 @@ const queues = BullModule.registerQueue(
 );
 
 // Registers every queue from @repo/shared so jobs can be added (cron schedules, follow-ups).
-// Processors arrive with their phases: validate-recipient and price-sync in phase 3,
+// Processors arrive with their phases: price-sync in phase 3 (pricing-sync/); validate-recipient,
 // fulfill-order and fragment-keepalive in phase 5.
 @Global()
 @Module({
