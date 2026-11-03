@@ -4,8 +4,9 @@
 > `packages/db/prisma/migrations/20261029185158_init`, `20261031120000_domain_guardrails`
 > ("Migratsiya 2" bo‘limi — trigger va `CHECK`lar faqat shu yerda), `20261101100000_discount_below_full_price`
 > ("Migratsiya 3"), `20261102105448_auth_bot_guardrails` ("Migratsiya 4") va
-> `20261102171806_login_session_link` + `20261102172000_login_session_link_check` ("Migratsiya 5") va
-> `20261103164533_d30_column_renames` + `20261103165000_bonus_reward_check_null_safe` ("Migratsiya 6"). Bu hujjat sxemani tushuntiradi, nusxasini
+> `20261102171806_login_session_link` + `20261102172000_login_session_link_check` ("Migratsiya 5"),
+> `20261103164533_d30_column_renames` + `20261103165000_bonus_reward_check_null_safe` ("Migratsiya 6") va
+> `20261103170006_catalog_pricing` ("Migratsiya 7"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -18,14 +19,14 @@
   bir xil (DB testi tekshiradi).
 - id — `cuid(2)`; jadval nomlari model nomlari bilan bir xil (`"Wallet"`, `"LedgerEntry"`).
 
-## Modellar (29 ta model, 11 ta enum)
+## Modellar (30 ta model, 11 ta enum)
 
 | Guruh         | Modellar                                                                                      |
 | ------------- | --------------------------------------------------------------------------------------------- |
 | Foydalanuvchi | `User`, `Wallet`                                                                              |
 | Hamyon        | `LedgerEntry` (so‘m), `CoinEntry` (keshbek tangalari)                                         |
 | Katalog       | `Category`, `Product`, `Sku`, `ProductRoute`, `Voucher`                                       |
-| Narx          | `FxRate`, `Quote`                                                                             |
+| Narx          | `FxRate`, `CostSnapshot`, `Quote`                                                             |
 | Buyurtma      | `Order`, `OrderEvent`, `FulfillmentAttempt`                                                   |
 | To‘lov        | `PaymentIntent`, `Payment`                                                                    |
 | Promo         | `BonusCode`, `BonusRedemption`, `DiscountTier`, `DiscountCode`                                |
@@ -53,7 +54,7 @@
    (tarix saqlamaydigan kirish ma'lumotlari). FK bo‘lmagan joylar (polimorf havola):
    `LedgerEntry`/`CoinEntry` `(refType, refId)`, `AuditLog` `actorId`/`targetId`, `Setting.updatedBy`.
 2. **`updatedAt` faqat o‘zgaradigan jadvallarda.** Append-only jadvallarda yo‘q: `LedgerEntry`,
-   `CoinEntry`, `AuditLog`, `OrderEvent`; o‘zgarmas snapshot'lar: `FxRate`, `WalletSnapshot`,
+   `CoinEntry`, `AuditLog`, `OrderEvent`; o‘zgarmas snapshot'lar: `FxRate`, `CostSnapshot`, `WalletSnapshot`,
    `BonusRedemption`, `Wallet`. Qo‘shildi (qatorlari o‘zgaradi): `Category`, `Sku`, `ProductRoute`,
    `Voucher`, `Quote`, `PaymentIntent`, `Payment`, `BonusCode`, `DiscountTier`, `DiscountCode`,
    `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `Broadcast`.
@@ -94,22 +95,24 @@ Prisma ifodalay olmaydigan qismlar (trigger va `CHECK`) xom SQL sifatida shu mig
    kod ham, `… is append-only` matni ham klientgacha yetib boradi.
 3. **`CHECK` cheklovlari:**
 
-   | Jadval                         | Cheklov                                                                                                                                         |
-   | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `LedgerEntry`                  | ishora turga qarab (jadval pastda); noma'lum tur rad etiladi (`ELSE false`) — yangi tur qo‘shilsa, cheklov ham yangilanadi                      |
-   | `CoinEntry`                    | `EARN` > 0; `SPEND`, `EXPIRE` < 0; `ADJUSTMENT`, `REVERSAL` ≠ 0 (`REVERSAL` EARN yoki SPEND'ni bekor qilishi mumkin)                            |
-   | `Order`, `Quote`               | `quantity` > 0, `priceTiyin` > 0, `costMinor` > 0, `maxCostMinor` ≥ `costMinor`                                                                 |
-   | `Order`                        | `0 ≤ discountTiyin < priceTiyin` (`priceTiyin` — chegirmadan oldingi narx; 3-migratsiyada qat'iylashtirilgan)                                   |
-   | `PaymentIntent`, `Payment`     | `amountTiyin` > 0                                                                                                                               |
-   | `Sku`                          | `quantity` > 0, `minMarginTiyin` ≥ 0, `markupBps` ≥ 0 (ustama 100% dan oshishi mumkin, shuning uchun yuqori chegara yo‘q)                       |
-   | `Product`                      | `minQty`, `maxQty` > 0 va `minQty` ≤ `maxQty`                                                                                                   |
-   | `Voucher`                      | `costMicroUsdt` > 0                                                                                                                             |
-   | `FulfillmentAttempt`           | `attemptNo` > 0, `costMinor` ≥ 0                                                                                                                |
-   | `WalletSnapshot`               | `nanoTon` ≥ 0, `microUsdt` ≥ 0 (6-migratsiyada ustunlar nomi o‘zgargan, CHECK nomi bilan birga ko‘chgan)                                        |
-   | `BonusCode`                    | `maxUses` > 0, `0 ≤ usedCount ≤ maxUses` (`_usage_check`); aynan bitta mukofot ustuni, `rewardType` ga mos, > 0 (`_reward_check`, 6-migratsiya) |
-   | `DiscountTier`, `DiscountCode` | `bps` 0..9999 (3-migratsiyada qat'iylashtirilgan); `DiscountTier.priceCoins` > 0                                                                |
-   | `FxRate`                       | `rate` — musbat o‘nlik qator, ko‘pi bilan 18 xona (`money.ts` bilan bir xil)                                                                    |
-   | `User`                         | `referredById` ≠ `id` (o‘zini o‘zi taklif qila olmaydi)                                                                                         |
+   | Jadval                         | Cheklov                                                                                                                                                        |
+   | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `LedgerEntry`                  | ishora turga qarab (jadval pastda); noma'lum tur rad etiladi (`ELSE false`) — yangi tur qo‘shilsa, cheklov ham yangilanadi                                     |
+   | `CoinEntry`                    | `EARN` > 0; `SPEND`, `EXPIRE` < 0; `ADJUSTMENT`, `REVERSAL` ≠ 0 (`REVERSAL` EARN yoki SPEND'ni bekor qilishi mumkin)                                           |
+   | `Order`, `Quote`               | `quantity` > 0, `priceTiyin` > 0, `costMinor` > 0, `maxCostMinor` ≥ `costMinor`                                                                                |
+   | `Order`                        | `0 ≤ discountTiyin < priceTiyin` (`priceTiyin` — chegirmadan oldingi narx; 3-migratsiyada qat'iylashtirilgan)                                                  |
+   | `PaymentIntent`, `Payment`     | `amountTiyin` > 0                                                                                                                                              |
+   | `Sku`                          | `quantity` > 0, `minMarginTiyin` ≥ 0, `markupBps` ≥ 0 (ustama 100% dan oshishi mumkin, shuning uchun yuqori chegara yo‘q)                                      |
+   | `Product`                      | `minQty`, `maxQty` > 0 va `minQty` ≤ `maxQty`; `allowCustomQty` bo‘lsa ikkalasi ham to‘ldirilgan (`_custom_qty_check`, 7-migratsiya)                           |
+   | `CostSnapshot`                 | `costMinor` > 0, `basisQuantity` > 0, `currency` ∈ `TON`, `USDT`; `adapter`, `source` bo‘sh emas (7-migratsiya)                                                |
+   | `Quote`                        | `costCurrency` ∈ `TON`, `USDT` (`_cost_currency_check`, 7-migratsiya)                                                                                          |
+   | `Voucher`                      | `costMicroUsdt` > 0                                                                                                                                            |
+   | `FulfillmentAttempt`           | `attemptNo` > 0, `costMinor` ≥ 0                                                                                                                               |
+   | `WalletSnapshot`               | `nanoTon` ≥ 0, `microUsdt` ≥ 0 (6-migratsiyada ustunlar nomi o‘zgargan, CHECK nomi bilan birga ko‘chgan)                                                       |
+   | `BonusCode`                    | `maxUses` > 0, `0 ≤ usedCount ≤ maxUses` (`_usage_check`); aynan bitta mukofot ustuni, `rewardType` ga mos, > 0 (`_reward_check`, 6-migratsiya)                |
+   | `DiscountTier`, `DiscountCode` | `bps` 0..9999 (3-migratsiyada qat'iylashtirilgan); `DiscountTier.priceCoins` > 0                                                                               |
+   | `FxRate`                       | `rate` — musbat o‘nlik qator, ko‘pi bilan 18 xona (`money.ts` bilan bir xil); `pair` ∈ `USDT_UZS`, `TON_USDT`, `TON_UZS` va `source` bo‘sh emas (7-migratsiya) |
+   | `User`                         | `referredById` ≠ `id` (o‘zini o‘zi taklif qila olmaydi)                                                                                                        |
 
    `Quote`da chegirma ustuni yo‘q, shuning uchun "chegirma ≤ narx" cheklovi faqat `Order`da.
 
@@ -216,6 +219,31 @@ allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
   saqlovchi RENAME; `BonusCode` ustunini olib tashlash bo‘shlik tekshiruvi bilan qo‘riqlangan; egasi
   D-30.2 da tasdiqlagan. Qiymat bor bo‘lganda expand → backfill → contract kerak bo‘lardi.
 - Isbot: `packages/db/test/check-constraints-catalog.e2e.test.ts` (mukofot matritsasi, nomlar o‘zgargani).
+
+## Migratsiya 7: `20261103170006_catalog_pricing`
+
+3-faza (katalog va narx). Faqat qo‘shimcha; mavjud ustun o‘zgarmaydi.
+
+- **Yangi model `CostSnapshot`** (o‘zgarmas, `updatedAt` yo‘q): `productId` (FK Restrict), `skuId?` (FK Restrict),
+  `adapter`, `currency` (`TON` | `USDT`), `basisQuantity`, `costMinor` (nanoTON yoki microUSDT, shu miqdor uchun),
+  `source` (`simulator` va h.k.). `skuId` NULL — mahsulot darajasidagi qator (Stars: `basisQuantity` 1).
+  Indekslar: `(productId, skuId, createdAt)` (oxirgi snapshot'ni topish; `productId` FK'si ham shu bilan qoplanadi),
+  `skuId`.
+- **`Quote.costSnapshotId`** — NOT NULL, FK Restrict, indeksli: kotirovka qaysi tannarxdan chiqqani keyinroq ham
+  isbotlanadi (`fxRateId` bilan birga). Eski kotirovka uchun snapshot'ni tiklab bo‘lmaydi, shuning uchun migratsiya
+  `Quote` bo‘sh bo‘lmasa `RAISE EXCEPTION` bilan to‘xtaydi (avval `DO $` qo‘riqchisi, keyin ustun qo‘shiladi).
+- **CHECK'lar** (hammasi NULL-xavfsiz, ya'ni natija hech qachon NULL bo‘lmaydi — CHECK NULL'ni o‘tkazib yuboradi):
+  `CostSnapshot_values_check` va `FxRate_pair_check` faqat NOT NULL ustunlarga tayanadi; `Quote_cost_currency_check`
+  NOT NULL `costCurrency` ustida; `Product_custom_qty_check` — `NOT "allowCustomQty" OR ("minQty" IS NOT NULL AND
+"maxQty" IS NOT NULL)`: nullable `minQty`/`maxQty` faqat `IS NOT NULL` orqali tekshiriladi, `allowCustomQty` NOT NULL.
+- **Triggerlar:** `FxRate_no_update` va `CostSnapshot_no_update` — `BEFORE UPDATE` qator triggeri, mavjud
+  `ggpin_forbid_mutation()` (SQLSTATE `GG001`). Faqat UPDATE: bog‘langan qatorni DELETE qilishni `Quote`/`Order`
+  dagi Restrict FK'lar to‘xtatadi, `TRUNCATE` (test tozalash) qator triggerini ishga tushirmaydi. Bog‘lanmagan
+  snapshot'ni DELETE qilish taqiqlanmagan (plan shunday).
+- Jadvallar bo‘sh edi (dev bazada `Quote`, `FxRate`, `Product` 0 qator), shuning uchun yangi CHECK'lar mavjud qatorga
+  to‘qnashmaydi.
+- Isbot: `packages/db/test/check-constraints-pricing.e2e.test.ts` (har CHECK uchun qabul/rad matritsasi, NULL
+  holatlari, triggerlar, FK), `src/schema.test.ts`.
 
 ## Nima qayerda hisoblanadi
 
