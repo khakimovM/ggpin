@@ -99,7 +99,15 @@ export class WebSessionService {
     if (!REFRESH_TOKEN_SHAPE.test(refreshToken)) throw new AppError('UNAUTHORIZED');
     const hash = this.hashRefresh(refreshToken);
 
+    // The family is read before the transaction (a token's family never changes) so the family
+    // lock can be the first statement of the transaction; see WebSessionRepository.lockFamily.
+    const known = await this.repo.findByHash(hash);
+    if (known === null) throw new AppError('UNAUTHORIZED');
+
     const rotated = await this.repo.transaction(async (tx) => {
+      // Same lock as every revoke of this family: a revoke can never run between our retire and
+      // our insert, nor start before the insert commits and then miss the new row.
+      await this.repo.lockFamily(known.familyId, tx);
       const old = await this.repo.revokeLiveByHash(hash, now, tx);
       if (old === null) return null;
       // Retire + insert commit together: a crash in between must not log the user out.
@@ -108,6 +116,7 @@ export class WebSessionService {
     });
     if (rotated !== null) return rotated;
 
+    // Not live any more. Re-read: a revoke may have landed between the first read and now.
     const row = await this.repo.findByHash(hash);
     if (row === null) throw new AppError('UNAUTHORIZED');
     await this.repo.revokeFamily({ familyId: row.familyId, userId: row.userId, now });
@@ -166,10 +175,20 @@ export class WebSessionService {
       familyId: input.familyId,
       now: input.now,
     });
-    return revoked > 0;
+    // The revoke runs under the family lock, so 0 really means "no live row" (not "a refresh
+    // slipped a new one in"): only then is the honest answer "already ended".
+    if (revoked === 0) return false;
+    this.logger.warn(
+      `security event=SESSION_ENDED_FROM_BOT userId=${user.id} familyId=${input.familyId}`,
+    );
+    return true;
   }
 
-  /** Revokes the family inside the caller's transaction (used with the LoginRequest update). */
+  /**
+   * Revokes the family inside the caller's transaction (used with the LoginRequest update).
+   * Takes the family lock inside `tx`; callers that also lock a LoginRequest row must do so
+   * first (that is the only order that exists, see OtpLoginService.endUsedLogin).
+   */
   revokeFamilyIn(ref: FamilyRef & { readonly now: Date }, tx: Db): Promise<number> {
     return this.repo.revokeFamily(ref, tx);
   }

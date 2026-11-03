@@ -13,6 +13,7 @@ import type { RefreshRowState, WebSessionRepository } from '../web-session.repos
 import { WebSessionService } from '../web-session.service';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
+const TX = { tx: true };
 const TOKEN = 'A'.repeat(43);
 const hashOf = (token: string): string =>
   createHmac('sha256', TEST_JWT_REFRESH_SECRET).update(token).digest('hex');
@@ -25,10 +26,13 @@ function setup(
   users: Partial<Record<'findByTelegramId' | 'findById', jest.Mock>> = {},
 ) {
   const repo = {
-    transaction: jest.fn(<T>(fn: (tx: unknown) => Promise<T>) => fn({})),
+    transaction: jest.fn(<T>(fn: (tx: unknown) => Promise<T>) => fn(TX)),
+    lockFamily: jest.fn(() => Promise.resolve()),
     revokeLiveByHash: jest.fn(() => Promise.resolve(rows.live ?? null)),
     insert: jest.fn(() => Promise.resolve()),
-    findByHash: jest.fn(() => Promise.resolve(rows.state ?? null)),
+    findByHash: jest.fn(() =>
+      Promise.resolve(rows.state ?? (rows.live ? { ...rows.live, revokedAt: null } : null)),
+    ),
     revokeFamily: jest.fn(() => Promise.resolve(1)),
     isFamilyActive: jest.fn(() => Promise.resolve(true)),
   };
@@ -56,7 +60,7 @@ describe('WebSessionService.rotate', () => {
   it('rotates a live token: looks it up by keyed hash, inserts the next row in the same family', async () => {
     const { repo, service } = setup({ live: { userId: 'u1', familyId: 'f1' } });
     const next = await service.rotate(TOKEN, { userAgent: 'UA', ip: '203.0.113.45' }, NOW);
-    expect(repo.revokeLiveByHash).toHaveBeenCalledWith(hashOf(TOKEN), NOW, expect.anything());
+    expect(repo.revokeLiveByHash).toHaveBeenCalledWith(hashOf(TOKEN), NOW, TX);
     expect(next).toMatchObject({ userId: 'u1', familyId: 'f1' });
     expect(next.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(next.refreshToken).not.toBe(TOKEN);
@@ -72,6 +76,17 @@ describe('WebSessionService.rotate', () => {
     });
     expect(row['refreshHash']).toBe(hashOf(next.refreshToken));
     expect(row['refreshHash']).not.toBe(next.refreshToken); // only the hash is stored
+  });
+
+  it('takes the family lock inside the transaction before it retires the old row and inserts the next', async () => {
+    const { repo, service } = setup({ live: { userId: 'u1', familyId: 'f1' } });
+    await service.rotate(TOKEN, {}, NOW);
+    expect(repo.lockFamily).toHaveBeenCalledWith('f1', TX);
+    const lock = repo.lockFamily.mock.invocationCallOrder[0] ?? 0;
+    const retire = repo.revokeLiveByHash.mock.invocationCallOrder[0] ?? 0;
+    const insert = repo.insert.mock.invocationCallOrder[0] ?? 0;
+    expect(lock).toBeLessThan(retire);
+    expect(retire).toBeLessThan(insert);
   });
 
   it('a malformed token never reaches the repository', async () => {
@@ -163,6 +178,26 @@ describe('WebSessionService.endSessionFromBot', () => {
     );
     await expect(service.endSessionFromBot(input)).resolves.toBe(true);
     expect(repo.revokeFamily).toHaveBeenCalledWith({ userId: 'u1', familyId: 'f1', now: NOW });
+  });
+
+  it('logs one security event with ids only when it ends a live family, none when nothing was live', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const { repo, service } = setup(
+        {},
+        { findByTelegramId: jest.fn().mockResolvedValue({ id: 'u1' }) },
+      );
+      await service.endSessionFromBot(input);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toBe(
+        'security event=SESSION_ENDED_FROM_BOT userId=u1 familyId=f1',
+      );
+      repo.revokeFamily.mockResolvedValueOnce(0);
+      await service.endSessionFromBot(input);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('is false (and does not throw) for a family that is not theirs or already ended', async () => {

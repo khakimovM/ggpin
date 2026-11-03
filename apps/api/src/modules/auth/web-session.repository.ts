@@ -101,12 +101,28 @@ export class WebSessionRepository {
     });
   }
 
-  /** Revokes every live row of the user's family; returns how many were live (0 = not theirs). */
-  async revokeFamily(
-    ref: FamilyRef & { readonly now: Date },
-    db: Db = this.prisma.client,
-  ): Promise<number> {
+  /**
+   * Serialises everything that changes the live rows of one session family (rotate and every
+   * revoke) for the rest of the surrounding transaction. Without it a revoke under READ
+   * COMMITTED can miss the row a concurrent refresh inserts: the revoke's snapshot predates the
+   * new row, it blocks on the old row, finds it already retired and returns having ended
+   * nothing, so the stolen session survives. With it, the revoke starts its UPDATE (and takes
+   * its snapshot) only after the refresh committed. Re-entrant within one transaction.
+   * Parameterised raw SQL: Prisma has no advisory-lock API.
+   */
+  async lockFamily(familyId: string, db: Db): Promise<void> {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`ws-family:${familyId}`}, 0))`;
+  }
+
+  /**
+   * Revokes every live row of the user's family; returns how many were live (0 = not theirs, or
+   * nothing left to end). Always runs under the family lock: pass the caller's `tx` to make it
+   * part of a larger transaction, otherwise it opens its own.
+   */
+  async revokeFamily(ref: FamilyRef & { readonly now: Date }, db?: Db): Promise<number> {
+    if (db === undefined) return this.transaction((tx) => this.revokeFamily(ref, tx));
     const { familyId, userId, now } = ref;
+    await this.lockFamily(familyId, db);
     const { count } = await db.webSession.updateMany({
       where: { familyId, userId, revokedAt: null },
       data: { revokedAt: now },

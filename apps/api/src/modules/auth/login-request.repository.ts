@@ -108,13 +108,14 @@ export class LoginRequestRepository {
     return count === 1;
   }
 
-  /** CODE_SENT -> DENIED, only for the account that holds the code. */
-  async deny(nonce: string, telegramId: bigint, now: Date): Promise<boolean> {
-    const { count } = await this.prisma.client.loginRequest.updateMany({
+  /** CODE_SENT -> DENIED, only for the account that holds the code; returns the row id or null. */
+  async deny(nonce: string, telegramId: bigint, now: Date): Promise<string | null> {
+    const rows = await this.prisma.client.loginRequest.updateManyAndReturn({
       where: { nonce, kind: 'USER', status: 'CODE_SENT', telegramId, expiresAt: { gt: now } },
       data: { status: 'DENIED' },
+      select: { id: true },
     });
-    return count === 1;
+    return rows[0]?.id ?? null;
   }
 
   /**

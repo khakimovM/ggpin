@@ -165,20 +165,25 @@ export class OtpLoginService {
    */
   async deny(input: DenyInput): Promise<DenyResult> {
     const { nonce, telegramId, now } = input;
-    if (await this.requests.deny(nonce, telegramId, now)) {
-      const denied = await this.requests.findByNonce(nonce);
-      this.logger.warn(`security event=LOGIN_DENIED loginRequestId=${denied?.id ?? 'unknown'}`);
+    const deniedId = await this.requests.deny(nonce, telegramId, now);
+    if (deniedId !== null) {
+      this.logger.warn(`security event=LOGIN_DENIED loginRequestId=${deniedId}`);
       return 'denied';
     }
     const row = await this.requests.findByNonce(nonce);
     if (row === null || row.kind !== 'USER' || row.telegramId !== telegramId) return 'expired';
-    if (row.status === 'DENIED') return row.sessionFamilyId === null ? 'denied' : 'sessionEnded';
-    if (row.status === 'USED' && row.sessionFamilyId !== null) {
+    if (row.sessionFamilyId === null) return row.status === 'DENIED' ? 'denied' : 'expired';
+    // USED, or DENIED after the code opened a session (a replay): end that session. Idempotent
+    // and cheap, and it repairs a first attempt that was cut short.
+    if (row.status === 'USED' || row.status === 'DENIED') {
       return this.endUsedLogin(row.id, nonce, telegramId, row.sessionFamilyId, now);
     }
     return 'expired';
   }
 
+  // Lock order: the LoginRequest row (denyUsed's UPDATE) first, then the session-family lock
+  // (revokeFamilyIn). The family lock is also taken alone by refresh and by every revoke, but
+  // nothing holds it and then asks for a LoginRequest row, so the two cannot deadlock.
   private async endUsedLogin(
     id: string,
     nonce: string,
@@ -189,21 +194,19 @@ export class OtpLoginService {
     // Looked up before the transaction (one pooled connection at a time).
     const user = await this.users.findByTelegramId(telegramId);
     if (user === null) return 'expired';
-    const ended = await this.requests.transaction(async (tx) => {
-      if (!(await this.requests.denyUsed(nonce, telegramId, tx))) return false;
-      await this.sessions.revokeFamilyIn({ userId: user.id, familyId, now }, tx);
-      return true;
+    const revoked = await this.requests.transaction(async (tx) => {
+      // Already DENIED (a replay, or a parallel deny that committed first): nothing to flip, but
+      // the revoke below still runs, so the session is ended whichever call gets here.
+      await this.requests.denyUsed(nonce, telegramId, tx);
+      return this.sessions.revokeFamilyIn({ userId: user.id, familyId, now }, tx);
     });
-    if (ended) {
+    if (revoked > 0) {
       this.logger.warn(
         `security event=LOGIN_SESSION_ENDED userId=${user.id} familyId=${familyId} loginRequestId=${id}`,
       );
-      return 'sessionEnded';
     }
-    // A parallel deny of the same request got there first.
-    const after = await this.requests.findByNonce(nonce);
-    const done = after?.status === 'DENIED' && after.telegramId === telegramId;
-    return done ? 'sessionEnded' : 'expired';
+    // Ended just now, or none was live any more (already ended): the user's answer is the same.
+    return 'sessionEnded';
   }
 
   /**
