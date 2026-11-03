@@ -114,10 +114,10 @@ describe('/api/v1/health', () => {
       });
     });
 
-    it('503 degraded, same shape, when the worker heartbeat is missing', async () => {
+    it('200 degraded, same shape, when only the worker heartbeat is missing (D-30.1)', async () => {
       repo.workerHeartbeatPresent.mockResolvedValue(false);
       const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       expect(res.body).toEqual({
         status: 'degraded',
         db: 'ok',
@@ -132,6 +132,31 @@ describe('/api/v1/health', () => {
       const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
       expect(res.status).toBe(503);
       expect(res.body).toMatchObject({ status: 'degraded', db: 'down' });
+    });
+
+    it('503 when redis is down', async () => {
+      repo.pingRedis.mockRejectedValue(new Error('down'));
+      const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body).toMatchObject({ status: 'degraded', redis: 'down' });
+    });
+
+    it('503 when the worker is missing and the database is down too', async () => {
+      repo.workerHeartbeatPresent.mockResolvedValue(false);
+      repo.pingDatabase.mockRejectedValue(new Error('down'));
+      const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body).toMatchObject({ status: 'degraded', db: 'down', worker: 'down' });
+    });
+
+    it('is Cache-Control: no-store, on 200 and on 503', async () => {
+      const ok = await request(app.getHttpServer()).get('/api/v1/health/ready');
+      expect(ok.headers['cache-control']).toBe('no-store');
+      repo.pingRedis.mockRejectedValue(new Error('down'));
+      jest.setSystemTime(Date.now() + READINESS_CACHE_TTL_MS + 1);
+      const down = await request(app.getHttpServer()).get('/api/v1/health/ready');
+      expect(down.status).toBe(503);
+      expect(down.headers['cache-control']).toBe('no-store');
     });
   });
 });

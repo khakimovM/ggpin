@@ -42,9 +42,9 @@ describe('Cache-Control: no-store on /auth/* and /me* (real pipeline)', () => {
     expect(res.headers['cache-control']).toBe('no-store');
   });
 
-  it('does not touch unrelated routes', async () => {
+  it('health is no-store too: every response is, unless a route opted in with @PublicCache', async () => {
     const res = await t.get('/api/v1/health/live');
-    expect(res.headers['cache-control']).not.toBe('no-store');
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 });
 
