@@ -118,6 +118,9 @@ const EnvSchema = z.object({
   ADMIN_TELEGRAM_IDS: telegramIdList,
   ADMIN_CONFIRM_THRESHOLD_TIYIN: bigintString('100000000'),
   ADMIN_OPERATOR_REFUND_MAX_TIYIN: bigintString('50000000'),
+  // Phase 3 (pricing): how far the real supplier cost may rise above the quoted cost before
+  // fulfillment holds the order. Basis points (300 = 3%); stored on every quote as maxCost.
+  PRICE_TOLERANCE_BPS: z.coerce.number().int().min(0).max(10_000).default(300),
   // Phase 4 (payments): provider credentials and top-up bounds.
   TOPUP_MIN_TIYIN: bigintString('500000'),
   TOPUP_MAX_TIYIN: bigintString('1000000000'),

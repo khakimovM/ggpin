@@ -140,6 +140,26 @@ describe('TELEGRAM_WEBHOOK_SECRET must differ from the signing secrets', () => {
   });
 });
 
+describe('PRICE_TOLERANCE_BPS', () => {
+  it('defaults to 300 and accepts the whole 0..10000 range', () => {
+    expect(loadEnv({ ...TEST_ENV_SOURCE }).PRICE_TOLERANCE_BPS).toBe(300);
+    expect(loadEnv({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: '0' }).PRICE_TOLERANCE_BPS).toBe(0);
+    expect(loadEnv({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: '10000' }).PRICE_TOLERANCE_BPS).toBe(
+      10_000,
+    );
+  });
+
+  it.each(['-1', '10001', '2.5', 'abc'])('rejects %s and names the variable', (bad) => {
+    expect(messageOf({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: bad })).toContain(
+      'PRICE_TOLERANCE_BPS',
+    );
+  });
+
+  it('treats an empty line as unset', () => {
+    expect(loadEnv({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: '' }).PRICE_TOLERANCE_BPS).toBe(300);
+  });
+});
+
 describe('TG_INITDATA_MAX_AGE_SEC', () => {
   it('accepts up to 24 hours and rejects more', () => {
     expect(() => loadEnv({ ...TEST_ENV_SOURCE, TG_INITDATA_MAX_AGE_SEC: '86400' })).not.toThrow();
