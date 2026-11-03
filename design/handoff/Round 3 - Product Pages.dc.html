@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 3 · Product pages</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:72px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1500px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 3</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Product pages · Mini App 390</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">One template (Product.dc.html): header card → recipient block → package block → price summary → bottom action bar. Telegram BackButton replaces the bottom nav. Every frame is live: type a username and tap “Tekshirish” (anything with “xato” = not found, “down” = service unavailable), confirm, change quantity / plan / package. Happy-path frames use a 450 000 so‘m balance; the Stars 2 500 ⭐ frame shows the insufficient-balance bar.</p>
+  </header>
+
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><p style="margin:0;max-width:1400px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">{{ g.note }}</p></div>
+      <sc-for list="{{ g.rows }}" as="row" hint-placeholder-count="1">
+        <div style="display:flex;gap:32px;align-items:flex-start">
+          <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="4">
+            <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="Product" product="{{ it.product }}" theme="{{ it.theme }}" recipient="{{ it.recipient }}" page-state="{{ it.pageState }}" premium-flag="{{ it.premiumFlag }}" sheet="{{ it.sheet }}" qty="{{ it.qty }}" plan="{{ it.plan }}" tab="{{ it.tab }}" balance="{{ it.balance }}" tall="{{ it.tall }}" art-slots="{{ it.artSlots }}" frozen="{{ it.frozen }}" hint-size="{{ it.hint }}"></dc-import></div></figure>
+          </sc-for>
+        </div>
+      </sc-for>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const F = (label, o) => ({ product: 'stars', theme: 'light', recipient: 'idle', pageState: 'ready', premiumFlag: 'none', sheet: false, qty: 100, plan: '6', tab: 0, balance: 450000, tall: false, artSlots: false, frozen: true, ...o, label, hint: o.tall ? '390px,1500px' : '390px,844px' });
+    const groups = [
+      { title: 'A · Telegram Stars', note: 'Username + custom quantity. The bar stays disabled with “Avval qabul qiluvchini tasdiqlang” until “Ha, shu”. Quick chip “O‘zimga” fills your own username.', rows: [
+        { items: [F('Idle · bar disabled · light', { tall: true, frozen: false, balance: 85400 }), F('Confirmed · 500 ⭐ · dark', { theme: 'dark', tall: true, recipient: 'confirmed', qty: 500 }), F('Insufficient balance · light', { recipient: 'confirmed', qty: 2500, balance: 85400 }), F('Qty error (30 ⭐) · dark', { theme: 'dark', recipient: 'confirmed', qty: 30 })] },
+        { items: [F('Checking · light', { recipient: 'checking' }), F('Found → confirm · light', { recipient: 'found' }), F('Not found · light', { recipient: 'notfound' }), F('Invalid format · light', { recipient: 'invalid' }), F('Service unavailable · light', { recipient: 'down' })] },
+        { items: [F('Checking · dark', { theme: 'dark', recipient: 'checking' }), F('Found · dark', { theme: 'dark', recipient: 'found' }), F('Not found · dark', { theme: 'dark', recipient: 'notfound' }), F('Invalid · dark', { theme: 'dark', recipient: 'invalid' }), F('Unavailable · dark', { theme: 'dark', recipient: 'down' })] },
+      ] },
+      { title: 'B · Telegram Premium', note: 'Same recipient block, plan tiles with monthly equivalent and “Eng foydali” ribbon. Two variants when the recipient already has Premium: warning (gift extends) or blocked.', rows: [
+        { items: [F('Confirmed · 6 oylik · light', { product: 'premium', tall: true, recipient: 'confirmed' }), F('Confirmed · 12 oylik · dark', { product: 'premium', theme: 'dark', tall: true, recipient: 'confirmed', plan: '12' }), F('Has Premium · warning · light', { product: 'premium', recipient: 'confirmed', premiumFlag: 'has' }), F('Has Premium · blocked · dark', { product: 'premium', theme: 'dark', recipient: 'found', premiumFlag: 'blocked' })] },
+      ] },
+      { title: 'C · PUBG Mobile & Mobile Legends · GAME_ID', note: 'Player ID (digits) + help sheet with 3 numbered steps and image slots → recipient card with nickname and region. Tabs switch SKU sets. MLBB adds Zone ID side by side and a Global-only warning.', rows: [
+        { items: [F('PUBG · confirmed · light · drop art here', { product: 'pubg', tall: true, recipient: 'confirmed', artSlots: true, frozen: false }), F('PUBG · confirmed · dark', { product: 'pubg', theme: 'dark', tall: true, recipient: 'confirmed' }), F('PUBG · help sheet · light', { product: 'pubg', sheet: true }), F('PUBG · “To‘plamlar” tab · dark', { product: 'pubg', theme: 'dark', recipient: 'confirmed', tab: 1 })] },
+        { items: [F('MLBB · idle · light', { product: 'mlbb', tall: true }), F('MLBB · found · dark', { product: 'mlbb', theme: 'dark', tall: true, recipient: 'found' }), F('MLBB · invalid · light', { product: 'mlbb', recipient: 'invalid' }), F('MLBB · help sheet · dark', { product: 'mlbb', theme: 'dark', sheet: true })] },
+      ] },
+      { title: 'D · Steam · STEAM_LOGIN', note: 'Login (not nickname) + help sheet → profile card with account region. MoneyInput with quick chips, live USD estimate, fee note and an irreversibility warning. The CS2 catalog card opens the same template with a wide banner header.', rows: [
+        { items: [F('Steam · confirmed · light', { product: 'steam', tall: true, recipient: 'confirmed', artSlots: true }), F('Steam · found · dark', { product: 'steam', theme: 'dark', tall: true, recipient: 'found' }), F('Steam · help sheet · light', { product: 'steam', sheet: true }), F('CS2 header variant · dark', { product: 'cs2', theme: 'dark', tall: true, recipient: 'confirmed', artSlots: true })] },
+      ] },
+      { title: 'E · Roblox gift card · VOUCHER', note: 'No recipient block. SKU rows with stock chips; sold-out rows are dashed and disabled.', rows: [
+        { items: [F('Roblox · light', { product: 'roblox', tall: true, artSlots: true }), F('Roblox · dark', { product: 'roblox', theme: 'dark', tall: true })] },
+      ] },
+      { title: 'States · every product page', note: 'Skeleton page, product unavailable, price loading inside the bottom bar, error with retry (tap to see the reload).', rows: [
+        { items: [F('Skeleton · light', { pageState: 'skeleton' }), F('Unavailable · light', { product: 'pubg', pageState: 'unavailable' }), F('Price loading · light', { product: 'pubg', recipient: 'confirmed', pageState: 'priceLoading' }), F('Error · light', { pageState: 'error' })] },
+        { items: [F('Skeleton · dark', { theme: 'dark', pageState: 'skeleton' }), F('Unavailable · dark', { product: 'pubg', theme: 'dark', pageState: 'unavailable' }), F('Price loading · dark', { product: 'pubg', theme: 'dark', recipient: 'confirmed', pageState: 'priceLoading' }), F('Error · dark', { theme: 'dark', pageState: 'error' })] },
+      ] },
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

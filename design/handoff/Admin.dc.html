@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+</helmet>
+<div data-theme="{{ theme }}" data-reduced="{{ reduced }}" style="position:relative;width:100%;height:{{ frameH }};overflow:hidden;display:grid;grid-template-columns:{{ shellCols }};background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif;font-size:13px">
+
+  <aside aria-label="Admin menyu" style="background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:100%">
+    <div style="height:60px;display:flex;align-items:center;gap:10px;padding:0 {{ sbPad }};border-bottom:1px solid var(--border);justify-content:{{ sbJustify }}"><span style="width:30px;height:30px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 14px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px;flex:none">g<span style="color:var(--accent)">g</span></span><sc-if value="{{ d }}" hint-placeholder-val="{{ true }}"><span style="font:700 17px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span><span style="margin-left:auto;height:20px;padding:0 6px;border-radius:6px;background:var(--muted);color:var(--text-muted);font:800 10px/20px Manrope,sans-serif;letter-spacing:.04em">ADMIN</span></sc-if></div>
+    <nav style="flex:1;padding:10px {{ sbNavPad }};display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+      <sc-for list="{{ sidebar }}" as="g" hint-placeholder-count="6">
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <sc-if value="{{ d }}" hint-placeholder-val="{{ true }}"><span style="padding:4px 10px 6px;font:800 10px/14px Manrope,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">{{ g.title }}</span></sc-if>
+          <sc-for list="{{ g.items }}" as="n" hint-placeholder-count="3">
+            <a href="#" onClick="{{ n.onClick }}" title="{{ n.label }}" aria-current="{{ n.cur }}" style="position:relative;height:36px;padding:0 10px;border-radius:9px;display:flex;align-items:center;gap:10px;justify-content:{{ sbJustify }};text-decoration:none;background:{{ n.bg }};color:{{ n.fg }};font:{{ n.font }}" style-hover="background:var(--muted);color:var(--text)"><i class="{{ n.icon }}" style="font-size:16px;flex:none"></i><sc-if value="{{ d }}" hint-placeholder-val="{{ true }}"><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.label }}</span></sc-if><sc-if value="{{ n.badge }}"><span style="position:{{ badgePos }};top:4px;right:6px;min-width:20px;height:18px;padding:0 6px;border-radius:999px;background:{{ n.bbg }};color:{{ n.bfg }};font:800 10px/18px Manrope,sans-serif;text-align:center">{{ n.badge }}</span></sc-if></a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+  </aside>
+
+  <div style="min-width:0;display:flex;flex-direction:column;min-height:100%">
+    <header style="position:sticky;top:0;z-index:20;height:60px;flex:none;display:flex;align-items:center;gap:12px;padding:0 {{ padX }};background:color-mix(in oklab,var(--background) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)">
+      <label style="position:relative;flex:1;max-width:460px;display:flex"><i class="icon-search" style="position:absolute;left:12px;top:0;bottom:0;display:flex;align-items:center;font-size:15px;color:var(--text-muted);pointer-events:none"></i><input placeholder="# buyurtma, @username, tx hash" aria-label="Global qidiruv" style="flex:1;min-width:0;height:38px;border-radius:10px;background:var(--input);border:1.5px solid var(--input-border);padding:0 52px 0 34px;font:600 13px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"><span style="position:absolute;right:8px;top:9px;height:20px;padding:0 6px;border-radius:5px;border:1px solid var(--border);background:var(--card);color:var(--text-muted);font:700 10px/18px ui-monospace,Menlo,monospace">⌘K</span></label>
+      <span style="height:26px;padding:0 10px;border-radius:7px;background:{{ envBg }};color:{{ envFg }};font:800 11px/26px Manrope,sans-serif;letter-spacing:.06em;flex:none">{{ envLabel }}</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex:none">
+        <button aria-label="Ogohlantirishlar: 5" style="position:relative;width:38px;height:38px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:16px"><i class="icon-bell"></i><span style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--danger);color:#fff;border:2px solid var(--background);font:800 9px/14px Manrope,sans-serif">5</span></button>
+        <button onClick="{{ toggleTheme }}" aria-label="Mavzu" style="width:38px;height:38px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:16px"><i class="{{ themeIcon }}"></i></button>
+        <div style="display:flex;align-items:center;gap:8px;height:42px;padding:0 10px 0 4px;border-radius:12px;border:1.5px solid var(--border);background:var(--card)"><span style="width:32px;height:32px;border-radius:9px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 11px/1 Manrope,sans-serif">AO</span><sc-if value="{{ d }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;gap:1px"><span style="font:800 12px/15px Manrope,sans-serif">Aziz O.</span><span style="font:600 10px/12px Manrope,sans-serif;color:var(--text-muted)">@aziz_ops</span></span></sc-if><span style="height:20px;padding:0 6px;border-radius:6px;background:{{ roleBg }};color:{{ roleFg }};font:800 10px/20px Manrope,sans-serif;letter-spacing:.04em">{{ role }}</span></div>
+      </div>
+    </header>
+
+    <main style="flex:1;padding:20px {{ padX }} 40px;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><h1 style="margin:0;font:800 22px/28px Manrope,sans-serif;letter-spacing:-.01em">Dashboard</h1>
+          <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--muted)"><sc-for list="{{ periods }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.onClick }}" style="height:30px;padding:0 12px;border-radius:8px;border:none;background:{{ p.bg }};color:{{ p.fg }};box-shadow:{{ p.sh }};font:700 12px/1 Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap"><sc-if value="{{ p.cal }}"><i class="icon-calendar" style="font-size:13px"></i></sc-if>{{ p.label }}</button></sc-for></div>
+        </div>
+        <section aria-label="Ogohlantirishlar" style="border-radius:14px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font:800 13px/18px Manrope,sans-serif"><i class="icon-siren" style="font-size:15px;color:var(--danger)"></i>Ogohlantirishlar<span style="height:18px;padding:0 6px;border-radius:999px;background:var(--danger-soft);color:var(--danger-text);font:800 10px/18px Manrope,sans-serif">5</span><span style="margin-left:auto;font:600 11px/16px Manrope,sans-serif;color:var(--text-muted)">Yangilandi: 14:12:04</span></div>
+          <div style="display:grid;grid-template-columns:{{ alertCols }}">
+            <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="5">
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-top:{{ a.bt }};border-left:{{ a.bl }};background:{{ a.tint }}">
+                <span style="width:28px;height:28px;border-radius:8px;background:{{ a.ibg }};color:{{ a.ifg }};display:grid;place-items:center;font-size:14px;flex:none"><i class="{{ a.icon }}"></i></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font:700 12px/17px Manrope,sans-serif;font-variant-numeric:tabular-nums;text-wrap:pretty">{{ a.text }}</span><sc-if value="{{ a.bar }}"><span style="height:5px;border-radius:3px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ a.bar }};background:{{ a.ifg }};border-radius:3px"></span></span></sc-if><sc-if value="{{ a.cta }}"><a href="#" onClick="{{ a.onClick }}" style="align-self:flex-start;font:800 11px/14px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none">{{ a.cta }} →</a></sc-if></span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+          <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="7">
+            <div style="padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:6px">
+              <span style="display:flex;align-items:center;gap:6px;font:700 11px/14px Manrope,sans-serif;color:var(--text-muted)"><i class="{{ k.icon }}" style="font-size:13px;color:{{ k.c }}"></i>{{ k.label }}</span>
+              <span style="font:800 20px/26px Manrope,sans-serif;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap">{{ k.value }}<span style="font:700 12px/1 Manrope,sans-serif;color:var(--text-muted)">{{ k.unit }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ chartCols }};gap:12px">
+          <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:10px;min-width:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 style="margin:0;font:800 14px/18px Manrope,sans-serif">Aylanma va foyda</h2><span style="display:flex;gap:12px;font:700 11px/14px Manrope,sans-serif;color:var(--text-secondary)"><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;border-radius:2px;background:var(--chart-1)"></span>Aylanma</span><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;border-radius:2px;background:var(--chart-3)"></span>Foyda</span></span></div>
+            <div style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:6px">
+              <div style="display:flex;flex-direction:column;justify-content:space-between;font:600 10px/12px Manrope,sans-serif;color:var(--text-muted);text-align:right;padding-bottom:18px;font-variant-numeric:tabular-nums"><span>5 mln</span><span>2,5 mln</span><span>0</span></div>
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <svg viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Soatlik aylanma va foyda" style="width:100%;height:180px;display:block">
+                  <line x1="0" y1="0.5" x2="600" y2="0.5" stroke="var(--border)" stroke-width="1"></line><line x1="0" y1="90" x2="600" y2="90" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"></line><line x1="0" y1="179.5" x2="600" y2="179.5" stroke="var(--border)" stroke-width="1"></line>
+                  <path d="{{ areaT }}" fill="var(--chart-1)" fill-opacity="0.16"></path><path d="{{ lineT }}" fill="none" stroke="var(--chart-1)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+                  <path d="{{ areaP }}" fill="var(--chart-3)" fill-opacity="0.22"></path><path d="{{ lineP }}" fill="none" stroke="var(--chart-3)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+                </svg>
+                <div style="display:flex;justify-content:space-between;font:600 10px/12px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span></div>
+              </div>
+            </div>
+          </section>
+          <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:12px">
+            <h2 style="margin:0;font:800 14px/18px Manrope,sans-serif">Mahsulotlar bo‘yicha buyurtmalar</h2>
+            <div style="display:flex;align-items:center;gap:16px">
+              <span role="img" aria-label="Donut diagramma" style="position:relative;width:148px;height:148px;border-radius:50%;background:{{ donut }};flex:none;display:grid;place-items:center"><span style="width:92px;height:92px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font:800 18px/22px Manrope,sans-serif;font-variant-numeric:tabular-nums">1 284</span><span style="font:600 10px/12px Manrope,sans-serif;color:var(--text-muted)">buyurtma</span></span></span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0"><sc-for list="{{ donutLegend }}" as="l" hint-placeholder-count="6"><span style="display:flex;align-items:center;gap:8px;font:600 12px/16px Manrope,sans-serif;font-variant-numeric:tabular-nums"><span style="width:9px;height:9px;border-radius:3px;background:{{ l.c }};flex:none"></span><span style="flex:1;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.label }}</span><span style="font-weight:800">{{ l.pct }}</span></span></sc-for></div>
+            </div>
+          </section>
+          <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:12px">
+            <h2 style="margin:0;font:800 14px/18px Manrope,sans-serif">To‘lov usullari bo‘yicha</h2>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ payBars }}" as="b" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:5px"><span style="display:flex;justify-content:space-between;font:700 12px/16px Manrope,sans-serif;font-variant-numeric:tabular-nums"><span>{{ b.label }}</span><span style="color:var(--text-secondary)">{{ b.value }}</span></span><span style="height:10px;border-radius:5px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ b.w }};border-radius:5px;background:{{ b.c }}"></span></span></div></sc-for>
+            </div>
+          </section>
+          <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:10px;min-width:0">
+            <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0;font:800 14px/18px Manrope,sans-serif">Soatlik yetkazishlar</h2><span style="font:600 11px/14px Manrope,sans-serif;color:var(--text-muted)">Cho‘qqi: 19:00 · 131</span></div>
+            <div role="img" aria-label="Soatlik yetkazishlar" style="height:150px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--border)"><sc-for list="{{ hourBars }}" as="b" hint-placeholder-count="24"><span title="{{ b.tip }}" style="flex:1;height:{{ b.h }};border-radius:3px 3px 0 0;background:{{ b.c }}"></span></sc-for></div>
+            <div style="display:flex;justify-content:space-between;font:600 10px/12px Manrope,sans-serif;color:var(--text-muted)"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isOrders }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><h1 style="margin:0;font:800 22px/28px Manrope,sans-serif">Buyurtmalar</h1><button style="height:34px;padding:0 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font:700 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer"><i class="icon-download" style="font-size:14px"></i>CSV eksport</button></div>
+        <div style="display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--border);overflow-x:auto">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="3"><button onClick="{{ v.onClick }}" style="position:relative;height:36px;padding:0 12px;border:none;background:none;color:{{ v.fg }};font:800 12px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px"><i class="{{ v.icon }}" style="font-size:13px"></i>{{ v.label }}<span style="position:absolute;left:8px;right:8px;bottom:-1px;height:2px;border-radius:2px;background:{{ v.bar }}"></span></button></sc-for>
+          <button style="height:36px;padding:0 10px;border:none;background:none;color:var(--primary-soft-foreground);font:800 12px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px"><i class="icon-plus" style="font-size:13px"></i>Ko‘rinishni saqlash</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--muted)"><sc-for list="{{ statusF }}" as="f" hint-placeholder-count="5"><button onClick="{{ f.onClick }}" style="height:28px;padding:0 10px;border-radius:7px;border:none;background:{{ f.bg }};color:{{ f.fg }};box-shadow:{{ f.sh }};font:700 12px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">{{ f.label }} <span style="color:var(--text-muted);font-variant-numeric:tabular-nums">{{ f.n }}</span></button></sc-for></div>
+          <sc-for list="{{ dropF }}" as="f" hint-placeholder-count="4"><button style="height:34px;padding:0 10px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font:700 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><span style="color:var(--text-muted)">{{ f.k }}:</span>{{ f.v }}<i class="icon-chevron-down" style="font-size:13px;color:var(--text-muted)"></i></button></sc-for>
+          <label style="position:relative;display:flex;margin-left:auto"><i class="icon-search" style="position:absolute;left:10px;top:0;bottom:0;display:flex;align-items:center;font-size:14px;color:var(--text-muted)"></i><input placeholder="Qidirish…" style="width:200px;height:34px;border-radius:9px;background:var(--input);border:1.5px solid var(--input-border);padding:0 10px 0 30px;font:600 12px/1 Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring)"></label>
+        </div>
+        <div style="border-radius:14px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+          <div style="overflow-x:auto">
+            <table style="width:100%;min-width:1080px;border-collapse:collapse;font:600 12px/16px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+              <thead><tr style="text-align:left;font:800 10px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);background:var(--surface)"><th style="padding:10px 14px;font-weight:800">#</th><th style="padding:10px 8px;font-weight:800">Sana</th><th style="padding:10px 8px;font-weight:800">Foydalanuvchi</th><th style="padding:10px 8px;font-weight:800">Mahsulot</th><th style="padding:10px 8px;font-weight:800">Qabul qiluvchi</th><th style="padding:10px 8px;font-weight:800;text-align:right">Narx</th><th style="padding:10px 8px;font-weight:800;text-align:right">Tannarx</th><th style="padding:10px 8px;font-weight:800;text-align:right">Foyda</th><th style="padding:10px 8px;font-weight:800">Holat</th><th style="padding:10px 14px 10px 8px;font-weight:800">Adapter</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ orderRows }}" as="r" hint-placeholder-count="14">
+                  <tr onClick="{{ r.onClick }}" style="border-top:1px solid var(--border);height:44px;cursor:pointer;background:{{ r.rowBg }}" style-hover="background:var(--muted)">
+                    <td style="padding:0 14px;font-weight:800;color:var(--primary-soft-foreground)">{{ r.id }}</td><td style="padding:0 8px;color:var(--text-secondary);white-space:nowrap">{{ r.date }}</td><td style="padding:0 8px">{{ r.user }}</td><td style="padding:0 8px;font-weight:700;white-space:nowrap">{{ r.product }}</td><td style="padding:0 8px;color:var(--text-secondary);white-space:nowrap">{{ r.recip }}</td>
+                    <td style="padding:0 8px;text-align:right;font-weight:800;white-space:nowrap">{{ r.price }}</td><td style="padding:0 8px;text-align:right;color:var(--text-secondary);white-space:nowrap">{{ r.cost }}</td><td style="padding:0 8px;text-align:right;font-weight:800;white-space:nowrap;color:{{ r.profitC }}">{{ r.profit }}</td>
+                    <td style="padding:0 8px"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:{{ r.sbg }};color:{{ r.sfg }};font:800 10px/1 Manrope,sans-serif;letter-spacing:.03em;white-space:nowrap">{{ r.status }}</span></td>
+                    <td style="padding:0 14px 0 8px"><span style="height:22px;padding:0 7px;border-radius:6px;border:1px solid var(--border);background:var(--background);color:var(--text-secondary);font:700 10px/20px ui-monospace,Menlo,monospace;white-space:nowrap">{{ r.adapter }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid var(--border);font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums"><span>{{ ordersFoot }}</span><span style="display:flex;gap:4px"><button aria-label="Oldingi" style="width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer"><i class="icon-chevron-left"></i></button><button style="min-width:30px;height:30px;border-radius:8px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 12px/1 Manrope,sans-serif">1</button><button style="min-width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 12px/1 Manrope,sans-serif">2</button><button style="min-width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 12px/1 Manrope,sans-serif">3</button><button aria-label="Keyingi" style="width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer"><i class="icon-chevron-right"></i></button></span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isOrder }}">
+        <nav style="display:flex;align-items:center;gap:6px;font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)"><a href="#" onClick="{{ goOrders }}" style="color:var(--text-muted);text-decoration:none">Buyurtmalar</a><i class="icon-chevron-right" style="font-size:11px"></i><span style="color:var(--text)">#10479</span></nav>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="margin:0;font:800 22px/28px Manrope,sans-serif">#10479 · Telegram Premium 3 oylik</h1><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:7px;background:var(--status-review-soft);color:var(--status-review);font:800 11px/1 Manrope,sans-serif;letter-spacing:.03em"><i class="icon-scan-search" style="font-size:13px"></i>NEEDS_REVIEW</span></div><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">Yaratildi 29.10.2026 14:02:11 · tekshiruvda 8 daq</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ actions }}" as="a" hint-placeholder-count="5"><button onClick="{{ a.onClick }}" style="height:34px;padding:0 12px;border-radius:9px;border:{{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font:800 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><i class="{{ a.icon }}" style="font-size:14px"></i>{{ a.label }}</button></sc-for></div>
+        </div>
+        <sc-if value="{{ roleNote }}"><div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--muted);color:var(--text-secondary);font:700 12px/16px Manrope,sans-serif"><i class="icon-lock" style="font-size:14px"></i>{{ roleNote }}</div></sc-if>
+        <div style="display:grid;grid-template-columns:{{ detailCols }};gap:12px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <section style="border-radius:14px;background:var(--card);border:1px solid var(--border)">
+              <h2 style="margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font:800 13px/18px Manrope,sans-serif">Timeline</h2>
+              <ol style="list-style:none;margin:0;padding:6px 14px 10px;display:flex;flex-direction:column">
+                <sc-for list="{{ events }}" as="e" hint-placeholder-count="6"><li style="display:grid;grid-template-columns:64px 14px minmax(0,1fr) auto;gap:10px;align-items:start;padding:7px 0;font-variant-numeric:tabular-nums"><span style="font:600 11px/16px ui-monospace,Menlo,monospace;color:var(--text-muted)">{{ e.time }}</span><span style="width:10px;height:10px;margin-top:3px;border-radius:50%;background:{{ e.c }}"></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font:800 11px/16px ui-monospace,Menlo,monospace;color:{{ e.tc }}">{{ e.type }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-secondary)">{{ e.text }}</span></span><span style="height:20px;padding:0 7px;border-radius:6px;background:var(--muted);color:var(--text-secondary);font:700 10px/20px Manrope,sans-serif;white-space:nowrap">{{ e.actor }}</span></li></sc-for>
+              </ol>
+            </section>
+            <section style="border-radius:14px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+              <h2 style="margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font:800 13px/18px Manrope,sans-serif">Bajarish urinishlari</h2>
+              <sc-for list="{{ attempts }}" as="at" hint-placeholder-count="2">
+                <div style="border-top:{{ at.bt }}">
+                  <button onClick="{{ at.onClick }}" style="width:100%;display:grid;grid-template-columns:24px 120px 100px minmax(0,1fr) auto 16px;gap:10px;align-items:center;padding:10px 14px;border:none;background:none;color:var(--text);text-align:left;cursor:pointer;font:600 12px/16px Manrope,sans-serif;font-variant-numeric:tabular-nums" style-hover="background:var(--muted)">
+                    <span style="font:800 12px/16px Manrope,sans-serif;color:var(--text-muted)">#{{ at.n }}</span><span style="font:700 11px/16px ui-monospace,Menlo,monospace">{{ at.adapter }}</span><span style="display:inline-flex;align-self:center;justify-self:start;height:20px;padding:0 7px;border-radius:6px;background:{{ at.sbg }};color:{{ at.sfg }};font:800 10px/20px Manrope,sans-serif">{{ at.status }}</span>
+                    <span style="min-width:0;display:flex;align-items:center;gap:6px;font:600 11px/16px ui-monospace,Menlo,monospace;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ at.ref }}<sc-if value="{{ at.link }}"><a href="https://tonviewer.com/" target="_blank" rel="noopener" onClick="{{ stop }}" style="display:inline-flex;align-items:center;gap:3px;font:800 11px/16px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none">Tonviewer<i class="icon-external-link" style="font-size:11px"></i></a></sc-if></span>
+                    <span style="font:600 11px/16px Manrope,sans-serif;color:var(--text-muted)">{{ at.time }}</span><i class="icon-chevron-down" style="font-size:14px;color:var(--text-muted);transform:{{ at.rot }}"></i>
+                  </button>
+                  <sc-if value="{{ at.open }}">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;padding:0 14px 12px">
+                      <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font:800 10px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Request</span><pre style="margin:0;padding:10px 12px;border-radius:10px;background:#0B1020;color:#C9D1F2;font:500 11px/17px ui-monospace,Menlo,monospace;overflow-x:auto;white-space:pre">{{ at.req }}</pre></div>
+                      <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font:800 10px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">Response</span><pre style="margin:0;padding:10px 12px;border-radius:10px;background:#0B1020;color:#C9D1F2;font:500 11px/17px ui-monospace,Menlo,monospace;overflow-x:auto;white-space:pre">{{ at.res }}</pre></div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </section>
+            <section style="border-radius:14px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+              <h2 style="margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font:800 13px/18px Manrope,sans-serif">Ledger yozuvlari</h2>
+              <table style="width:100%;border-collapse:collapse;font:600 12px/16px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+                <thead><tr style="text-align:left;font:800 10px/14px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);background:var(--surface)"><th style="padding:8px 14px;font-weight:800">Vaqt</th><th style="padding:8px;font-weight:800">Hisob</th><th style="padding:8px;font-weight:800">Turi</th><th style="padding:8px 14px 8px 8px;font-weight:800;text-align:right">Summa</th></tr></thead>
+                <tbody><sc-for list="{{ ledger }}" as="l" hint-placeholder-count="4"><tr style="border-top:1px solid var(--border);height:38px"><td style="padding:0 14px;font:600 11px/16px ui-monospace,Menlo,monospace;color:var(--text-muted)">{{ l.time }}</td><td style="padding:0 8px;font:700 11px/16px ui-monospace,Menlo,monospace">{{ l.acc }}</td><td style="padding:0 8px;color:var(--text-secondary)">{{ l.type }}</td><td style="padding:0 14px 0 8px;text-align:right;font-weight:800;color:{{ l.c }}">{{ l.amt }}</td></tr></sc-for></tbody>
+              </table>
+            </section>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font:800 13px/18px Manrope,sans-serif">Mijoz</h2><a href="#" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)"><span style="width:36px;height:36px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif">SR</span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font:800 13px/17px Manrope,sans-serif">Sardor Rahimov</span><span style="font:600 11px/15px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">@sardor_r · ID 1187712645</span></span><i class="icon-external-link" style="font-size:14px;color:var(--primary-soft-foreground)"></i></a><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-variant-numeric:tabular-nums"><span style="padding:8px;border-radius:9px;background:var(--muted);display:flex;flex-direction:column;gap:1px"><span style="font:600 10px/13px Manrope,sans-serif;color:var(--text-muted)">Balans</span><span style="font:800 12px/16px Manrope,sans-serif">85 400</span></span><span style="padding:8px;border-radius:9px;background:var(--muted);display:flex;flex-direction:column;gap:1px"><span style="font:600 10px/13px Manrope,sans-serif;color:var(--text-muted)">Buyurtmalar</span><span style="font:800 12px/16px Manrope,sans-serif">48</span></span><span style="padding:8px;border-radius:9px;background:var(--muted);display:flex;flex-direction:column;gap:1px"><span style="font:600 10px/13px Manrope,sans-serif;color:var(--text-muted)">Ro‘yxatdan</span><span style="font:800 12px/16px Manrope,sans-serif">03.2026</span></span></div></section>
+            <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;font-variant-numeric:tabular-nums"><h2 style="margin:0;font:800 13px/18px Manrope,sans-serif">Qabul qiluvchi</h2><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Username</span><span style="font-weight:800">@jasur_t</span></div><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Ism</span><span style="font-weight:700">Jasur T.</span></div><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Telegram ID</span><span style="font:700 12px/16px ui-monospace,Menlo,monospace">5409918822</span></div><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Premium holati</span><span style="font-weight:700">Yo‘q</span></div></section>
+            <section style="padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;font-variant-numeric:tabular-nums"><h2 style="margin:0;font:800 13px/18px Manrope,sans-serif">Pul</h2>
+              <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Narx</span><span style="font-weight:800">165 000 so‘m</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Chegirma</span><span>0 so‘m</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-muted)">Tannarx</span><span style="font-weight:700">3,420 TON · 149 967 so‘m</span></div>
+              <div style="padding:8px 10px;border-radius:9px;background:var(--muted);display:flex;justify-content:space-between;gap:8px;font:600 11px/15px Manrope,sans-serif;color:var(--text-secondary)"><span><i class="icon-camera" style="font-size:11px"></i> Kurs snapshot · 14:02:12</span><span style="font-family:ui-monospace,Menlo,monospace">1 TON = 43 850 so‘m</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--border)"><span style="font-weight:800">Foyda</span><span style="font-weight:800;color:var(--success-text)">15 033 so‘m · 9,1%</span></div>
+            </section>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isReview }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:10px"><h1 style="margin:0;font:800 22px/28px Manrope,sans-serif">Tekshiruv navbati</h1><span style="height:22px;padding:0 8px;border-radius:999px;background:var(--warning-soft);color:var(--warning-text);font:800 11px/22px Manrope,sans-serif">3</span></div>
+          <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--muted)"><sc-for list="{{ rqTabs }}" as="tb" hint-placeholder-count="3"><button onClick="{{ tb.onClick }}" style="height:30px;padding:0 12px;border-radius:8px;border:none;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.sh }};font:700 12px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">{{ tb.label }}</button></sc-for></div></div>
+        <div style="display:grid;grid-template-columns:{{ rqCols }};gap:12px;align-items:start">
+          <sc-for list="{{ rq }}" as="c" hint-placeholder-count="3">
+            <article style="border-radius:14px;background:var(--card);border:1px solid var(--border);border-top:3px solid {{ c.accent }};display:flex;flex-direction:column">
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><a href="#" onClick="{{ c.open }}" style="font:800 14px/18px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none">{{ c.id }}</a><span style="height:20px;padding:0 7px;border-radius:6px;background:{{ c.sbg }};color:{{ c.sfg }};font:800 10px/20px Manrope,sans-serif;letter-spacing:.03em">{{ c.status }}</span></span><span style="font:800 13px/18px Manrope,sans-serif">{{ c.product }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ c.meta }}</span></span>
+                <span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-variant-numeric:tabular-nums"><span style="display:flex;align-items:center;gap:4px;font:800 14px/18px ui-monospace,Menlo,monospace;color:{{ c.ageC }}"><i class="icon-timer" style="font-size:13px"></i>{{ c.age }}</span><span style="font:600 10px/13px Manrope,sans-serif;color:var(--text-muted)">navbatda</span></span>
+              </div>
+              <div style="margin:0 14px;display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border-radius:10px;background:{{ c.rbg }};color:{{ c.rfg }};font:800 12px/17px Manrope,sans-serif"><i class="{{ c.ricon }}" style="font-size:15px;flex:none;margin-top:1px"></i><span style="display:flex;flex-direction:column;gap:2px">{{ c.reason }}<span style="font:600 11px/15px Manrope,sans-serif;color:var(--text-secondary)">{{ c.detail }}</span></span></div>
+              <div style="display:flex;flex-direction:column;gap:2px;padding:10px 14px">
+                <sc-for list="{{ c.checks }}" as="k" hint-placeholder-count="3"><label style="display:flex;align-items:center;gap:9px;min-height:30px;cursor:pointer;font:700 12px/16px Manrope,sans-serif"><button role="checkbox" aria-checked="{{ k.on }}" onClick="{{ k.onClick }}" style="width:18px;height:18px;border-radius:5px;border:1.5px solid {{ k.bd }};background:{{ k.bg }};color:#fff;display:grid;place-items:center;font-size:11px;cursor:pointer;padding:0;flex:none"><sc-if value="{{ k.on }}"><i class="icon-check"></i></sc-if></button><span style="color:{{ k.c }}">{{ k.label }}</span></label></sc-for>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 12px;border-top:1px solid var(--border)">
+                <button disabled="{{ c.locked }}" onClick="{{ c.onDeliver }}" style="height:32px;padding:0 10px;border-radius:8px;border:none;background:{{ c.pbg }};color:{{ c.pfg }};font:800 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:5px;cursor:pointer"><i class="icon-check" style="font-size:13px"></i>{{ c.primary }}</button>
+                <button onClick="{{ c.onRetry }}" style="height:32px;padding:0 10px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:5px;cursor:pointer"><i class="icon-rotate-ccw" style="font-size:13px"></i>Qayta urinish</button>
+                <button onClick="{{ c.onRefund }}" style="height:32px;padding:0 10px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--danger-text);font:800 12px/1 Manrope,sans-serif;display:flex;align-items:center;gap:5px;cursor:pointer"><i class="icon-undo-2" style="font-size:13px"></i>Qaytarish</button>
+                <button onClick="{{ c.open }}" style="margin-left:auto;height:32px;padding:0 8px;border:none;background:none;color:var(--primary-soft-foreground);font:800 12px/1 Manrope,sans-serif;cursor:pointer">Ochish →</button>
+              </div>
+            </article>
+          </sc-for>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{ hasDialog }}">
+    <div style="position:absolute;inset:0;z-index:50;display:grid;place-items:center;padding:24px">
+      <div onClick="{{ closeDialog }}" style="position:absolute;inset:0;background:var(--overlay)"></div>
+      <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" style="position:relative;width:min(100%,480px);background:var(--elevated);border:1px solid var(--border);border-top:4px solid {{ dlg.accent }};border-radius:18px;box-shadow:var(--shadow-lg);padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="width:40px;height:40px;border-radius:12px;background:{{ dlg.ibg }};color:{{ dlg.ifg }};display:grid;place-items:center;font-size:19px;flex:none"><i class="{{ dlg.icon }}"></i></span><span style="flex:1;display:flex;flex-direction:column;gap:4px"><h2 id="dlg-t" style="margin:0;font:800 17px/22px Manrope,sans-serif">{{ dlg.title }}</h2><span style="font:600 13px/19px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ dlg.body }}</span></span><button onClick="{{ closeDialog }}" aria-label="Yopish" style="width:32px;height:32px;border-radius:9px;border:none;background:var(--muted);color:var(--text);cursor:pointer"><i class="icon-x"></i></button></div>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font:800 12px/16px Manrope,sans-serif">Sabab <span style="color:var(--danger-text)">*</span></span><textarea value="{{ reason }}" onChange="{{ onReason }}" rows="3" placeholder="{{ dlg.ph }}" style="resize:vertical;min-height:72px;border-radius:10px;background:var(--input);border:1.5px solid var(--input-border);padding:10px 12px;font:600 13px/19px Manrope,sans-serif;color:var(--text);outline:none" style-focus="border-color:var(--ring);box-shadow:0 0 0 3px var(--primary-soft)"></textarea><span style="font:600 11px/15px Manrope,sans-serif;color:var(--text-muted)">Kamida 10 ta belgi</span></label>
+        <sc-if value="{{ dlg.needCode }}"><label style="display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;background:var(--warning-soft)"><span style="display:flex;align-items:center;gap:6px;font:800 12px/16px Manrope,sans-serif;color:var(--warning-text)"><i class="icon-send" style="font-size:13px"></i>Telegram tasdiqlash kodi</span><span style="font:600 11px/15px Manrope,sans-serif;color:var(--text-secondary)">Summa 100 000 so‘mdan yuqori — kod @ggpin_admin_bot orqali yuborildi.</span><input value="{{ tgCode }}" onChange="{{ onTgCode }}" inputmode="numeric" placeholder="••••••" style="height:42px;border-radius:10px;background:var(--card);border:1.5px solid var(--input-border);padding:0 12px;font:700 18px/1 ui-monospace,Menlo,monospace;letter-spacing:.4em;color:var(--text);outline:none" style-focus="border-color:var(--ring)"></label></sc-if>
+        <div style="display:flex;align-items:center;gap:6px;font:700 11px/15px Manrope,sans-serif;color:var(--text-muted)"><i class="icon-scroll-text" style="font-size:13px"></i>Bu amal audit logga yoziladi · Aziz O. (OWNER)</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px"><button onClick="{{ closeDialog }}" style="height:38px;padding:0 14px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 13px/1 Manrope,sans-serif;cursor:pointer">Bekor</button><button disabled="{{ dlgDisabled }}" onClick="{{ submitDialog }}" style="height:38px;padding:0 14px;border-radius:10px;border:none;background:{{ dlgBtnBg }};color:{{ dlgBtnFg }};font:800 13px/1 Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="{{ dlg.icon }}" style="font-size:14px"></i>{{ dlg.cta }}</button></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;viewport&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;tablet&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dashboard&quot;,&quot;orders&quot;,&quot;order&quot;,&quot;review&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;retry&quot;,&quot;delivered&quot;,&quot;refund&quot;,&quot;cancel&quot;,&quot;note&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;prefill&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;role&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;OWNER&quot;,&quot;OPERATOR&quot;,&quot;SUPPORT&quot;],&quot;default&quot;:&quot;OWNER&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;env&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;production&quot;,&quot;staging&quot;],&quot;default&quot;:&quot;production&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;frameHeight&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { ...this.init(props), themeO: null, period: 'today', view: 'all', sf: 'all', open: { 2: true }, rqTab: 'all', checks: { c0: false, c1: true, c2: false, c3: false, c4: false, c5: true }, tick: 0 }; }
+  init(p) { return { page: p.page ?? 'dashboard', dialog: p.dialog ?? '', reason: p.dialog && p.prefill ? 'Tonviewer’da tranzaksiya topilmadi, mijozga qaytarish.' : '', tgCode: '' }; }
+  componentDidMount() { if (!this.props.frozen) this.iv = setInterval(() => this.setState(s => ({ tick: s.tick + 1 })), 1000); }
+  componentDidUpdate(prev) { if (['page', 'dialog'].some(k => prev[k] !== this.props[k])) this.setState(this.init(this.props)); }
+  componentWillUnmount() { clearInterval(this.iv); }
+  fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); }
+
+  renderVals() {
+    const P = this.props, s = this.state, fmt = n => this.fmt(n);
+    const rm = !!P.reducedMotion || !!P.frozen;
+    const t = P.viewport === 'tablet', d = !t;
+    const theme = s.themeO ?? P.theme ?? 'light';
+    const role = P.role ?? 'OWNER';
+    const env = P.env ?? 'production';
+    const page = s.page;
+    const pill = on => ({ bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--text)' : 'var(--text-muted)', sh: on ? 'var(--shadow-sm)' : 'none' });
+    const nav = p => e => { e && e.preventDefault && e.preventDefault(); this.setState({ page: p }); };
+
+    const SB = [
+      ['Asosiy', [['dashboard', 'Dashboard', 'icon-layout-dashboard'], ['orders', 'Buyurtmalar', 'icon-shopping-bag'], ['review', 'Tekshiruv navbati', 'icon-scan-search', '3', 'warn'], ['users', 'Foydalanuvchilar', 'icon-users']]],
+      ['Katalog', [['products', 'Mahsulotlar', 'icon-box'], ['pricing', 'Narx va sozlamalar', 'icon-sliders-horizontal'], ['vouchers', 'Voucherlar', 'icon-ticket']]],
+      ['Moliya', [['payments', 'To‘lovlar', 'icon-credit-card'], ['recon', 'Solishtirish', 'icon-git-compare', '1', 'danger']]],
+      ['Infratuzilma', [['wallet', 'Hamyon (TON)', 'icon-gem'], ['fragment', 'Fragment sessiyasi', 'icon-key-round'], ['suppliers', 'Ta’minotchilar', 'icon-truck'], ['queues', 'Navbatlar', 'icon-layers']]],
+      ['Marketing', [['bonus', 'Bonus kodlar', 'icon-gift'], ['broadcast', 'Rassilka', 'icon-megaphone'], ['refs', 'Referallar', 'icon-share-2']]],
+      ['Tizim', [['audit', 'Audit log', 'icon-scroll-text'], ['admins', 'Adminlar', 'icon-shield']]],
+    ];
+    const activeNav = page === 'order' ? 'orders' : page;
+    const sidebar = SB.map(([title, items]) => ({ title, items: items.map(([id, label, icon, badge, tone]) => { const on = activeNav === id; return { label, icon, badge: badge || '', bbg: tone === 'danger' ? 'var(--danger)' : 'var(--warning)', bfg: tone === 'danger' ? '#fff' : 'var(--accent-foreground)', cur: on ? 'page' : 'false', bg: on ? 'var(--primary-soft)' : 'transparent', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text-secondary)', font: on ? '800 13px/1 Manrope,sans-serif' : '700 13px/1 Manrope,sans-serif', onClick: ['dashboard', 'orders', 'review'].includes(id) ? nav(id) : (e => e.preventDefault()) }; }) }));
+
+    const periods = [['today', 'Bugun'], ['7', '7 kun'], ['30', '30 kun'], ['range', 'Oraliq']].map(([id, label]) => ({ label, cal: id === 'range', ...pill(s.period === id), onClick: () => this.setState({ period: id }) }));
+    const alerts = [
+      { icon: 'icon-scan-search', text: '3 ta buyurtma tekshiruvda', cta: 'Navbatni ochish', onClick: nav('review'), tone: 'warn' },
+      { icon: 'icon-gem', text: 'Hamyon balansi: 182 TON — kunlik limitning 64% ishlatildi', bar: '64%', tone: 'info' },
+      { icon: 'icon-key-round', text: 'Fragment sessiyasi: faol · oxirgi tekshiruv 2 daq oldin', tone: 'ok' },
+      { icon: 'icon-truck', text: 'Ta’minotchi balansi kam: 48 $', cta: 'To‘ldirish', tone: 'danger' },
+      { icon: 'icon-git-compare', text: 'Solishtirishda 1 ta farq', cta: 'Ko‘rish', tone: 'warn' },
+    ].map((a, i) => { const T = { warn: ['var(--warning-soft)', 'var(--warning-text)', 'transparent'], info: ['var(--info-soft)', 'var(--info)', 'transparent'], ok: ['var(--success-soft)', 'var(--success)', 'transparent'], danger: ['var(--danger-soft)', 'var(--danger)', 'color-mix(in oklab,var(--danger-soft) 45%,transparent)'] }[a.tone]; return { bar: '', cta: '', onClick: e => e.preventDefault(), ...a, ibg: T[0], ifg: T[1], tint: T[2], bt: d ? 'none' : (i ? '1px solid var(--border)' : 'none'), bl: d && i ? '1px solid var(--border)' : 'none' }; });
+    const kpis = [['Aylanma', '48 200 000', ' so‘m', 'icon-trending-up', 'var(--chart-1)'], ['Yalpi foyda', '4 900 000', ' so‘m', 'icon-wallet', 'var(--chart-3)'], ['Buyurtmalar', '1 284', '', 'icon-shopping-bag', 'var(--chart-4)'], ['Yetkazish ulushi', '99,4', '%', 'icon-circle-check', 'var(--success)'], ['O‘rtacha yetkazish', '1 daq 12 s', '', 'icon-timer', 'var(--chart-5)'], ['Yangi foydalanuvchilar', '312', '', 'icon-user-plus', 'var(--chart-7)'], ['To‘ldirishlar', '51 700 000', ' so‘m', 'icon-arrow-down-to-line', 'var(--chart-2)']].map(([label, value, unit, icon, c]) => ({ label, value, unit, icon, c }));
+    const wts = [0.6, 0.4, 0.3, 0.2, 0.2, 0.3, 0.6, 1.0, 1.6, 2.2, 2.8, 3.2, 3.6, 3.4, 3.3, 3.5, 3.8, 4.2, 4.6, 4.9, 4.7, 4.0, 2.9, 1.6];
+    const sw = wts.reduce((a, b) => a + b, 0);
+    const turn = wts.map(w => w / sw * 48200000), prof = turn.map((v, i) => v * (0.092 + 0.02 * Math.sin(i / 3)));
+    const W = 600, H = 180, maxV = 5000000;
+    const pts = arr => arr.map((v, i) => [i / 23 * W, H - v / maxV * H]);
+    const line = arr => pts(arr).map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const area = arr => line(arr) + ` L${W} ${H} L0 ${H} Z`;
+    const dl = [['Telegram Stars', 42, 'var(--chart-2)'], ['PUBG Mobile', 21, 'var(--chart-1)'], ['Telegram Premium', 18, 'var(--chart-4)'], ['Mobile Legends', 11, 'var(--chart-5)'], ['Steam', 5, 'var(--chart-6)'], ['Roblox', 3, 'var(--chart-7)']];
+    let acc = 0; const donut = 'conic-gradient(' + dl.map(([, p, c]) => { const a = acc; acc += p; return `${c} ${a}% ${acc}%`; }).join(',') + ')';
+    const pays = [['Click', 21400000, 'var(--chart-1)'], ['Payme', 16100000, 'var(--chart-5)'], ['Uzum', 9300000, 'var(--chart-4)'], ['Rahmat', 4900000, 'var(--chart-2)']];
+    const hourN = wts.map(w => Math.round(w / sw * 1284)); const hmax = Math.max(...hourN);
+    const hourBars = hourN.map((n, i) => ({ h: (n / hmax * 100).toFixed(1) + '%', c: n === hmax ? 'var(--chart-1)' : 'color-mix(in oklab,var(--chart-1) 45%,var(--muted))', tip: `${String(i).padStart(2, '0')}:00 — ${n}` }));
+
+    const SS = { DELIVERED: ['var(--status-delivered-soft)', 'var(--status-delivered)'], PROCESSING: ['var(--status-processing-soft)', 'var(--status-processing)'], NEEDS_REVIEW: ['var(--status-review-soft)', 'var(--status-review)'], HELD: ['var(--premium-soft)', 'var(--premium)'], FAILED: ['var(--status-failed-soft)', 'var(--status-failed)'], REFUNDED: ['var(--status-cancelled-soft)', 'var(--status-cancelled)'] };
+    const base = [
+      ['#10493', '14:11', '@bek_99', 'PUBG Mobile · 8100 UC', 'ID 6620019384', 1215000, 1131000, 'HELD', 'MIDASBUY'],
+      ['#10492', '14:10', '@madina_a', 'Telegram Stars · 100 ⭐', '@madina_a', 22000, 19800, 'DELIVERED', 'FRAGMENT'],
+      ['#10491', '14:09', '@nilu_r', 'Telegram Stars · 2 500 ⭐', '@nilu_r', 550000, 512000, 'NEEDS_REVIEW', 'FRAGMENT'],
+      ['#10490', '14:08', '@otabek', 'Mobile Legends · 172', '84512376 (2051)', 39500, 35900, 'DELIVERED', 'UNIPIN'],
+      ['#10489', '14:06', '@akmal_s', 'Roblox $10', 'voucher', 122450, 112300, 'DELIVERED', 'VOUCHER_POOL'],
+      ['#10488', '14:05', '@dilnoza_k', 'Premium · 6 oylik', '@dilnoza_k', 220000, 199500, 'PROCESSING', 'FRAGMENT'],
+      ['#10487', '14:04', '@sardor_r', 'Steam · 100 000', 'sardor_steam', 100000, 93800, 'DELIVERED', 'STEAM_API'],
+      ['#10486', '14:03', '@sardor_r', 'Roblox $10', 'voucher', 122450, 112300, 'DELIVERED', 'VOUCHER_POOL'],
+      ['#10485', '14:02', '@sardor_r', 'PUBG Mobile · 660 UC', 'ID 5123456789', 120750, 109900, 'DELIVERED', 'MIDASBUY'],
+      ['#10482', '14:02', '@sardor_r', 'Telegram Stars · 500 ⭐', '@dilnoza_k', 110000, 99000, 'DELIVERED', 'FRAGMENT'],
+      ['#10479', '14:02', '@sardor_r', 'Premium · 3 oylik', '@jasur_t', 165000, 149967, 'NEEDS_REVIEW', 'FRAGMENT'],
+      ['#10478', '13:58', '@bek_99', 'PUBG Mobile · 325 UC', 'ID 6620019384', 61500, 63200, 'DELIVERED', 'MIDASBUY'],
+      ['#10474', '13:51', '@jasur_t', 'Telegram Stars · 50 ⭐', '@jasur_t', 11000, 9900, 'DELIVERED', 'FRAGMENT'],
+      ['#10470', '13:40', '@sardor_r', 'PUBG Mobile · 660 UC', 'ID 5123456789', 120750, 0, 'REFUNDED', 'MIDASBUY'],
+    ];
+    const sfMap = { all: () => true, proc: r => r[7] === 'PROCESSING', review: r => r[7] === 'NEEDS_REVIEW' || r[7] === 'HELD', done: r => r[7] === 'DELIVERED', failed: r => r[7] === 'FAILED' || r[7] === 'REFUNDED' };
+    const viewMap = { all: () => true, prem: r => r[3].startsWith('Premium'), big: r => r[5] >= 200000 };
+    const orderRows = base.filter(sfMap[s.sf]).filter(viewMap[s.view]).map(r => { const pr = r[5] - r[6]; const st = SS[r[7]]; return { id: r[0], date: `29.10 ${r[1]}`, user: r[2], product: r[3], recip: r[4], price: fmt(r[5]), cost: r[6] ? fmt(r[6]) : '—', profit: r[7] === 'REFUNDED' ? '0' : (pr >= 0 ? '+' : '−') + fmt(Math.abs(pr)), profitC: r[7] === 'REFUNDED' ? 'var(--text-muted)' : pr >= 0 ? 'var(--success-text)' : 'var(--danger-text)', status: r[7], sbg: st[0], sfg: st[1], adapter: r[8], rowBg: r[0] === '#10479' ? 'color-mix(in oklab,var(--warning-soft) 50%,transparent)' : 'transparent', onClick: () => this.setState({ page: 'order' }) }; });
+    const statusF = [['all', 'Barchasi', '1 284'], ['proc', 'Bajarilmoqda', '4'], ['review', 'Tekshiruvda', '3'], ['done', 'Yetkazildi', '1 271'], ['failed', 'Bajarilmadi', '6']].map(([id, label, n]) => ({ label, n, ...pill(s.sf === id), onClick: () => this.setState({ sf: id }) }));
+    const views = [['all', 'Barcha buyurtmalar', 'icon-list'], ['prem', 'Premium xatolari', 'icon-bookmark'], ['big', 'Katta summalar (200k+)', 'icon-bookmark']].map(([id, label, icon]) => ({ label, icon, fg: s.view === id ? 'var(--text)' : 'var(--text-muted)', bar: s.view === id ? 'var(--primary)' : 'transparent', onClick: () => this.setState({ view: id }) }));
+    const dropF = [['Mahsulot', 'Barchasi'], ['Adapter', 'Barchasi'], ['Sana', 'Bugun'], ['Summa', 'Har qanday']].map(([k, v]) => ({ k, v }));
+
+    const can = { OWNER: ['retry', 'delivered', 'refund', 'cancel', 'note'], OPERATOR: ['retry', 'delivered', 'note'], SUPPORT: ['note'] }[role];
+    const actDefs = [['retry', 'Qayta urinish', 'icon-rotate-ccw', 'outline'], ['delivered', 'Yetkazildi deb belgilash', 'icon-circle-check', 'primary'], ['refund', 'Bajarilmadi va qaytarish', 'icon-undo-2', 'danger'], ['cancel', 'Bekor qilish', 'icon-ban', 'dangerOutline'], ['note', 'Izoh qo‘shish', 'icon-message-square-plus', 'ghost']];
+    const A = { primary: ['none', 'var(--primary)', 'var(--primary-foreground)'], outline: ['1.5px solid var(--border)', 'var(--card)', 'var(--text)'], danger: ['none', 'var(--danger)', 'var(--danger-foreground)'], dangerOutline: ['1.5px solid var(--danger)', 'transparent', 'var(--danger-text)'], ghost: ['1.5px solid var(--border)', 'transparent', 'var(--text-secondary)'] };
+    const actions = actDefs.filter(a => can.includes(a[0])).map(([id, label, icon, k]) => ({ label, icon, bd: A[k][0], bg: A[k][1], fg: A[k][2], onClick: () => this.setState({ dialog: id, reason: '', tgCode: '' }) }));
+    const roleNote = role === 'OWNER' ? '' : `Rolingiz: ${role} — ayrim amallar faqat OWNER uchun`;
+    const events = [['14:02:11', 'ORDER_CREATED', 'Mijoz buyurtma berdi · 165 000 so‘m', '@sardor_r', 'var(--text-muted)'], ['14:02:11', 'WALLET_DEBITED', 'Hamyondan 165 000 so‘m yechildi', 'system', 'var(--success)'], ['14:02:12', 'FULFILLMENT_STARTED', 'Adapter FRAGMENT · urinish #1', 'worker-2', 'var(--info)'], ['14:02:42', 'ATTEMPT_FAILED', '#1 timeout (30 s) · avtomatik qayta urinish', 'worker-2', 'var(--danger)'], ['14:02:44', 'TON_TX_SENT', '#2 · 3,420 TON yuborildi', 'worker-2', 'var(--info)'], ['14:07:44', 'NEEDS_REVIEW', 'Tranzaksiya 5 daqiqada tasdiqlanmadi', 'system', 'var(--warning)'], ['14:09:30', 'NOTE_ADDED', '“Tonviewer’da tekshiryapman”', 'Aziz O.', 'var(--text-muted)']].map(([time, type, text, actor, c]) => ({ time, type, text, actor, c, tc: c === 'var(--text-muted)' ? 'var(--text-secondary)' : c }));
+    const req1 = '{\n  "adapter": "FRAGMENT",\n  "method": "premium.gift",\n  "recipient": "@jasur_t",\n  "months": 3,\n  "session": "***REDACTED***",\n  "idempotency_key": "ord_10479_1"\n}';
+    const res1 = '{\n  "ok": false,\n  "error": "UPSTREAM_TIMEOUT",\n  "elapsed_ms": 30004\n}';
+    const req2 = '{\n  "adapter": "FRAGMENT",\n  "method": "premium.gift",\n  "recipient": "@jasur_t",\n  "months": 3,\n  "wallet": "UQB4…9fA2",\n  "seed": "***REDACTED***",\n  "idempotency_key": "ord_10479_2"\n}';
+    const res2 = '{\n  "ok": true,\n  "tx_hash": "a91f…4f2a",\n  "amount_ton": "3.420",\n  "status": "PENDING_CONFIRMATION"\n}';
+    const attempts = [[1, 'FRAGMENT', 'FAILED', '—', false, '14:02:12', req1, res1], [2, 'FRAGMENT', 'PENDING', 'tx a91f…4f2a', true, '14:02:44', req2, res2]].map(([n, adapter, status, ref, link, time, req, res], i) => { const open = !!s.open[n]; const st = status === 'FAILED' ? SS.FAILED : SS.NEEDS_REVIEW; return { n, adapter, status, ref, link, time, req, res, open, rot: open ? 'rotate(180deg)' : 'none', sbg: st[0], sfg: st[1], bt: i ? '1px solid var(--border)' : 'none', onClick: () => this.setState(x => ({ open: { ...x.open, [n]: !x.open[n] } })) }; });
+    const ledger = [['14:02:11', 'user:1187712645', 'WALLET_DEBIT', '−165 000 so‘m', 'var(--text)'], ['14:02:11', 'escrow:order', 'ESCROW_HOLD', '+165 000 so‘m', 'var(--success-text)'], ['14:02:44', 'ton:hot_wallet', 'TON_OUT', '−3,420 TON', 'var(--text)'], ['14:02:44', 'cogs:fragment', 'COST_BOOKED', '149 967 so‘m', 'var(--text-secondary)']].map(([time, acc2, type, amt, c]) => ({ time, acc: acc2, type, amt, c }));
+
+    const tk = s.tick;
+    const age = sec => { const v = sec + tk; return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`; };
+    const rqData = [
+      { k: ['c0', 'c1'], id: '#10479', status: 'NEEDS_REVIEW', product: 'Telegram Premium · 3 oylik', meta: '@sardor_r → @jasur_t · 165 000 so‘m', age0: 492, reason: 'TON tranzaksiya tasdiqlanmadi', detail: 'tx a91f…4f2a · 5 daqiqadan ortiq kutilmoqda', ricon: 'icon-gem', labels: ['Zanjirda tekshirildi?', 'Qabul qiluvchi to‘g‘ri'], primary: 'Yetkazildi deb belgilash' },
+      { k: ['c2', 'c3'], id: '#10491', status: 'NEEDS_REVIEW', product: 'Telegram Stars · 2 500 ⭐', meta: '@nilu_r → @nilu_r · 550 000 so‘m', age0: 178, reason: 'Narx 4% oshdi', detail: 'Kotirovka 512 000 → 532 480 so‘m tannarx · foyda 3,2%', ricon: 'icon-trending-up', labels: ['Zanjirda tekshirildi?', 'Yangi tannarx qabul qilinadi'], primary: 'Davom ettirish' },
+      { k: ['c4', 'c5'], id: '#10493', status: 'HELD', product: 'PUBG Mobile · 8100 UC', meta: '@bek_99 → ID 6620019384 · 1 215 000 so‘m', age0: 64, reason: 'Kunlik limit', detail: 'Foydalanuvchi limiti 1 000 000 so‘m/kun · bugun 1 276 500', ricon: 'icon-gauge', labels: ['Zanjirda tekshirildi?', 'Foydalanuvchi tarixi ko‘rildi'], primary: 'Ruxsat berish' },
+    ];
+    const rq = rqData.filter(c => s.rqTab === 'all' || c.status === s.rqTab).map(c => {
+      const held = c.status === 'HELD'; const st = held ? SS.HELD : SS.NEEDS_REVIEW;
+      const checks = c.k.map((key, i) => { const on = !!s.checks[key]; return { label: c.labels[i], on, bd: on ? 'var(--primary)' : 'var(--input-border)', bg: on ? 'var(--primary)' : 'var(--card)', c: on ? 'var(--text)' : 'var(--text-secondary)', onClick: e => { e.preventDefault(); this.setState(x => ({ checks: { ...x.checks, [key]: !x.checks[key] } })); } }; });
+      const locked = !checks[0].on; const sec = c.age0 + tk;
+      return { ...c, sbg: st[0], sfg: st[1], accent: held ? 'var(--premium)' : 'var(--warning)', rbg: held ? 'var(--premium-soft)' : 'var(--warning-soft)', rfg: held ? 'var(--premium)' : 'var(--warning-text)', age: age(c.age0), ageC: sec > 300 ? 'var(--danger-text)' : 'var(--text)', checks, locked, pbg: locked ? 'var(--muted)' : 'var(--primary)', pfg: locked ? 'var(--text-muted)' : 'var(--primary-foreground)', open: e => { e && e.preventDefault && e.preventDefault(); this.setState({ page: 'order' }); }, onDeliver: () => this.setState({ dialog: 'delivered', reason: '' }), onRetry: () => this.setState({ dialog: 'retry', reason: '' }), onRefund: () => this.setState({ dialog: 'refund', reason: '' }) };
+    });
+    const rqTabs = [['all', 'Hammasi · 3'], ['NEEDS_REVIEW', 'NEEDS_REVIEW · 2'], ['HELD', 'HELD · 1']].map(([id, label]) => ({ label, ...pill(s.rqTab === id), onClick: () => this.setState({ rqTab: id }) }));
+
+    const D = {
+      retry: { title: 'Qayta urinish', body: '#10479 uchun yangi bajarish urinishi (#3) FRAGMENT orqali boshlanadi.', icon: 'icon-rotate-ccw', cta: 'Qayta urinish', tone: 'primary', ph: 'Masalan: tx tasdiqlanmadi, qayta yuboramiz' },
+      delivered: { title: 'Yetkazildi deb belgilash', body: 'Buyurtma qo‘lda DELIVERED holatiga o‘tkaziladi. Mijozga xabar yuboriladi.', icon: 'icon-circle-check', cta: 'Belgilash', tone: 'primary', ph: 'Masalan: Tonviewer’da tx tasdiqlangan, Premium faol' },
+      refund: { title: 'Bajarilmadi va qaytarish', body: '165 000 so‘m mijoz hamyoniga qaytariladi. Bu amalni bekor qilib bo‘lmaydi.', icon: 'icon-undo-2', cta: '165 000 so‘m qaytarish', tone: 'danger', ph: 'Masalan: tx zanjirda topilmadi', needCode: true },
+      cancel: { title: 'Buyurtmani bekor qilish', body: 'Buyurtma bekor qilinadi va 165 000 so‘m qaytariladi. Mijozga sabab ko‘rsatiladi.', icon: 'icon-ban', cta: 'Bekor qilish', tone: 'danger', ph: 'Masalan: qabul qiluvchi akkaunti cheklangan', needCode: true },
+      note: { title: 'Izoh qo‘shish', body: 'Izoh faqat adminlarga ko‘rinadi va timeline’ga qo‘shiladi.', icon: 'icon-message-square-plus', cta: 'Saqlash', tone: 'primary', ph: 'Izoh matni' },
+    };
+    const dlg0 = D[s.dialog];
+    const dlg = dlg0 ? { needCode: false, ...dlg0, accent: dlg0.tone === 'danger' ? 'var(--danger)' : 'var(--primary)', ibg: dlg0.tone === 'danger' ? 'var(--danger-soft)' : 'var(--primary-soft)', ifg: dlg0.tone === 'danger' ? 'var(--danger)' : 'var(--primary-soft-foreground)' } : { needCode: false };
+    const dlgOk = s.reason.trim().length >= 10 && (!dlg.needCode || /^\d{6}$/.test(s.tgCode));
+
+    return {
+      theme, reduced: String(rm), frameH: P.frameHeight ?? 'auto', d, t,
+      shellCols: d ? '248px minmax(0,1fr)' : '64px minmax(0,1fr)', sbPad: d ? '16px' : '0', sbNavPad: d ? '10px' : '8px', sbJustify: d ? 'flex-start' : 'center', badgePos: d ? 'static' : 'absolute', padX: d ? '24px' : '16px',
+      sidebar, envLabel: env === 'staging' ? 'STAGING' : 'PRODUCTION', envBg: env === 'staging' ? 'var(--warning)' : 'var(--danger)', envFg: env === 'staging' ? 'var(--accent-foreground)' : '#fff',
+      role, roleBg: role === 'OWNER' ? 'var(--primary)' : role === 'OPERATOR' ? 'var(--info-soft)' : 'var(--muted)', roleFg: role === 'OWNER' ? 'var(--primary-foreground)' : role === 'OPERATOR' ? 'var(--info-text)' : 'var(--text-secondary)',
+      toggleTheme: () => this.setState({ themeO: theme === 'dark' ? 'light' : 'dark' }), themeIcon: theme === 'dark' ? 'icon-sun' : 'icon-moon',
+      isDash: page === 'dashboard', periods, alerts, alertCols: d ? 'repeat(5,minmax(0,1fr))' : 'minmax(0,1fr)', kpis, chartCols: d ? 'minmax(0,1.6fr) minmax(0,1fr)' : 'minmax(0,1fr)',
+      areaT: area(turn), lineT: line(turn), areaP: area(prof), lineP: line(prof), donut, donutLegend: dl.map(([label, p, c]) => ({ label, pct: p + '%', c })),
+      payBars: pays.map(([label, v, c]) => ({ label, value: fmt(v) + ' so‘m', w: (v / pays[0][1] * 100).toFixed(1) + '%', c })), hourBars,
+      isOrders: page === 'orders', orderRows, statusF, views, dropF, ordersFoot: `Jami 1 284 tadan 1–${orderRows.length}`,
+      isOrder: page === 'order', goOrders: nav('orders'), actions, roleNote, detailCols: d ? 'minmax(0,1fr) 340px' : 'minmax(0,1fr)', events, attempts, ledger, stop: e => e.stopPropagation(),
+      isReview: page === 'review', rq, rqTabs, rqCols: d ? 'repeat(3,minmax(0,1fr))' : 'minmax(0,1fr)',
+      hasDialog: !!dlg0, dlg, reason: s.reason, onReason: e => this.setState({ reason: e.target.value }), tgCode: s.tgCode, onTgCode: e => this.setState({ tgCode: e.target.value.replace(/\D/g, '').slice(0, 6) }),
+      dlgDisabled: !dlgOk, dlgBtnBg: !dlgOk ? 'var(--muted)' : dlg.tone === 'danger' ? 'var(--danger)' : 'var(--primary)', dlgBtnFg: !dlgOk ? 'var(--text-muted)' : '#fff',
+      closeDialog: () => this.setState({ dialog: '' }), submitDialog: () => this.setState({ dialog: '' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

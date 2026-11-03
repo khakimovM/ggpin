@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 9 · RU check</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:64px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:1500px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 9.2</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Russian copy check</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863">Russian runs 15–35% longer than Uzbek. Frames from RuScreens.dc.html. Overflow found and the rule that fixes it — apply these in the shared components:</p>
+    <ol style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font:600 16px/24px Manrope,sans-serif;color:#0B1020">
+      <sc-for list="{{ fixes }}" as="f" hint-placeholder-count="8"><li><b>{{ f.where }}</b> — {{ f.fix }}</li></sc-for>
+    </ol>
+  </header>
+  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+    <section style="display:flex;flex-direction:column;gap:20px">
+      <h2 style="margin:0;font:800 28px/1.2 Manrope,sans-serif;color:#0B1020">{{ r.title }}</h2>
+      <div style="display:flex;gap:32px;align-items:flex-start">
+        <sc-for list="{{ r.items }}" as="it" hint-placeholder-count="5">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:{{ it.w }};border-radius:{{ it.r }};overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="RuScreens" screen="{{ it.screen }}" theme="{{ it.theme }}" width="{{ it.wn }}" hint-size="{{ it.hint }}"></dc-import></div></figure>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const M = (label, screen, theme = 'light') => ({ label, screen, theme, w: '390px', wn: 390, r: '36px', hint: '390px,844px' });
+    const W = (label, screen, theme = 'light') => ({ label, screen, theme, w: '1440px', wn: 1440, r: '20px', hint: '1440px,820px' });
+    const rows = [
+      { title: 'Mini App · 390', items: [M('Главная · light', 'home'), M('Главная · dark', 'home', 'dark'), M('Telegram Stars', 'stars'), M('PUBG Mobile · dark', 'pubg', 'dark'), M('Пополнение · ошибка', 'topup')] },
+      { title: 'Sheets, order, profile · 390', items: [M('Подтверждение заказа', 'confirm'), M('Недостаточно средств · dark', 'insufficient', 'dark'), M('Статус заказа', 'order'), M('Статус заказа · dark', 'order', 'dark'), M('Профиль', 'profile')] },
+      { title: 'Web · landing hero & login', items: [W('Лендинг · 1440 · light', 'hero'), M('Лендинг · 390 · dark', 'hero', 'dark'), M('Вход · 390', 'login')] },
+      { title: '', items: [W('Вход · 1440 · dark', 'login', 'dark')] },
+    ];
+    const fixes = [
+      ['Wallet card actions', '“Пополнить баланс” no longer fits a 1/3 column. Primary action gets 1.5fr, labels may wrap to 2 lines, min-height 48 instead of fixed height.'],
+      ['All buttons with money', 'Never white-space:nowrap on labels like “Пополнить на 37 050 сум и купить” — min-height + text-wrap:balance; number stays tabular.'],
+      ['Status chips', '“Не выполнено — деньги возвращены” is the longest chip: chips are min-height 26 with wrapping text, icon flex:none. In tables use the short form “Не выполнено”.'],
+      ['SKU ribbon', '“Выгоднее всего” (vs “Eng foydali”) — ribbon is nowrap but anchored right, so it grows leftward over the tile edge.'],
+      ['Recipient confirm', '“Ha, shu” → “Да, верно” (not “Да, это он/она”) to keep both buttons on one line at 390.'],
+      ['Landing header', 'Nav “Как это работает” + “Открыть в Telegram” overflow below 1180px — nav collapses into the menu at ≤1180 in RU (≤1040 in UZ).'],
+      ['Hero headline', 'RU H1 is 3 lines at 56px; text-wrap:balance + hyphens:auto, and the phone column is minmax(0,1fr) so it shrinks instead of pushing.'],
+      ['Currency', '“so‘m” → “сум” in RU everywhere, after the number with a non-breaking space; “dan boshlab” becomes the prefix “от”.'],
+      ['Telegram header', 'Left button text follows the client language (“Закрыть” / “‹ Назад”) — it comes from Telegram, not from us.'],
+      ['Confirm sheet balance', 'Round 4 sample showed 85 400 → 31 300 after a 108 900 charge. Corrected sample: 140 200 → 31 300.'],
+    ].map(([where, fix]) => ({ where, fix }));
+    return { rows, fixes };
+  }
+}
+</script>
+</body>
+</html>

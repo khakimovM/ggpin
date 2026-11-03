@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 6 · Web store</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:80px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1600px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 6</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Web store · 1440 &amp; 768</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Live frames from Store.dc.html — same flows as the Mini App. The first frame of each group is interactive: nav, search, categories, theme toggle and avatar menu; on the product page check the ID → “Ha, shu” → choose a package → “Sotib olish” (325 UC → confirm modal → order; 660 UC+ → insufficient → top-up). History filters and pagination work; sessions can be ended. On tablet the side panels stack, the category list becomes chips, the table becomes rows, and language/theme move into the avatar menu.</p>
+  </header>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 32px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><sc-if value="{{ g.note }}"><p style="margin:0;max-width:1500px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">{{ g.note }}</p></sc-if></div>
+      <div style="display:flex;gap:48px;align-items:flex-start">
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 16px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:{{ it.w }};border-radius:20px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)"><dc-import name="Store" page="{{ it.page }}" modal="{{ it.modal }}" topup-step="{{ it.step }}" recipient="{{ it.rs }}" sku="{{ it.sku }}" discount="{{ it.disc }}" order-step="{{ it.ord }}" menu-open="{{ it.menu }}" frame-height="{{ it.fh }}" theme="{{ it.theme }}" viewport="{{ it.vp }}" frozen="{{ it.frozen }}" art-slots="{{ it.art }}" hint-size="{{ it.hint }}"></dc-import></div></figure>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const F = (label, o) => {
+      const vp = o.vp || 'desktop', w = vp === 'tablet' ? '768px' : '1440px';
+      const fh = o.modal ? (vp === 'tablet' ? '1024px' : '900px') : (o.menu ? '720px' : null);
+      return { page: 'catalog', modal: '', step: 'method', rs: 'idle', sku: '325', disc: false, ord: 2, menu: false, theme: 'light', frozen: true, art: false, ...o, vp, w, fh, label, hint: `${w},${fh || '1600px'}` };
+    };
+    const groups = [
+      { title: 'Catalog', note: 'Left category list with counts, promo carousel, 4-column grid (3 on tablet). Drop product art into the first frame — it appears in every frame and board.', items: [F('Desktop · light · interactive · drop art', { frozen: false, art: true }), F('Desktop · dark', { theme: 'dark' }), F('Tablet · light', { vp: 'tablet' }), F('Tablet · dark', { vp: 'tablet', theme: 'dark' })] },
+      { title: 'Top navigation · avatar menu', note: '', items: [F('Desktop · menu open · light', { menu: true }), F('Tablet · menu with language + theme · dark', { vp: 'tablet', theme: 'dark', menu: true })] },
+      { title: 'Product page', note: 'Two columns: header, description, “ID’ni qayerdan topaman?” (3 image slots), FAQ — and a sticky purchase panel. On tablet the panel follows the header.', items: [F('Desktop · idle · light · interactive', { page: 'product', frozen: false, art: true }), F('Desktop · confirmed · dark', { page: 'product', theme: 'dark', rs: 'confirmed' }), F('Tablet · found · light', { page: 'product', vp: 'tablet', rs: 'found' })] },
+      { title: 'Checkout, insufficient balance, top-up — centred modals', note: '', items: [F('Checkout · code applied · light', { page: 'product', rs: 'confirmed', modal: 'checkout', disc: true }), F('Insufficient · dark', { page: 'product', theme: 'dark', rs: 'confirmed', sku: '660', modal: 'insufficient' }), F('Checkout · tablet · dark', { page: 'product', vp: 'tablet', theme: 'dark', rs: 'confirmed', modal: 'checkout' })] },
+      { title: 'Top-up modal · steps', note: '', items: [F('1 · Method · light · interactive', { page: 'catalog', modal: 'topup', frozen: false }), F('2 · Amount · dark', { page: 'catalog', theme: 'dark', modal: 'topup', step: 'amount' }), F('3 · Handoff · light', { page: 'catalog', modal: 'topup', step: 'handoff' }), F('4 · Success · dark', { page: 'catalog', theme: 'dark', modal: 'topup', step: 'success' })] },
+      { title: 'Order status page', note: 'Timeline with the current step animated; side panel “Buyurtma tafsilotlari”. The first frame advances live to “Yetkazildi”.', items: [F('Desktop · live · light', { page: 'order', ord: 1, frozen: false }), F('Desktop · Bajarilmoqda · dark', { page: 'order', theme: 'dark', ord: 2 }), F('Tablet · Yetkazildi · light', { page: 'order', vp: 'tablet', ord: 3 })] },
+      { title: 'History', note: 'Table with filters and pagination; Moliya tab shares the layout. Tablet switches to rows.', items: [F('Desktop · light · interactive', { page: 'history', frozen: false }), F('Desktop · dark', { page: 'history', theme: 'dark' }), F('Tablet · light', { page: 'history', vp: 'tablet' })] },
+      { title: 'Profile', note: 'Two-column cards: profile, language & theme, bonus code / referral summary, discount codes, active sessions with “Yakunlash”.', items: [F('Desktop · light · interactive', { page: 'profile', frozen: false }), F('Desktop · dark', { page: 'profile', theme: 'dark' }), F('Tablet · dark', { page: 'profile', vp: 'tablet', theme: 'dark' })] },
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

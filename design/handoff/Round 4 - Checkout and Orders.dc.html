@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 4 · Checkout, top-up, orders</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:72px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:8px;max-width:1500px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 4</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Checkout, top-up &amp; order status · 390</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Live frames from Checkout.dc.html. The first frame of each group runs: the confirm sheet counts down, any code applies (“XATO” = invalid), “To‘lash” flows into the live order; the top-up amount step hands off → checks → succeeds; the live order advances To‘landi → Navbatda → Bajarilmoqda → Yetkazildi every ~2.6 s.</p>
+  </header>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 30px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><p style="margin:0;max-width:1400px;font:500 16px/24px Manrope,sans-serif;color:#3F4863">{{ g.note }}</p></div>
+      <sc-for list="{{ g.rows }}" as="row" hint-placeholder-count="1">
+        <div style="display:flex;gap:32px;align-items:flex-start">
+          <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="4">
+            <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:390px;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)">
+              <sc-if value="{{ it.isHome }}"><dc-import name="MiniApp" screen="home" theme="{{ it.theme }}" pending="{{ true }}" frozen="{{ true }}" art-slots="{{ false }}" hint-size="390px,844px"></dc-import></sc-if>
+              <sc-if value="{{ it.isCheckout }}" hint-placeholder-val="{{ true }}"><dc-import name="Checkout" screen="{{ it.screen }}" order="{{ it.order }}" amount="{{ it.amount }}" theme="{{ it.theme }}" tall="{{ it.tall }}" frozen="{{ it.frozen }}" reduced-motion="{{ it.rm }}" art-slots="{{ it.art }}" hint-size="{{ it.hint }}"></dc-import></sc-if>
+            </div></figure>
+          </sc-for>
+        </div>
+      </sc-for>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const F = (label, o) => ({ isCheckout: true, isHome: false, screen: 'confirm', order: 'live', amount: 50000, theme: 'light', tall: false, frozen: true, rm: false, art: false, ...o, label, hint: o.tall ? '390px,1300px' : '390px,844px' });
+    const Hm = (label, theme) => ({ isHome: true, isCheckout: false, theme, label });
+    const groups = [
+      { title: '1 · Confirm sheet', note: 'Opens after “Sotib olish”. Price quote counts down; when it expires the sheet swaps to the updated price. Balance line is computed (140 200 → 31 300 with the 1% code).', rows: [
+        { items: [F('Default · live · light', { frozen: false }), F('Code applied · light', { screen: 'confirmApplied' }), F('Paying · light', { screen: 'confirmPaying' }), F('Price expired · light', { screen: 'confirmExpired' })] },
+        { items: [F('Default · dark', { theme: 'dark' }), F('Code applied · dark', { theme: 'dark', screen: 'confirmApplied' }), F('Paying · dark', { theme: 'dark', screen: 'confirmPaying' }), F('Price expired · dark', { theme: 'dark', screen: 'confirmExpired' })] },
+      ] },
+      { title: '2 · Insufficient balance', note: 'Primary tops up exactly the shortfall and continues the purchase (TOPUP_AND_BUY).', rows: [
+        { items: [F('Light', { screen: 'insufficient' }), F('Dark', { theme: 'dark', screen: 'insufficient' })] },
+      ] },
+      { title: '3 · Top-up “Hisobni to‘ldirish”', note: 'Method → amount → handoff to the provider page → result. Success has a confetti moment; with reduced motion it is a plain check. TOPUP_AND_BUY success goes straight into the order status screen (runs live in its frame).', rows: [
+        { items: [F('1 · Method · light', { screen: 'topupMethod', frozen: false }), F('2 · Amount · live · light', { screen: 'topupAmount', frozen: false }), F('2 · Min error · light', { screen: 'topupAmount', amount: 3000 }), F('2 · Max error · light', { screen: 'topupAmount', amount: 12000000 }), F('3 · Handoff · light', { screen: 'topupHandoff' }), F('4 · Waiting · light', { screen: 'topupWaiting' })] },
+        { items: [F('4 · Success · confetti · light', { screen: 'topupSuccess', frozen: false }), F('4 · Success · reduced motion', { screen: 'topupSuccess', rm: true }), F('4 · Failed · light', { screen: 'topupFailed' }), F('TOPUP_AND_BUY · live → order', { screen: 'topupBuy', frozen: false })] },
+        { items: [F('1 · Method · dark', { theme: 'dark', screen: 'topupMethod' }), F('2 · Amount · dark', { theme: 'dark', screen: 'topupAmount' }), F('3 · Handoff · dark', { theme: 'dark', screen: 'topupHandoff' }), F('4 · Success · dark', { theme: 'dark', screen: 'topupSuccess' }), F('4 · Failed · dark', { theme: 'dark', screen: 'topupFailed' })] },
+      ] },
+      { title: '4 · Order status (live)', note: 'Header → status hero → timeline with animated current step and times → details → actions. Leaving is safe: Home shows a persistent pill until the order completes.', rows: [
+        { items: [F('Live · advancing · light', { screen: 'order', order: 'live', tall: true, frozen: false, art: true }), F('Bajarilmoqda · dark', { screen: 'order', order: 'processing', theme: 'dark', tall: true }), F('Yetkazildi · light', { screen: 'order', order: 'delivered', tall: true, frozen: false }), F('Yetkazildi · dark', { screen: 'order', order: 'delivered', theme: 'dark', tall: true })] },
+        { items: [F('Voucher · light · drop art', { screen: 'order', order: 'voucher', tall: true, art: true }), F('Voucher · dark', { screen: 'order', order: 'voucher', theme: 'dark', tall: true }), F('Tekshirilmoqda · light', { screen: 'order', order: 'review', tall: true }), F('Tekshirilmoqda · dark', { screen: 'order', order: 'review', theme: 'dark', tall: true })] },
+        { items: [F('Bajarilmadi · light', { screen: 'order', order: 'failed', tall: true }), F('Bajarilmadi · dark', { screen: 'order', order: 'failed', theme: 'dark', tall: true }), F('Bekor qilindi · light', { screen: 'order', order: 'cancelled', tall: true }), F('Bekor qilindi · dark', { screen: 'order', order: 'cancelled', theme: 'dark', tall: true })] },
+        { items: [Hm('Home · pending pill · light', 'light'), Hm('Home · pending pill · dark', 'dark')] },
+      ] },
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>
