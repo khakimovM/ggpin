@@ -220,25 +220,70 @@ belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
 
 ## Qabul qiluvchi va kotirovka
 
-| POST | `/recipients/validate` | `{ productId, input: { username } }` → `{ recipientToken, displayName, photoUrl?, warnings[] }` |
-| ---- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| POST | `/quotes`              | `{ productId, skuId? , quantity?, recipientToken, discountCode? }` → kotirovka                  |
+| POST | `/recipients/validate` | `{ productId, input: { username } }` → `{ recipientToken, displayName, photoUrl?, warnings[] }` (**5-bosqichda**; hozircha yo‘q) |
+| ---- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| POST | `/quotes`              | `{ productId, skuId? , quantity?, recipientToken, discountCode? }` → `201` kotirovka                                             |
+
+`recipientToken` — 43 belgili base64url, 10 daqiqa amal qiladi, faqat shu foydalanuvchi +
+shu mahsulot uchun va ishlatilganda o‘chmaydi: foydalanuvchi shu qabul qiluvchi
+uchun muddat ichida boshqa paketga ham kotirovka olishi mumkin. Token Redis'da faqat SHA-256
+xeshi bilan saqlanadi. `/recipients/validate` 5-bosqichda qo‘shiladi; shu paytgacha token
+faqat testlarda beriladi.
+
+**`POST /quotes`** — sessiya majburiy (cookie sessiyada `X-CSRF-Token` + ruxsat etilgan
+`Origin` ham kerak, aks holda `404 NOT_FOUND`, D-26; Mini App Bearer tokeni uchun CSRF kerak
+emas). `skuId` va `quantity` dan **aynan bittasi** berilishi shart: `skuId` — tayyor paket,
+`quantity` — erkin miqdor (faqat `allowCustomQty` mahsulotlarda, `minQty..maxQty` oralig‘ida).
+Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, faqat sessiyadan.
 
 ```json
+// so‘rov
+{
+  "productId": "t8uqj5v97wzo7r850h24xis1",
+  "skuId": "yjo81wz8x26v7v2m20s9imoh",
+  "recipientToken": "<43 belgili token: /recipients/validate javobidan>"
+}
+```
+
+```json
+// 201
 {
   "success": true,
   "data": {
-    "quoteId": "q_...",
-    "priceTiyin": "2200000",
+    "quoteId": "ghj3p0w7k1cz9r4t6u8v2xyb",
+    "priceTiyin": "550000",
     "discountTiyin": "0",
-    "totalTiyin": "2200000",
-    "expiresAt": "2026-11-01T10:10:00Z",
-    "recipient": { "username": "aziz_k", "displayName": "Aziz" }
+    "totalTiyin": "550000",
+    "expiresAt": "2026-11-03T10:10:00.000Z",
+    "recipient": { "username": "aziz_k", "displayName": "Aziz" },
+    "currency": "UZS"
   }
 }
 ```
 
-`recipientToken` 10 daqiqa amal qiladi va faqat shu foydalanuvchi + mahsulot uchun.
+- Kotirovka **10 daqiqa** amal qiladi (`expiresAt`) va shu foydalanuvchiga bog‘langan: narx
+  shu paytda qulflanadi. Javobda tannarx, kurs, ustama yoki ichki id'lar **yo‘q**.
+- `totalTiyin = priceTiyin − discountTiyin`. Chegirma kodlari 10-bosqichda; hozir
+  `discountCode` berilsa — `422 CODE_INVALID`.
+- Javob har doim `Cache-Control: no-store` (muvaffaqiyatda ham, xatoda ham).
+- Kotirovka pul harakatlantirmaydi, shuning uchun `Idempotency-Key` yo‘q; bir kotirovka ikki
+  marta sarflanmasligini 5-bosqichda `Order.quoteId` (unique) va `usedAt` kafolatlaydi.
+
+Xatolar:
+
+| Status | Kod                                          | Qachon                                                                                                    |
+| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`                           | `skuId` va `quantity` birga yoki ikkalasi ham yo‘q; noma’lum kalit; token formati noto‘g‘ri               |
+| 401    | `UNAUTHORIZED`                               | sessiya yo‘q yoki yaroqsiz                                                                                |
+| 404    | `NOT_FOUND`                                  | `productId` mavjud emas; cookie sessiyada CSRF sarlavhasi/`Origin` yo‘q yoki noto‘g‘ri (D-26)             |
+| 422    | `PRODUCT_UNAVAILABLE`                        | mahsulot faol emas; `skuId` shu mahsulotning faol paketi emas (noma’lum, nofaol yoki boshqa mahsulotniki) |
+| 422    | `QTY_OUT_OF_RANGE` + `details: { min, max }` | erkin miqdor oralig‘idan tashqarida. Erkin miqdori yo‘q mahsulotda `details: { min: null, max: null }`    |
+| 422    | `RECIPIENT_INVALID`                          | token noma’lum, muddati o‘tgan, boshqa foydalanuvchiniki yoki boshqa mahsulotniki (javob bir xil)         |
+| 422    | `CODE_INVALID`                               | `discountCode` berilgan (10-bosqichgacha)                                                                 |
+| 429    | `RATE_LIMITED` + `Retry-After`               | foydalanuvchiga 30 kotirovka/daqiqa                                                                       |
+| 503    | `PRICE_UNAVAILABLE`                          | kurs yoki tannarx yo‘q / 30 daqiqadan eski; hech narsa yozilmaydi                                         |
+
+Tekshiruv tartibi: limit → mahsulot → paket/miqdor → token → chegirma kodi → narx.
 
 ## Buyurtmalar
 
