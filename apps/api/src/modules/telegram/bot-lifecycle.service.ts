@@ -32,12 +32,7 @@ export class BotLifecycleService implements OnApplicationBootstrap, BeforeApplic
       if (url === undefined || secret === undefined) {
         throw new Error('TELEGRAM_WEBHOOK_URL and TELEGRAM_WEBHOOK_SECRET are required');
       }
-      // handleUpdate needs botInfo; a failure here (bad token, Telegram down) must stop boot.
-      await this.bot.init();
-      await this.bot.api.setWebhook(url, {
-        secret_token: secret,
-        allowed_updates: [...ALLOWED_UPDATES],
-      });
+      await this.registerWebhook(url, secret);
       await this.setup.run();
       return;
     }
@@ -54,6 +49,24 @@ export class BotLifecycleService implements OnApplicationBootstrap, BeforeApplic
     });
   }
 
+  // handleUpdate needs botInfo; a failure here (bad token, Telegram down) must stop boot. grammY
+  // errors carry the request (GrammyError.payload holds secret_token, HttpError.error the Bot API
+  // URL with the token) and an unhandled boot rejection is printed with util.inspect, so only a
+  // scrubbed one-liner leaves here, deliberately without the original error as its cause.
+  private async registerWebhook(url: string, secret: string): Promise<void> {
+    let failure: string | null = null;
+    try {
+      await this.bot.init();
+      await this.bot.api.setWebhook(url, {
+        secret_token: secret,
+        allowed_updates: [...ALLOWED_UPDATES],
+      });
+    } catch (error) {
+      failure = safeErrorText(error);
+    }
+    if (failure !== null) throw new Error(`webhook setup failed: ${failure}`);
+  }
+
   private async refuseIfWebhookIsSet(): Promise<void> {
     let url: string | null = null;
     let failure = '';
@@ -67,7 +80,7 @@ export class BotLifecycleService implements OnApplicationBootstrap, BeforeApplic
       throw new Error(`could not check the bot's webhook before polling: ${failure}`);
     if (url !== '') {
       throw new Error(
-        'TELEGRAM_BOT_MODE=polling would delete the webhook this bot token is serving (a live bot is using it). Use a separate bot token from @BotFather for development.',
+        'TELEGRAM_BOT_MODE=polling would delete the webhook this bot token is serving (a live bot is using it). Use a separate bot token from @BotFather for development. If this IS your dev bot and the webhook is a leftover, remove it once with the Bot API method deleteWebhook.',
       );
     }
   }

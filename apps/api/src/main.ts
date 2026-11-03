@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { scrubSecretsInText } from '@repo/shared';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { createHttpAdapter } from './common/http/create-http-adapter';
@@ -32,4 +33,13 @@ async function bootstrap(): Promise<void> {
   await app.listen(env.API_PORT, '0.0.0.0');
 }
 
-void bootstrap();
+// Node prints an unhandled rejection with util.inspect, nested properties included (a client
+// error's request payload, a URL with a token). Only the scrubbed stack text is written.
+bootstrap().catch((error: unknown) => {
+  const text =
+    error instanceof Error
+      ? (error.stack ?? `${error.name}: ${error.message}`)
+      : 'non-Error thrown';
+  process.stderr.write(`boot failed: ${scrubSecretsInText(text)}\n`);
+  process.exit(1);
+});

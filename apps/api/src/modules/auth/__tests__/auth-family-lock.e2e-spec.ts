@@ -20,13 +20,16 @@ const WAIT_LIMIT_MS = 5000;
 // Polls Postgres until some backend is waiting on a lock. With the family lock the revoke waits
 // on the advisory lock; without it, on the row lock of the token the refresh retired. Either way
 // it is the proof that the revoke has started and is parked behind the open refresh transaction,
-// which is exactly the interleaving of the bug. Tests run in band, so nothing else waits.
+// which is exactly the interleaving of the bug. Only those two statements count, so a lock wait
+// from anything else on the same test database cannot let a missing lock pass.
 async function waitUntilSomeoneWaitsOnALock(db: AuthE2e['db']): Promise<void> {
   const deadline = Date.now() + WAIT_LIMIT_MS;
   while (Date.now() < deadline) {
     const rows = await db.$queryRaw<{ waiting: number }[]>`
       SELECT count(*)::int AS waiting FROM pg_stat_activity
-      WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+      WHERE datname = current_database() AND wait_event_type = 'Lock'
+        AND wait_event IN ('advisory', 'transactionid')
+        AND (query LIKE '%pg_advisory_xact_lock%' OR query LIKE '%"WebSession"%')`;
     if ((rows[0]?.waiting ?? 0) > 0) return;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
@@ -105,11 +108,11 @@ describe('revoking a session family while a refresh is in flight (real Postgres)
       // The refresh is the real production code path (HTTP -> rotate). The spy only lets the
       // test park that transaction right after its INSERT, before it commits.
       const original = repo.insert.bind(repo);
-      let open!: () => void;
+      let open: () => void = () => undefined;
       const gate = new Promise<void>((resolve) => {
         open = resolve;
       });
-      let reached!: () => void;
+      let reached: () => void = () => undefined;
       const refreshIsOpen = new Promise<void>((resolve) => {
         reached = resolve;
       });

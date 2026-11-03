@@ -72,7 +72,7 @@ describe('AllExceptionsFilter', () => {
   });
 
   it('AppError headers are set on the reply, and only those', () => {
-    const sent = run(new AppError('RATE_LIMITED', undefined, { 'Retry-After': '42' }));
+    const sent = run(new AppError('RATE_LIMITED', undefined, { retryAfterSec: 42 }));
     expect(sent.status).toBe(429);
     expect(sent.headers).toEqual({ 'Retry-After': '42' });
     expect(sent.body).toMatchObject({ error: { code: 'RATE_LIMITED' } });

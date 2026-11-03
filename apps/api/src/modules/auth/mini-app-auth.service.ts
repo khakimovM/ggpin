@@ -82,7 +82,7 @@ export class MiniAppAuthService {
       return;
     }
     if (hit.count > WEBAPP_ACCOUNT_LIMIT.max) {
-      throw new AppError('RATE_LIMITED', undefined, { 'Retry-After': String(hit.ttlSec) });
+      throw new AppError('RATE_LIMITED', undefined, { retryAfterSec: hit.ttlSec });
     }
   }
 }

@@ -82,4 +82,13 @@ describe('deviceLabel', () => {
     expect(deviceLabel(hostile[1])).toBeNull();
     expect(deviceLabel(hostile[3])).toBe('Chrome, Windows');
   });
+
+  // The Safari pattern (Version/... .* Safari/) is quadratic on input full of "Version/1 ";
+  // only the scan cap keeps it cheap, so the cap itself is pinned here.
+  it('scans only the first 512 characters of the header', () => {
+    const pad = (length: number): string => 'Version/1 '.repeat(50) + ' '.repeat(length - 500);
+    expect(deviceLabel(`${pad(505)}Chrome/1`)).toBe('Chrome'); // its "/" is character 512
+    expect(deviceLabel(`${pad(506)}Chrome/1`)).toBeNull(); // its "/" is character 513
+    expect(deviceLabel(`${'Version/1 '.repeat(10_000)}Safari/1`)).toBeNull();
+  });
 });
