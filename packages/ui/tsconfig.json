@@ -1,10 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "es2022"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "test", "vitest.config.mts", "vitest.setup.ts"]
 }

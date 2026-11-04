@@ -1,10 +1,36 @@
 import type { NextConfig } from 'next';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
+import createNextIntlPlugin from 'next-intl/plugin';
+import { parseClientEnv } from './src/env-schema';
+import { buildHeaderRules } from './src/security-headers';
 
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
-  poweredByHeader: false,
-  // Linting runs once, from the root flat config (`npm run lint`, CI), not again inside builds.
-  eslint: { ignoreDuringBuilds: true },
-};
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
-export default nextConfig;
+export default function config(phase: string): NextConfig {
+  // Only the API origin is needed here (CSP). Strict checks (required values, no mocks in
+  // production) live in src/env.ts and run when the app code is built: `next typegen` shares the
+  // production-build phase, so it must not fail on a developer's local mock settings.
+  const env = parseClientEnv(
+    {
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+      NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+      NEXT_PUBLIC_BOT_USERNAME: process.env.NEXT_PUBLIC_BOT_USERNAME,
+      NEXT_PUBLIC_API_MOCKS: process.env.NEXT_PUBLIC_API_MOCKS,
+      NEXT_PUBLIC_SUPPORT_URL: process.env.NEXT_PUBLIC_SUPPORT_URL,
+    },
+    { production: false },
+  );
+  const apiOrigin = new URL(env.NEXT_PUBLIC_API_URL).origin;
+
+  const nextConfig: NextConfig = {
+    reactStrictMode: true,
+    poweredByHeader: false,
+    // @repo/ui is consumed as TypeScript source (no build step).
+    transpilePackages: ['@repo/ui'],
+    // Linting runs once, from the root flat config (`npm run lint`, CI), not again inside builds.
+    eslint: { ignoreDuringBuilds: true },
+    headers: () =>
+      Promise.resolve(buildHeaderRules({ apiOrigin, isDev: phase === PHASE_DEVELOPMENT_SERVER })),
+  };
+  return withNextIntl(nextConfig);
+}

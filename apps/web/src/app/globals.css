@@ -1,0 +1,196 @@
+@import 'tailwindcss';
+/*
+ * Handoff tokens, copied 1:1 (light = :root, dark = [data-theme="dark"]).
+ * Imported into the base layer: tokens.css also carries element rules (button/input font and
+ * colour inherit, a { color }), which as unlayered CSS would beat every Tailwind utility.
+ * In the base layer they still win over Tailwind's default theme variables (theme layer).
+ */
+@import '@repo/ui/tokens.css' layer(base);
+
+/* Class scanning for the shared components (sources of @repo/ui are not under apps/web). */
+@source "../../../../packages/ui/src";
+
+/* Dark mode follows the data-theme attribute (Telegram colorScheme / web toggle), not the OS. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Tailwind theme -> token variables (Round 9 "Token sheet -> Tailwind").
+ * Only the design tokens exist as colours: the default Tailwind palette is removed so a
+ * one-off colour cannot be written by accident.
+ */
+@theme {
+  --color-*: initial;
+  /* Tailwind inlines its own shadow values into utilities, so the defaults are dropped and
+     shadow-* utilities below read the handoff variables instead. */
+  --shadow-*: initial;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+
+  --color-foreground: var(--text);
+  --color-foreground-secondary: var(--text-secondary);
+  --color-foreground-muted: var(--text-muted);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-foreground: var(--accent-soft-foreground);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-text: var(--info-text);
+
+  --color-status-queued: var(--status-queued);
+  --color-status-queued-soft: var(--status-queued-soft);
+  --color-status-processing: var(--status-processing);
+  --color-status-processing-soft: var(--status-processing-soft);
+  --color-status-review: var(--status-review);
+  --color-status-review-soft: var(--status-review-soft);
+  --color-status-delivered: var(--status-delivered);
+  --color-status-delivered-soft: var(--status-delivered-soft);
+  --color-status-failed: var(--status-failed);
+  --color-status-failed-soft: var(--status-failed-soft);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-status-cancelled-soft: var(--status-cancelled-soft);
+
+  --color-star: var(--star);
+  --color-star-soft: var(--star-soft);
+  --color-premium: var(--premium);
+  --color-premium-soft: var(--premium-soft);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+
+  --color-skeleton: var(--skeleton);
+  --color-skeleton-shine: var(--skeleton-shine);
+}
+
+/*
+ * Radius, font and easing tokens share their names with Tailwind's own theme keys
+ * (--radius-md, --font-sans, --ease-out ...). tokens.css lives in the base layer, which sits
+ * after Tailwind's theme layer, so its values win and rounded-md / font-sans / ease-out already
+ * resolve to the handoff values (asserted by the computed-style e2e test). Shadows and keys
+ * Tailwind does not know get explicit utilities below.
+ *
+ * Shadows write --tw-shadow and compose the same stack Tailwind uses, so ring-* utilities
+ * combine with them instead of replacing them. Durations and easings also set --tw-duration /
+ * --tw-ease, otherwise the `transition` utility would fall back to its own default timing.
+ */
+@utility shadow-sm {
+  --tw-shadow: var(--shadow-sm);
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+@utility shadow-md {
+  --tw-shadow: var(--shadow-md);
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+@utility shadow-lg {
+  --tw-shadow: var(--shadow-lg);
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+@utility shadow-glow {
+  --tw-shadow: var(--shadow-glow);
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+@utility font-display {
+  font-family: var(--font-display);
+}
+@utility ease-standard {
+  --tw-ease: var(--ease-standard);
+  transition-timing-function: var(--ease-standard);
+}
+@utility ease-spring {
+  --tw-ease: var(--ease-spring);
+  transition-timing-function: var(--ease-spring);
+}
+@utility duration-instant {
+  --tw-duration: var(--dur-instant);
+  transition-duration: var(--dur-instant);
+}
+@utility duration-fast {
+  --tw-duration: var(--dur-fast);
+  transition-duration: var(--dur-fast);
+}
+@utility duration-base {
+  --tw-duration: var(--dur-base);
+  transition-duration: var(--dur-base);
+}
+@utility duration-slow {
+  --tw-duration: var(--dur-slow);
+  transition-duration: var(--dur-slow);
+}
+@utility duration-slower {
+  --tw-duration: var(--dur-slower);
+  transition-duration: var(--dur-slower);
+}
+@utility duration-shimmer {
+  --tw-duration: var(--dur-shimmer);
+  transition-duration: var(--dur-shimmer);
+}
+
+@layer base {
+  /* next/font publishes the loaded family through --font-manrope / --font-unbounded; they
+     replace the plain 'Manrope' / 'Unbounded' names from tokens.css (same layer, later wins). */
+  :root {
+    --font-sans: var(--font-manrope), 'Manrope', system-ui, sans-serif;
+    --font-display: var(--font-unbounded), 'Unbounded', 'Manrope', sans-serif;
+  }
+  html,
+  body {
+    font-family: var(--font-sans);
+  }
+  *,
+  ::after,
+  ::before {
+    border-color: var(--border);
+  }
+  html {
+    background: var(--background);
+    color: var(--text);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
