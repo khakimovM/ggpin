@@ -133,6 +133,9 @@ bilan taqiqlangan), har bir yangilanish — yangi qator.
 (1000 bps = 10%) dan ko‘proq farq qilsa (yuqoriga ham, pastga ham), u yozilmaydi va warn log
 yoziladi (juftlik, oxirgi qator idʼsi, ikkala kurs — kurs maxfiy maʼlumot emas). Aynan 10% ruxsat
 etiladi. Taqqoslash `packages/shared` pul funksiyalari bilan, BigIntʼda qilinadi (float yo‘q).
+Taqqoslanadigan "oxirgi kurs" — sync soatidan ko‘pi bilan 1 daqiqa (`MAX_CLOCK_SKEW_MS`) kelajakdagi
+qatorlar ichidan eng yangisi; undan uzoqroq kelajakdagi xato qator taqqoslash tayanchi bo‘lmaydi
+va to‘g‘ri kursni to‘sa olmaydi.
 Sakrash odatda manba xatosi (raqam tushib qolgan, eski kesh, buzilgan manba) belgisidir: noto‘g‘ri
 narxda sotgandan ko‘ra, 30 daqiqadan keyin kotirovkani to‘xtatgan yaxshi. Haqiqiy kurs 10% dan
 ko‘p o‘zgargan bo‘lsa, bu holatdan chiqish uchun kursni qo‘lda kiritish kerak bo‘ladi (admin
@@ -158,6 +161,10 @@ va hech qayerdan olinmaydi: `USDT_UZS = 12650`, `TON_USDT = 3.2` (demak `TON_UZS
 (`apps/worker/src/pricing-sync/fx-sources/simulated-fx.source.ts`,
 `apps/worker/src/adapters/simulator/simulated-fragment-prices.ts`). Qatorlarda `source = 'simulator'`;
 productionʼdagi API `simulator` va undan hosil bo‘lgan kurslar bilan narx bermaydi (Q15).
+Belgi manba nomidan emas, `simulated` bayrog‘idan olinadi: soxta (`simulated: true`) manba nomi
+qanday bo‘lmasin, uning qatorlari doim `source = 'simulator'` (`packages/shared`dagi
+`SIMULATOR_SOURCE`) bilan yoziladi. Haqiqiy manba `simulator` nomini, `derived:` bilan boshlanuvchi
+yoki bo‘sh nomni ololmaydi — bunday manba rad etiladi (bitta error log, hech narsa yozilmaydi).
 
 **Dry-run o‘chiq bo‘lsa — yopiq holatda to‘xtaydi.** Simulyator faqat `FULFILLMENT_DRY_RUN=true`
 bo‘lganda ishlatiladi (tekshiruv sync servislarining ichida). `FULFILLMENT_DRY_RUN=false` bo‘lsa,
@@ -172,7 +179,12 @@ paketning o‘z tannarxi (`skuId` bilan) yangi bo‘lsa — u; eskirgan bo‘lsa
 yangi tannarx miqdorga ko‘paytiriladi; ikkalasi ham bo‘lmasa narx yo‘q. Worker soati biroz oldinda
 bo‘lishi mumkin, shuning uchun 1 daqiqagacha kelajakdagi qator qabul qilinadi (`MAX_CLOCK_SKEW_MS`);
 undan uzoqroq kelajakdagi qator xato yozuv hisoblanadi va umuman o‘qilmaydi — u "eng yangi" bo‘lib
-to‘g‘ri kursni yashira olmaydi. Paket tannarxidan mahsulot tannarxiga o‘tish zarar keltirmaydi:
+to‘g‘ri kursni yashira olmaydi. Simulyator qatorlari (`source = 'simulator'`, hamda ulardan hosil bo‘lgan `derived:`
+TON_UZS) bilan API faqat ikki shart birga bajarilsa narx beradi: `PRICING_ALLOW_SIMULATED=true` **va**
+`NODE_ENV` production emas. `PRICING_ALLOW_SIMULATED` standart `false`; production'da `true` bo‘lsa API ishga
+tushmaydi. `derived:` TON_UZS faqat ikki **turli** ota qatordan iborat bo‘lsa haqiqiy hisoblanadi: birinchisi `TON_USDT`,
+ikkinchisi `USDT_UZS`, ikkalasi ham `simulator` ham, `derived:` ham emas; aks holat (`derived:X*X`, almashgan tartib,
+yo‘q ota qator) simulyator sifatida rad etiladi. Paket tannarxidan mahsulot tannarxiga o‘tish zarar keltirmaydi:
 yetkazishda haqiqiy tannarx `maxCost` dan oshsa buyurtma `HELD` bo‘ladi.
 
 ## Limitlar va ogohlantirishlar
