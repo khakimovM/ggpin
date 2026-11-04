@@ -7,6 +7,7 @@ import {
   type CatalogSku,
 } from '@repo/shared';
 import type { ProductDisplayPrices } from '../../pricing/price-book.types';
+import { customQtyRange } from '../../pricing/pricing-sku';
 import type { CatalogProductRow, CategoryWithCount } from '../catalog.repository';
 
 type Locale = CatalogLocaleQuery['locale'];
@@ -68,6 +69,8 @@ export function toDetail(
   prices: ProductDisplayPrices | undefined,
   stock: number | null,
 ): CatalogProductDetail {
+  // Not the raw columns: the range a quote accepts also depends on the active packs.
+  const customQty = customQtyRange(row, row.skus);
   return {
     id: row.id,
     slug: row.slug,
@@ -78,9 +81,9 @@ export function toDetail(
     deliveryType: row.deliveryType,
     regionBadge: row.regionBadge,
     isAuto: row.isAuto,
-    allowCustomQty: row.allowCustomQty,
-    minQty: row.minQty,
-    maxQty: row.maxQty,
+    allowCustomQty: customQty !== null,
+    minQty: customQty?.min ?? null,
+    maxQty: customQty?.max ?? null,
     // Parsed, not cast: a malformed stored form is a data bug that must surface, not reach a client.
     inputSchema: ProductInputSchema.parse(row.inputSchema),
     skus: row.skus.map((sku) => toSku(sku, locale, prices)),

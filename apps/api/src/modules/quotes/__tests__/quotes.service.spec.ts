@@ -1,152 +1,16 @@
-import type { Product, Quote, Sku } from '@repo/db';
-import { QUOTE_TTL_MS, type CreateQuoteBody, type Recipient } from '@repo/shared';
+import { QUOTE_LIMIT, quoteLimitKey } from '../quotes.service';
 import { AppError } from '../../../common/exceptions/app-error';
-import type { FixedWindowCounter } from '../../../infra/redis/fixed-window-counter';
-import type { PriceBookService } from '../../pricing/price-book.service';
-import type { PriceResult } from '../../pricing/price-book.types';
-import type { RecipientTokenStore } from '../../recipients/recipient-token.store';
-import { toQuoteResponse } from '../entities/quote.mapper';
-import type { QuoteProduct, QuotesRepository } from '../quotes.repository';
-import { QUOTE_LIMIT, QuotesService, quoteLimitKey } from '../quotes.service';
-
-const NOW = new Date('2026-06-01T12:00:00.000Z');
-const TOKEN = 'T'.repeat(43);
-const RECIPIENT: Recipient = {
-  username: 'aziz_k',
-  displayName: 'Aziz',
-  photoUrl: 'https://x.test/a.png',
-};
-const PRICE: PriceResult = {
-  costCurrency: 'TON',
-  costMinor: 125_000_000n,
-  costSnapshotId: 'cost_1',
-  fxRateId: 'fx_1',
-  priceTiyin: 550_000n,
-  maxCostMinor: 128_750_000n,
-};
-
-function sku(id: string, quantity: number): Sku {
-  return {
-    id,
-    productId: 'p1',
-    tab: null,
-    labelUz: String(quantity),
-    labelRu: String(quantity),
-    quantity,
-    supplierSku: null,
-    markupBps: 1000 + quantity,
-    minMarginTiyin: BigInt(quantity),
-    isActive: true,
-    sort: 0,
-    createdAt: NOW,
-    updatedAt: NOW,
-  };
-}
-
-function product(
-  over: Partial<Product> = {},
-  skus: Sku[] = [sku('s50', 50), sku('s100', 100)],
-): QuoteProduct {
-  return {
-    id: 'p1',
-    slug: 'stars',
-    categoryId: 'c1',
-    nameUz: 'Stars',
-    nameRu: 'Stars',
-    descriptionUz: null,
-    descriptionRu: null,
-    helpUz: null,
-    helpRu: null,
-    imageUrl: '/i.png',
-    regionBadge: null,
-    deliveryType: 'TG_USERNAME',
-    inputSchema: [],
-    isAuto: true,
-    isFeatured: false,
-    isActive: true,
-    allowCustomQty: true,
-    minQty: 50,
-    maxQty: 1000,
-    sort: 0,
-    createdAt: NOW,
-    updatedAt: NOW,
-    ...over,
-    skus,
-  };
-}
-
-function setup(found: QuoteProduct | null = product()) {
-  const calls: string[] = [];
-  const counter = {
-    hit: jest.fn(() => {
-      calls.push('limit');
-      return Promise.resolve({ count: 1, ttlSec: 60 });
-    }),
-  };
-  const repository = {
-    findProductWithActiveSkus: jest.fn(() => {
-      calls.push('product');
-      return Promise.resolve(found);
-    }),
-    create: jest.fn((userId: string, data: { priceTiyin: bigint }) => {
-      calls.push('insert');
-      return Promise.resolve({
-        id: 'q1',
-        userId,
-        recipient: { username: RECIPIENT.username, displayName: RECIPIENT.displayName },
-        priceTiyin: data.priceTiyin,
-        expiresAt: new Date(NOW.getTime() + QUOTE_TTL_MS),
-      } as unknown as Quote);
-    }),
-  };
-  const tokens = {
-    resolve: jest.fn(() => {
-      calls.push('token');
-      return Promise.resolve({
-        userId: 'u1',
-        productId: 'p1',
-        recipient: RECIPIENT,
-        issuedAt: NOW.toISOString(),
-      } as { userId: string; productId: string; recipient: Recipient; issuedAt: string } | null);
-    }),
-  };
-  const priceBook = {
-    price: jest.fn(() => {
-      calls.push('price');
-      return Promise.resolve(PRICE);
-    }),
-  };
-  const service = new QuotesService(
-    repository as unknown as QuotesRepository,
-    priceBook as unknown as PriceBookService,
-    tokens as unknown as RecipientTokenStore,
-    counter as unknown as FixedWindowCounter,
-    { now: () => NOW },
-  );
-  return { service, calls, counter, repository, tokens, priceBook };
-}
-
-const bySku = (over: Partial<CreateQuoteBody> = {}): CreateQuoteBody => ({
-  productId: 'p1',
-  skuId: 's50',
-  recipientToken: TOKEN,
-  ...over,
-});
-const byQty = (quantity: number, over: Partial<CreateQuoteBody> = {}): CreateQuoteBody => ({
-  productId: 'p1',
-  quantity,
-  recipientToken: TOKEN,
-  ...over,
-});
-
-async function failure(promise: Promise<unknown>): Promise<AppError> {
-  const error: unknown = await promise.then(
-    () => undefined,
-    (e: unknown) => e,
-  );
-  if (!(error instanceof AppError)) throw new Error('expected an AppError');
-  return error;
-}
+import {
+  NOW,
+  RECIPIENT,
+  TOKEN,
+  bySku,
+  byQty,
+  failure,
+  product,
+  setup,
+  sku,
+} from './quotes.fixtures';
 
 describe('QuotesService.create', () => {
   it('runs limit, product, token, price, insert in that order and writes once', async () => {
@@ -253,10 +117,10 @@ describe('QuotesService.create', () => {
     expect((await failure(noRange.service.create('u1', byQty(60)))).code).toBe('QTY_OUT_OF_RANGE');
   });
 
-  it('a quantity below every active pack has no pricing SKU: QTY_OUT_OF_RANGE', async () => {
+  it('a quantity below the smallest active pack is QTY_OUT_OF_RANGE with the effective range', async () => {
     const { service, priceBook } = setup(product({ minQty: 10 }));
     const error = await failure(service.create('u1', byQty(20)));
-    expect([error.code, error.details]).toEqual(['QTY_OUT_OF_RANGE', { min: 10, max: 1000 }]);
+    expect([error.code, error.details]).toEqual(['QTY_OUT_OF_RANGE', { min: 50, max: 1000 }]);
     expect(priceBook.price).not.toHaveBeenCalled();
   });
 
@@ -304,40 +168,44 @@ describe('QuotesService.create', () => {
       currency: 'UZS',
     });
   });
-});
 
-describe('toQuoteResponse', () => {
-  it('drops every cost-side column of the row, and the photo URL of the recipient', () => {
-    const row = {
-      id: 'q9',
-      userId: 'u1',
-      productId: 'p1',
-      skuId: 's50',
-      quantity: 50,
-      recipient: { username: 'aziz_k', displayName: 'Aziz', photoUrl: 'https://x.test/a.png' },
-      costCurrency: 'TON',
-      costMinor: 1n,
-      fxRateId: 'fx',
-      costSnapshotId: 'snap',
-      priceTiyin: 700_000n,
-      maxCostMinor: 2n,
-      discountCodeId: null,
-      expiresAt: NOW,
-      usedAt: null,
-      createdAt: NOW,
-      updatedAt: NOW,
-    } as unknown as Quote;
-    const out = toQuoteResponse(row);
-    expect(Object.keys(out).sort()).toEqual([
-      'currency',
-      'discountTiyin',
-      'expiresAt',
-      'priceTiyin',
-      'quoteId',
-      'recipient',
-      'totalTiyin',
-    ]);
-    expect(Object.keys(out.recipient).sort()).toEqual(['displayName', 'username']);
-    expect(JSON.stringify(out)).not.toMatch(/snap|"fx"|maxCost|costMinor/);
+  it('a custom quantity equal to an active pack is priced as that pack, like its skuId', async () => {
+    const typed = setup();
+    const out = await typed.service.create('u1', byQty(100));
+    expect(typed.priceBook.price).toHaveBeenCalledWith({
+      product: { id: 'p1' },
+      pricingSku: { id: 's100', quantity: 100, markupBps: 1100, minMarginTiyin: 100n },
+      sku: { id: 's100' },
+      quantity: 100,
+      now: NOW,
+    });
+    expect(typed.repository.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ skuId: 's100', quantity: 100 }),
+    );
+    expect(out.quoteId).toBe('q1');
+  });
+
+  it('a quantity between two packs is still a custom quantity (sku null)', async () => {
+    const { service, repository } = setup();
+    await service.create('u1', byQty(101));
+    expect(repository.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ skuId: null, quantity: 101 }),
+    );
+  });
+
+  it('with the smallest pack deactivated the range starts at the next pack', async () => {
+    const found = product({ minQty: 50 }, [sku('s100', 100), sku('s500', 500)]);
+    const below = await failure(setup(found).service.create('u1', byQty(99)));
+    expect([below.code, below.details]).toEqual(['QTY_OUT_OF_RANGE', { min: 100, max: 1000 }]);
+    await expect(setup(found).service.create('u1', byQty(100))).resolves.toBeDefined();
+  });
+
+  it('no active pack at all: custom quantity is QTY_OUT_OF_RANGE with null bounds', async () => {
+    const { service, priceBook } = setup(product({}, []));
+    const error = await failure(service.create('u1', byQty(60)));
+    expect([error.code, error.details]).toEqual(['QTY_OUT_OF_RANGE', { min: null, max: null }]);
+    expect(priceBook.price).not.toHaveBeenCalled();
   });
 });

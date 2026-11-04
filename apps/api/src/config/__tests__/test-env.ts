@@ -28,6 +28,9 @@ export const TEST_ENV_SOURCE: Readonly<Record<string, string>> = {
   TELEGRAM_BOT_USERNAME: TEST_BOT_USERNAME,
 };
 
+// Suites that exercise prices run against the worker's dry-run (simulator) data, so they opt in
+// to it here; production refusal tests override it back or set NODE_ENV=production. Kept out of
+// TEST_ENV_SOURCE so the env tests still see the real default (false).
 export function buildTestEnv(overrides: Readonly<Record<string, string>> = {}): Env {
-  return loadEnv({ ...TEST_ENV_SOURCE, ...overrides });
+  return loadEnv({ ...TEST_ENV_SOURCE, PRICING_ALLOW_SIMULATED: 'true', ...overrides });
 }

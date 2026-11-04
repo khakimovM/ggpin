@@ -213,6 +213,12 @@ belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
 - `unitPriceTiyin` — eng kichik SKU narxining bir birlikka bo‘lingani (yuqoriga yaxlitlanadi).
 - `skus` — faqat faol SKU'lar, miqdor bo‘yicha o‘sish tartibida. `tab` — guruh i18n kaliti
   yoki `null`.
+- `allowCustomQty` / `minQty` / `maxQty` — **haqiqatan kotirovka qabul qiladigan** erkin miqdor oralig‘i,
+  saqlangan ustunlar emas: `minQty` = max(saqlangan `minQty`, eng kichik **faol** paket miqdori), `maxQty` o‘zgarmaydi
+  (eng kichik paketdan past miqdorda markup oladigan paket yo‘q, shuning uchun u kotirovkada rad etiladi). Erkin miqdor
+  o‘chirilgan, oraliq berilmagan, faol paket yo‘q yoki eng kichik faol paket `maxQty` dan katta bo‘lsa —
+  `allowCustomQty: false`, `minQty: null`, `maxQty: null`. Katalog va `POST /quotes` shu bitta qoidadan foydalanadi, shuning
+  uchun katalog kotirovka rad etadigan miqdorni hech qachon ko‘rsatmaydi.
 - `stock` — `null` = cheksiz (voucher'siz mahsulotlar); voucher mahsulotlarda `AVAILABLE`
   kodlar soni. Ro‘yxatda `inStock = stock > 0` (cheksizda `true`).
 - `description` / `help` tarjimasi bo‘lmasa `null` (boshqa tilga almashtirilmaydi).
@@ -233,7 +239,9 @@ faqat testlarda beriladi.
 **`POST /quotes`** — sessiya majburiy (cookie sessiyada `X-CSRF-Token` + ruxsat etilgan
 `Origin` ham kerak, aks holda `404 NOT_FOUND`, D-26; Mini App Bearer tokeni uchun CSRF kerak
 emas). `skuId` va `quantity` dan **aynan bittasi** berilishi shart: `skuId` — tayyor paket,
-`quantity` — erkin miqdor (faqat `allowCustomQty` mahsulotlarda, `minQty..maxQty` oralig‘ida).
+`quantity` — erkin miqdor (faqat `allowCustomQty` mahsulotlarda, katalog ko‘rsatgan `minQty..maxQty` oralig‘ida).
+Erkin miqdor faol paketning miqdoriga teng bo‘lsa, kotirovka shu paket bilan (`skuId` yuborilgandek) hisoblanadi: "100" yozish
+va 100 paketini bosish bir xil narx.
 Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, faqat sessiyadan.
 
 ```json
@@ -271,17 +279,17 @@ Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, fa
 
 Xatolar:
 
-| Status | Kod                                          | Qachon                                                                                                    |
-| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 400    | `VALIDATION_ERROR`                           | `skuId` va `quantity` birga yoki ikkalasi ham yo‘q; noma’lum kalit; token formati noto‘g‘ri               |
-| 401    | `UNAUTHORIZED`                               | sessiya yo‘q yoki yaroqsiz                                                                                |
-| 404    | `NOT_FOUND`                                  | `productId` mavjud emas; cookie sessiyada CSRF sarlavhasi/`Origin` yo‘q yoki noto‘g‘ri (D-26)             |
-| 422    | `PRODUCT_UNAVAILABLE`                        | mahsulot faol emas; `skuId` shu mahsulotning faol paketi emas (noma’lum, nofaol yoki boshqa mahsulotniki) |
-| 422    | `QTY_OUT_OF_RANGE` + `details: { min, max }` | erkin miqdor oralig‘idan tashqarida. Erkin miqdori yo‘q mahsulotda `details: { min: null, max: null }`    |
-| 422    | `RECIPIENT_INVALID`                          | token noma’lum, muddati o‘tgan, boshqa foydalanuvchiniki yoki boshqa mahsulotniki (javob bir xil)         |
-| 422    | `CODE_INVALID`                               | `discountCode` berilgan (10-bosqichgacha)                                                                 |
-| 429    | `RATE_LIMITED` + `Retry-After`               | foydalanuvchiga 30 kotirovka/daqiqa                                                                       |
-| 503    | `PRICE_UNAVAILABLE`                          | kurs yoki tannarx yo‘q / 30 daqiqadan eski; hech narsa yozilmaydi                                         |
+| Status | Kod                                          | Qachon                                                                                                                                                                |
+| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`                           | `skuId` va `quantity` birga yoki ikkalasi ham yo‘q; noma’lum kalit; token formati noto‘g‘ri                                                                           |
+| 401    | `UNAUTHORIZED`                               | sessiya yo‘q yoki yaroqsiz                                                                                                                                            |
+| 404    | `NOT_FOUND`                                  | `productId` mavjud emas; cookie sessiyada CSRF sarlavhasi/`Origin` yo‘q yoki noto‘g‘ri (D-26)                                                                         |
+| 422    | `PRODUCT_UNAVAILABLE`                        | mahsulot faol emas; `skuId` shu mahsulotning faol paketi emas (noma’lum, nofaol yoki boshqa mahsulotniki)                                                             |
+| 422    | `QTY_OUT_OF_RANGE` + `details: { min, max }` | erkin miqdor katalogdagi `minQty..maxQty` oralig‘idan tashqarida (`details` — shu amaldagi oraliq). Erkin miqdori yo‘q mahsulotda `details: { min: null, max: null }` |
+| 422    | `RECIPIENT_INVALID`                          | token noma’lum, muddati o‘tgan, boshqa foydalanuvchiniki yoki boshqa mahsulotniki (javob bir xil)                                                                     |
+| 422    | `CODE_INVALID`                               | `discountCode` berilgan (10-bosqichgacha)                                                                                                                             |
+| 429    | `RATE_LIMITED` + `Retry-After`               | foydalanuvchiga 30 kotirovka/daqiqa                                                                                                                                   |
+| 503    | `PRICE_UNAVAILABLE`                          | kurs yoki tannarx yo‘q / 30 daqiqadan eski; hech narsa yozilmaydi                                                                                                     |
 
 Tekshiruv tartibi: limit → mahsulot → paket/miqdor → token → chegirma kodi → narx.
 

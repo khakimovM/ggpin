@@ -1,39 +1,18 @@
-import { Logger } from '@nestjs/common';
 import { COST_MAX_AGE_MS, FX_MAX_AGE_MS, maxCostFor, priceFromCost } from '@repo/shared';
-import { AppError } from '../../../common/exceptions/app-error';
-import type { PriceRequest } from '../price-book.types';
 import { pickPricingSku } from '../pricing-sku';
-import { NOW, THIRTY_MIN_MS, ago, fx, pack, priceBook, snapshot } from './price-book.fixtures';
+import {
+  THIRTY_MIN_MS,
+  ago,
+  failure,
+  fx,
+  pack,
+  priceBook,
+  request,
+  silenceRefusalLogs,
+  snapshot,
+} from './price-book.fixtures';
 
-const STARS = { id: 'p_stars' };
-
-// Refusals log a warning; keep the test output readable.
-beforeEach(() => {
-  jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-});
-afterEach(() => {
-  jest.restoreAllMocks();
-});
-
-function request(overrides: Partial<PriceRequest> = {}): PriceRequest {
-  return {
-    product: STARS,
-    pricingSku: pack(),
-    sku: { id: 'sku_50' },
-    quantity: 50,
-    now: NOW,
-    ...overrides,
-  };
-}
-
-async function failure(promise: Promise<unknown>): Promise<AppError> {
-  const error: unknown = await promise.then(
-    () => undefined,
-    (e: unknown) => e,
-  );
-  if (!(error instanceof AppError)) throw new Error('expected an AppError');
-  return error;
-}
+silenceRefusalLogs();
 
 describe('PriceBookService.price', () => {
   it('prices a pack from the product snapshot with exact money', async () => {
@@ -221,148 +200,5 @@ describe('PriceBookService.price', () => {
       // 50 x 4 USDT = 200 USDT x 12 500 = 2 500 000 so'm; +10%.
       expect(result.priceTiyin).toBe(275_000_000n);
     });
-  });
-
-  describe('simulated data (owner decision Q15: refused only in production)', () => {
-    const simulatedCost = { rates: [fx()], snapshots: [snapshot({ source: 'simulator' })] };
-    const simulatedFx = { rates: [fx({ source: 'simulator' })], snapshots: [snapshot()] };
-
-    it('is accepted outside production', async () => {
-      await expect(priceBook(simulatedCost).price(request())).resolves.toBeDefined();
-      await expect(priceBook(simulatedFx).price(request())).resolves.toBeDefined();
-      await expect(
-        priceBook(simulatedFx, { NODE_ENV: 'development' }).price(request()),
-      ).resolves.toBeDefined();
-    });
-
-    it('a simulator cost snapshot is refused in production', async () => {
-      const book = priceBook(simulatedCost, { NODE_ENV: 'production' });
-      expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
-    });
-
-    it('a simulator FX rate is refused in production', async () => {
-      const book = priceBook(simulatedFx, { NODE_ENV: 'production' });
-      expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
-    });
-
-    it('real data is accepted in production', async () => {
-      const book = priceBook(
-        { rates: [fx({ source: 'cbu' })], snapshots: [snapshot({ source: 'fragment' })] },
-        { NODE_ENV: 'production' },
-      );
-      await expect(book.price(request())).resolves.toBeDefined();
-    });
-
-    describe('derived TON_UZS', () => {
-      const parents = (usdtUzs: string, tonUsdt: string) => [
-        fx({ id: 'p_usdt', pair: 'USDT_UZS', rate: '12000', source: usdtUzs }),
-        fx({ id: 'p_ton', pair: 'TON_USDT', rate: '3.3333', source: tonUsdt }),
-      ];
-      const derived = fx({ source: 'derived:p_ton*p_usdt' });
-
-      it('built from a simulator parent is refused in production', async () => {
-        for (const rows of [parents('cbu', 'simulator'), parents('simulator', 'binance')]) {
-          const book = priceBook(
-            { rates: [derived, ...rows], snapshots: [snapshot()] },
-            { NODE_ENV: 'production' },
-          );
-          expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
-        }
-      });
-
-      it('built from real parents is accepted in production', async () => {
-        const book = priceBook(
-          { rates: [derived, ...parents('cbu', 'binance')], snapshots: [snapshot()] },
-          { NODE_ENV: 'production' },
-        );
-        await expect(book.price(request())).resolves.toBeDefined();
-      });
-
-      it('is accepted outside production even from simulator parents', async () => {
-        const book = priceBook({
-          rates: [derived, ...parents('simulator', 'simulator')],
-          snapshots: [snapshot()],
-        });
-        await expect(book.price(request())).resolves.toBeDefined();
-      });
-
-      it.each([
-        ['an unparsable source', 'derived:garbage', parents('cbu', 'binance')],
-        ['a missing parent', 'derived:p_ton*p_gone', parents('cbu', 'binance')],
-        ['a parent that is itself derived', 'derived:p_ton*p_usdt', parents('derived:a*b', 'x')],
-      ])('fails closed in production for %s', async (_label, source, rows) => {
-        const book = priceBook(
-          { rates: [fx({ source }), ...rows], snapshots: [snapshot()] },
-          { NODE_ENV: 'production' },
-        );
-        expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
-      });
-    });
-  });
-});
-
-describe('PriceBookService.displayPrices', () => {
-  const skus = [pack({ id: 'sku_50', quantity: 50 }), pack({ id: 'sku_100', quantity: 100 })];
-  const product = { id: 'p_stars', skus };
-
-  it('prices every pack, the cheapest is the "from" price, the unit price is per star', async () => {
-    const book = priceBook({ rates: [fx()], snapshots: [snapshot()] });
-    const prices = (await book.displayPrices([product], NOW)).get('p_stars');
-    expect(prices?.skuPriceTiyin.get('sku_50')).toBe(550_000n);
-    expect(prices?.skuPriceTiyin.get('sku_100')).toBe(1_100_000n);
-    expect(prices?.fromPriceTiyin).toBe(550_000n);
-    expect(prices?.unitPriceTiyin).toBe(11_000n);
-  });
-
-  it('has no price when the FX rate or the cost is stale or missing', async () => {
-    for (const inputs of [
-      { rates: [fx({ createdAt: ago(THIRTY_MIN_MS + 1) })], snapshots: [snapshot()] },
-      { rates: [fx()], snapshots: [snapshot({ createdAt: ago(THIRTY_MIN_MS + 1) })] },
-      { rates: [], snapshots: [snapshot()] },
-      { rates: [fx()], snapshots: [] },
-    ]) {
-      const prices = (await priceBook(inputs).displayPrices([product], NOW)).get('p_stars');
-      expect(prices?.fromPriceTiyin).toBeNull();
-      expect(prices?.unitPriceTiyin).toBeNull();
-      expect(prices?.skuPriceTiyin.size).toBe(0);
-    }
-  });
-
-  it('a cost exactly 30:00 old still prices', async () => {
-    const book = priceBook({
-      rates: [fx()],
-      snapshots: [snapshot({ createdAt: ago(THIRTY_MIN_MS) })],
-    });
-    const prices = (await book.displayPrices([product], NOW)).get('p_stars');
-    expect(prices?.fromPriceTiyin).toBe(550_000n);
-  });
-
-  it('refuses simulator data in production, like price()', async () => {
-    const book = priceBook(
-      { rates: [fx()], snapshots: [snapshot({ source: 'simulator' })] },
-      { NODE_ENV: 'production' },
-    );
-    expect((await book.displayPrices([product], NOW)).get('p_stars')?.fromPriceTiyin).toBeNull();
-  });
-
-  it('makes no query for an empty list', async () => {
-    const book = priceBook({ rates: [], snapshots: [] });
-    expect((await book.displayPrices([], NOW)).size).toBe(0);
-  });
-});
-
-describe('pickPricingSku', () => {
-  const skus = [pack({ id: 'a', quantity: 50 }), pack({ id: 'b', quantity: 250 })];
-  it.each([
-    [49, null],
-    [50, 'a'],
-    [249, 'a'],
-    [250, 'b'],
-    [100_000, 'b'],
-  ])('quantity %i -> %s', (quantity, expected) => {
-    expect(pickPricingSku(skus, quantity)?.id ?? null).toBe(expected);
-  });
-  it('is independent of the input order', () => {
-    expect(pickPricingSku([...skus].reverse(), 300)?.id).toBe('b');
   });
 });

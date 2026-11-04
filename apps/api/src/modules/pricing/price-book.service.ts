@@ -6,9 +6,12 @@ import {
   COST_MAX_AGE_MS,
   FX_MAX_AGE_MS,
   MoneyError,
+  SIMULATOR_SOURCE,
   costForQuantity,
   maxCostFor,
   priceFromCost,
+  isDerivedFxSource,
+  parseDerivedFxSource,
   unitDisplayPrice,
   type CostCurrency,
 } from '@repo/shared';
@@ -21,13 +24,7 @@ import type {
   PricingSku,
   ProductDisplayPrices,
 } from './price-book.types';
-import {
-  SIMULATOR_SOURCE,
-  isDerivedSource,
-  isFresh,
-  latestAcceptedAt,
-  parseDerivedParents,
-} from './price-sources';
+import { isFresh, latestAcceptedAt } from './price-sources';
 import { PricingRepository, costSnapshotKey } from './pricing.repository';
 
 type Checked<T> =
@@ -43,18 +40,21 @@ function scopeOf(snapshot: CostSnapshot): 'sku' | 'product' {
 
 // The single place that turns stored FX rates and supplier costs into a customer price. It is
 // read-only (the worker writes the inputs) and fails closed: anything missing, stale or
-// simulated in production is PRICE_UNAVAILABLE, never a guess.
+// simulated (unless PRICING_ALLOW_SIMULATED in a non-production env) is PRICE_UNAVAILABLE,
+// never a guess.
 @Injectable()
 export class PriceBookService {
   private readonly logger = new Logger(PriceBookService.name);
-  private readonly production: boolean;
+  private readonly allowSimulated: boolean;
   private readonly toleranceBps: number;
 
   constructor(
     private readonly repository: PricingRepository,
     @Inject(APP_CONFIG) config: AppConfig,
   ) {
-    this.production = config.NODE_ENV === 'production';
+    // Belt and braces: loadEnv already refuses the flag in production, but a config object built
+    // another way must not be able to switch simulated prices on there either.
+    this.allowSimulated = config.PRICING_ALLOW_SIMULATED && config.NODE_ENV !== 'production';
     this.toleranceBps = config.PRICE_TOLERANCE_BPS;
   }
 
@@ -229,8 +229,11 @@ export class PriceBookService {
     if (!isFresh(snapshot.createdAt, now, COST_MAX_AGE_MS)) {
       return { ok: false, reason: 'cost snapshot is stale' };
     }
-    if (this.production && snapshot.source === SIMULATOR_SOURCE) {
-      return { ok: false, reason: 'simulated cost snapshot refused in production' };
+    if (!this.allowSimulated && snapshot.source === SIMULATOR_SOURCE) {
+      return {
+        ok: false,
+        reason: 'simulated cost snapshot refused (simulated prices not allowed)',
+      };
     }
     return { ok: true, value: currency };
   }
@@ -241,28 +244,35 @@ export class PriceBookService {
     if (!isFresh(fx.createdAt, now, FX_MAX_AGE_MS)) {
       return { ok: false, reason: `${pair} rate is stale` };
     }
-    if (this.production && (await this.isSimulated(fx))) {
-      return { ok: false, reason: `simulated ${pair} rate refused in production` };
+    if (!this.allowSimulated && (await this.isSimulated(fx))) {
+      return { ok: false, reason: `simulated ${pair} rate refused (simulated prices not allowed)` };
     }
     return { ok: true, value: fx };
   }
 
   /**
-   * True when a rate is, or was built from, simulator data. A derived rate (TON_UZS) carries
-   * its parents' ids in `source`, so we look the parents up and judge THEM: matching the
+   * True when a rate is, or may have been built from, simulator data. A derived rate (TON_UZS)
+   * carries its parents' ids in `source`, so we look the parents up and judge THEM: matching the
    * derived row's own source alone would let a simulated TON_USDT through. Fails closed: a
-   * derived source we cannot parse, a missing parent or a parent that is itself derived
-   * counts as simulated, because we cannot prove it is not.
+   * derived source we cannot prove well-formed counts as simulated. Well-formed means: it is the
+   * TON_UZS row, it names two DISTINCT parents, the first is a TON_USDT row and the second a
+   * USDT_UZS row, and neither parent is simulator or itself derived.
    */
   private async isSimulated(fx: FxRate): Promise<boolean> {
     if (fx.source === SIMULATOR_SOURCE) return true;
-    if (!isDerivedSource(fx.source)) return false;
-    const parentIds = parseDerivedParents(fx.source);
+    if (!isDerivedFxSource(fx.source)) return false;
+    if (fx.pair !== 'TON_UZS') return true;
+    const parentIds = parseDerivedFxSource(fx.source);
     if (parentIds === null) return true;
+    const [tonUsdtId, usdtUzsId] = parentIds;
+    if (tonUsdtId === usdtUzsId) return true;
     const parents = await this.repository.fxRatesByIds(parentIds);
-    if (parents.length !== new Set(parentIds).size) return true;
-    return parents.some(
-      (parent) => parent.source === SIMULATOR_SOURCE || isDerivedSource(parent.source),
+    const tonUsdt = parents.find((parent) => parent.id === tonUsdtId);
+    const usdtUzs = parents.find((parent) => parent.id === usdtUzsId);
+    if (tonUsdt === undefined || usdtUzs === undefined) return true;
+    if (tonUsdt.pair !== 'TON_USDT' || usdtUzs.pair !== 'USDT_UZS') return true;
+    return [tonUsdt, usdtUzs].some(
+      (parent) => parent.source === SIMULATOR_SOURCE || isDerivedFxSource(parent.source),
     );
   }
 }

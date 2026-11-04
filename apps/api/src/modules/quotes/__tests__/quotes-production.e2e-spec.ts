@@ -8,8 +8,9 @@ import {
   type RowCtx,
 } from './quotes-e2e.rows';
 
-// Price sources are chosen by NODE_ENV: simulated (dry-run) prices are fine in development and
-// test but must never become a customer quote in production. These suites boot the whole app
+// Simulated (dry-run) prices become a customer quote only with the explicit opt-in
+// PRICING_ALLOW_SIMULATED=true outside production; production never accepts them, and neither
+// does a non-production app without the opt-in. These suites boot the whole app
 // (real Postgres, real routes, real PriceBookService) and write FX and cost rows the way the
 // worker does, so the refusal is proven end to end and not only on the service with fakes.
 // Only the config object says "production" (see QuotesE2eOptions): no real secrets involved.
@@ -29,7 +30,7 @@ const PRICE = '550000';
 // app clock to that instant, so the case's row is the newest and every row stays fresh.
 let step = 0;
 
-function register(label: string, t: QuotesE2e<Products>, production: boolean): void {
+function register(label: string, t: QuotesE2e<Products>, refused: boolean): void {
   const quote = async (user: TestUser, product: PackProduct) => {
     const recipientToken = await t.token(user.id, product.id);
     return t.post({ productId: product.id, skuId: product.skuId, recipientToken }, user);
@@ -86,13 +87,13 @@ function register(label: string, t: QuotesE2e<Products>, production: boolean): v
       ],
     ])('%s', (_name, writeFx) => {
       it(
-        production ? 'is refused: 503 PRICE_UNAVAILABLE and no Quote row' : 'is accepted',
+        refused ? 'is refused: 503 PRICE_UNAVAILABLE and no Quote row' : 'is accepted',
         async () => {
           const f = t.fixtures();
           const user = await t.newUser();
           await writeFx();
           const res = await quote(user, f.real);
-          if (production) {
+          if (refused) {
             expect([res.status, res.body.error?.code]).toEqual([503, 'PRICE_UNAVAILABLE']);
             expect(res.headers['cache-control']).toBe('no-store');
             expect(await quoteCount(user.id)).toBe(0);
@@ -105,7 +106,7 @@ function register(label: string, t: QuotesE2e<Products>, production: boolean): v
     });
 
     it(
-      production
+      refused
         ? 'a simulator cost snapshot is refused even with a real rate'
         : 'a simulator cost snapshot is accepted',
       async () => {
@@ -113,7 +114,7 @@ function register(label: string, t: QuotesE2e<Products>, production: boolean): v
         const user = await t.newUser();
         await withFx('cbu');
         const res = await quote(user, f.simulatedCost);
-        if (production) {
+        if (refused) {
           expect([res.status, res.body.error?.code]).toEqual([503, 'PRICE_UNAVAILABLE']);
           expect(await quoteCount(user.id)).toBe(0);
         } else {
@@ -123,7 +124,7 @@ function register(label: string, t: QuotesE2e<Products>, production: boolean): v
     );
 
     it(
-      production
+      refused
         ? 'the catalog shows no price for what the quote refuses, still as a 200'
         : 'the catalog shows the simulated price',
       async () => {
@@ -132,7 +133,7 @@ function register(label: string, t: QuotesE2e<Products>, production: boolean): v
         const res = await t.get(`/catalog/products/${f.real.slug}`);
         expect(res.status).toBe(200);
         const skus = (res.body.data as { skus: { fromPriceTiyin: string | null }[] }).skus;
-        expect(skus.map((sku) => sku.fromPriceTiyin)).toEqual([production ? null : PRICE]);
+        expect(skus.map((sku) => sku.fromPriceTiyin)).toEqual([refused ? null : PRICE]);
       },
     );
   });
@@ -156,10 +157,20 @@ async function build(ctx: BuildCtx): Promise<Products> {
   return { real, simulatedCost };
 }
 
+// The test env builder sets PRICING_ALLOW_SIMULATED=true, so this one proves the NODE_ENV check
+// on its own (the flag cannot unlock production).
 describe('simulated prices with NODE_ENV=production (e2e)', () => {
   register('production', useQuotesE2e(build, { config: { NODE_ENV: 'production' } }), true);
 });
 
-describe('the same inputs outside production (control: the refusal comes from NODE_ENV)', () => {
-  register('NODE_ENV=test', useQuotesE2e(build), false);
+describe('simulated prices with PRICING_ALLOW_SIMULATED=false outside production (e2e)', () => {
+  register(
+    'opt-in off',
+    useQuotesE2e(build, { config: { NODE_ENV: 'development', PRICING_ALLOW_SIMULATED: false } }),
+    true,
+  );
+});
+
+describe('the same inputs with the opt-in (control: the refusal comes from the config)', () => {
+  register('opt-in on', useQuotesE2e(build), false);
 });

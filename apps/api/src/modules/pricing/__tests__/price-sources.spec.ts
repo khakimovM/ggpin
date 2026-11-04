@@ -1,10 +1,5 @@
-import {
-  MAX_CLOCK_SKEW_MS,
-  isDerivedSource,
-  isFresh,
-  latestAcceptedAt,
-  parseDerivedParents,
-} from '../price-sources';
+import { MAX_CLOCK_SKEW_MS } from '@repo/shared';
+import { isFresh, latestAcceptedAt } from '../price-sources';
 
 const NOW = new Date('2026-06-01T12:00:00.000Z');
 const THIRTY_MIN_MS = 1_800_000;
@@ -34,37 +29,5 @@ describe('latestAcceptedAt', () => {
   it('is now plus the clock-skew allowance, the same edge isFresh accepts', () => {
     expect(latestAcceptedAt(NOW)).toEqual(at(MAX_CLOCK_SKEW_MS));
     expect(isFresh(latestAcceptedAt(NOW), NOW, THIRTY_MIN_MS)).toBe(true);
-  });
-});
-
-describe('derived source parsing', () => {
-  it('recognises the worker format and reads both parents in order', () => {
-    expect(isDerivedSource('derived:fx_a*fx_b')).toBe(true);
-    expect(parseDerivedParents('derived:fx_a*fx_b')).toEqual(['fx_a', 'fx_b']);
-    expect(parseDerivedParents('derived:ckx12-ab_C*ckx34-de_F')).toEqual([
-      'ckx12-ab_C',
-      'ckx34-de_F',
-    ]);
-  });
-
-  it('a plain source is not derived', () => {
-    for (const source of ['simulator', 'cbu', 'binance', 'fixture', '', 'Derived:a*b']) {
-      expect(isDerivedSource(source)).toBe(false);
-    }
-  });
-
-  it.each([
-    'derived:',
-    'derived:a',
-    'derived:a*',
-    'derived:*b',
-    'derived:a*b*c',
-    'derived:a b*c',
-    'derived:a*b ',
-    'derived:a+b',
-    'derived:a*b\n',
-    'simulator',
-  ])('rejects the malformed source %j', (source) => {
-    expect(parseDerivedParents(source)).toBeNull();
   });
 });

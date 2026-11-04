@@ -186,4 +186,35 @@ describe('toDetail', () => {
       toDetail(row({ inputSchema: [{ key: 'x', type: 'nope' }] }), 'uz', PRICES, null),
     ).toThrow();
   });
+
+  describe('custom quantity range (the same one the quote enforces)', () => {
+    const skuOf = (id: string, quantity: number) => {
+      const [base] = row().skus;
+      if (base === undefined) throw new Error('fixture has a pack');
+      return { ...base, id, quantity };
+    };
+    const range = (overrides: Partial<CatalogProductRow>) => {
+      const detail = toDetail(row(overrides), 'uz', PRICES, null);
+      return [detail.allowCustomQty, detail.minQty, detail.maxQty];
+    };
+
+    it('is the stored bounds when the smallest active pack is not above them', () => {
+      expect(range({})).toEqual([true, 50, 100_000]);
+    });
+
+    it('min is raised to the smallest active pack', () => {
+      expect(range({ skus: [skuOf('a', 100), skuOf('b', 500)] })).toEqual([true, 100, 100_000]);
+    });
+
+    it('is switched off when no active pack can price a custom quantity', () => {
+      expect(range({ skus: [skuOf('a', 200_000)] })).toEqual([false, null, null]);
+      expect(range({ skus: [] })).toEqual([false, null, null]);
+    });
+
+    it('stays off for fixed-pack products and products without a range', () => {
+      expect(range({ allowCustomQty: false })).toEqual([false, null, null]);
+      expect(range({ minQty: null })).toEqual([false, null, null]);
+      expect(range({ maxQty: null })).toEqual([false, null, null]);
+    });
+  });
 });

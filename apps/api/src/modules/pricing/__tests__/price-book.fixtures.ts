@@ -1,8 +1,10 @@
+import { Logger } from '@nestjs/common';
 import type { CostSnapshot, FxRate } from '@repo/db';
+import { AppError } from '../../../common/exceptions/app-error';
 import type { AppConfig } from '../../../config/config.module';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
 import { PriceBookService } from '../price-book.service';
-import type { PricingSku } from '../price-book.types';
+import type { PriceRequest, PricingSku } from '../price-book.types';
 import { costSnapshotKey, type PricingRepository } from '../pricing.repository';
 
 export const NOW = new Date('2026-06-01T12:00:00.000Z');
@@ -93,4 +95,36 @@ export function bookWith(book: FakeBook): PricingRepository {
 // production-only env checks (https origins, 32-char secrets) that loadEnv enforces.
 export function priceBook(book: FakeBook, overrides: Partial<AppConfig> = {}): PriceBookService {
   return new PriceBookService(bookWith(book), { ...buildTestEnv(), ...overrides });
+}
+
+export const STARS = { id: 'p_stars' };
+
+// Refusals log a warning; keep the test output readable. Call once at the top of a spec file.
+export function silenceRefusalLogs(): void {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+}
+
+export function request(overrides: Partial<PriceRequest> = {}): PriceRequest {
+  return {
+    product: STARS,
+    pricingSku: pack(),
+    sku: { id: 'sku_50' },
+    quantity: 50,
+    now: NOW,
+    ...overrides,
+  };
+}
+
+export async function failure(promise: Promise<unknown>): Promise<AppError> {
+  const error: unknown = await promise.then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  if (!(error instanceof AppError)) throw new Error('expected an AppError');
+  return error;
 }

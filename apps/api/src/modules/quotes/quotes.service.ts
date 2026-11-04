@@ -6,7 +6,7 @@ import { AppError } from '../../common/exceptions/app-error';
 import { FixedWindowCounter } from '../../infra/redis/fixed-window-counter';
 import { PriceBookService } from '../pricing/price-book.service';
 import type { PricingSku } from '../pricing/price-book.types';
-import { pickPricingSku } from '../pricing/pricing-sku';
+import { customQtyRange, pickPricingSku } from '../pricing/pricing-sku';
 import { RecipientTokenStore } from '../recipients/recipient-token.store';
 import { toQuoteResponse } from './entities/quote.mapper';
 import { QuotesRepository, type QuoteProduct } from './quotes.repository';
@@ -109,17 +109,26 @@ export class QuotesService {
     }
 
     const { quantity } = body;
-    const { allowCustomQty, minQty, maxQty } = product;
-    // `null` bounds mean "no custom quantity for this product" (a fixed-pack product, or one
-    // switched on without a range): clients get the same details shape either way.
-    const customRange =
-      allowCustomQty && minQty !== null && maxQty !== null ? { min: minQty, max: maxQty } : null;
+    const activeSkus = product.skus.map(toPricingSku);
+    // The same range the catalog advertises. `null` means "no custom quantity for this product"
+    // (fixed packs, no range, or no active pack to price from): same details shape either way.
+    const customRange = customQtyRange(product, activeSkus);
     const outOfRange = (): AppError =>
-      new AppError('QTY_OUT_OF_RANGE', customRange ?? { min: null, max: null });
+      new AppError(
+        'QTY_OUT_OF_RANGE',
+        customRange === null
+          ? { min: null, max: null }
+          : { min: customRange.min, max: customRange.max },
+      );
     if (quantity === undefined || customRange === null) throw outOfRange();
     if (quantity < customRange.min || quantity > customRange.max) throw outOfRange();
 
-    const pricingSku = pickPricingSku(product.skus.map(toPricingSku), quantity);
+    // Typing the size of a pack costs what tapping that pack costs.
+    const exactPack = activeSkus.find((candidate) => candidate.quantity === quantity);
+    if (exactPack !== undefined) {
+      return { pricingSku: exactPack, sku: { id: exactPack.id }, quantity };
+    }
+    const pricingSku = pickPricingSku(activeSkus, quantity);
     if (pricingSku === null) throw outOfRange();
     return { pricingSku, sku: null, quantity };
   }

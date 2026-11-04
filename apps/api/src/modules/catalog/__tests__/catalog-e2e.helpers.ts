@@ -8,35 +8,19 @@ import { createHttpAdapter } from '../../../common/http/create-http-adapter';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
+import type { ApiResponse, Envelope } from './catalog-e2e.types';
+
+export type {
+  ApiResponse,
+  CategoryOut,
+  DetailOut,
+  Envelope,
+  ProductOut,
+} from './catalog-e2e.types';
+
 const API = '/api/v1/catalog';
 const MINUTE_MS = 60_000;
 const STALE_AFTER_MS = 30 * MINUTE_MS;
-
-export interface Envelope {
-  readonly success: boolean;
-  readonly data?: unknown;
-  readonly meta?: unknown;
-  readonly error?: { readonly code: string };
-}
-export interface CategoryOut {
-  readonly slug: string;
-  readonly name: string;
-  readonly productCount: number;
-}
-export interface ProductOut {
-  readonly slug: string;
-  readonly name: string;
-  readonly fromPriceTiyin: string | null;
-  readonly inStock: boolean;
-}
-export interface DetailOut {
-  readonly name: string;
-  readonly description: string | null;
-  readonly help: string | null;
-  readonly stock: number | null;
-  readonly unitPriceTiyin: string | null;
-  readonly skus: readonly { readonly label: string; readonly fromPriceTiyin: string | null }[];
-}
 
 export interface CatalogE2e {
   readonly get: (path: string) => Promise<ApiResponse>;
@@ -55,12 +39,6 @@ export interface CatalogE2e {
   readonly base: Date;
   /** Age at which a price is still fresh; one millisecond more and it is stale. */
   readonly stalePointMs: number;
-}
-
-export interface ApiResponse {
-  readonly status: number;
-  readonly headers: Record<string, unknown>;
-  readonly body: Envelope;
 }
 
 // Boots the real app on the *_test database with a movable clock. Fixtures are created here and

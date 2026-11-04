@@ -1,5 +1,5 @@
 import type { Quote } from '@repo/db';
-import { RecipientSchema, type QuoteResponse } from '@repo/shared';
+import { RecipientSchema, totalAfterDiscount, type QuoteResponse } from '@repo/shared';
 
 // Phase 3 has no discounts (a discountCode is refused with CODE_INVALID); phase 10 stores the
 // applied amount and replaces this constant.
@@ -15,7 +15,7 @@ export function toQuoteResponse(row: Quote): QuoteResponse {
     quoteId: row.id,
     priceTiyin: row.priceTiyin.toString(),
     discountTiyin: NO_DISCOUNT_TIYIN.toString(),
-    totalTiyin: (row.priceTiyin - NO_DISCOUNT_TIYIN).toString(),
+    totalTiyin: totalAfterDiscount(row.priceTiyin, NO_DISCOUNT_TIYIN).toString(),
     expiresAt: row.expiresAt.toISOString(),
     recipient: { username: recipient.username, displayName: recipient.displayName },
     currency: 'UZS',
