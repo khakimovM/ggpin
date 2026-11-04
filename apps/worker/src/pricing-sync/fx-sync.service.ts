@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FX_MAX_JUMP_BPS, multiplyRates, type FxPair } from '@repo/shared';
+import { FX_MAX_JUMP_BPS, derivedFxSource, multiplyRates, type FxPair } from '@repo/shared';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { exceedsJumpLimit } from './fx-jump-guard';
 import {
@@ -15,6 +15,7 @@ import {
   type FxRateStore,
   type StoredFxRate,
 } from './pricing-sync.repository';
+import { storedSourceLabel } from './source-label';
 
 export interface FxSyncResult {
   /** Pairs stored in this run, TON_UZS last when it was derived. */
@@ -41,12 +42,23 @@ export class FxSyncService {
     @Inject(PricingSyncRepository) private readonly repository: FxRateStore,
   ) {}
 
-  async run(): Promise<FxSyncResult> {
+  /**
+   * `now` is the caller's clock (the processor passes `new Date()`); it bounds which stored row
+   * the jump guard may compare with, and is a parameter so tests can pin it.
+   */
+  async run(now: Date): Promise<FxSyncResult> {
     // Fails closed: with dry-run off there is no real source yet, so nothing is written and
     // quotes stop once the last rates pass FX_MAX_AGE_MS (30 min). Never fake data in that mode.
     if (this.source.simulated && !this.config.FULFILLMENT_DRY_RUN) {
       this.logger.error(
         'fx sync: no real FX source is configured and FULFILLMENT_DRY_RUN=false; nothing written',
+      );
+      return NOTHING;
+    }
+    const label = storedSourceLabel(this.source);
+    if (label === null) {
+      this.logger.error(
+        `fx sync: a real FX source may not be named ${JSON.stringify(this.source.name)} (empty, simulator and derived: are reserved); nothing written`,
       );
       return NOTHING;
     }
@@ -60,7 +72,7 @@ export class FxSyncService {
         skipped.push(pair);
         continue;
       }
-      const last = await this.repository.latestFxRate(pair);
+      const last = await this.repository.latestFxRate(pair, now);
       if (last !== null && exceedsJumpLimit(pair, last.rate, quote.rate)) {
         // Rates are public market data, not secrets; the values help the operator judge.
         this.logger.warn(
@@ -79,7 +91,7 @@ export class FxSyncService {
     const written = await this.repository.writeFxRates(async (insert) => {
       const rows = new Map<SourcedFxPair, StoredFxRate>();
       for (const { pair, rate } of accepted) {
-        rows.set(pair, await insert({ pair, rate, source: this.source.name }));
+        rows.set(pair, await insert({ pair, rate, source: label }));
       }
       const pairs: FxPair[] = [...rows.keys()];
       const tonUsdt = rows.get('TON_USDT');
@@ -89,7 +101,8 @@ export class FxSyncService {
           pair: 'TON_UZS',
           // Used for COST conversion, so the 18-decimal cut rounds up (never undercharges).
           rate: multiplyRates(tonUsdt.rate, usdtUzs.rate, 'up'),
-          source: `derived:${tonUsdt.id}*${usdtUzs.id}`,
+          // Shared helper: the API parses this exact format to judge the parents.
+          source: derivedFxSource(tonUsdt.id, usdtUzs.id),
         });
         pairs.push('TON_UZS');
       }

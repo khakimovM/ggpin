@@ -27,14 +27,20 @@ const premium = candidate({
 
 /** A source that returns fixed lines, to exercise the service's own validation. */
 class StubSource implements CostSource {
-  readonly adapter = 'FRAGMENT';
-  readonly name = 'stub';
-  readonly simulated = true;
-  constructor(private readonly lines: readonly CostLine[] | Error) {}
+  costsCalls = 0;
+  constructor(
+    private readonly lines: readonly CostLine[] | Error,
+    readonly simulated = true,
+    readonly name = 'stub',
+    readonly adapter = 'FRAGMENT',
+  ) {}
   costs(): Promise<readonly CostLine[]> {
+    this.costsCalls += 1;
     return this.lines instanceof Error ? Promise.reject(this.lines) : Promise.resolve(this.lines);
   }
 }
+
+const oneStar: CostLine[] = [{ skuId: null, basisQuantity: 1, currency: 'TON', costMinor: 7n }];
 
 describe('CostSyncService', () => {
   let warn: jest.SpyInstance;
@@ -140,9 +146,66 @@ describe('CostSyncService', () => {
     const store = new FakeCostStore([premium]);
     expect(await run(store, true, [source])).toEqual({ products: 1, snapshots: 1 });
     expect(store.inserted).toEqual([
-      expect.objectContaining({ skuId: 'm-3', basisQuantity: 3, costMinor: 1n, source: 'stub' }),
+      expect.objectContaining({ skuId: 'm-3', basisQuantity: 3, costMinor: 1n }),
     ]);
     expect(warn).toHaveBeenCalledTimes(7);
+  });
+
+  describe('stored label follows the simulated flag, not the name', () => {
+    it.each(['stub', 'reseller-api', '', 'derived:a*b'])(
+      'a simulated source named %p writes source "simulator"',
+      async (name) => {
+        const store = new FakeCostStore([stars]);
+        await run(store, true, [new StubSource(oneStar, true, name)]);
+        expect(store.inserted).toEqual([expect.objectContaining({ source: 'simulator' })]);
+        expect(error).not.toHaveBeenCalled();
+      },
+    );
+
+    it('a real source writes its own name', async () => {
+      const store = new FakeCostStore([stars]);
+      await run(store, false, [new StubSource(oneStar, false, 'fragment-live')]);
+      expect(store.inserted).toEqual([expect.objectContaining({ source: 'fragment-live' })]);
+    });
+
+    it.each([
+      ['simulator', true],
+      ['simulator', false],
+      ['SIMULATOR', true],
+      ['derived:x*y', true],
+      ['', true],
+      ['  ', false],
+    ])(
+      'a real source named %p is refused (dry-run=%p): not asked, nothing written, one error',
+      async (name, dryRun) => {
+        const store = new FakeCostStore([stars]);
+        const source = new StubSource(oneStar, false, name);
+        expect(await run(store, dryRun, [source])).toEqual({ products: 0, snapshots: 0 });
+        expect(store.inserted).toEqual([]);
+        expect(source.costsCalls).toBe(0);
+        expect(store.listCalls).toBe(0);
+        expect(error).toHaveBeenCalledTimes(1);
+        expect(error).toHaveBeenCalledWith(expect.stringContaining('reserved name'));
+      },
+    );
+
+    it('refuses only the bad source; another adapter still writes, still one error', async () => {
+      const reseller = candidate({
+        productId: 'p-reseller',
+        allowCustomQty: true,
+        routes: [{ adapter: 'RESELLER_STARS', isEnabled: true }],
+      });
+      const store = new FakeCostStore([stars, reseller]);
+      const bad = new StubSource(oneStar, false, 'simulator', 'FRAGMENT');
+      const good = new StubSource(oneStar, false, 'reseller-api', 'RESELLER_STARS');
+
+      expect(await run(store, true, [bad, good])).toEqual({ products: 1, snapshots: 1 });
+      expect(store.inserted).toEqual([
+        expect.objectContaining({ productId: 'p-reseller', source: 'reseller-api' }),
+      ]);
+      expect(bad.costsCalls).toBe(0);
+      expect(error).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('a failing source skips only that product and its error text is scrubbed', async () => {

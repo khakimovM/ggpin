@@ -28,9 +28,12 @@ export interface CostLine {
 export interface CostSource {
   /** ProductRoute.adapter this source prices; written to CostSnapshot.adapter. */
   readonly adapter: string;
-  /** Written to CostSnapshot.source. The API refuses `simulator` rows in production (Q15). */
+  /**
+   * CostSnapshot.source of a REAL source's rows (see storedSourceLabel: reserved names are
+   * refused). A simulated source's rows always get SIMULATOR_SOURCE, refused in production.
+   */
   readonly name: string;
-  /** Fake data. A simulated source is used only while FULFILLMENT_DRY_RUN=true. */
+  /** Fake data. Used only while FULFILLMENT_DRY_RUN=true; decides the stored label. */
   readonly simulated: boolean;
   costs(product: CostProduct): Promise<readonly CostLine[]>;
 }

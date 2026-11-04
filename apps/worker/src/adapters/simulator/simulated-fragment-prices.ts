@@ -1,10 +1,10 @@
+import { SIMULATOR_SOURCE } from '@repo/shared';
 import {
   FRAGMENT_ADAPTER,
   type CostLine,
   type CostProduct,
   type CostSource,
 } from '../../pricing-sync/cost-sources/cost-source';
-import { SIMULATOR_SOURCE } from '../../pricing-sync/fx-sources/simulated-fx.source';
 
 /**
  * FAKE Fragment prices for dev/test (FULFILLMENT_DRY_RUN=true only). NOT Fragment's real

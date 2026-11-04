@@ -19,9 +19,12 @@ export interface FxQuote {
  * no external URL); a real exchange source implements this same interface later.
  */
 export interface FxSource {
-  /** Written to FxRate.source. The API refuses `simulator` rates in production (Q15). */
+  /**
+   * FxRate.source of a REAL source's rows (see storedSourceLabel: reserved names are refused).
+   * A simulated source's rows always get SIMULATOR_SOURCE, which the API refuses in production.
+   */
   readonly name: string;
-  /** Fake data. A simulated source is used only while FULFILLMENT_DRY_RUN=true. */
+  /** Fake data. Used only while FULFILLMENT_DRY_RUN=true; decides the stored label. */
   readonly simulated: boolean;
   /**
    * Raw quotes. Typed `unknown` on purpose: whatever a source returns is untrusted input and the

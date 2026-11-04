@@ -13,6 +13,13 @@ import {
   type CostSnapshotStore,
   type NewCostSnapshot,
 } from './pricing-sync.repository';
+import { storedSourceLabel } from './source-label';
+
+/** A source cleared to write this run, with the label its rows carry. */
+interface UsableSource {
+  readonly source: CostSource;
+  readonly label: string;
+}
 
 export interface CostSyncResult {
   readonly products: number;
@@ -62,15 +69,7 @@ export class CostSyncService {
   ) {}
 
   async run(): Promise<CostSyncResult> {
-    // Fails closed like the FX sync: fake prices only in dry-run. A refused simulator leaves its
-    // products without fresh snapshots, so quotes for them stop after COST_MAX_AGE_MS.
-    const usable = this.sources.filter((s) => !s.simulated || this.config.FULFILLMENT_DRY_RUN);
-    if (usable.length < this.sources.length) {
-      const refused = this.sources.filter((s) => !usable.includes(s)).map((s) => s.adapter);
-      this.logger.error(
-        `cost sync: no real cost source for ${refused.join(', ')} and FULFILLMENT_DRY_RUN=false; nothing written for those products`,
-      );
-    }
+    const usable = this.usableSources();
     if (usable.length === 0) return { products: 0, snapshots: 0 };
 
     const rows: NewCostSnapshot[] = [];
@@ -78,8 +77,9 @@ export class CostSyncService {
     for (const candidate of await this.repository.listCostCandidates()) {
       if (!candidate.isActive) continue;
       const adapter = firstEnabledAdapter(candidate);
-      const source = usable.find((s) => s.adapter === adapter);
-      if (source === undefined) continue;
+      const match = usable.find((u) => u.source.adapter === adapter);
+      if (match === undefined) continue;
+      const { source, label } = match;
       const product: CostProduct = {
         productId: candidate.productId,
         allowCustomQty: candidate.allowCustomQty,
@@ -94,7 +94,7 @@ export class CostSyncService {
         rows.push({
           productId: product.productId,
           adapter: source.adapter,
-          source: source.name,
+          source: label,
           ...line,
         });
       }
@@ -103,6 +103,38 @@ export class CostSyncService {
     const snapshots = await this.repository.insertCostSnapshots(rows);
     this.logger.log(`cost sync: wrote ${snapshots} snapshot(s) for ${products} product(s)`);
     return { products, snapshots };
+  }
+
+  /**
+   * Fails closed, like the FX sync: fake prices only in dry-run, and a real source may not carry
+   * a name the API reads as simulated/derived. A refused source leaves its products without fresh
+   * snapshots, so quotes for them stop after COST_MAX_AGE_MS. One error line per run.
+   */
+  private usableSources(): UsableSource[] {
+    const usable: UsableSource[] = [];
+    const refused: string[] = [];
+    for (const source of this.sources) {
+      if (source.simulated && !this.config.FULFILLMENT_DRY_RUN) {
+        refused.push(
+          `${source.adapter} (simulated, no real cost source and FULFILLMENT_DRY_RUN=false)`,
+        );
+        continue;
+      }
+      const label = storedSourceLabel(source);
+      if (label === null) {
+        refused.push(
+          `${source.adapter} (real source with reserved name ${JSON.stringify(source.name)})`,
+        );
+        continue;
+      }
+      usable.push({ source, label });
+    }
+    if (refused.length > 0) {
+      this.logger.error(
+        `cost sync: refused cost source(s) ${refused.join(', ')}; nothing written for those products`,
+      );
+    }
+    return usable;
   }
 
   // One product's failure must not stop the others; a real source's error text may carry a URL

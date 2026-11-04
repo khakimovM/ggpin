@@ -2,13 +2,14 @@ import type { FxPair } from '@repo/shared';
 import { buildTestEnv } from '../../config/__tests__/test-env';
 import type { WorkerConfig } from '../../config/config.module';
 import type { FxSource } from '../fx-sources/fx-source';
-import type {
-  CostCandidate,
-  CostSnapshotStore,
-  FxRateStore,
-  NewCostSnapshot,
-  NewFxRate,
-  StoredFxRate,
+import {
+  latestAnchorCreatedAt,
+  type CostCandidate,
+  type CostSnapshotStore,
+  type FxRateStore,
+  type NewCostSnapshot,
+  type NewFxRate,
+  type StoredFxRate,
 } from '../pricing-sync.repository';
 
 export const dryRunConfig = (dryRun: boolean): WorkerConfig =>
@@ -19,12 +20,21 @@ export class FakeFxStore implements FxRateStore {
   readonly rows: (NewFxRate & StoredFxRate)[] = [];
   private nextId = 1;
 
-  seed(pair: FxPair, rate: string): void {
-    this.rows.push({ id: `seed-${pair}`, pair, rate, source: 'seed', createdAt: new Date(0) });
+  /** The `now` of every latestFxRate call, to prove the service passes its clock through. */
+  readonly latestCalls: { pair: FxPair; now: Date }[] = [];
+
+  seed(pair: FxPair, rate: string, createdAt = new Date(0), id = `seed-${pair}`): void {
+    this.rows.push({ id, pair, rate, source: 'seed', createdAt });
   }
 
-  latestFxRate(pair: FxPair): Promise<StoredFxRate | null> {
-    const rows = this.rows.filter((row) => row.pair === pair);
+  // Same contract as the repository: the newest row not stamped past latestAnchorCreatedAt(now).
+  // The real query is proven on Postgres in price-sync.e2e-spec.ts.
+  latestFxRate(pair: FxPair, now: Date): Promise<StoredFxRate | null> {
+    this.latestCalls.push({ pair, now });
+    const bound = latestAnchorCreatedAt(now).getTime();
+    const rows = this.rows
+      .filter((row) => row.pair === pair && row.createdAt.getTime() <= bound)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     return Promise.resolve(rows.at(-1) ?? null);
   }
 
@@ -48,13 +58,17 @@ export class FakeFxStore implements FxRateStore {
   }
 }
 
+/**
+ * Named 'fake-fx' by default, NOT 'simulator': a simulated source's rows must be labelled
+ * 'simulator' because of its flag, whatever its name.
+ */
 export class FakeFxSource implements FxSource {
-  readonly name = 'simulator';
   fetchCalls = 0;
 
   constructor(
     private readonly quotes: readonly unknown[],
     readonly simulated = true,
+    readonly name = 'fake-fx',
   ) {}
 
   fetchRates(): Promise<readonly unknown[]> {

@@ -24,9 +24,16 @@ describe('PriceSyncProcessor', () => {
     const fxRun = jest.spyOn(fx, 'run').mockResolvedValue({ written: [], skipped: [] });
     const costRun = jest.spyOn(cost, 'run').mockResolvedValue({ products: 0, snapshots: 0 });
 
+    const before = Date.now();
     await processor.process(jobNamed('fx'));
     expect(fxRun).toHaveBeenCalledTimes(1);
     expect(costRun).not.toHaveBeenCalled();
+    // The FX run gets the current time: it bounds the jump guard's comparison row.
+    const now: unknown = fxRun.mock.calls[0]?.[0];
+    expect(now).toBeInstanceOf(Date);
+    expect(now instanceof Date && now.getTime() >= before && now.getTime() <= Date.now()).toBe(
+      true,
+    );
 
     await processor.process(jobNamed('cost'));
     expect(costRun).toHaveBeenCalledTimes(1);

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { FxPair } from '@repo/shared';
+import { MAX_CLOCK_SKEW_MS, type FxPair } from '@repo/shared';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import type { CostCurrency } from './cost-sources/cost-source';
 
@@ -44,16 +44,28 @@ export interface NewCostSnapshot {
 
 const FX_RATE_FIELDS = { id: true, pair: true, rate: true, createdAt: true } as const;
 
+/**
+ * The newest createdAt a jump-guard anchor may have: `now` plus the clock skew the API also
+ * tolerates. A row stamped further ahead is a bad write; as "newest" it would otherwise block
+ * every correct rate (or anchor a wrong one) until real time caught up with it.
+ */
+export function latestAnchorCreatedAt(now: Date): Date {
+  return new Date(now.getTime() + MAX_CLOCK_SKEW_MS);
+}
+
 // FxRate and CostSnapshot are immutable (UPDATE is refused by a trigger): this repository only
 // ever inserts and reads.
 @Injectable()
 export class PricingSyncRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** The newest stored rate of `pair`, whatever its source; the jump guard compares to it. */
-  latestFxRate(pair: FxPair): Promise<StoredFxRate | null> {
+  /**
+   * The newest stored rate of `pair`, whatever its source, not stamped more than
+   * MAX_CLOCK_SKEW_MS after `now`; the jump guard compares to it.
+   */
+  latestFxRate(pair: FxPair, now: Date): Promise<StoredFxRate | null> {
     return this.prisma.client.fxRate.findFirst({
-      where: { pair },
+      where: { pair, createdAt: { lte: latestAnchorCreatedAt(now) } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: FX_RATE_FIELDS,
     });

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { createPrismaClient, type PrismaClient } from '@repo/db';
@@ -24,94 +23,10 @@ import {
   deleteSyncedPriceRows,
   resetPriceSyncQueue,
 } from './price-sync-e2e-cleanup';
+import { createFixtures, deleteFixtures, type Fixtures } from './price-sync-e2e-fixtures';
 
 // Real ggpin_test Postgres + Redis DB 15. Run through the e2e lock: the cost sync reads every
 // product in the database. Fixtures carry a per-run suffix and are removed afterwards.
-const RUN = randomUUID().slice(0, 8);
-
-interface Fixtures {
-  categoryId: string;
-  starsId: string;
-  premiumId: string;
-  premiumSkus: Record<'m3' | 'm6' | 'm12', string>;
-  inactiveId: string;
-  otherRouteId: string;
-}
-
-async function createFixtures(prisma: PrismaClient): Promise<Fixtures> {
-  const category = await prisma.category.create({
-    data: { slug: `e2e-ps-${RUN}`, nameUz: 'Test', nameRu: 'Тест' },
-  });
-  const product = (slug: string, extra: { isActive?: boolean; allowCustomQty?: boolean }) =>
-    prisma.product.create({
-      data: {
-        slug: `e2e-ps-${slug}-${RUN}`,
-        categoryId: category.id,
-        nameUz: slug,
-        nameRu: slug,
-        imageUrl: '/e2e.png',
-        deliveryType: 'TG_USERNAME',
-        inputSchema: [],
-        isActive: extra.isActive ?? true,
-        allowCustomQty: extra.allowCustomQty ?? false,
-        ...(extra.allowCustomQty === true ? { minQty: 50, maxQty: 100_000 } : {}),
-      },
-    });
-  const sku = async (productId: string, quantity: number, isActive = true) =>
-    (
-      await prisma.sku.create({
-        data: {
-          productId,
-          labelUz: `${quantity}`,
-          labelRu: `${quantity}`,
-          quantity,
-          markupBps: 1000,
-          isActive,
-        },
-      })
-    ).id;
-  const route = (productId: string, adapter: string, priority: number, isEnabled = true) =>
-    prisma.productRoute.create({ data: { productId, adapter, priority, isEnabled } });
-
-  const stars = await product('stars', { allowCustomQty: true });
-  await sku(stars.id, 50);
-  await route(stars.id, 'FRAGMENT', 1);
-  await route(stars.id, 'RESELLER_STARS', 2);
-
-  const premium = await product('premium', {});
-  const premiumSkus = {
-    m3: await sku(premium.id, 3),
-    m6: await sku(premium.id, 6),
-    m12: await sku(premium.id, 12, false),
-  };
-  await route(premium.id, 'RESELLER_STARS', 1, false);
-  await route(premium.id, 'FRAGMENT', 2);
-
-  const inactive = await product('inactive', { isActive: false, allowCustomQty: true });
-  await route(inactive.id, 'FRAGMENT', 1);
-
-  const otherRoute = await product('other', { allowCustomQty: true });
-  await route(otherRoute.id, 'RESELLER_STARS', 1);
-  await route(otherRoute.id, 'FRAGMENT', 2);
-
-  return {
-    categoryId: category.id,
-    starsId: stars.id,
-    premiumId: premium.id,
-    premiumSkus,
-    inactiveId: inactive.id,
-    otherRouteId: otherRoute.id,
-  };
-}
-
-async function deleteFixtures(prisma: PrismaClient, f: Fixtures): Promise<void> {
-  const productId = { in: [f.starsId, f.premiumId, f.inactiveId, f.otherRouteId] };
-  await prisma.costSnapshot.deleteMany({ where: { productId } });
-  await prisma.productRoute.deleteMany({ where: { productId } });
-  await prisma.sku.deleteMany({ where: { productId } });
-  await prisma.product.deleteMany({ where: { id: productId } });
-  await prisma.category.delete({ where: { id: f.categoryId } });
-}
 
 /** The sync services on the real database, without the scheduler/processor (no background runs). */
 async function syncModule(env: Env): Promise<TestingModule> {
@@ -162,7 +77,7 @@ describe('price sync on the real database (dry-run simulator)', () => {
     await anchor('USDT_UZS', '12650');
     await anchor('TON_USDT', '3.2');
 
-    const result = await moduleRef.get(FxSyncService).run();
+    const result = await moduleRef.get(FxSyncService).run(new Date());
 
     expect(result).toEqual({ written: ['USDT_UZS', 'TON_USDT', 'TON_UZS'], skipped: [] });
     const usdtUzs = await latest('USDT_UZS');
@@ -218,11 +133,44 @@ describe('price sync on the real database (dry-run simulator)', () => {
     const anchorRow = await anchor('USDT_UZS', '20000');
     const tonUzsBefore = await latest('TON_UZS');
 
-    const result = await moduleRef.get(FxSyncService).run();
+    const result = await moduleRef.get(FxSyncService).run(new Date());
 
     expect(result).toEqual({ written: ['TON_USDT'], skipped: ['USDT_UZS'] });
     expect((await latest('USDT_UZS'))?.id).toBe(anchorRow.id);
     expect((await latest('TON_UZS'))?.id).toBe(tonUzsBefore?.id);
+  });
+
+  it('the jump guard ignores rows stamped more than MAX_CLOCK_SKEW_MS ahead, not nearer ones', async () => {
+    const now = new Date();
+    const stampedAt = (offsetMs: number, rate: string) =>
+      prisma.fxRate.create({
+        data: {
+          pair: 'USDT_UZS',
+          rate,
+          source: E2E_FX_SOURCE,
+          createdAt: new Date(now.getTime() + offsetMs),
+        },
+      });
+    await anchor('USDT_UZS', '12650');
+    const ids: string[] = [];
+    try {
+      // An hour ahead and far off: as the anchor it would block the correct 12650.
+      ids.push((await stampedAt(3_600_000, '50000')).id);
+      expect(await moduleRef.get(FxSyncService).run(now)).toEqual({
+        written: ['USDT_UZS', 'TON_USDT', 'TON_UZS'],
+        skipped: [],
+      });
+
+      // 30 s ahead is within the tolerated skew: still the anchor, so 12650 is blocked.
+      ids.push((await stampedAt(30_000, '20000')).id);
+      expect(await moduleRef.get(FxSyncService).run(now)).toEqual({
+        written: ['TON_USDT'],
+        skipped: ['USDT_UZS'],
+      });
+    } finally {
+      // Future rows would stay "latest" for the next tests (and suites) until real time passes.
+      await prisma.fxRate.deleteMany({ where: { id: { in: ids } } });
+    }
   });
 
   it('with FULFILLMENT_DRY_RUN=false nothing is written', async () => {
@@ -231,7 +179,7 @@ describe('price sync on the real database (dry-run simulator)', () => {
       const fxBefore = await prisma.fxRate.count();
       const costBefore = await prisma.costSnapshot.count();
 
-      expect((await live.get(FxSyncService).run()).written).toEqual([]);
+      expect((await live.get(FxSyncService).run(new Date())).written).toEqual([]);
       expect(await live.get(CostSyncService).run()).toEqual({ products: 0, snapshots: 0 });
 
       expect(await prisma.fxRate.count()).toBe(fxBefore);

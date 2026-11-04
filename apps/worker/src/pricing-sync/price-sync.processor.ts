@@ -25,7 +25,7 @@ export class PriceSyncProcessor extends WorkerHost {
   process(job: Pick<Job, 'name'>): Promise<FxSyncResult | CostSyncResult> {
     switch (job.name) {
       case PRICE_SYNC_JOBS.FX:
-        return this.fx.run();
+        return this.fx.run(new Date());
       case PRICE_SYNC_JOBS.COST:
         return this.cost.run();
       default:
