@@ -1,7 +1,7 @@
 import { useCatalogE2e, type CategoryOut, type ProductOut } from './catalog-e2e.helpers';
 
 describe('GET /catalog/categories and /catalog/products (e2e)', () => {
-  const { get, slug, sfx } = useCatalogE2e();
+  const { get, send, webOrigin, slug, sfx } = useCatalogE2e();
 
   const mine = (rows: readonly CategoryOut[]) => rows.filter((row) => row.slug.endsWith(sfx));
 
@@ -172,6 +172,48 @@ describe('GET /catalog/categories and /catalog/products (e2e)', () => {
       const res = await get(`/products?category=${slug('games')}`);
       const voucher = (res.body.data as ProductOut[]).find((p) => p.slug === slug('voucher'));
       expect(voucher?.inStock).toBe(true);
+    });
+  });
+
+  describe('Cache-Control on the real routes (I-4)', () => {
+    const PUBLIC = 'public, max-age=60';
+
+    it('HEAD of a cacheable route is public like its GET; HEAD of a 404 is no-store', async () => {
+      const paths = [
+        '/categories',
+        `/products?category=${slug('tg')}`,
+        `/products/${slug('stars')}`,
+      ];
+      for (const path of paths) {
+        const res = await send('HEAD', path);
+        expect([path, res.status, res.headers['cache-control']]).toEqual([path, 200, PUBLIC]);
+        expect(res.headers['set-cookie']).toBeUndefined();
+      }
+      const missing = await send('HEAD', '/products/no-such-product-xyz');
+      expect([missing.status, missing.headers['cache-control']]).toEqual([404, 'no-store']);
+    });
+
+    it('a request carrying (invalid) credentials is still answered publicly, with no Set-Cookie', async () => {
+      const res = await send('GET', '/categories', {
+        cookie: 'ggpin_at=ignored',
+        authorization: 'Bearer ignored',
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers['set-cookie']).toBeUndefined();
+      expect(res.headers['cache-control']).toBe(PUBLIC);
+    });
+
+    it('answers a browser origin with Vary: Origin so a shared cache cannot cross origins', async () => {
+      const res = await send('GET', '/categories', { origin: webOrigin });
+      expect(res.status).toBe(200);
+      expect(res.headers['cache-control']).toBe(PUBLIC);
+      expect(res.headers['access-control-allow-origin']).toBe(webOrigin);
+      expect(String(res.headers['vary'])).toMatch(/(^|,\s*)Origin(\s*,|$)/i);
+    });
+
+    it('a foreign origin is not echoed back', async () => {
+      const res = await send('GET', '/categories', { origin: 'https://evil.example' });
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
     });
   });
 });

@@ -41,6 +41,13 @@ export interface DetailOut {
 export interface CatalogE2e {
   readonly get: (path: string) => Promise<ApiResponse>;
   readonly slug: (name: string) => string;
+  /** Any method and headers, for cache-policy checks (HEAD, Origin). Body is not parsed. */
+  readonly send: (
+    method: 'GET' | 'HEAD',
+    path: string,
+    headers?: Record<string, string>,
+  ) => Promise<{ status: number; headers: Record<string, unknown> }>;
+  readonly webOrigin: string;
   readonly sfx: string;
   /** Moves the clock the app sees; reset to the creation time before every test. */
   readonly setNow: (date: Date) => void;
@@ -80,6 +87,11 @@ export function useCatalogE2e(): CatalogE2e {
   ): Promise<{ status: number; headers: Record<string, unknown>; body: Envelope }> => {
     const res = await app.inject({ method: 'GET', url: `${API}${path}` });
     return { status: res.statusCode, headers: res.headers, body: res.json<Envelope>() };
+  };
+
+  const send: CatalogE2e['send'] = async (method, path, headers = {}) => {
+    const res = await app.inject({ method, url: `${API}${path}`, headers });
+    return { status: res.statusCode, headers: res.headers };
   };
 
   const category = async (name: string, nameUz: string, nameRu: string, sort: number) => {
@@ -292,6 +304,8 @@ export function useCatalogE2e(): CatalogE2e {
 
   return {
     get,
+    send,
+    webOrigin: env.WEB_URL,
     slug,
     sfx,
     setNow: (date) => {

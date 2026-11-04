@@ -7,6 +7,7 @@ import { configureApp } from '../../../app.setup';
 import { CLOCK } from '../../../common/clock/clock';
 import { createHttpAdapter } from '../../../common/http/create-http-adapter';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
+import type { Env } from '../../../config/env';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { RedisService } from '../../../infra/redis/redis.service';
 import { TokenCodec } from '../../auth/token-codec';
@@ -48,6 +49,18 @@ export interface QuotesE2e<F> {
     auth?: Auth,
   ) => Promise<{ status: number; headers: Record<string, unknown>; body: Envelope }>;
   readonly csrfHeaders: Record<string, string>;
+  /** Registers a row created by the suite so afterAll removes it (quotes go first). */
+  readonly track: (kind: Tracked, id: string) => void;
+  /** An anonymous GET with its own source address (the per-IP limit is 120 a minute). */
+  readonly get: (
+    path: string,
+    headers?: Record<string, string>,
+  ) => Promise<{ status: number; headers: Record<string, unknown>; body: Envelope }>;
+}
+
+export interface QuotesE2eOptions {
+  /** Applied after loading, like the price book unit fixtures: lets a suite boot as NODE_ENV=production without the production-only env checks. */
+  readonly config?: Partial<Env>;
 }
 
 // Boots the real app on the *_test database with a movable clock. The suite creates its own
@@ -61,9 +74,10 @@ export function useQuotesE2e<F>(
     readonly sfx: string;
     readonly track: (kind: Tracked, id: string) => void;
   }) => Promise<F>,
+  options: QuotesE2eOptions = {},
 ): QuotesE2e<F> {
   const sfx = randomBytes(4).toString('hex');
-  const env = buildE2eEnv();
+  const env: Env = { ...buildE2eEnv(), ...options.config };
   const base = new Date();
   let now = base;
   let app: NestFastifyApplication;
@@ -179,6 +193,18 @@ export function useQuotesE2e<F>(
       return token;
     },
     csrfHeaders,
+    track: (kind, id) => {
+      tracked[kind].push(id);
+    },
+    get: async (path, headers = {}) => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1${path}`,
+        headers,
+        remoteAddress: nextIp(),
+      });
+      return { status: res.statusCode, headers: res.headers, body: res.json<Envelope>() };
+    },
     post: async (body, user, auth = 'bearer') => {
       const headers: Record<string, string> =
         user === null || auth === 'none'
