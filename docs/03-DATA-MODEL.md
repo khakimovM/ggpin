@@ -245,6 +245,24 @@ allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
 - Isbot: `packages/db/test/check-constraints-pricing.e2e.test.ts` (har CHECK uchun qabul/rad matritsasi, NULL
   holatlari, triggerlar, FK), `src/schema.test.ts`.
 
+## Migratsiya 8: `20261104120000_cost_snapshot_window_index`
+
+Faqat indeks qo‘shadi; ma’lumot va mavjud ustunlar o‘zgarmaydi (destruktiv emas, `CREATE INDEX`).
+
+- **Yangi indeks `CostSnapshot_productId_createdAt_idx`** — `(productId, createdAt)`. Sabab: `CostSnapshot` faqat o‘sadi
+  (sinxronlash har mahsulot/SKU uchun bir necha daqiqada bitta qator qo‘shadi), ikkita o‘qish esa `skuId` cheklanmagan yoki
+  `IS NULL` bo‘lganda `createdAt` oralig‘i bilan filtrlaydi: katalog narxi (`productId IN (…) AND createdAt BETWEEN …`) va
+  mahsulot darajasidagi eng yangi snapshot (`skuId IS NULL ORDER BY createdAt DESC LIMIT 1`). `(productId, skuId, createdAt)`
+  indeksi `skuId` dan keyingi `createdAt` oralig‘ini chegaralay olmaydi, shuning uchun ikkalasi ham mahsulotning butun
+  tarixini o‘qirdi (tarix bilan chiziqli o‘sadi).
+- **Isbot** (`ggpin_test`, PostgreSQL 16, tranzaksiya ichida va `ROLLBACK`; 1 mahsulotda 50 000 snapshot, boshqa 50 mahsulotda
+  5 000 tadan, `FxRate` 30 000 qator): katalog o‘qishi 462 → 15 buffer (2,6 ms → 0,1 ms); mahsulot darajasidagi eng yangi
+  snapshot parallel `Seq Scan` (3 804 buffer, 16 ms) → `Index Scan Backward` (4 buffer, 0,1 ms). `latestFxRate` oldindan
+  `FxRate_pair_createdAt_idx` dan foydalanadi (`Index Scan Backward`, 4–7 buffer) — o‘zgarmadi.
+- Cheklov: mahsulotda faqat SKU darajasidagi snapshot bo‘lsa va SKU qatori eskirib, mahsulot darajasiga qaytilsa
+  (`skuId IS NULL` topilmaydi), yangi indeks mahsulot qatorlarini orqaga qarab o‘qiydi — bu kam uchraydigan yo‘l, tarix
+  bilan o‘sadi; kerak bo‘lsa keyin qisman indeks qo‘shiladi.
+
 ## Seed (boshlang‘ich ma’lumotlar)
 
 `npm run db:seed` → `packages/db`: `tsc -p tsconfig.seed.json` (`dist/seed` ga) → `prisma db seed`
@@ -256,8 +274,10 @@ allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
   `inputSchema` yozishdan oldin `ProductInputSchema` bilan tekshiriladi; `label` kalitlari `packages/i18n` da (`fields.tgUsername`).
 - **Faqat yaratadi:** mavjud qator hech qachon qayta yozilmaydi (SKU `productId + quantity + tab` bo‘yicha topiladi), shuning uchun
   qayta ishga tushirish xavfsiz va admin kiritgan o‘zgarishni bosib ketmaydi. Bir vaqtda ikki seed advisory lock bilan ketma-ket bajariladi.
-- **Production:** `NODE_ENV=production` bo‘lsa mahsulotlar `isActive=false` bilan yaratiladi (egasi admin'dan yoqadi); `NODE_ENV`
-  o‘rnatilmagan bo‘lsa production hisoblanmaydi.
+- **Faollashtirish (fail-closed):** mahsulotlar `isActive=true` bilan faqat `NODE_ENV` aniq `development` yoki `test` bo‘lsa
+  yaratiladi. `production`, o‘rnatilmagan `NODE_ENV` yoki boshqa har qanday qiymat (masalan `prod`, `staging`) bo‘lsa — `isActive=false`
+  (egasi admin'dan yoqadi); log qatori buni va faol demo mahsulot olish yo‘lini aytadi: `NODE_ENV=development npm run db:seed`.
+  Qaror `prisma/seed/activation.ts` dagi `shouldActivateProducts` da; unit-test: `packages/db/src/seed-activation.test.ts`.
 - Isbot: `packages/db/test/seed.e2e.test.ts`.
 
 ## Nima qayerda hisoblanadi

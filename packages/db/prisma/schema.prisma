@@ -318,6 +318,10 @@ model CostSnapshot {
   quotes        Quote[]
 
   @@index([productId, skuId, createdAt])
+  // Catalog read: productId IN (...) AND createdAt BETWEEN ..., and the product-level "latest"
+  // lookup (skuId IS NULL). The three-column index above cannot bound a createdAt range while
+  // skuId is unconstrained, so those reads scanned a product's whole history.
+  @@index([productId, createdAt])
   @@index([skuId])
 }
 

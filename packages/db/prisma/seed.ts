@@ -2,6 +2,7 @@
 // because the generated Prisma client is TypeScript with `.js` import specifiers that Node's
 // type stripping cannot resolve.
 import { createPrismaClient } from '../src/index.js';
+import { inactiveProductsNote, shouldActivateProducts } from './seed/activation.js';
 import { seedCatalog } from './seed/seed-catalog.js';
 
 async function main(): Promise<void> {
@@ -9,16 +10,16 @@ async function main(): Promise<void> {
   if (databaseUrl === undefined || databaseUrl === '') {
     throw new Error('DATABASE_URL is not set; refusing to seed.');
   }
-  // Unset NODE_ENV counts as non-production (local dev); only an explicit "production" is gated.
-  const isProduction = process.env['NODE_ENV'] === 'production';
+  // Fails closed: only NODE_ENV=development or test publishes the demo products.
+  const activateProducts = shouldActivateProducts(process.env['NODE_ENV']);
 
   const db = createPrismaClient(databaseUrl);
   try {
-    const created = await seedCatalog(db, { activateProducts: !isProduction });
+    const created = await seedCatalog(db, { activateProducts });
     console.log(
       `seed: created ${created.categories} categories, ${created.products} products, ` +
         `${created.routes} routes, ${created.skus} skus` +
-        (isProduction ? ' (production: products inactive)' : ''),
+        inactiveProductsNote(activateProducts),
     );
   } finally {
     await db.$disconnect();
