@@ -79,10 +79,10 @@ narx sinxronlash (Fragment narxi — dry-run simulyatordan); kotirovka endpointi
 
 **Qabul mezonlari**
 
-- [ ] `GET /catalog/*` lokalga mos nomlar bilan
-- [ ] Kotirovka: 10 daq muddat, foydalanuvchiga bog‘langan, `maxCost` hisoblangan
-- [ ] Eski kurs bo‘lsa kotirovka berilmaydi (test)
-- [ ] Yaxlitlash qoidalari testlangan
+- [x] `GET /catalog/*` lokalga mos nomlar bilan
+- [x] Kotirovka: 10 daq muddat, foydalanuvchiga bog‘langan, `maxCost` hisoblangan
+- [x] Eski kurs bo‘lsa kotirovka berilmaydi (test)
+- [x] Yaxlitlash qoidalari testlangan
 
 ---
 
