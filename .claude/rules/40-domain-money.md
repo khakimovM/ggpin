@@ -2,15 +2,18 @@
 
 ## Units
 
-| Currency                                                                                         | Unit                 | Column suffix |
-| ------------------------------------------------------------------------------------------------ | -------------------- | ------------- |
-| UZS                                                                                              | tiyin (1 so'm = 100) | `Tiyin`       |
-| USDT                                                                                             | micro (1e-6)         | `MicroUsdt`   |
-| TON                                                                                              | nano (1e-9)          | `NanoTon`     |
-| Telegram Stars                                                                                   | integer stars        | `Stars`       |
-| `packages/shared/src/money.ts` owns all conversion and formatting. Nothing else does money math. |
-| FX conversions use a stored `FxRate` snapshot (id saved on the order) and round **up** for       |
-| cost, **down** for amounts credited to users. Rounding direction is tested.                      |
+| Currency       | Unit                 | Column suffix |
+| -------------- | -------------------- | ------------- |
+| UZS            | tiyin (1 so'm = 100) | `Tiyin`       |
+| USDT           | micro (1e-6)         | `MicroUsdt`   |
+| TON            | nano (1e-9)          | `NanoTon`     |
+| Telegram Stars | integer stars        | `Stars`       |
+
+The money module owns all conversion, price/cost math and formatting: `packages/shared/src/money.ts`
+plus `money-pricing.ts` (quote price, cost ceiling, display prices; exported from the package
+barrel, not re-exported by `money.ts`, to avoid an import cycle). Nothing else does money math.
+FX conversions use a stored `FxRate` snapshot (id saved on the order) and round **up** for
+cost, **down** for amounts credited to users. Rounding direction is tested.
 
 ## Ledgers
 
