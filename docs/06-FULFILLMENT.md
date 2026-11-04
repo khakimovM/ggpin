@@ -166,6 +166,15 @@ yozilmaydi. Natijada oxirgi kurs/tannarx 30 daqiqa (`FX_MAX_AGE_MS`, `COST_MAX_A
 API kotirovka bermaydi (`503 PRICE_UNAVAILABLE`) — soxta narx bilan sotishdan ko‘ra sotmagan yaxshi.
 Worker hech qanday tarmoq xizmatiga (birja, Fragment, TON) murojaat qilmaydi.
 
+**API qatorlarni qanday tanlaydi** (`apps/api/src/modules/pricing/`). Katalog narxi ham, kotirovka
+ham bir xil qoida bilan tanlanadi, shuning uchun mijoz ko‘rgan narx — to‘laydigan narx:
+paketning o‘z tannarxi (`skuId` bilan) yangi bo‘lsa — u; eskirgan bo‘lsa — mahsulot darajasidagi
+yangi tannarx miqdorga ko‘paytiriladi; ikkalasi ham bo‘lmasa narx yo‘q. Worker soati biroz oldinda
+bo‘lishi mumkin, shuning uchun 1 daqiqagacha kelajakdagi qator qabul qilinadi (`MAX_CLOCK_SKEW_MS`);
+undan uzoqroq kelajakdagi qator xato yozuv hisoblanadi va umuman o‘qilmaydi — u "eng yangi" bo‘lib
+to‘g‘ri kursni yashira olmaydi. Paket tannarxidan mahsulot tannarxiga o‘tish zarar keltirmaydi:
+yetkazishda haqiqiy tannarx `maxCost` dan oshsa buyurtma `HELD` bo‘ladi.
+
 ## Limitlar va ogohlantirishlar
 
 | Sozlama                             | Ma'nosi                                                        |

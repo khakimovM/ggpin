@@ -21,7 +21,13 @@ import type {
   PricingSku,
   ProductDisplayPrices,
 } from './price-book.types';
-import { SIMULATOR_SOURCE, isDerivedSource, isFresh, parseDerivedParents } from './price-sources';
+import {
+  SIMULATOR_SOURCE,
+  isDerivedSource,
+  isFresh,
+  latestAcceptedAt,
+  parseDerivedParents,
+} from './price-sources';
 import { PricingRepository, costSnapshotKey } from './pricing.repository';
 
 type Checked<T> =
@@ -60,7 +66,7 @@ export class PriceBookService {
       return new AppError('PRICE_UNAVAILABLE');
     };
 
-    const snapshot = await this.snapshotFor(product.id, sku?.id ?? null);
+    const snapshot = await this.snapshotFor(product.id, sku?.id ?? null, now);
     if (snapshot === null) throw unavailable('no cost snapshot');
     const checkedSnapshot = this.checkSnapshot(snapshot, now);
     if (!checkedSnapshot.ok) throw unavailable(checkedSnapshot.reason);
@@ -118,9 +124,10 @@ export class PriceBookService {
     const result = new Map<string, ProductDisplayPrices>();
     if (products.length === 0) return result;
     const since = new Date(now.getTime() - COST_MAX_AGE_MS);
-    const snapshots = await this.repository.latestCostSnapshotsSince(
+    const snapshots = await this.repository.latestCostSnapshotsBetween(
       products.map((product) => product.id),
       since,
+      latestAcceptedAt(now),
     );
     const fxByCurrency = new Map<CostCurrency, FxRate | null>();
     const fxFor = async (currency: CostCurrency): Promise<FxRate | null> => {
@@ -199,13 +206,21 @@ export class PriceBookService {
     };
   }
 
-  // A pack-level snapshot (Premium) wins; otherwise the product-level one (Stars) is scaled.
-  private async snapshotFor(productId: string, skuId: string | null): Promise<CostSnapshot | null> {
+  // A FRESH pack-level snapshot (Premium) wins; otherwise the product-level one (Stars) is
+  // scaled. A stale pack-level row falls back exactly as displayPrices does (it only loads rows
+  // inside the freshness window), so the catalog never shows a price the quote then refuses.
+  // Falling back cannot sell at a loss: fulfillment re-checks the real cost against maxCost.
+  private async snapshotFor(
+    productId: string,
+    skuId: string | null,
+    now: Date,
+  ): Promise<CostSnapshot | null> {
+    const notAfter = latestAcceptedAt(now);
     if (skuId !== null) {
-      const own = await this.repository.latestCostSnapshot(productId, skuId);
-      if (own !== null) return own;
+      const own = await this.repository.latestCostSnapshot(productId, skuId, notAfter);
+      if (own !== null && isFresh(own.createdAt, now, COST_MAX_AGE_MS)) return own;
     }
-    return this.repository.latestCostSnapshot(productId, null);
+    return this.repository.latestCostSnapshot(productId, null, notAfter);
   }
 
   private checkSnapshot(snapshot: CostSnapshot, now: Date): Checked<CostCurrency> {
@@ -221,7 +236,7 @@ export class PriceBookService {
   }
 
   private async usableFx(pair: string, now: Date): Promise<Checked<FxRate>> {
-    const fx = await this.repository.latestFxRate(pair);
+    const fx = await this.repository.latestFxRate(pair, latestAcceptedAt(now));
     if (fx === null) return { ok: false, reason: `no ${pair} rate` };
     if (!isFresh(fx.createdAt, now, FX_MAX_AGE_MS)) {
       return { ok: false, reason: `${pair} rate is stale` };

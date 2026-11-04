@@ -51,26 +51,37 @@ export interface FakeBook {
 export function bookWith(book: FakeBook): PricingRepository {
   const newest = <T extends { createdAt: Date }>(rows: T[]): T | null =>
     [...rows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
+  // Same bounds as the Prisma queries: rows stamped after `notAfter` / `until` do not exist.
   const repository = {
-    latestFxRate: jest.fn((pair: string) =>
-      Promise.resolve(newest(book.rates.filter((rate) => rate.pair === pair))),
-    ),
-    latestCostSnapshot: jest.fn((productId: string, skuId: string | null) =>
+    latestFxRate: jest.fn((pair: string, notAfter: Date) =>
       Promise.resolve(
-        newest(book.snapshots.filter((s) => s.productId === productId && s.skuId === skuId)),
+        newest(book.rates.filter((rate) => rate.pair === pair && rate.createdAt <= notAfter)),
       ),
     ),
-    latestCostSnapshotsSince: jest.fn((productIds: readonly string[], since: Date) => {
-      const map = new Map<string, CostSnapshot>();
-      const rows = book.snapshots
-        .filter((s) => productIds.includes(s.productId) && s.createdAt >= since)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      for (const row of rows) {
-        const key = costSnapshotKey(row.productId, row.skuId);
-        if (!map.has(key)) map.set(key, row);
-      }
-      return Promise.resolve(map);
-    }),
+    latestCostSnapshot: jest.fn((productId: string, skuId: string | null, notAfter: Date) =>
+      Promise.resolve(
+        newest(
+          book.snapshots.filter(
+            (s) => s.productId === productId && s.skuId === skuId && s.createdAt <= notAfter,
+          ),
+        ),
+      ),
+    ),
+    latestCostSnapshotsBetween: jest.fn(
+      (productIds: readonly string[], since: Date, until: Date) => {
+        const map = new Map<string, CostSnapshot>();
+        const rows = book.snapshots
+          .filter(
+            (s) => productIds.includes(s.productId) && s.createdAt >= since && s.createdAt <= until,
+          )
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        for (const row of rows) {
+          const key = costSnapshotKey(row.productId, row.skuId);
+          if (!map.has(key)) map.set(key, row);
+        }
+        return Promise.resolve(map);
+      },
+    ),
     fxRatesByIds: jest.fn((ids: readonly string[]) =>
       Promise.resolve(book.rates.filter((rate) => ids.includes(rate.id))),
     ),

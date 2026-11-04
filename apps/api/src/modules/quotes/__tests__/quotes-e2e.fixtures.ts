@@ -160,7 +160,10 @@ export async function buildQuoteFixtures(ctx: Ctx): Promise<QuoteFixtures> {
   ]);
 
   const probeCosts = [
-    { name: 'fxprobe', createdAt: new Date(base.getTime() + 60 * MINUTE_MS) },
+    // The FX freshness tests move the clock to base + 30:00 and + 30:00.001; a cost stamped at
+    // base + 30:00 is 0 ms / 1 ms old there, so only the FX rate's age decides. (It must not be
+    // stamped further ahead: rows over a minute in the future are never read.)
+    { name: 'fxprobe', createdAt: new Date(base.getTime() + 30 * MINUTE_MS) },
     { name: 'costedge', createdAt: new Date(base.getTime() - 30 * MINUTE_MS) },
     { name: 'coststale', createdAt: new Date(base.getTime() - 30 * MINUTE_MS - 1) },
   ];
