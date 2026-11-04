@@ -83,6 +83,54 @@ describe('CreateQuoteBodySchema', () => {
     ).toBe(false);
   });
 
+  it('discountCode refuses control characters, with or without surrounding spaces', () => {
+    for (const discountCode of ['SA\u0000VE', 'SA\nVE', 'SA\tVE', 'SA\u007fVE', 'SA\u0085VE']) {
+      expect(CreateQuoteBodySchema.safeParse({ ...base, skuId: 's', discountCode }).success).toBe(
+        false,
+      );
+    }
+    // Trim still runs first: a trailing newline is whitespace around the code, not inside it.
+    expect(
+      CreateQuoteBodySchema.parse({ ...base, skuId: 's', discountCode: 'SAVE10\n' }).discountCode,
+    ).toBe('SAVE10');
+    // Printable non-ASCII stays valid.
+    expect(
+      CreateQuoteBodySchema.safeParse({ ...base, skuId: 's', discountCode: 'ЯНВАРЬ-10' }).success,
+    ).toBe(true);
+  });
+
+  it('ids accept real cuid(2) and fixture ids, and refuse control characters and symbols', () => {
+    for (const id of ['cm4x9k2f00001abcd1234efgh', 'prod_1', 'sku_1', 'no-such-product', 'p1']) {
+      expect(CreateQuoteBodySchema.safeParse({ ...base, productId: id, skuId: id }).success).toBe(
+        true,
+      );
+    }
+    for (const id of ['ab\u0000cd', 'ab\ncd', 'ab cd', 'ab/cd', "ab'cd", 'ab\u007fcd', 'аб']) {
+      expect(CreateQuoteBodySchema.safeParse({ ...base, productId: id, skuId: 's' }).success).toBe(
+        false,
+      );
+      expect(CreateQuoteBodySchema.safeParse({ ...base, productId: 'p', skuId: id }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it('the recipient token record applies the same id rule', () => {
+    const record = {
+      userId: 'u1',
+      productId: 'p1',
+      recipient: { username: 'aziz_k', displayName: 'Aziz' },
+      issuedAt: '2026-11-03T10:00:00.000Z',
+    };
+    expect(RecipientTokenRecordSchema.safeParse(record).success).toBe(true);
+    expect(RecipientTokenRecordSchema.safeParse({ ...record, productId: 'p\u00001' }).success).toBe(
+      false,
+    );
+    expect(RecipientTokenRecordSchema.safeParse({ ...record, userId: 'u\u00001' }).success).toBe(
+      false,
+    );
+  });
+
   it('ids are bounded strings', () => {
     expect(CreateQuoteBodySchema.safeParse({ ...base, productId: '', skuId: 's' }).success).toBe(
       false,
