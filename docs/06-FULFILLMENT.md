@@ -135,7 +135,10 @@ yoziladi (juftlik, oxirgi qator idʼsi, ikkala kurs — kurs maxfiy maʼlumot em
 etiladi. Taqqoslash `packages/shared` pul funksiyalari bilan, BigIntʼda qilinadi (float yo‘q).
 Taqqoslanadigan "oxirgi kurs" — sync soatidan ko‘pi bilan 1 daqiqa (`MAX_CLOCK_SKEW_MS`) kelajakdagi
 qatorlar ichidan eng yangisi; undan uzoqroq kelajakdagi xato qator taqqoslash tayanchi bo‘lmaydi
-va to‘g‘ri kursni to‘sa olmaydi.
+va to‘g‘ri kursni to‘sa olmaydi — lekin faqat real vaqt uning `createdAt` iga yetguncha. `createdAt` ni
+yozayotgan jarayonning soati qo‘yadi (Prisma `now()` = `new Date()`), DB uni tekshirmaydi: soati
+oldinga ketgan server yozgan qator vaqti kelganda oddiy "oxirgi kurs" bo‘lib qoladi. Haqiqiy kurs
+manbasidan oldin buni DB soati hal qilishi majburiy (D-35 (g)).
 Sakrash odatda manba xatosi (raqam tushib qolgan, eski kesh, buzilgan manba) belgisidir: noto‘g‘ri
 narxda sotgandan ko‘ra, 30 daqiqadan keyin kotirovkani to‘xtatgan yaxshi. Haqiqiy kurs 10% dan
 ko‘p o‘zgargan bo‘lsa, bu holatdan chiqish uchun kursni qo‘lda kiritish kerak bo‘ladi (admin
@@ -153,6 +156,10 @@ qator bitta tranzaksiyada saqlanadi. Shunday qilib yangi kurs eski kurs bilan ar
 darajasidagi qator (`skuId` NULL, `basisQuantity` 1, 1 dona narxi). Tayyor paketli mahsulot
 (Premium): har bir faol SKU uchun bitta qator (`basisQuantity` = SKU miqdori, yaʼni oylar).
 Nofaol mahsulot, nofaol SKU va birinchi routeʼi boshqa adapter bo‘lgan mahsulot o‘tkazib yuboriladi.
+Bu qoida har qanday manba uchun majburiy (`cost-sync.service.ts` `lineProblem`, warn log bilan):
+erkin miqdorli mahsulotning paket darajasidagi qatori ham, tayyor paketli mahsulotning mahsulot
+darajasidagi qatori ham yozilmaydi. Aks holda paket o‘lchamidagi miqdor paket tannarxida, bir dona
+ko‘pi esa dona tannarxida narxlanib, ko‘proq miqdor arzonroq chiqishi mumkin edi.
 
 **Simulyator.** 3-fazada haqiqiy kurs manbai ham, Fragment narxini olish ham yo‘q (ega javobi Q6):
 faqat `FxSource` / `CostSource` interfeyslari va simulyatorlar. Simulyator qiymatlari soxta, doimiy
@@ -160,7 +167,9 @@ va hech qayerdan olinmaydi: `USDT_UZS = 12650`, `TON_USDT = 3.2` (demak `TON_UZS
 1 Star = 0,0047 TON; Premium 3 oy = 3,75 TON, 6 oy = 5 TON, 12 oy = 9,1 TON
 (`apps/worker/src/pricing-sync/fx-sources/simulated-fx.source.ts`,
 `apps/worker/src/adapters/simulator/simulated-fragment-prices.ts`). Qatorlarda `source = 'simulator'`;
-productionʼdagi API `simulator` va undan hosil bo‘lgan kurslar bilan narx bermaydi (Q15).
+API `simulator` va undan hosil bo‘lgan kurslar bilan faqat `PRICING_ALLOW_SIMULATED=true` va
+production bo‘lmagan muhitda narx beradi (Q15, 2026-11-04 da kuchaytirilgan — pastdagi "API
+qatorlarni qanday tanlaydi").
 Belgi manba nomidan emas, `simulated` bayrog‘idan olinadi: soxta (`simulated: true`) manba nomi
 qanday bo‘lmasin, uning qatorlari doim `source = 'simulator'` (`packages/shared`dagi
 `SIMULATOR_SOURCE`) bilan yoziladi. Haqiqiy manba `simulator` nomini, `derived:` bilan boshlanuvchi
@@ -174,12 +183,14 @@ API kotirovka bermaydi (`503 PRICE_UNAVAILABLE`) — soxta narx bilan sotishdan 
 Worker hech qanday tarmoq xizmatiga (birja, Fragment, TON) murojaat qilmaydi.
 
 **API qatorlarni qanday tanlaydi** (`apps/api/src/modules/pricing/`). Katalog narxi ham, kotirovka
-ham bir xil qoida bilan tanlanadi, shuning uchun mijoz ko‘rgan narx — to‘laydigan narx:
-paketning o‘z tannarxi (`skuId` bilan) yangi bo‘lsa — u; eskirgan bo‘lsa — mahsulot darajasidagi
-yangi tannarx miqdorga ko‘paytiriladi; ikkalasi ham bo‘lmasa narx yo‘q. Worker soati biroz oldinda
+ham bir xil qoida bilan tanlanadi, shuning uchun mijoz ko‘rgan narx — to‘laydigan narx.
+Erkin miqdorli mahsulot: paketning o‘z tannarxi (`skuId` bilan) yangi bo‘lsa — u; eskirgan bo‘lsa —
+mahsulot darajasidagi yangi tannarx miqdorga ko‘paytiriladi; ikkalasi ham bo‘lmasa narx yo‘q.
+Tayyor paketli mahsulot faqat paketning o‘z tannarxidan narxlanadi: mahsulot darajasidagi qator
+so‘ralmaydi ham (worker uni yozmaydi; so‘rov esa butun tarixni o‘qir edi). Worker soati biroz oldinda
 bo‘lishi mumkin, shuning uchun 1 daqiqagacha kelajakdagi qator qabul qilinadi (`MAX_CLOCK_SKEW_MS`);
-undan uzoqroq kelajakdagi qator xato yozuv hisoblanadi va umuman o‘qilmaydi — u "eng yangi" bo‘lib
-to‘g‘ri kursni yashira olmaydi. Simulyator qatorlari (`source = 'simulator'`, hamda ulardan hosil bo‘lgan `derived:`
+undan uzoqroq kelajakdagi qator xato yozuv hisoblanadi va real vaqt uning `createdAt` iga yetguncha
+o‘qilmaydi — shu vaqtgacha u "eng yangi" bo‘lib to‘g‘ri kursni yashira olmaydi (keyin — D-35 (g)). Simulyator qatorlari (`source = 'simulator'`, hamda ulardan hosil bo‘lgan `derived:`
 TON_UZS) bilan API faqat ikki shart birga bajarilsa narx beradi: `PRICING_ALLOW_SIMULATED=true` **va**
 `NODE_ENV` production emas. `PRICING_ALLOW_SIMULATED` standart `false`; production'da `true` bo‘lsa API ishga
 tushmaydi. `derived:` TON_UZS faqat ikki **turli** ota qatordan iborat bo‘lsa haqiqiy hisoblanadi: birinchisi `TON_USDT`,
