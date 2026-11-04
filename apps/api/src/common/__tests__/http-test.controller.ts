@@ -4,6 +4,8 @@ import {
   Get,
   Injectable,
   Post,
+  Query,
+  Res,
   UseGuards,
   type CanActivate,
 } from '@nestjs/common';
@@ -12,6 +14,7 @@ import { z } from 'zod';
 import { Public } from '../auth/public.decorator';
 import { SkipCsrf } from '../auth/skip-csrf.decorator';
 import { AppError } from '../exceptions/app-error';
+import { PublicCache } from '../http/public-cache.decorator';
 import { paginated } from '../http/with-meta';
 
 const EchoSchema = z
@@ -22,6 +25,20 @@ const EchoSchema = z
   .strict();
 
 class EchoDto extends createZodDto(EchoSchema) {}
+
+// `?fail=boom` makes the cacheable route throw; any other value is a 400 from the Zod pipe.
+const CacheableQuerySchema = z.object({ fail: z.literal('boom').optional() }).strict();
+
+class CacheableQueryDto extends createZodDto(CacheableQuerySchema) {}
+
+// Only the part of the Fastify reply the cookie routes use (avoids importing fastify types).
+interface HeaderReply {
+  header(name: string, value: string): unknown;
+}
+// @fastify/cookie writes Set-Cookie from its own onSend hook, later than a raw header.
+interface CookieReply {
+  setCookie(name: string, value: string, options: { path: string; httpOnly: boolean }): unknown;
+}
 
 // A guard that refuses: Nest turns a false return into ForbiddenException (D-26: 404 NOT_FOUND).
 @Injectable()
@@ -90,6 +107,30 @@ export class HttpTestController {
   @Get('blocked-user')
   blockedUser(): never {
     throw new AppError('USER_BLOCKED');
+  }
+
+  // Cache-policy fixtures (cache-policy.e2e-spec.ts): a @PublicCache route that can answer 200,
+  // 400 (invalid query) and 500, and one that sets a cookie on a 200.
+  @PublicCache(60)
+  @Get('cacheable')
+  cacheable(@Query() query: CacheableQueryDto): { cacheable: true } {
+    if (query.fail === 'boom')
+      throw new Error('connect ECONNREFUSED postgres://ggpin:hunter2@db:5432');
+    return { cacheable: true };
+  }
+
+  @PublicCache(60)
+  @Get('cacheable-cookie')
+  cacheableCookie(@Res({ passthrough: true }) reply: HeaderReply): { cacheable: true } {
+    void reply.header('set-cookie', 'sid=abc; HttpOnly; Path=/');
+    return { cacheable: true };
+  }
+
+  @PublicCache(60)
+  @Get('cacheable-set-cookie')
+  cacheableSetCookie(@Res({ passthrough: true }) reply: CookieReply): { cacheable: true } {
+    void reply.setCookie('sid', 'abc', { path: '/', httpOnly: true });
+    return { cacheable: true };
   }
 
   @Get('boom')

@@ -1,0 +1,290 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { CostSnapshot, FxRate } from '@repo/db';
+import {
+  COST_CURRENCIES,
+  COST_FX_PAIR,
+  COST_MAX_AGE_MS,
+  FX_MAX_AGE_MS,
+  MoneyError,
+  SIMULATOR_SOURCE,
+  costForQuantity,
+  maxCostFor,
+  priceFromCost,
+  isDerivedFxSource,
+  parseDerivedFxSource,
+  unitDisplayPrice,
+  type CostCurrency,
+} from '@repo/shared';
+import { AppError } from '../../common/exceptions/app-error';
+import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import type {
+  DisplayProduct,
+  PriceRequest,
+  PriceResult,
+  PricingSku,
+  ProductDisplayPrices,
+} from './price-book.types';
+import { isFresh, latestAcceptedAt } from './price-sources';
+import { PricingRepository, costSnapshotKey } from './pricing.repository';
+
+type Checked<T> =
+  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly reason: string };
+
+function costCurrencyOf(snapshot: CostSnapshot): CostCurrency | null {
+  return COST_CURRENCIES.find((currency) => currency === snapshot.currency) ?? null;
+}
+
+function scopeOf(snapshot: CostSnapshot): 'sku' | 'product' {
+  return snapshot.skuId === null ? 'product' : 'sku';
+}
+
+// The single place that turns stored FX rates and supplier costs into a customer price. It is
+// read-only (the worker writes the inputs) and fails closed: anything missing, stale or
+// simulated (unless PRICING_ALLOW_SIMULATED in a non-production env) is PRICE_UNAVAILABLE,
+// never a guess.
+@Injectable()
+export class PriceBookService {
+  private readonly logger = new Logger(PriceBookService.name);
+  private readonly allowSimulated: boolean;
+  private readonly toleranceBps: number;
+
+  constructor(
+    private readonly repository: PricingRepository,
+    @Inject(APP_CONFIG) config: AppConfig,
+  ) {
+    // Belt and braces: loadEnv already refuses the flag in production, but a config object built
+    // another way must not be able to switch simulated prices on there either.
+    this.allowSimulated = config.PRICING_ALLOW_SIMULATED && config.NODE_ENV !== 'production';
+    this.toleranceBps = config.PRICE_TOLERANCE_BPS;
+  }
+
+  /** The price and the cost ceiling of one order, or `PRICE_UNAVAILABLE`. */
+  async price(request: PriceRequest): Promise<PriceResult> {
+    const { product, pricingSku, sku, quantity, now } = request;
+    const unavailable = (reason: string): AppError => {
+      this.logger.warn(`price unavailable for product ${product.id}: ${reason}`);
+      return new AppError('PRICE_UNAVAILABLE');
+    };
+
+    const snapshot = await this.snapshotFor(product, sku?.id ?? null, now);
+    if (snapshot === null) throw unavailable('no cost snapshot');
+    const checkedSnapshot = this.checkSnapshot(snapshot, now);
+    if (!checkedSnapshot.ok) throw unavailable(checkedSnapshot.reason);
+    const currency = checkedSnapshot.value;
+    const fx = await this.usableFx(COST_FX_PAIR[currency], now);
+    if (!fx.ok) throw unavailable(fx.reason);
+
+    try {
+      const costMinor = costForQuantity({
+        snapshotCostMinor: snapshot.costMinor,
+        basisQuantity: snapshot.basisQuantity,
+        quantity,
+        scope: scopeOf(snapshot),
+      });
+      const { priceTiyin } = priceFromCost({
+        costMinor,
+        costCurrency: currency,
+        rate: fx.value.rate,
+        markupBps: pricingSku.markupBps,
+        minMarginTiyin: pricingSku.minMarginTiyin,
+      });
+      const maxCostMinor = maxCostFor({
+        costMinor,
+        costCurrency: currency,
+        rate: fx.value.rate,
+        priceTiyin,
+        discountTiyin: request.discountTiyin ?? 0n,
+        minMarginTiyin: pricingSku.minMarginTiyin,
+        toleranceBps: this.toleranceBps,
+      });
+      return {
+        costCurrency: currency,
+        costMinor,
+        costSnapshotId: snapshot.id,
+        fxRateId: fx.value.id,
+        priceTiyin,
+        maxCostMinor,
+      };
+    } catch (error) {
+      // Inconsistent data (a pack snapshot for another quantity, a price that cannot cover its
+      // own cost) must never become a quote.
+      if (error instanceof MoneyError) throw unavailable(error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Display prices for the catalog, in as few queries as possible. A pack without a fresh,
+   * allowed cost or FX rate is simply absent (the client shows no price), never an error.
+   */
+  async displayPrices(
+    products: readonly DisplayProduct[],
+    now: Date,
+  ): Promise<ReadonlyMap<string, ProductDisplayPrices>> {
+    const result = new Map<string, ProductDisplayPrices>();
+    if (products.length === 0) return result;
+    const since = new Date(now.getTime() - COST_MAX_AGE_MS);
+    const snapshots = await this.repository.latestCostSnapshotsBetween(
+      products.map((product) => product.id),
+      since,
+      latestAcceptedAt(now),
+    );
+    const fxByCurrency = new Map<CostCurrency, FxRate | null>();
+    const fxFor = async (currency: CostCurrency): Promise<FxRate | null> => {
+      if (!fxByCurrency.has(currency)) {
+        const checked = await this.usableFx(COST_FX_PAIR[currency], now);
+        fxByCurrency.set(currency, checked.ok ? checked.value : null);
+      }
+      return fxByCurrency.get(currency) ?? null;
+    };
+
+    for (const product of products) {
+      const prices = new Map<string, bigint>();
+      for (const sku of product.skus) {
+        // Same rule as snapshotFor: a fixed-pack product never takes a product-level row.
+        const snapshot =
+          snapshots.get(costSnapshotKey(product.id, sku.id)) ??
+          (product.allowCustomQty ? snapshots.get(costSnapshotKey(product.id, null)) : undefined);
+        if (snapshot === undefined) continue;
+        const checked = this.checkSnapshot(snapshot, now);
+        if (!checked.ok) continue;
+        const fx = await fxFor(checked.value);
+        if (fx === null) continue;
+        const priced = this.displayPrice(snapshot, checked.value, fx, sku);
+        if (priced !== null) prices.set(sku.id, priced);
+      }
+      result.set(product.id, this.summarise(product.skus, prices));
+    }
+    return result;
+  }
+
+  private displayPrice(
+    snapshot: CostSnapshot,
+    currency: CostCurrency,
+    fx: FxRate,
+    sku: PricingSku,
+  ): bigint | null {
+    try {
+      const costMinor = costForQuantity({
+        snapshotCostMinor: snapshot.costMinor,
+        basisQuantity: snapshot.basisQuantity,
+        quantity: sku.quantity,
+        scope: scopeOf(snapshot),
+      });
+      return priceFromCost({
+        costMinor,
+        costCurrency: currency,
+        rate: fx.rate,
+        markupBps: sku.markupBps,
+        minMarginTiyin: sku.minMarginTiyin,
+      }).priceTiyin;
+    } catch (error) {
+      if (error instanceof MoneyError) return null;
+      throw error;
+    }
+  }
+
+  private summarise(
+    skus: readonly PricingSku[],
+    prices: ReadonlyMap<string, bigint>,
+  ): ProductDisplayPrices {
+    let cheapest: bigint | null = null;
+    for (const price of prices.values()) {
+      if (cheapest === null || price < cheapest) cheapest = price;
+    }
+    let smallest: PricingSku | null = null;
+    for (const sku of skus) {
+      if (smallest === null || sku.quantity < smallest.quantity) smallest = sku;
+    }
+    const smallestPrice = smallest === null ? undefined : prices.get(smallest.id);
+    return {
+      fromPriceTiyin: cheapest,
+      unitPriceTiyin:
+        smallest === null || smallestPrice === undefined
+          ? null
+          : unitDisplayPrice(smallestPrice, smallest.quantity),
+      skuPriceTiyin: prices,
+    };
+  }
+
+  // Fixed-pack product (allowCustomQty=false, Premium): ONLY its pack-level row prices it. The
+  // worker never writes a product-level row for such a product, so asking for one would scan the
+  // whole history to find nothing, and a stray one must not stand in for a stale pack row. A
+  // stale pack row is returned as is, so the refusal says "stale", not "missing".
+  //
+  // Custom-quantity product (Stars): a FRESH pack-level snapshot wins; otherwise the
+  // product-level one is scaled. A stale pack-level row falls back exactly as displayPrices does
+  // (it only loads rows inside the freshness window), so the catalog never shows a price the
+  // quote then refuses. Falling back cannot sell at a loss: fulfillment re-checks the real cost
+  // against maxCost.
+  private async snapshotFor(
+    product: { readonly id: string; readonly allowCustomQty: boolean },
+    skuId: string | null,
+    now: Date,
+  ): Promise<CostSnapshot | null> {
+    const notAfter = latestAcceptedAt(now);
+    if (!product.allowCustomQty) {
+      return skuId === null
+        ? null
+        : this.repository.latestCostSnapshot(product.id, skuId, notAfter);
+    }
+    if (skuId !== null) {
+      const own = await this.repository.latestCostSnapshot(product.id, skuId, notAfter);
+      if (own !== null && isFresh(own.createdAt, now, COST_MAX_AGE_MS)) return own;
+    }
+    return this.repository.latestCostSnapshot(product.id, null, notAfter);
+  }
+
+  private checkSnapshot(snapshot: CostSnapshot, now: Date): Checked<CostCurrency> {
+    const currency = costCurrencyOf(snapshot);
+    if (currency === null) return { ok: false, reason: 'cost snapshot has an unknown currency' };
+    if (!isFresh(snapshot.createdAt, now, COST_MAX_AGE_MS)) {
+      return { ok: false, reason: 'cost snapshot is stale' };
+    }
+    if (!this.allowSimulated && snapshot.source === SIMULATOR_SOURCE) {
+      return {
+        ok: false,
+        reason: 'simulated cost snapshot refused (simulated prices not allowed)',
+      };
+    }
+    return { ok: true, value: currency };
+  }
+
+  private async usableFx(pair: string, now: Date): Promise<Checked<FxRate>> {
+    const fx = await this.repository.latestFxRate(pair, latestAcceptedAt(now));
+    if (fx === null) return { ok: false, reason: `no ${pair} rate` };
+    if (!isFresh(fx.createdAt, now, FX_MAX_AGE_MS)) {
+      return { ok: false, reason: `${pair} rate is stale` };
+    }
+    if (!this.allowSimulated && (await this.isSimulated(fx))) {
+      return { ok: false, reason: `simulated ${pair} rate refused (simulated prices not allowed)` };
+    }
+    return { ok: true, value: fx };
+  }
+
+  /**
+   * True when a rate is, or may have been built from, simulator data. A derived rate (TON_UZS)
+   * carries its parents' ids in `source`, so we look the parents up and judge THEM: matching the
+   * derived row's own source alone would let a simulated TON_USDT through. Fails closed: a
+   * derived source we cannot prove well-formed counts as simulated. Well-formed means: it is the
+   * TON_UZS row, it names two DISTINCT parents, the first is a TON_USDT row and the second a
+   * USDT_UZS row, and neither parent is simulator or itself derived.
+   */
+  private async isSimulated(fx: FxRate): Promise<boolean> {
+    if (fx.source === SIMULATOR_SOURCE) return true;
+    if (!isDerivedFxSource(fx.source)) return false;
+    if (fx.pair !== 'TON_UZS') return true;
+    const parentIds = parseDerivedFxSource(fx.source);
+    if (parentIds === null) return true;
+    const [tonUsdtId, usdtUzsId] = parentIds;
+    if (tonUsdtId === usdtUzsId) return true;
+    const parents = await this.repository.fxRatesByIds(parentIds);
+    const tonUsdt = parents.find((parent) => parent.id === tonUsdtId);
+    const usdtUzs = parents.find((parent) => parent.id === usdtUzsId);
+    if (tonUsdt === undefined || usdtUzs === undefined) return true;
+    if (tonUsdt.pair !== 'TON_USDT' || usdtUzs.pair !== 'USDT_UZS') return true;
+    return [tonUsdt, usdtUzs].some(
+      (parent) => parent.source === SIMULATOR_SOURCE || isDerivedFxSource(parent.source),
+    );
+  }
+}

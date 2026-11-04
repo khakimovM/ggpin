@@ -13,7 +13,11 @@ const databaseUrl = process.env['DATABASE_URL'];
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
-  migrations: { path: 'prisma/migrations' },
+  migrations: {
+    path: 'prisma/migrations',
+    // Runs the output of tsconfig.seed.json; `npm run db:seed` compiles it first.
+    seed: 'node dist/seed/prisma/seed.js',
+  },
   // `prisma generate` and `validate` need no database, so the url is only set when provided;
   // migrate commands fail with Prisma's own "datasource url missing" message otherwise.
   datasource: databaseUrl ? { url: databaseUrl } : undefined,

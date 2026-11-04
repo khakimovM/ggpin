@@ -28,11 +28,11 @@ describe('schema.prisma', () => {
   });
 
   it('parses every model', () => {
-    expect(modelBlocks().size).toBeGreaterThanOrEqual(29);
+    expect(modelBlocks().size).toBeGreaterThanOrEqual(30);
   });
 
-  it.each(['LedgerEntry', 'CoinEntry', 'AuditLog', 'OrderEvent'])(
-    'append-only %s has no updatedAt',
+  it.each(['LedgerEntry', 'CoinEntry', 'AuditLog', 'OrderEvent', 'FxRate', 'CostSnapshot'])(
+    'append-only / immutable %s has no updatedAt',
     (model) => {
       const body = modelBlocks().get(model);
       expect(body).toBeDefined();

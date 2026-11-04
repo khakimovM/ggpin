@@ -6,12 +6,23 @@ import { Queue, QueueEvents, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import { HeartbeatService } from '../../../heartbeat/heartbeat.service';
+import {
+  cleanUpPriceSync,
+  cleanupSince,
+} from '../../../pricing-sync/__tests__/price-sync-e2e-cleanup';
 import { WorkerModule } from '../../../worker.module';
 import { workerBullOptions } from '../queue.module';
 
 // Throwaway queue per run: only this name is ever obliterated, never a real queue name, so the
 // suite is safe on a shared Redis (it also runs in logical DB 15, see e2e-env.ts).
 const TEST_QUEUE = `e2e-test-${randomUUID()}`;
+
+// Booting WorkerModule also starts the price sync (boot run + schedulers). Remove what it wrote
+// to ggpin_test and Redis DB 15 so no later suite inherits it.
+const bootedSince = cleanupSince();
+afterAll(async () => {
+  await cleanUpPriceSync(buildE2eEnv(), bootedSince);
+});
 
 function createTestProcessor(queueName: string) {
   // Test-only consumer, registered through the same @nestjs/bullmq wiring real processors use.

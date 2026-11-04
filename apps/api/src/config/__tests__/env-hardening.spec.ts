@@ -140,6 +140,26 @@ describe('TELEGRAM_WEBHOOK_SECRET must differ from the signing secrets', () => {
   });
 });
 
+describe('PRICE_TOLERANCE_BPS', () => {
+  it('defaults to 300 and accepts the whole 0..10000 range', () => {
+    expect(loadEnv({ ...TEST_ENV_SOURCE }).PRICE_TOLERANCE_BPS).toBe(300);
+    expect(loadEnv({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: '0' }).PRICE_TOLERANCE_BPS).toBe(0);
+    expect(loadEnv({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: '10000' }).PRICE_TOLERANCE_BPS).toBe(
+      10_000,
+    );
+  });
+
+  it.each(['-1', '10001', '2.5', 'abc'])('rejects %s and names the variable', (bad) => {
+    expect(messageOf({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: bad })).toContain(
+      'PRICE_TOLERANCE_BPS',
+    );
+  });
+
+  it('treats an empty line as unset', () => {
+    expect(loadEnv({ ...TEST_ENV_SOURCE, PRICE_TOLERANCE_BPS: '' }).PRICE_TOLERANCE_BPS).toBe(300);
+  });
+});
+
 describe('TG_INITDATA_MAX_AGE_SEC', () => {
   it('accepts up to 24 hours and rejects more', () => {
     expect(() => loadEnv({ ...TEST_ENV_SOURCE, TG_INITDATA_MAX_AGE_SEC: '86400' })).not.toThrow();
@@ -161,5 +181,57 @@ describe('loadProcessEnv (the real entry point)', () => {
   it('accepts it under Jest, and loads other environments as loadEnv does', () => {
     expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE, JEST_WORKER_ID: '1' })).not.toThrow();
     expect(() => loadProcessEnv({ ...TEST_ENV_SOURCE, NODE_ENV: 'development' })).not.toThrow();
+  });
+});
+
+describe('PRICING_ALLOW_SIMULATED', () => {
+  const prod = {
+    ...TEST_ENV_SOURCE,
+    NODE_ENV: 'production',
+    TRUST_PROXY: '127.0.0.1',
+    WEB_URL: 'https://ggpin.uz',
+    ADMIN_URL: 'https://admin.ggpin.uz',
+    MINI_APP_URL: 'https://ggpin.uz/tg',
+    TELEGRAM_BOT_MODE: 'webhook',
+    TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
+    TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+  };
+
+  it('is off by default, also when the line is empty', () => {
+    expect(loadEnv({ ...TEST_ENV_SOURCE }).PRICING_ALLOW_SIMULATED).toBe(false);
+    expect(
+      loadEnv({ ...TEST_ENV_SOURCE, PRICING_ALLOW_SIMULATED: '' }).PRICING_ALLOW_SIMULATED,
+    ).toBe(false);
+  });
+
+  it('is accepted as true or false outside production', () => {
+    for (const nodeEnv of ['development', 'test']) {
+      const source = { ...TEST_ENV_SOURCE, NODE_ENV: nodeEnv };
+      expect(loadEnv({ ...source, PRICING_ALLOW_SIMULATED: 'true' }).PRICING_ALLOW_SIMULATED).toBe(
+        true,
+      );
+      expect(loadEnv({ ...source, PRICING_ALLOW_SIMULATED: 'false' }).PRICING_ALLOW_SIMULATED).toBe(
+        false,
+      );
+    }
+  });
+
+  it.each(['yes', '1', 'TRUE', 'True', 'on'])('rejects %s and names the variable', (bad) => {
+    expect(messageOf({ ...TEST_ENV_SOURCE, PRICING_ALLOW_SIMULATED: bad })).toContain(
+      'PRICING_ALLOW_SIMULATED',
+    );
+  });
+
+  it('is refused in production, and the message does not blame anything else', () => {
+    const message = messageOf({ ...prod, PRICING_ALLOW_SIMULATED: 'true' });
+    expect(message).toContain('PRICING_ALLOW_SIMULATED: must not be "true" in production');
+    expect(message).toContain('1 problem');
+  });
+
+  it('production is fine with it false or unset', () => {
+    expect(loadEnv({ ...prod, PRICING_ALLOW_SIMULATED: 'false' }).PRICING_ALLOW_SIMULATED).toBe(
+      false,
+    );
+    expect(loadEnv(prod).PRICING_ALLOW_SIMULATED).toBe(false);
   });
 });

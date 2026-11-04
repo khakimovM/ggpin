@@ -29,6 +29,7 @@ describe('loadEnv', () => {
       TELEGRAM_BOT_MODE: 'off',
       ADMIN_CONFIRM_THRESHOLD_TIYIN: 100000000n,
       TOPUP_MAX_TIYIN: 1000000000n,
+      PRICE_TOLERANCE_BPS: 300,
     });
     expect(env.ADMIN_TELEGRAM_IDS).toEqual([]);
     expect(env.TELEGRAM_NEWS_CHANNEL_URL).toBeUndefined();

@@ -235,6 +235,39 @@ export function percentOf(amount: bigint, bps: number, rounding: Rounding): bigi
   return divide(amount * assertBps(bps), BPS_DENOMINATOR, rounding);
 }
 
+/**
+ * amount × num / den with ONE rounding at the end (proportional cost, per-unit display price).
+ * `den` must be positive; `num` may be zero. Multiplying before dividing is what stops a unit
+ * price from being rounded before it is scaled up.
+ */
+export function mulDiv(amount: bigint, num: bigint, den: bigint, rounding: Rounding): bigint {
+  assertBigInt(amount, 'amount');
+  assertBigInt(num, 'numerator');
+  assertBigInt(den, 'denominator');
+  if (den <= 0n) throw new MoneyError('denominator must be positive');
+  return divide(amount * num, den, rounding);
+}
+
+/**
+ * Composes two stored rates (TON_USDT × USDT_UZS = TON_UZS) into a decimal string with at most
+ * 18 places, which is exactly what `FxRate_rate_check` accepts. Trailing zeros are trimmed.
+ * The cut to 18 places is the only rounding; a derived rate used for COST rounds `up`.
+ */
+export function multiplyRates(a: string, b: string, rounding: Rounding): string {
+  const x = parseRate(a);
+  const y = parseRate(b);
+  const scaled = divide(
+    x.numerator * y.numerator * pow10(MAX_RATE_DECIMALS),
+    pow10(x.scaleDigits + y.scaleDigits),
+    rounding,
+  );
+  if (scaled === 0n) throw new MoneyError('rate product rounds to zero');
+  const digits = scaled.toString().padStart(MAX_RATE_DECIMALS + 1, '0');
+  const whole = digits.slice(0, digits.length - MAX_RATE_DECIMALS);
+  const fraction = digits.slice(digits.length - MAX_RATE_DECIMALS).replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
 // Locale rules come from the design handoff, not from Intl: ICU data differs between Node
 // builds and would change grouping characters under our feet. uz and ru render identically.
 const NARROW_NBSP = ' ';

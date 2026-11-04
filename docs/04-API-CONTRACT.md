@@ -35,6 +35,7 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 429  | `RATE_LIMITED`                                                                 | throttler                                                               |
 | 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi)    |
 | 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                       |
+| 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                         |
 
 ## Auth
 
@@ -49,8 +50,10 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | GET   | `/auth/sessions` · DELETE `/auth/sessions/:id` | faol sessiyalar                                                            |
 
 2-fazada aniqlangan shakllar (D-26, D-27, D-29). `user` — quyidagi `GET /me` shakli.
-`/auth/*` va `/me*` javoblari (xatolar ham) `Cache-Control: no-store` bilan qaytadi. IP
-limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
+Kesh siyosati: har bir javob (xatolar ham) odatda `Cache-Control: no-store` bilan qaytadi.
+Faqat `@PublicCache(N)` bilan belgilangan yo‘l — hozir uchta `GET /catalog/*` — muvaffaqiyatli
+(200) javobda `public, max-age=60` beradi; shu yo‘llarning 400/404/5xx javoblari ham
+`no-store`. IP limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
 - **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh
   (`path=/api/v1/auth`, 30 kun), ikkalasi host-only, `HttpOnly`, `SameSite=Lax`, `Secure`.
@@ -111,19 +114,69 @@ limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
 ## Katalog
 
-| GET | `/catalog/categories`            | kategoriyalar + mahsulotlar soni                   |
-| --- | -------------------------------- | -------------------------------------------------- |
-| GET | `/catalog/products?category=&q=` | ro‘yxat (lokalga mos nomlar)                       |
-| GET | `/catalog/products/:slug`        | mahsulot + SKU'lar + `inputSchema` + `help` + stok |
+Uchala yo‘l ochiq (sessiyasiz), javob hamma uchun bir xil, shuning uchun `200` javobda
+`Cache-Control: public, max-age=60`; xatolar `no-store`. Har bir IP uchun 600 so‘rov/daqiqa
+(`RATE_LIMITED`). Faqat faol (`isActive`) mahsulotlar ko‘rinadi; faol bo‘lmagan mahsulot
+ro‘yxatda yo‘q, tafsilotda `404 NOT_FOUND`. Hamma so‘rovlarda `?locale=uz|ru` (standart `uz`);
+boshqa qiymat yoki noma’lum kalit — `400 VALIDATION_ERROR`. Mahsulot brend nomlari (Telegram
+Stars, PUBG Mobile) ikkala tilda bir xil.
 
-Namuna (`GET /catalog/products/telegram-stars`):
+| GET | `/catalog/categories?locale=`                            | kategoriyalar (`sort` tartibida), faqat kamida 1 faol mahsuloti borlari |
+| --- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| GET | `/catalog/products?category=&q=&locale=&page=1&limit=20` | ro‘yxat; `limit` ≤ 100, `category` — slug, `q` ≤ 64 belgi               |
+| GET | `/catalog/products/:slug?locale=`                        | mahsulot + SKU'lar + `inputSchema` + `help` + stok                      |
+
+`q` — nomning (uz **yoki** ru) bir qismi, katta-kichik harfga e’tiborsiz; `%` va `_` oddiy
+belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
+
+**`GET /catalog/categories?locale=ru`** → `data` massiv (sahifalanmaydi, ko‘pi bilan 100):
+
+```json
+{
+  "success": true,
+  "data": [
+    { "slug": "telegram", "name": "Сервисы Telegram", "productCount": 2 },
+    { "slug": "games", "name": "Игры", "productCount": 4 }
+  ]
+}
+```
+
+**`GET /catalog/products?category=telegram&limit=2`**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "t8uqj5v97wzo7r850h24xis1",
+      "slug": "telegram-stars",
+      "categorySlug": "telegram",
+      "name": "Telegram Stars",
+      "imageUrl": "/images/stars.png",
+      "regionBadge": "GLOBAL",
+      "deliveryType": "TG_USERNAME",
+      "isAuto": true,
+      "isFeatured": false,
+      "inStock": true,
+      "fromPriceTiyin": "550000"
+    }
+  ],
+  "meta": { "page": 1, "limit": 2, "total": 2 }
+}
+```
+
+**`GET /catalog/products/telegram-stars?locale=ru`**:
 
 ```json
 {
   "success": true,
   "data": {
+    "id": "t8uqj5v97wzo7r850h24xis1",
     "slug": "telegram-stars",
     "name": "Telegram Stars",
+    "description": "Звёзды доставляются на ваш @username",
+    "help": "Введите имя пользователя без @",
+    "imageUrl": "/images/stars.png",
     "deliveryType": "TG_USERNAME",
     "regionBadge": "GLOBAL",
     "isAuto": true,
@@ -132,37 +185,120 @@ Namuna (`GET /catalog/products/telegram-stars`):
     "maxQty": 100000,
     "inputSchema": [{ "key": "username", "type": "tgUsername", "label": "fields.tgUsername" }],
     "skus": [
-      { "id": "sku_50", "label": "50 ⭐", "quantity": 50, "fromPriceTiyin": "1100000" },
-      { "id": "sku_100", "label": "100 ⭐", "quantity": 100, "fromPriceTiyin": "2200000" }
+      {
+        "id": "yjo81wz8x26v7v2m20s9imoh",
+        "label": "50 ⭐",
+        "quantity": 50,
+        "tab": null,
+        "fromPriceTiyin": "550000"
+      },
+      {
+        "id": "xw3zlokwzc4mpkeemvefxduo",
+        "label": "100 ⭐",
+        "quantity": 100,
+        "tab": null,
+        "fromPriceTiyin": "1100000"
+      }
     ],
-    "unitPriceTiyin": "22000"
+    "unitPriceTiyin": "11000",
+    "stock": null,
+    "currency": "UZS"
   }
 }
 ```
 
-`fromPriceTiyin` — ko‘rsatish uchun taxminiy narx; haqiqiy narx faqat kotirovkada.
+- `fromPriceTiyin` / `unitPriceTiyin` — faqat ko‘rsatish uchun taxminiy narx; haqiqiy narx faqat
+  kotirovkada. Yangi (≤ 30 daqiqa) kurs yoki tannarx bo‘lmasa `null` — mijoz narxni ko‘rsatmaydi
+  (xato emas, javob `200`). Ro‘yxatda `fromPriceTiyin` — eng arzon SKU narxi.
+- `unitPriceTiyin` — eng kichik SKU narxining bir birlikka bo‘lingani (yuqoriga yaxlitlanadi).
+- `skus` — faqat faol SKU'lar, miqdor bo‘yicha o‘sish tartibida. `tab` — guruh i18n kaliti
+  yoki `null`.
+- `allowCustomQty` / `minQty` / `maxQty` — **haqiqatan kotirovka qabul qiladigan** erkin miqdor oralig‘i,
+  saqlangan ustunlar emas: `minQty` = max(saqlangan `minQty`, eng kichik **faol** paket miqdori), `maxQty` o‘zgarmaydi
+  (eng kichik paketdan past miqdorda markup oladigan paket yo‘q, shuning uchun u kotirovkada rad etiladi). Erkin miqdor
+  o‘chirilgan, oraliq berilmagan, faol paket yo‘q yoki eng kichik faol paket `maxQty` dan katta bo‘lsa —
+  `allowCustomQty: false`, `minQty: null`, `maxQty: null`. Katalog va `POST /quotes` shu bitta qoidadan foydalanadi, shuning
+  uchun katalog kotirovka rad etadigan miqdorni hech qachon ko‘rsatmaydi. Erkin miqdorli mahsulotda bir xil miqdorli ikki
+  faol paket bo‘lsa, erkin miqdor yopiladi (`allowCustomQty: false`, `minQty: null`, `maxQty: null`; `POST /quotes` —
+  `QTY_OUT_OF_RANGE` `{ min: null, max: null }`), chunki qaysi paket narx berishi noaniq bo‘ladi; paketlar baribir `skuId`
+  bilan sotiladi. 9-bosqich admin paneli bunday juftlikni yaratishga yo‘l qo‘ymaydi.
+- Narx manbai: `allowCustomQty` bo‘lmagan mahsulot (masalan Premium) faqat **paket darajasidagi** tannarxdan narxlanadi;
+  mahsulot darajasidagi tannarx qatori unda hech qachon so‘ralmaydi va ishlatilmaydi. Paket qatori eskirgan bo‘lsa katalogda
+  `fromPriceTiyin: null`, kotirovkada `503 PRICE_UNAVAILABLE`. Erkin miqdorli mahsulotda (Stars) yangi paket qatori
+  ustun, aks holda mahsulot qatori ishlatiladi.
+- `stock` — `null` = cheksiz (voucher'siz mahsulotlar); voucher mahsulotlarda `AVAILABLE`
+  kodlar soni. Ro‘yxatda `inStock = stock > 0` (cheksizda `true`).
+- `description` / `help` tarjimasi bo‘lmasa `null` (boshqa tilga almashtirilmaydi).
+- `inputSchema` maydon `label`i — `packages/i18n` kaliti; matn klientda tarjima qilinadi.
 
 ## Qabul qiluvchi va kotirovka
 
-| POST | `/recipients/validate` | `{ productId, input: { username } }` → `{ recipientToken, displayName, photoUrl?, warnings[] }` |
-| ---- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| POST | `/quotes`              | `{ productId, skuId? , quantity?, recipientToken, discountCode? }` → kotirovka                  |
+| POST | `/recipients/validate` | `{ productId, input: { username } }` → `{ recipientToken, displayName, photoUrl?, warnings[] }` (**5-bosqichda**; hozircha yo‘q) |
+| ---- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| POST | `/quotes`              | `{ productId, skuId? , quantity?, recipientToken, discountCode? }` → `201` kotirovka                                             |
+
+`recipientToken` — 43 belgili base64url, 10 daqiqa amal qiladi, faqat shu foydalanuvchi +
+shu mahsulot uchun va ishlatilganda o‘chmaydi: foydalanuvchi shu qabul qiluvchi
+uchun muddat ichida boshqa paketga ham kotirovka olishi mumkin. Token Redis'da faqat SHA-256
+xeshi bilan saqlanadi. `/recipients/validate` 5-bosqichda qo‘shiladi; shu paytgacha token
+faqat testlarda beriladi.
+
+**`POST /quotes`** — sessiya majburiy (cookie sessiyada `X-CSRF-Token` + ruxsat etilgan
+`Origin` ham kerak, aks holda `404 NOT_FOUND`, D-26; Mini App Bearer tokeni uchun CSRF kerak
+emas). `skuId` va `quantity` dan **aynan bittasi** berilishi shart: `skuId` — tayyor paket,
+`quantity` — erkin miqdor (faqat `allowCustomQty` mahsulotlarda, katalog ko‘rsatgan `minQty..maxQty` oralig‘ida).
+Erkin miqdor faol paketning miqdoriga teng bo‘lsa, kotirovka shu paket bilan (`skuId` yuborilgandek) hisoblanadi: "100" yozish
+va 100 paketini bosish bir xil narx.
+Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, faqat sessiyadan.
 
 ```json
+// so‘rov
+{
+  "productId": "t8uqj5v97wzo7r850h24xis1",
+  "skuId": "yjo81wz8x26v7v2m20s9imoh",
+  "recipientToken": "<43 belgili token: /recipients/validate javobidan>"
+}
+```
+
+```json
+// 201
 {
   "success": true,
   "data": {
-    "quoteId": "q_...",
-    "priceTiyin": "2200000",
+    "quoteId": "ghj3p0w7k1cz9r4t6u8v2xyb",
+    "priceTiyin": "550000",
     "discountTiyin": "0",
-    "totalTiyin": "2200000",
-    "expiresAt": "2026-11-01T10:10:00Z",
-    "recipient": { "username": "aziz_k", "displayName": "Aziz" }
+    "totalTiyin": "550000",
+    "expiresAt": "2026-11-03T10:10:00.000Z",
+    "recipient": { "username": "aziz_k", "displayName": "Aziz" },
+    "currency": "UZS"
   }
 }
 ```
 
-`recipientToken` 10 daqiqa amal qiladi va faqat shu foydalanuvchi + mahsulot uchun.
+- Kotirovka **10 daqiqa** amal qiladi (`expiresAt`) va shu foydalanuvchiga bog‘langan: narx
+  shu paytda qulflanadi. Javobda tannarx, kurs, ustama yoki ichki id'lar **yo‘q**.
+- `totalTiyin = priceTiyin − discountTiyin`. Chegirma kodlari 10-bosqichda; hozir
+  `discountCode` berilsa — `422 CODE_INVALID`.
+- Javob har doim `Cache-Control: no-store` (muvaffaqiyatda ham, xatoda ham).
+- Kotirovka pul harakatlantirmaydi, shuning uchun `Idempotency-Key` yo‘q; bir kotirovka ikki
+  marta sarflanmasligini 5-bosqichda `Order.quoteId` (unique) va `usedAt` kafolatlaydi.
+
+Xatolar:
+
+| Status | Kod                                          | Qachon                                                                                                                                                                |
+| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`                           | `skuId` va `quantity` birga yoki ikkalasi ham yo‘q; noma’lum kalit; token formati noto‘g‘ri                                                                           |
+| 401    | `UNAUTHORIZED`                               | sessiya yo‘q yoki yaroqsiz                                                                                                                                            |
+| 404    | `NOT_FOUND`                                  | `productId` mavjud emas; cookie sessiyada CSRF sarlavhasi/`Origin` yo‘q yoki noto‘g‘ri (D-26)                                                                         |
+| 422    | `PRODUCT_UNAVAILABLE`                        | mahsulot faol emas; `skuId` shu mahsulotning faol paketi emas (noma’lum, nofaol yoki boshqa mahsulotniki)                                                             |
+| 422    | `QTY_OUT_OF_RANGE` + `details: { min, max }` | erkin miqdor katalogdagi `minQty..maxQty` oralig‘idan tashqarida (`details` — shu amaldagi oraliq). Erkin miqdori yo‘q mahsulotda `details: { min: null, max: null }` |
+| 422    | `RECIPIENT_INVALID`                          | token noma’lum, muddati o‘tgan, boshqa foydalanuvchiniki yoki boshqa mahsulotniki (javob bir xil)                                                                     |
+| 422    | `CODE_INVALID`                               | `discountCode` berilgan (10-bosqichgacha)                                                                                                                             |
+| 429    | `RATE_LIMITED` + `Retry-After`               | foydalanuvchiga 30 kotirovka/daqiqa                                                                                                                                   |
+| 503    | `PRICE_UNAVAILABLE`                          | kurs yoki tannarx yo‘q / 30 daqiqadan eski; hech narsa yozilmaydi                                                                                                     |
+
+Tekshiruv tartibi: limit → mahsulot → paket/miqdor → token → chegirma kodi → narx.
 
 ## Buyurtmalar
 
@@ -207,3 +343,7 @@ amal qilsa avtomatik xarid qilinadi; amal qilmasa pul balansda qoladi va foydala
 ## Health
 
 `GET /health/live` → `{status:"ok"}` · `GET /health/ready` → `{status, db, redis, worker, fragment}`.
+Ikkala yo‘l konvertsiz (D-24) va `no-store`. `/health/ready`: Postgres va Redis ishlasa `200`;
+faqat worker yo‘q bo‘lsa ham `200`, lekin `status: "degraded"`, `worker: "down"` (D-30.1: worker
+qayta ishga tushganda API balansirovshchikdan chiqarilmaydi). `503` — faqat Postgres yoki Redis
+ishlamaganda, tana o‘sha shaklda.

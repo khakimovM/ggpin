@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // Compiles the seed (and the client it needs) to CommonJS under dist/seed. Node's type
+  // stripping is not enough: the generated client imports './x.js' files that exist as .ts.
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist/seed",
+    "rootDir": ".",
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src", "prisma/seed.ts", "prisma/seed"],
+  "exclude": ["src/**/*.test.ts"]
+}

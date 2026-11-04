@@ -28,12 +28,17 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  // Readiness: 200 when db, redis and worker are ok, otherwise 503 with the same body so a
-  // load balancer stops routing here while an operator can still see which part is down.
+  // Readiness: 503 only when Postgres or Redis is down, with the same body so a load balancer
+  // stops routing here while an operator can still see which part is down. A missing worker
+  // heartbeat (D-30.1) keeps HTTP 200 and shows as `status:"degraded"`, `worker:"down"`: the API
+  // still serves catalog and wallet reads without the worker, so a worker restart must not pull
+  // the API out of the load balancer.
   @Get('ready')
   async ready(@Res({ passthrough: true }) reply: StatusReply): Promise<Readiness> {
     const report = await this.health.readiness();
-    if (report.status !== 'ok') reply.status(HttpStatus.SERVICE_UNAVAILABLE);
+    if (report.db === 'down' || report.redis === 'down') {
+      reply.status(HttpStatus.SERVICE_UNAVAILABLE);
+    }
     return report;
   }
 }

@@ -33,7 +33,7 @@ async function bootstrap(): Promise<void> {
   // event loop busy; enableShutdownHooks closes them (and so lets the process exit) on
   // SIGINT/SIGTERM.
   new Logger('Worker').log(
-    `worker started (${QUEUE_NAMES.length} queues registered, no processors yet, dryRun=${String(env.FULFILLMENT_DRY_RUN)}, ton=${env.TON_NETWORK})`,
+    `worker started (${QUEUE_NAMES.length} queues registered, price-sync processor active, dryRun=${String(env.FULFILLMENT_DRY_RUN)}, ton=${env.TON_NETWORK})`,
   );
 }
 

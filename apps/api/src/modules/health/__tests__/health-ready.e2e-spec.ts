@@ -24,15 +24,16 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
   let app: NestFastifyApplication;
   let redis: Redis;
 
-  async function pollReady(expectedStatus: number): Promise<request.Response> {
+  // Polls until the body shows the state just set up. Since D-30.1 ok and degraded-by-worker
+  // both answer 200, the status code alone cannot tell a fresh result from a cached stale one.
+  async function pollBody(expected: Record<string, string>): Promise<request.Response> {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     for (;;) {
       const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
-      if (res.status === expectedStatus) return res;
+      const body = res.body as Record<string, unknown>;
+      if (Object.entries(expected).every(([key, value]) => body[key] === value)) return res;
       if (Date.now() > deadline) {
-        throw new Error(
-          `/ready never returned ${expectedStatus}; last was ${res.status} ${JSON.stringify(res.body)}`,
-        );
+        throw new Error(`/ready never matched ${JSON.stringify(expected)}; last ${res.text}`);
       }
       await sleep(POLL_INTERVAL_MS);
     }
@@ -73,7 +74,8 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
 
   it('200 ok when the worker heartbeat exists', async () => {
     await workerBeats();
-    const res = await pollReady(200);
+    const res = await pollBody({ status: 'ok', worker: 'ok' });
+    expect(res.status).toBe(200);
     expect(res.body).toEqual({
       status: 'ok',
       db: 'ok',
@@ -83,8 +85,9 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
     });
   });
 
-  it('503 degraded when the worker heartbeat is missing', async () => {
-    const res = await pollReady(503);
+  it('200 degraded when the worker heartbeat is missing (D-30.1)', async () => {
+    const res = await pollBody({ status: 'degraded', worker: 'down' });
+    expect(res.status).toBe(200);
     expect(res.body).toEqual({
       status: 'degraded',
       db: 'ok',
@@ -94,16 +97,16 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
     });
   });
 
-  it('goes 200 -> 503 once the heartbeat disappears, and back to 200 when it returns', async () => {
+  it('flips ok -> degraded (still 200) once the heartbeat disappears, and back when it returns', async () => {
     await workerBeats();
-    await pollReady(200);
+    await pollBody({ status: 'ok', worker: 'ok' });
     // Deleting the key is what an expired TTL looks like to the API; it avoids racing a short
-    // real TTL against a slow first request.
+    // real TTL against a slow first request. The HTTP status stays 200, so the body is polled.
     await redis.del(WORKER_HEARTBEAT_KEY);
-    const down = await pollReady(503);
-    expect(down.body).toMatchObject({ status: 'degraded', worker: 'down' });
+    const down = await pollBody({ status: 'degraded', worker: 'down' });
+    expect(down.status).toBe(200);
     await workerBeats();
-    await pollReady(200);
+    await pollBody({ status: 'ok', worker: 'ok' });
   });
 
   it('/health/live stays 200', async () => {

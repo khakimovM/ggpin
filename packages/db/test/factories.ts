@@ -30,6 +30,16 @@ export async function createQuote(userId: string): Promise<Quote> {
   const fxRate = await db.fxRate.create({
     data: { pair: 'TON_UZS', rate: '30000.5', source: 'test' },
   });
+  const costSnapshot = await db.costSnapshot.create({
+    data: {
+      productId: product.id,
+      adapter: 'FRAGMENT',
+      currency: 'TON',
+      basisQuantity: 50,
+      costMinor: 1_000_000_000n,
+      source: 'test',
+    },
+  });
   return db.quote.create({
     data: {
       userId,
@@ -39,6 +49,7 @@ export async function createQuote(userId: string): Promise<Quote> {
       costCurrency: 'TON',
       costMinor: 1_000_000_000n,
       fxRateId: fxRate.id,
+      costSnapshotId: costSnapshot.id,
       priceTiyin: 5_000_000n,
       maxCostMinor: 1_100_000_000n,
       expiresAt: new Date(Date.now() + 600_000),

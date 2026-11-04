@@ -179,6 +179,7 @@ model Product {
   skus           Sku[]
   routes         ProductRoute[]
   quotes         Quote[]
+  costSnapshots  CostSnapshot[]
   orders         Order[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -187,23 +188,24 @@ model Product {
 }
 
 model Sku {
-  id             String    @id @default(cuid(2))
+  id             String         @id @default(cuid(2))
   productId      String
-  product        Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
   tab            String? // "UC tezkor" / "To‘plamlar" kabi guruh (i18n kaliti)
   labelUz        String // "60 UC", "3 oylik"
   labelRu        String
   quantity       Int // 60 (UC), 3 (oy), 1 (voucher)
   supplierSku    String? // ta'minotchidagi kod
   markupBps      Int // ustama, bazis punktda (1500 = 15%)
-  minMarginTiyin BigInt    @default(0)
-  isActive       Boolean   @default(true)
-  sort           Int       @default(0)
+  minMarginTiyin BigInt         @default(0)
+  isActive       Boolean        @default(true)
+  sort           Int            @default(0)
   vouchers       Voucher[]
   quotes         Quote[]
+  costSnapshots  CostSnapshot[]
   orders         Order[]
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([productId])
 }
@@ -276,6 +278,8 @@ model Quote {
   costMinor      BigInt // nanoTON yoki microUSDT
   fxRateId       String
   fxRate         FxRate          @relation(fields: [fxRateId], references: [id], onDelete: Restrict)
+  costSnapshotId String // narx hisoblangan tannarx snapshot'i
+  costSnapshot   CostSnapshot    @relation(fields: [costSnapshotId], references: [id], onDelete: Restrict)
   priceTiyin     BigInt
   maxCostMinor   BigInt // shu chegaradan oshsa — HELD
   discountCodeId String?
@@ -291,8 +295,34 @@ model Quote {
   @@index([skuId])
   @@index([productId])
   @@index([fxRateId])
+  @@index([costSnapshotId])
   @@index([discountCodeId])
   @@index([expiresAt])
+}
+
+// Narx sinxronlash worker'i yozadigan tannarx snapshot'i. O‘zgarmas (updatedAt yo‘q, UPDATE trigger bilan
+// taqiqlangan): Quote shu qatorga havola qiladi, shuning uchun "narx qaysi tannarxdan chiqqan" keyinroq ham
+// isbotlanadi. skuId null — mahsulot darajasidagi qator (Stars: basisQuantity 1 uchun narx).
+model CostSnapshot {
+  id            String   @id @default(cuid(2))
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  skuId         String?
+  sku           Sku?     @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  adapter       String // FRAGMENT | RESELLER_STARS | ...
+  currency      String // TON | USDT
+  basisQuantity Int // costMinor shu miqdor uchun (Stars: 1, Premium: SKU miqdori)
+  costMinor     BigInt // nanoTON yoki microUSDT
+  source        String // 'simulator' | 'fragment' | ...
+  createdAt     DateTime @default(now())
+  quotes        Quote[]
+
+  @@index([productId, skuId, createdAt])
+  // Catalog read: productId IN (...) AND createdAt BETWEEN ..., and the product-level "latest"
+  // lookup (skuId IS NULL). The three-column index above cannot bound a createdAt range while
+  // skuId is unconstrained, so those reads scanned a product's whole history.
+  @@index([productId, createdAt])
+  @@index([skuId])
 }
 
 // ---------- Buyurtma ----------
@@ -465,7 +495,8 @@ model BonusCode {
   id          String            @id @default(cuid(2))
   codeHash    String            @unique
   rewardType  String // WALLET_TIYIN | COINS
-  rewardValue BigInt
+  rewardTiyin BigInt? // set only when rewardType = WALLET_TIYIN
+  rewardCoins BigInt? // set only when rewardType = COINS
   maxUses     Int
   usedCount   Int               @default(0)
   expiresAt   DateTime?
@@ -537,8 +568,8 @@ model WalletSnapshot {
   id        String   @id @default(cuid(2))
   network   String
   address   String
-  tonNano   BigInt
-  usdtMicro BigInt
+  nanoTon   BigInt
+  microUsdt BigInt
   createdAt DateTime @default(now())
 
   @@index([createdAt])

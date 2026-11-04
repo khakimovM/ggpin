@@ -128,8 +128,13 @@ npm run verify         # lint + typecheck + test — run before saying "done"
 
 ## 7. How to work
 
-- **One roadmap phase at a time** (`docs/11-ROADMAP.md`). Meet its acceptance criteria,
-  run `npm run verify`, report with `/phase-report`, then stop.
+- **One roadmap phase at a time per track** (`docs/11-ROADMAP.md`). Two tracks may run in
+  parallel (owner decision 2026-11-04): **backend** (phases 4, 5, 6, 10, 11) and **frontend**
+  (phases 7, 8, 9, built against the `docs/04` contract with mocks until the API exists). Each
+  phase keeps its own branch, plan, acceptance criteria, `npm run verify`, reviews and
+  `/phase-report`; the tracks never edit the same files at once (hot files: `app.module.ts`,
+  `packages/i18n/*.json`, `package.json`, `schema.prisma`, `packages/shared/src/index.ts`
+  — one owner at a time) and e2e runs on the shared test DB are serialised.
 - **Plan first** for anything beyond a one-file change: phase, files, schema changes.
 - **Vertical slices**: Zod schema in shared → Prisma → repository → service → controller →
   API client → hook → UI → i18n strings (uz + ru) → tests.
