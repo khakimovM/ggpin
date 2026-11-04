@@ -327,3 +327,78 @@ Round 9 (final).
 3. Consistency review against round 0: every screen has 390 (Mini App/web) and 1440 (web/admin) frames as applicable; dark versions of landing hero, login, Mini App home, product, order status, admin dashboard; consistent statuses, money formatting, no raw ISO dates, all four data states present; motion specs annotated for: wallet card, SKU selection, bottom sheets, timeline step change, success moment.
 4. Finish with a component inventory and a token sheet (names, light/dark values, motion tokens) that maps one-to-one to Tailwind CSS variables. Then I will export the handoff.
 ```
+
+---
+
+## Prompt 10 — P2P karta orqali to‘ldirish (4-bosqich, 2026-11-04)
+
+Bu raund 4-raunddagi "Hisobni to‘ldirish" (3-band) va 6-raunddagi top-up modalini **almashtiradi**. Click,
+Payme, Uzum, Rahmat hozircha yo‘q (D-04): foydalanuvchi pulni bizning Humo/Uzcard kartamizga P2P
+o‘tkazadi, to‘lov **noyob summa** orqali tanib olinadi (D-31, D-37). Mini App ichida to‘lov ko‘rsatilmaydi
+(D-03 a): karta va summa web domendagi `/pay/<intentId>` sahifasida, Mini App uni `openLink` bilan ochadi.
+
+Xuddi shu Claude Design loyihasida yuboring (design system qayta ishlatiladi). Handoff’dan keyin yangi
+fayllarni `design/handoff/` ga qo‘ying.
+
+```text
+Round 10. Use the design system. Mini App at 390, web at 390 and 1440, light and dark. This round REPLACES the top-up flow from round 4 (section 3) and the top-up modal from round 6.
+
+## What changed
+We do not use Click/Payme/Uzum/Rahmat for now. The user tops up by a P2P card transfer to OUR Humo or Uzcard card from any banking app they already use. We recognise the payment by its exact amount: we add a small unique tail of 1–999 so‘m to the amount the user chose (50 000 → "50 347 so‘m"). If the user sends exactly that amount within 30 minutes, the wallet is credited automatically in 1–2 minutes. The card number and the exact amount are shown ONLY on a web page opened in the external browser — never inside the Mini App (Telegram policy). Hide every Click/Payme/Uzum/Rahmat/Stars tile from earlier rounds.
+
+Trust is everything here: the user is sending money to a personal card number. The screens must feel calm, precise and official — no urgency tricks, no casino look. The single most important thing on the payment page is "send EXACTLY this amount".
+
+## Sample data
+Chosen amount 50 000 so‘m; amount to pay "50 347 so‘m" (tail "347"); bank "Humo"; card "9860 1234 5678 9012" (placeholder, never a real number); card holder "ALISHER K."; time left "29:41"; wallet before 85 400 so‘m, after 135 747 so‘m. Bank names are text in neutral rounded slots ("Humo", "Uzcard"), no bank logos.
+
+### 1. Mini App — "Hisobni to‘ldirish" (amount)
+- MoneyInput "Summa" with quick chips "20 000", "50 000", "100 000", "200 000"; helper "5 000 so‘mdan 2 000 000 so‘mgacha, 1 000 so‘mga karrali".
+- Errors (inline, under the input): "Minimal summa 5 000 so‘m", "Maksimal summa 2 000 000 so‘m", "Summa 1 000 so‘mga karrali bo‘lsin", new-account daily limit "Yangi akkauntlar uchun kunlik limit 500 000 so‘m. Ertaga yana urinib ko‘ring."
+- Segmented control "Karta turi": "Avtomatik" (default), "Humo", "Uzcard"; helper "Qaysi kartadan o‘tkazishingiz farqi yo‘q — istalgan bank ilovasidan bo‘ladi."
+- Compact "Qanday ishlaydi?" card with 3 numbered steps: "Summani tanlang" → "Ko‘rsatilgan kartaga aynan shu summani o‘tkazing" → "Pul 1–2 daqiqada hisobingizga tushadi".
+- Bottom action bar: "Davom etish" (loading state).
+- Sheet "Sizda tugallanmagan to‘lov bor" (when a payment is already pending): amount "50 347 so‘m", time left "21:05 qoldi", primary "To‘lov sahifasini ochish", secondary "Bekor qilish va yangisini boshlash", ghost "Yopish".
+- Unavailable state (full screen, calm): icon, "To‘ldirish vaqtincha mavjud emas", "Bir necha daqiqadan keyin qayta urinib ko‘ring.", button "Qayta urinish", link "Yordamga yozish".
+
+### 2. Mini App — waiting screen (after "Davom etish")
+The Mini App opens the payment page in the external browser and shows:
+- Title "To‘lov sahifasi brauzerda ochildi"; line "Karta raqami va aniq summa o‘sha sahifada. O‘tkazgach shu yerga qayting."
+- Summary card: "To‘lanadigan summa 50 347 so‘m", countdown "29:41 qoldi" with a thin progress ring, live status row "To‘lov kutilmoqda…" (subtle animated dot, not a spinner wall).
+- Buttons: primary "Sahifani qayta ochish", secondary "To‘lovni bekor qilish" (confirm dialog "To‘lovni bekor qilasizmi?" with note "Agar pulni allaqachon o‘tkazgan bo‘lsangiz, bekor qilmang.").
+- States on the same screen:
+  • Credited: success moment "Balans to‘ldirildi! +50 347 so‘m", "Balans: 135 747 so‘m", primary "Xaridni davom ettirish" (if the user came from a purchase) or "Bosh sahifaga". Reduced motion: simple check.
+  • Expired: "To‘lov muddati tugadi", reassuring line "Agar pulni o‘tkazgan bo‘lsangiz, xavotir olmang: 24 soat ichida tushgan to‘lov hisobingizga avtomatik yoziladi.", primary "Yangi to‘lov", link "Yordamga yozish".
+  • Cancelled: "To‘lov bekor qilindi", primary "Yangi to‘lov".
+- Home: while a payment is pending, a small persistent pill "To‘lov kutilmoqda · 21:05" (same family as the "1 ta buyurtma bajarilmoqda" pill); tap → this screen.
+
+### 3. Web — payment page "/pay/<id>" (390 primary, 1440 centred column)
+Opened in an external browser WITHOUT login. It shows only this one payment: no wallet, no profile, no navigation, no other user data.
+- Minimal header: "ggpin" wordmark, language switch "UZ / RU". No account menu.
+- Hero amount card (the visual centre): label "Aynan shu summani o‘tkazing", big tabular amount "50 347 so‘m" where the tail "347" is highlighted (accent underline or tint, not colour alone — add a small caption "oxirgi 3 raqam to‘lovingizni tanitadi"), button "Nusxalash" (copies digits only, toast "Summa nusxalandi").
+- Card block: bank chip "Humo", card number grouped "9860 1234 5678 9012" in a large tabular style with "Nusxalash" (toast "Karta raqami nusxalandi"), holder "ALISHER K." with caption "Karta egasi ismini o‘tkazishdan oldin tekshiring".
+- Countdown "29:41 qoldi" with progress; last 5 minutes switch to warning style "5 daqiqadan kam qoldi" (no flashing).
+- Steps (numbered, short): "Bank ilovangizni oching" → "Kartaga o‘tkazmani tanlang" → "Karta raqamini va aynan shu summani kiriting" → "O‘tkazing — pul 1–2 daqiqada tushadi".
+- Warning card (warning tone, not danger): "Summani yaxlitlamang va bo‘lib yubormang. Boshqa summa avtomatik tushmaydi — bunday holda yordamga yozing."
+- Sticky bottom status bar: "To‘lov kutilmoqda…" with a calm animated indicator; it updates live (the page polls).
+- States (design each as a full page):
+  • Loading: skeleton shaped like the page.
+  • Credited: big success "To‘lov qabul qilindi!", "+50 347 so‘m hisobingizga tushdi", the card block is gone, primary "Telegram’ga qaytish".
+  • Expired: "To‘lov muddati tugadi", the card number is hidden, same reassurance line as the Mini App, primary "Telegram’ga qaytish", link "Yordamga yozish".
+  • Cancelled: "Bu to‘lov bekor qilingan", primary "Telegram’ga qaytish".
+  • Invalid or old link: "Havola eskirgan yoki noto‘g‘ri", "Yangi to‘lovni ggpin ichidan boshlang.", primary "Telegram’ga qaytish".
+  • Network error: "Ulanishda xatolik", "Qayta urinish"; keep the last known amount and card visible if we already had them, with a small "yangilanmadi" note.
+
+### 4. Web store (1440 and 768) — top-up modal
+The logged-in web store does not need the external page: the modal has two steps — the amount step (same content as screen 1, laid out wide, card type as a segmented control) and the payment step (the same amount card, card block, countdown, steps and warning as screen 3), plus "To‘lovni bekor qilish" and the same credited / expired / cancelled states. The wallet chip in the top nav shows a small "kutilmoqda" dot while a payment is pending.
+
+### 5. Insufficient balance sheet (update round 4, section 2)
+The shortfall is rounded UP to whole thousands for the top-up: "Yetishmaydi: 37 050 so‘m" → primary "38 000 so‘m to‘ldirish", secondary "Boshqa summa bilan to‘ldirish", ghost "Yopish". Keep room for a later variant "38 000 so‘m to‘ldirish va sotib olish".
+
+### 6. History "Tarix" → "Moliya" (update round 5)
+Rows: "Balans to‘ldirildi · Karta" +50 347; pending payment pinned on top "To‘lov kutilmoqda · 50 347 so‘m · 21:05" (tap → waiting screen); expired payments are not listed.
+
+### 7. Russian check
+Render screens 1, 2 (waiting + credited + expired) and 3 (pending + credited + invalid link) in Russian: "Пополнение баланса", "Переведите ровно эту сумму", "Номер карты", "Получатель", "Осталось 29:41", "Ожидаем оплату…", "Баланс пополнен!", "Срок оплаты истёк", "Ссылка устарела или неверна", "Вернуться в Telegram". Fix overflow.
+
+Finish with the updated component inventory: amount-to-pay card (with highlighted tail), card number block, countdown with progress, payment status bar, pending-payment pill — all mapped to existing tokens (no new colours unless strictly needed; if needed, name them as semantic tokens with light and dark values).
+```
