@@ -151,6 +151,23 @@ describe('CostSyncService', () => {
     expect(warn).toHaveBeenCalledTimes(7);
   });
 
+  it('drops pack-level lines of a custom-quantity product (it is priced per unit only)', async () => {
+    const ton = 'TON' as const;
+    const source = new StubSource([
+      { skuId: 's-100', basisQuantity: 100, currency: ton, costMinor: 9_000n }, // pack row
+      { skuId: null, basisQuantity: 1, currency: ton, costMinor: 7n }, // valid unit row
+    ]);
+    const store = new FakeCostStore([stars]);
+    expect(await run(store, true, [source])).toEqual({ products: 1, snapshots: 1 });
+    expect(store.inserted).toEqual([
+      expect.objectContaining({ productId: 'p-stars', skuId: null, costMinor: 7n }),
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('pack-level row for a custom-quantity product'),
+    );
+  });
+
   describe('stored label follows the simulated flag, not the name', () => {
     it.each(['stub', 'reseller-api', '', 'derived:a*b'])(
       'a simulated source named %p writes source "simulator"',

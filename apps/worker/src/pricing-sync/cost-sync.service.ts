@@ -47,6 +47,10 @@ function lineProblem(product: CostProduct, line: CostLine): string | null {
   if (line.skuId === null) {
     return product.allowCustomQty ? null : 'product-level row for a fixed-pack product';
   }
+  // A custom-quantity product is priced from ONE product-level unit cost. A pack row would price
+  // a typed pack size at the pack's cost while one unit more uses the unit cost, so buying more
+  // could cost less; refused here so such a row never reaches the API.
+  if (product.allowCustomQty) return 'pack-level row for a custom-quantity product';
   const sku = product.skus.find((s) => s.id === line.skuId);
   if (sku === undefined) return 'SKU is not an active SKU of the product';
   if (sku.quantity !== line.basisQuantity) return 'basis quantity differs from the SKU quantity';
