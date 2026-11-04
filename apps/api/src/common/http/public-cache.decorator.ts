@@ -16,8 +16,12 @@ export const PUBLIC_CACHE_MAX_AGE_MAX_SEC = 3_600;
  *
  * Only for responses that are identical for every caller (catalog, never anything per user).
  * Throws when the decorator is applied (at class definition, i.e. at boot), not per request.
+ *
+ * Method-only on purpose: @nestjs/platform-fastify reads route `config` from the handler, so on
+ * a class the RouteConfig half would silently do nothing while the Public() half still opened
+ * every route of the controller. Typing it as MethodDecorator makes that a compile error.
  */
-export function PublicCache(maxAgeSec: number): ClassDecorator & MethodDecorator {
+export function PublicCache(maxAgeSec: number): MethodDecorator {
   if (
     !Number.isInteger(maxAgeSec) ||
     maxAgeSec < PUBLIC_CACHE_MAX_AGE_MIN_SEC ||
