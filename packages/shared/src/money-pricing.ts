@@ -141,3 +141,16 @@ export function unitDisplayPrice(fromPriceTiyin: bigint, quantity: number): bigi
   requireBigInt(fromPriceTiyin, 'price', 0n);
   return mulDiv(fromPriceTiyin, 1n, positiveInt(quantity, 'quantity'), 'up');
 }
+
+/**
+ * Step 5: what the customer pays for a quote. A discount can never exceed the price (the
+ * total is never negative) and is never negative itself (it cannot raise the price).
+ */
+export function totalAfterDiscount(priceTiyin: bigint, discountTiyin: bigint): bigint {
+  requireBigInt(priceTiyin, 'price', 0n);
+  requireBigInt(discountTiyin, 'discount', 0n);
+  if (discountTiyin > priceTiyin) {
+    throw new MoneyError('discount is larger than the price');
+  }
+  return priceTiyin - discountTiyin;
+}

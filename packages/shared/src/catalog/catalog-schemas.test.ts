@@ -56,6 +56,17 @@ describe('ProductListQuerySchema', () => {
     expect(ProductListQuerySchema.safeParse({ q: 'a'.repeat(65) }).success).toBe(false);
   });
 
+  it('refuses control characters in q (a NUL byte would be a database error)', () => {
+    for (const q of ['\u0000abc', 'st\u0000ars', 'a\u0007b', 'a\u007fb', 'a\tb', 'a\nb']) {
+      expect(ProductListQuerySchema.safeParse({ q }).success, JSON.stringify(q)).toBe(false);
+    }
+    // Leading and trailing whitespace is trimmed first, as before.
+    expect(ProductListQuerySchema.parse({ q: '\tstars\n' }).q).toBe('stars');
+    for (const q of ['Звёзды', 'o‘yin', 'ʼ', '100%_off', 'PUBG Mobile']) {
+      expect(ProductListQuerySchema.parse({ q }).q, q).toBe(q);
+    }
+  });
+
   it('allows only slug-shaped categories', () => {
     expect(ProductListQuerySchema.safeParse({ category: 'game-top-ups' }).success).toBe(true);
     for (const category of ['Telegram', 'a_b', '-a', 'a--b', 'a b', '', 'x'.repeat(65)]) {

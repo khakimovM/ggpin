@@ -34,11 +34,13 @@ export type CatalogLocaleQuery = z.infer<typeof CatalogLocaleQuerySchema>;
 
 export const ProductListQuerySchema = z.strictObject({
   category: SlugSchema.optional(),
-  // An empty search box means "no filter", not "match the empty string".
+  // An empty search box means "no filter", not "match the empty string". Control characters
+  // are refused: Postgres rejects a NUL byte in text, which would turn the request into a 500.
   q: z
     .string()
     .trim()
     .max(CATALOG_SEARCH_MAX_LENGTH)
+    .regex(/^\P{Cc}*$/u, 'search text must not contain control characters')
     .transform((value) => (value === '' ? undefined : value))
     .optional(),
   locale: LocaleSchema,

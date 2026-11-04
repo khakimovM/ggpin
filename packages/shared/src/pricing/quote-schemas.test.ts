@@ -3,6 +3,7 @@ import {
   FX_MAX_AGE_MS,
   COST_MAX_AGE_MS,
   FX_MAX_JUMP_BPS,
+  MAX_CLOCK_SKEW_MS,
   PRICE_SYNC_EVERY_MS,
   PRICE_SYNC_JOBS,
   QUOTE_TTL_MS,
@@ -195,6 +196,9 @@ describe('pricing constants', () => {
     expect(PRICE_SYNC_EVERY_MS).toBe(300_000);
     expect(FX_MAX_JUMP_BPS).toBe(1000);
     expect(PRICE_SYNC_JOBS).toEqual({ FX: 'fx', COST: 'cost' });
+    expect(MAX_CLOCK_SKEW_MS).toBe(60_000);
+    // the skew allowance is small next to the freshness window it widens
+    expect(MAX_CLOCK_SKEW_MS * 10).toBeLessThan(FX_MAX_AGE_MS);
     // several sync misses must fit inside the staleness window, or one hiccup stops all sales
     expect(PRICE_SYNC_EVERY_MS * 2).toBeLessThan(FX_MAX_AGE_MS);
     expect(PRICE_SYNC_EVERY_MS * 2).toBeLessThan(COST_MAX_AGE_MS);

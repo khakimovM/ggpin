@@ -22,6 +22,13 @@ export const PRICE_SYNC_EVERY_MS = 300_000;
 /** A new rate that moves more than this (10%) from the last stored one is not written. */
 export const FX_MAX_JUMP_BPS = 1000;
 
+/**
+ * How far in the future a price row may be stamped and still be read. The worker stamps rows
+ * with its own clock, which may run slightly ahead; a row further ahead is a bad write and, as
+ * the "newest" row, would otherwise hide every correct one until real time caught up.
+ */
+export const MAX_CLOCK_SKEW_MS = 60_000;
+
 /** BullMQ job names on the price-sync queue. */
 export const PRICE_SYNC_JOBS = { FX: 'fx', COST: 'cost' } as const;
 export type PriceSyncJobName = (typeof PRICE_SYNC_JOBS)[keyof typeof PRICE_SYNC_JOBS];

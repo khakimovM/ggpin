@@ -6,6 +6,7 @@ import {
   costForQuantity,
   maxCostFor,
   priceFromCost,
+  totalAfterDiscount,
   unitDisplayPrice,
 } from './money-pricing';
 
@@ -224,5 +225,20 @@ describe('unitDisplayPrice (step 10)', () => {
   it('rejects a non-positive quantity and a negative price', () => {
     expect(() => unitDisplayPrice(100n, 0)).toThrow(MoneyError);
     expect(() => unitDisplayPrice(-1n, 1)).toThrow(MoneyError);
+  });
+});
+
+describe('totalAfterDiscount (step 5)', () => {
+  it('subtracts the discount from the price', () => {
+    expect(totalAfterDiscount(550_000n, 0n)).toBe(550_000n);
+    expect(totalAfterDiscount(550_000n, 50_000n)).toBe(500_000n);
+    expect(totalAfterDiscount(550_000n, 550_000n)).toBe(0n);
+  });
+
+  it('refuses a discount above the price, a negative discount and a negative price', () => {
+    expect(() => totalAfterDiscount(100n, 101n)).toThrow(MoneyError);
+    expect(() => totalAfterDiscount(100n, -1n)).toThrow(MoneyError);
+    expect(() => totalAfterDiscount(-1n, 0n)).toThrow(MoneyError);
+    expect(() => totalAfterDiscount(notABigInt(100), 0n)).toThrow(MoneyError);
   });
 });
