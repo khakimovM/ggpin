@@ -9,7 +9,11 @@ export interface PricingSku {
 }
 
 export interface PriceRequest {
-  readonly product: { readonly id: string };
+  /**
+   * `allowCustomQty` decides where the cost comes from: a fixed-pack product is priced from its
+   * own pack-level cost row only, never from a product-level one (see PriceBookService).
+   */
+  readonly product: { readonly id: string; readonly allowCustomQty: boolean };
   /** Fixed pack: the SKU itself. Custom quantity: `pickPricingSku(skus, quantity)`. */
   readonly pricingSku: PricingSku;
   /** The pack being bought, or null for a custom quantity (priced from the product snapshot). */
@@ -33,6 +37,8 @@ export interface PriceResult {
 
 export interface DisplayProduct {
   readonly id: string;
+  /** Same meaning as in PriceRequest: false means pack-level cost rows only. */
+  readonly allowCustomQty: boolean;
   /** Active SKUs only. */
   readonly skus: readonly PricingSku[];
 }

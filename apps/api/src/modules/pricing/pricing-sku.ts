@@ -3,7 +3,9 @@ import type { PricingSku } from './price-book.types';
 /**
  * Custom quantity (owner decision Q5): the pack whose markup and minimum margin apply is the
  * active SKU with the largest quantity that does not exceed what was asked for. Returns null
- * when the quantity is below every pack (the caller treats it as out of range).
+ * when the quantity is below every pack (the caller treats it as out of range). Callers must
+ * gate on `customQtyRange` first: it is null when two active packs share a quantity, where this
+ * pick would depend on row order.
  */
 export function pickPricingSku<T extends PricingSku>(
   skus: readonly T[],
@@ -27,6 +29,11 @@ export interface CustomQtyRange {
  * take its markup from (`pickPricingSku` returns null), so it can never be quoted. The catalog
  * and the quote both ask this one function, so the catalog never advertises a quantity the
  * quote refuses.
+ *
+ * Fail closed on ambiguity: two ACTIVE packs with the same quantity (the schema does not forbid
+ * it) would make "which pack prices a typed quantity" depend on row order, so the product has no
+ * custom quantity at all until the duplicate is gone. Selling by `skuId` is unaffected. The
+ * phase 9 admin panel prevents creating such a pair.
  */
 export function customQtyRange(
   product: {
@@ -39,7 +46,10 @@ export function customQtyRange(
   const { allowCustomQty, minQty, maxQty } = product;
   if (!allowCustomQty || minQty === null || maxQty === null) return null;
   let smallest: number | null = null;
+  const seen = new Set<number>();
   for (const sku of activeSkus) {
+    if (seen.has(sku.quantity)) return null;
+    seen.add(sku.quantity);
     if (smallest === null || sku.quantity < smallest) smallest = sku.quantity;
   }
   if (smallest === null || smallest > maxQty) return null;

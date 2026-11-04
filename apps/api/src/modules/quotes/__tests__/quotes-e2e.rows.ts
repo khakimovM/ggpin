@@ -26,12 +26,18 @@ export async function createCategory(ctx: RowCtx, name: string): Promise<string>
   return row.id;
 }
 
-/** An active Stars-like product with one active 50-pack (+10% markup, no minimum margin). */
+/**
+ * An active product with one active 50-pack (+10% markup, no minimum margin). Stars-like (custom
+ * quantity 50..1000) unless `custom: false`, which makes it a fixed-pack product like Premium:
+ * only a pack-level cost row prices it.
+ */
 export async function createPackProduct(
   ctx: RowCtx,
   categoryId: string,
   name: string,
+  options: { readonly custom?: boolean } = {},
 ): Promise<PackProduct> {
+  const custom = options.custom ?? true;
   const product = await ctx.db.product.create({
     data: {
       slug: `e2e-${name}-${ctx.sfx}`,
@@ -42,6 +48,9 @@ export async function createPackProduct(
       deliveryType: 'TG_USERNAME',
       inputSchema: [{ key: 'username', type: 'tgUsername', label: 'fields.tgUsername' }],
       isActive: true,
+      allowCustomQty: custom,
+      minQty: custom ? 50 : null,
+      maxQty: custom ? 1000 : null,
     },
   });
   ctx.track('products', product.id);

@@ -1,4 +1,5 @@
 import type { Quote } from '@repo/db';
+import { MoneyError } from '@repo/shared';
 import { toQuoteResponse } from '../entities/quote.mapper';
 import { NOW } from './quotes.fixtures';
 
@@ -46,6 +47,6 @@ describe('toQuoteResponse', () => {
       expiresAt: NOW,
       recipient: { username: 'aziz_k', displayName: 'Aziz' },
     } as unknown as Quote;
-    expect(() => toQuoteResponse(row)).toThrow();
+    expect(() => toQuoteResponse(row)).toThrow(MoneyError);
   });
 });

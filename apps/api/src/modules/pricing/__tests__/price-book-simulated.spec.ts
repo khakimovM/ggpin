@@ -1,6 +1,6 @@
 import {
   NOW,
-  failure,
+  expectRefused,
   fx,
   pack,
   priceBook,
@@ -15,6 +15,10 @@ describe('PriceBookService.price', () => {
   describe('simulated data (owner decision Q15: refused only in production)', () => {
     const simulatedCost = { rates: [fx()], snapshots: [snapshot({ source: 'simulator' })] };
     const simulatedFx = { rates: [fx({ source: 'simulator' })], snapshots: [snapshot()] };
+    const simulatedInputs = [
+      [simulatedCost, 'simulated cost snapshot refused'],
+      [simulatedFx, 'simulated TON_UZS rate refused'],
+    ] as const;
 
     it('is accepted outside production', async () => {
       await expect(priceBook(simulatedCost).price(request())).resolves.toBeDefined();
@@ -26,12 +30,12 @@ describe('PriceBookService.price', () => {
 
     it('a simulator cost snapshot is refused in production', async () => {
       const book = priceBook(simulatedCost, { NODE_ENV: 'production' });
-      expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+      await expectRefused(book.price(request()), 'simulated cost snapshot refused');
     });
 
     it('a simulator FX rate is refused in production', async () => {
       const book = priceBook(simulatedFx, { NODE_ENV: 'production' });
-      expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+      await expectRefused(book.price(request()), 'simulated TON_UZS rate refused');
     });
 
     it('real data is accepted in production', async () => {
@@ -46,9 +50,8 @@ describe('PriceBookService.price', () => {
       const off = { NODE_ENV: 'development', PRICING_ALLOW_SIMULATED: false } as const;
 
       it('refuses a simulator cost snapshot and a simulator FX rate', async () => {
-        for (const inputs of [simulatedCost, simulatedFx]) {
-          const book = priceBook(inputs, off);
-          expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+        for (const [inputs, reason] of simulatedInputs) {
+          await expectRefused(priceBook(inputs, off).price(request()), reason);
         }
       });
 
@@ -64,7 +67,7 @@ describe('PriceBookService.price', () => {
           },
           off,
         );
-        expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+        await expectRefused(book.price(request()), 'simulated TON_UZS rate refused');
       });
 
       it('still accepts real data', async () => {
@@ -78,7 +81,7 @@ describe('PriceBookService.price', () => {
       it('the catalog shows no price for simulated data either', async () => {
         const skus = [pack()];
         const prices = await priceBook(simulatedCost, off).displayPrices(
-          [{ id: 'p_stars', skus }],
+          [{ id: 'p_stars', allowCustomQty: true, skus }],
           NOW,
         );
         expect(prices.get('p_stars')?.fromPriceTiyin).toBeNull();
@@ -87,9 +90,9 @@ describe('PriceBookService.price', () => {
 
     // loadEnv refuses the flag in production, but the price book must not rely on that alone.
     it('PRICING_ALLOW_SIMULATED=true cannot allow simulated data when NODE_ENV is production', async () => {
-      for (const inputs of [simulatedCost, simulatedFx]) {
-        const book = priceBook(inputs, { NODE_ENV: 'production', PRICING_ALLOW_SIMULATED: true });
-        expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+      const config = { NODE_ENV: 'production', PRICING_ALLOW_SIMULATED: true } as const;
+      for (const [inputs, reason] of simulatedInputs) {
+        await expectRefused(priceBook(inputs, config).price(request()), reason);
       }
     });
 
@@ -110,7 +113,7 @@ describe('PriceBookService.price', () => {
             { rates: [fx({ source }), ...rows], snapshots: [snapshot()] },
             config,
           );
-          expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+          await expectRefused(book.price(request()), 'simulated TON_UZS rate refused');
         }
       });
 
@@ -126,7 +129,7 @@ describe('PriceBookService.price', () => {
           },
           off,
         );
-        expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+        await expectRefused(book.price(request()), 'simulated USDT_UZS rate refused');
       });
 
       it('accepts the well-formed derivation', async () => {
@@ -154,7 +157,7 @@ describe('PriceBookService.price', () => {
             { rates: [derived, ...rows], snapshots: [snapshot()] },
             { NODE_ENV: 'production' },
           );
-          expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+          await expectRefused(book.price(request()), 'simulated TON_UZS rate refused');
         }
       });
 
@@ -183,7 +186,7 @@ describe('PriceBookService.price', () => {
           { rates: [fx({ source }), ...rows], snapshots: [snapshot()] },
           { NODE_ENV: 'production' },
         );
-        expect((await failure(book.price(request()))).code).toBe('PRICE_UNAVAILABLE');
+        await expectRefused(book.price(request()), 'simulated TON_UZS rate refused');
       });
     });
   });

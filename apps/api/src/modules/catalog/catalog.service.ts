@@ -19,6 +19,7 @@ type Locale = CatalogLocaleQuery['locale'];
 function toDisplayProduct(row: CatalogProductRow): DisplayProduct {
   return {
     id: row.id,
+    allowCustomQty: row.allowCustomQty,
     skus: row.skus.map((sku) => ({
       id: sku.id,
       quantity: sku.quantity,

@@ -22,6 +22,12 @@ interface Packs {
   readonly productOnly: PackProduct;
   /** Fresh product-level cost, pack-level cost 30:00.001 old. */
   readonly stalePack: PackProduct;
+  /** Fixed-pack (no custom quantity): stray fresh product-level cost, pack-level cost 30:00.001 old. */
+  readonly fixedStale: PackProduct;
+  /** Fixed-pack: stray fresh product-level cost and a fresh pack-level cost. */
+  readonly fixedFresh: PackProduct;
+  /** Fixed-pack: a product-level cost only, no pack-level cost at all. */
+  readonly fixedProductOnly: PackProduct;
 }
 
 const FROM_PRODUCT_LEVEL = '550000';
@@ -67,7 +73,19 @@ async function build(ctx: BuildCtx): Promise<Packs> {
   await productLevel(stalePack.id);
   await packLevel(stalePack, new Date(base.getTime() - 30 * MINUTE_MS - 1));
 
-  return { both, productOnly, stalePack };
+  // Fixed-pack products never get a product-level row from the worker; a stray one (a bad write,
+  // or a product switched from custom quantity to fixed packs) must not price them.
+  const fixed = (name: string) => createPackProduct(ctx, category, name, { custom: false });
+  const fixedStale = await fixed('cons-fixed-stale');
+  await productLevel(fixedStale.id);
+  await packLevel(fixedStale, new Date(base.getTime() - 30 * MINUTE_MS - 1));
+  const fixedFresh = await fixed('cons-fixed-fresh');
+  await productLevel(fixedFresh.id);
+  await packLevel(fixedFresh, base);
+  const fixedProductOnly = await fixed('cons-fixed-product');
+  await productLevel(fixedProductOnly.id);
+
+  return { both, productOnly, stalePack, fixedStale, fixedFresh, fixedProductOnly };
 }
 
 describe('catalog price vs quote price on the real database (e2e)', () => {
@@ -116,5 +134,35 @@ describe('catalog price vs quote price on the real database (e2e)', () => {
     const row = await t.db.quote.findFirst({ where: { userId: user.id } });
     // 50 stars x 2 500 000 nano (the product-level cost), not the stale 200 000 000 pack row.
     expect(row?.costMinor).toBe(125_000_000n);
+  });
+
+  describe('fixed-pack product (no custom quantity): pack-level cost only', () => {
+    const refused = async (product: PackProduct) => {
+      const user = await t.newUser();
+      const res = await quote(user, product);
+      expect([res.status, res.body.error?.code]).toEqual([503, 'PRICE_UNAVAILABLE']);
+      expect(await t.db.quote.count({ where: { userId: user.id } })).toBe(0);
+    };
+
+    it('a stale pack-level cost with a fresh product-level cost: no price, no quote', async () => {
+      const f = t.fixtures();
+      expect(await shown(f.fixedStale)).toBeNull();
+      await refused(f.fixedStale);
+    });
+
+    it('a product-level cost alone does not price a fixed pack', async () => {
+      const f = t.fixtures();
+      expect(await shown(f.fixedProductOnly)).toBeNull();
+      await refused(f.fixedProductOnly);
+    });
+
+    it('a fresh pack-level cost prices it on both sides, whatever else is in the table', async () => {
+      const f = t.fixtures();
+      const user = await t.newUser();
+      expect(await shown(f.fixedFresh)).toBe(FROM_PACK_LEVEL);
+      const res = await quote(user, f.fixedFresh);
+      expect(res.status).toBe(201);
+      expect(res.body.data).toMatchObject({ priceTiyin: FROM_PACK_LEVEL });
+    });
   });
 });

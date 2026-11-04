@@ -68,7 +68,7 @@ export class QuotesService {
 
     const now = this.clock.now();
     const price = await this.priceBook.price({
-      product: { id: product.id },
+      product: { id: product.id, allowCustomQty: product.allowCustomQty },
       pricingSku: selection.pricingSku,
       sku: selection.sku,
       quantity: selection.quantity,

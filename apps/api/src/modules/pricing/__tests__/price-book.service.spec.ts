@@ -6,6 +6,7 @@ import {
   failure,
   fx,
   pack,
+  PREMIUM,
   priceBook,
   request,
   silenceRefusalLogs,
@@ -75,7 +76,7 @@ describe('PriceBookService.price', () => {
     const book = priceBook({ rates: [fx()], snapshots: [premium] });
     const result = await book.price(
       request({
-        product: { id: 'p_prem' },
+        product: PREMIUM,
         pricingSku: pack({ id: 'sku_3m', quantity: 3 }),
         sku: { id: 'sku_3m' },
         quantity: 3,

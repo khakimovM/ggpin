@@ -66,7 +66,7 @@ export class PriceBookService {
       return new AppError('PRICE_UNAVAILABLE');
     };
 
-    const snapshot = await this.snapshotFor(product.id, sku?.id ?? null, now);
+    const snapshot = await this.snapshotFor(product, sku?.id ?? null, now);
     if (snapshot === null) throw unavailable('no cost snapshot');
     const checkedSnapshot = this.checkSnapshot(snapshot, now);
     if (!checkedSnapshot.ok) throw unavailable(checkedSnapshot.reason);
@@ -141,9 +141,10 @@ export class PriceBookService {
     for (const product of products) {
       const prices = new Map<string, bigint>();
       for (const sku of product.skus) {
+        // Same rule as snapshotFor: a fixed-pack product never takes a product-level row.
         const snapshot =
           snapshots.get(costSnapshotKey(product.id, sku.id)) ??
-          snapshots.get(costSnapshotKey(product.id, null));
+          (product.allowCustomQty ? snapshots.get(costSnapshotKey(product.id, null)) : undefined);
         if (snapshot === undefined) continue;
         const checked = this.checkSnapshot(snapshot, now);
         if (!checked.ok) continue;
@@ -206,21 +207,32 @@ export class PriceBookService {
     };
   }
 
-  // A FRESH pack-level snapshot (Premium) wins; otherwise the product-level one (Stars) is
-  // scaled. A stale pack-level row falls back exactly as displayPrices does (it only loads rows
-  // inside the freshness window), so the catalog never shows a price the quote then refuses.
-  // Falling back cannot sell at a loss: fulfillment re-checks the real cost against maxCost.
+  // Fixed-pack product (allowCustomQty=false, Premium): ONLY its pack-level row prices it. The
+  // worker never writes a product-level row for such a product, so asking for one would scan the
+  // whole history to find nothing, and a stray one must not stand in for a stale pack row. A
+  // stale pack row is returned as is, so the refusal says "stale", not "missing".
+  //
+  // Custom-quantity product (Stars): a FRESH pack-level snapshot wins; otherwise the
+  // product-level one is scaled. A stale pack-level row falls back exactly as displayPrices does
+  // (it only loads rows inside the freshness window), so the catalog never shows a price the
+  // quote then refuses. Falling back cannot sell at a loss: fulfillment re-checks the real cost
+  // against maxCost.
   private async snapshotFor(
-    productId: string,
+    product: { readonly id: string; readonly allowCustomQty: boolean },
     skuId: string | null,
     now: Date,
   ): Promise<CostSnapshot | null> {
     const notAfter = latestAcceptedAt(now);
+    if (!product.allowCustomQty) {
+      return skuId === null
+        ? null
+        : this.repository.latestCostSnapshot(product.id, skuId, notAfter);
+    }
     if (skuId !== null) {
-      const own = await this.repository.latestCostSnapshot(productId, skuId, notAfter);
+      const own = await this.repository.latestCostSnapshot(product.id, skuId, notAfter);
       if (own !== null && isFresh(own.createdAt, now, COST_MAX_AGE_MS)) return own;
     }
-    return this.repository.latestCostSnapshot(productId, null, notAfter);
+    return this.repository.latestCostSnapshot(product.id, null, notAfter);
   }
 
   private checkSnapshot(snapshot: CostSnapshot, now: Date): Checked<CostCurrency> {

@@ -229,6 +229,10 @@ allaqachon qo‘llangan edi va qo‘llangan migratsiya tahrirlanmaydi.
   `source` (`simulator` va h.k.). `skuId` NULL — mahsulot darajasidagi qator (Stars: `basisQuantity` 1).
   Indekslar: `(productId, skuId, createdAt)` (oxirgi snapshot'ni topish; `productId` FK'si ham shu bilan qoplanadi),
   `skuId`.
+- **`Sku(productId, quantity)` unique emas** (sxema bir miqdorli ikki paketni taqiqlamaydi).
+  Erkin miqdorli mahsulotda bir xil miqdorli ikki **faol** paket bo‘lsa, erkin miqdor yopiladi (katalog
+  `allowCustomQty: false` ko‘rsatadi, kotirovka `QTY_OUT_OF_RANGE` `{ min: null, max: null }` qaytaradi), chunki qaysi paket
+  markup beradi noaniq; paketlar `skuId` bilan avvalgidek sotiladi. 9-bosqich admin paneli buning oldini oladi.
 - **`Quote.costSnapshotId`** — NOT NULL, FK Restrict, indeksli: kotirovka qaysi tannarxdan chiqqani keyinroq ham
   isbotlanadi (`fxRateId` bilan birga). Eski kotirovka uchun snapshot'ni tiklab bo‘lmaydi, shuning uchun migratsiya
   `Quote` bo‘sh bo‘lmasa `RAISE EXCEPTION` bilan to‘xtaydi (avval `DO $` qo‘riqchisi, keyin ustun qo‘shiladi).
@@ -259,9 +263,11 @@ Faqat indeks qo‘shadi; ma’lumot va mavjud ustunlar o‘zgarmaydi (destruktiv
   5 000 tadan, `FxRate` 30 000 qator): katalog o‘qishi 462 → 15 buffer (2,6 ms → 0,1 ms); mahsulot darajasidagi eng yangi
   snapshot parallel `Seq Scan` (3 804 buffer, 16 ms) → `Index Scan Backward` (4 buffer, 0,1 ms). `latestFxRate` oldindan
   `FxRate_pair_createdAt_idx` dan foydalanadi (`Index Scan Backward`, 4–7 buffer) — o‘zgarmadi.
-- Cheklov: mahsulotda faqat SKU darajasidagi snapshot bo‘lsa va SKU qatori eskirib, mahsulot darajasiga qaytilsa
-  (`skuId IS NULL` topilmaydi), yangi indeks mahsulot qatorlarini orqaga qarab o‘qiydi — bu kam uchraydigan yo‘l, tarix
-  bilan o‘sadi; kerak bo‘lsa keyin qisman indeks qo‘shiladi.
+- Qoldiq cheklov (yangilandi): mahsulot darajasidagi qator (`skuId IS NULL`) endi faqat `allowCustomQty` mahsulotlar (Stars)
+  uchun so‘raladi va ularda doim mavjud. `allowCustomQty = false` mahsulot (Premium) faqat SKU darajasidagi qatordan
+  narxlanadi va mahsulot darajasidagi qator umuman so‘ralmaydi, shuning uchun "bo‘sh natija uchun butun tarixni o‘qish" yo‘li
+  yopildi. Qolgan cheklov: Stars'da SKU qatori eskirib mahsulot darajasiga qaytilganda ham indeks mahsulot qatorlarini orqaga
+  qarab o‘qiydi (topiladi, tarix bilan o‘sadi); kerak bo‘lsa keyin qisman indeks qo‘shiladi.
 
 ## Seed (boshlang‘ich ma’lumotlar)
 

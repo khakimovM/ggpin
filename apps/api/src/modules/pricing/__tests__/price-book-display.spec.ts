@@ -3,7 +3,7 @@ import { customQtyRange, pickPricingSku } from '../pricing-sku';
 
 describe('PriceBookService.displayPrices', () => {
   const skus = [pack({ id: 'sku_50', quantity: 50 }), pack({ id: 'sku_100', quantity: 100 })];
-  const product = { id: 'p_stars', skus };
+  const product = { id: 'p_stars', allowCustomQty: true, skus };
 
   it('prices every pack, the cheapest is the "from" price, the unit price is per star', async () => {
     const book = priceBook({ rates: [fx()], snapshots: [snapshot()] });
@@ -91,6 +91,19 @@ describe('customQtyRange', () => {
     expect(customQtyRange({ ...custom, minQty: null }, packs(50))).toBeNull();
     expect(customQtyRange({ ...custom, maxQty: null }, packs(50))).toBeNull();
     expect(customQtyRange({ ...custom, allowCustomQty: false }, packs(50))).toBeNull();
+  });
+
+  it('is null when two active packs have the same quantity (which one prices is ambiguous)', () => {
+    expect(customQtyRange(custom, packs(50, 100, 100))).toBeNull();
+    expect(customQtyRange(custom, packs(100, 50, 100))).toBeNull();
+    // Also when the duplicated quantity is not the smallest, or lies above the maximum.
+    expect(customQtyRange(custom, packs(50, 500, 500))).toBeNull();
+    expect(customQtyRange(custom, packs(50, 2000, 2000))).toBeNull();
+    expect(customQtyRange(custom, packs(50, 50))).toBeNull();
+  });
+
+  it('distinct quantities are still fine (the check is on equal quantities only)', () => {
+    expect(customQtyRange(custom, packs(50, 51, 100))).toEqual({ min: 50, max: 1000 });
   });
 
   it('agrees with pickPricingSku: every quantity in the range finds a pricing pack', () => {

@@ -93,16 +93,41 @@ export function bookWith(book: FakeBook): PricingRepository {
 
 // Config overrides are applied after loading, so a test can say NODE_ENV=production without the
 // production-only env checks (https origins, 32-char secrets) that loadEnv enforces.
-export function priceBook(book: FakeBook, overrides: Partial<AppConfig> = {}): PriceBookService {
-  return new PriceBookService(bookWith(book), { ...buildTestEnv(), ...overrides });
+/** Every (productId, skuId) the service asked latestCostSnapshot for, in order. */
+export function costLookups(repository: PricingRepository): [string, string | null][] {
+  const lookup = (
+    repository as unknown as {
+      latestCostSnapshot: jest.Mock<Promise<CostSnapshot | null>, [string, string | null, Date]>;
+    }
+  ).latestCostSnapshot;
+  return lookup.mock.calls.map(([productId, skuId]) => [productId, skuId]);
 }
 
-export const STARS = { id: 'p_stars' };
+export function priceBook(book: FakeBook, overrides: Partial<AppConfig> = {}): PriceBookService {
+  return priceBookWithRepository(book, overrides).service;
+}
+
+/** Same service, plus the fake repository so a test can see which rows were asked for. */
+export function priceBookWithRepository(book: FakeBook, overrides: Partial<AppConfig> = {}) {
+  const repository = bookWith(book);
+  return {
+    service: new PriceBookService(repository, { ...buildTestEnv(), ...overrides }),
+    repository,
+  };
+}
+
+/** Custom-quantity product: priced from the product-level row unless a fresh pack row exists. */
+export const STARS = { id: 'p_stars', allowCustomQty: true };
+/** Fixed-pack product (Premium): priced from its pack-level rows only. */
+export const PREMIUM = { id: 'p_prem', allowCustomQty: false };
+
+const spyOnWarn = () => jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+let warnSpy: ReturnType<typeof spyOnWarn> | undefined;
 
 // Refusals log a warning; keep the test output readable. Call once at the top of a spec file.
 export function silenceRefusalLogs(): void {
   beforeEach(() => {
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    warnSpy = spyOnWarn();
   });
   afterEach(() => {
     jest.restoreAllMocks();
@@ -118,6 +143,26 @@ export function request(overrides: Partial<PriceRequest> = {}): PriceRequest {
     now: NOW,
     ...overrides,
   };
+}
+
+/** Messages logged by PriceBookService refusals since the last call to expectRefused. */
+export function refusalLogs(): string[] {
+  if (warnSpy === undefined) throw new Error('call silenceRefusalLogs() at the top of the spec');
+  return warnSpy.mock.calls.map(([message]) => (typeof message === 'string' ? message : ''));
+}
+
+/**
+ * PRICE_UNAVAILABLE for exactly the given reason. The code alone is not enough: an unrelated
+ * refusal (a stale row, a missing rate) answers with the same code and would let a test pass
+ * for the wrong reason.
+ */
+export async function expectRefused(promise: Promise<unknown>, reason: string): Promise<void> {
+  if (warnSpy === undefined) throw new Error('call silenceRefusalLogs() at the top of the spec');
+  warnSpy.mockClear();
+  expect((await failure(promise)).code).toBe('PRICE_UNAVAILABLE');
+  const logs = refusalLogs();
+  expect(logs).toHaveLength(1);
+  expect(logs[0]).toContain(reason);
 }
 
 export async function failure(promise: Promise<unknown>): Promise<AppError> {

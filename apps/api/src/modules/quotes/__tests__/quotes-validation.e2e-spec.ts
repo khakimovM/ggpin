@@ -100,6 +100,19 @@ describe('POST /quotes rejections (e2e)', () => {
       await reject({ productId: f.stars.id, skuId: f.stars.sku[50], recipientToken: 'short' }, bad);
     });
 
+    // Postgres refuses a NUL byte in text, which used to surface as a 500 and an error log.
+    it('a control character in an id or the discount code -> 400 VALIDATION_ERROR, not 500', async () => {
+      const f = t.fixtures();
+      const bad = { status: 400, code: 'VALIDATION_ERROR' };
+      await reject({ productId: 'ab\u0000cd', quantity: 50 }, bad);
+      await reject({ productId: 'ab\u0000cd', skuId: f.stars.sku[50] }, bad);
+      await reject({ productId: f.stars.id, skuId: `${f.stars.sku[50]}\u0000` }, bad);
+      await reject(
+        { productId: f.stars.id, skuId: f.stars.sku[50], discountCode: 'SA\u0000LE' },
+        bad,
+      );
+    });
+
     it('a discount code -> 422 CODE_INVALID (codes arrive in phase 10)', async () => {
       const f = t.fixtures();
       await reject(

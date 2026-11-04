@@ -169,7 +169,8 @@ export async function buildQuoteFixtures(ctx: Ctx): Promise<QuoteFixtures> {
   ];
   const probes: ProductFixture[] = [];
   for (const probe of probeCosts) {
-    const created = await product({ name: probe.name, categoryId: category.id }, [
+    // Stars-like (custom quantity): only such a product may be priced from a product-level cost.
+    const created = await product({ name: probe.name, categoryId: category.id, custom: true }, [
       { quantity: 50, markupBps: 1000 },
     ]);
     // Product-level cost per star (scope "product"): any pack quantity scales from it.

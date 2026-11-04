@@ -17,6 +17,8 @@ interface Fixture {
   readonly id: string;
   readonly slug: string;
   readonly sku: Readonly<Record<number, string>>;
+  /** Every pack id in creation order (`sku` keeps one id per quantity). */
+  readonly skuIds: readonly string[];
 }
 
 interface Fixtures {
@@ -26,6 +28,10 @@ interface Fixtures {
   readonly noPack: Fixture;
   /** Range 50..1000, packs 50 and 100; the 100 pack has its own, dearer, pack-level cost. */
   readonly plain: Fixture;
+  /** Range 50..1000 but two ACTIVE 100 packs: which one prices a typed 100 would be luck. */
+  readonly dup: Fixture;
+  /** The same two 100 packs, one inactive: only one active pack, so no ambiguity. */
+  readonly dupInactive: Fixture;
 }
 
 async function customProduct(
@@ -51,6 +57,7 @@ async function customProduct(
   });
   ctx.track('products', row.id);
   const sku: Record<number, string> = {};
+  const skuIds: string[] = [];
   for (const pack of packs) {
     const created = await ctx.db.sku.create({
       data: {
@@ -66,6 +73,7 @@ async function customProduct(
     });
     ctx.track('skus', created.id);
     sku[pack.quantity] = created.id;
+    skuIds.push(created.id);
   }
   await createTonCost(ctx, {
     productId: row.id,
@@ -75,7 +83,7 @@ async function customProduct(
     source: 'fixture',
     createdAt: ctx.base,
   });
-  return { id: row.id, slug: row.slug, sku };
+  return { id: row.id, slug: row.slug, sku, skuIds };
 }
 
 async function build(ctx: BuildCtx): Promise<Fixtures> {
@@ -102,7 +110,18 @@ async function build(ctx: BuildCtx): Promise<Fixtures> {
     source: 'fixture',
     createdAt: ctx.base,
   });
-  return { gap, noPack, plain };
+  // Sku(productId, quantity) is not unique in the schema, so the pair can exist.
+  const dup = await customProduct(ctx, category, 'qty-dup', [
+    { quantity: 50, markupBps: 1000 },
+    { quantity: 100, markupBps: 1000 },
+    { quantity: 100, markupBps: 500 },
+  ]);
+  const dupInactive = await customProduct(ctx, category, 'qty-dup-off', [
+    { quantity: 50, markupBps: 1000 },
+    { quantity: 100, markupBps: 1000 },
+    { quantity: 100, markupBps: 500, active: false },
+  ]);
+  return { gap, noPack, plain, dup, dupInactive };
 }
 
 describe('custom quantity: catalog range equals quote range (e2e)', () => {
@@ -178,5 +197,51 @@ describe('custom quantity: catalog range equals quote range (e2e)', () => {
     const row = await t.db.quote.findFirst({ where: { userId } });
     expect(row).toMatchObject({ skuId: null, quantity: 101 });
     expect(row?.costMinor).toBe(252_500_000n);
+  });
+
+  describe('two active packs with the same quantity', () => {
+    it('the catalog closes custom quantity and the quote refuses any typed quantity', async () => {
+      const { dup } = t.fixtures();
+      const shown = await detail(dup);
+      expect([shown.allowCustomQty, shown.minQty, shown.maxQty]).toEqual([false, null, null]);
+      // Both packs are still listed: they are sold by skuId.
+      expect(shown.skus.map((sku) => sku.quantity)).toEqual([50, 100, 100]);
+
+      for (const quantity of [50, 100, 101, 1000]) {
+        const { res, count } = await quote(dup, { quantity });
+        expect([quantity, res.status, res.body.error?.code]).toEqual([
+          quantity,
+          422,
+          'QTY_OUT_OF_RANGE',
+        ]);
+        expect(res.body.error?.details).toEqual({ min: null, max: null });
+        expect(count).toBe(0);
+      }
+    });
+
+    it('each of the two packs can still be bought by skuId, at its own markup', async () => {
+      const { dup } = t.fixtures();
+      const [, first, second] = dup.skuIds;
+      // 100 stars = 250 000 000 nano = 10 000 so'm = 1 000 000 tiyin; +10% and +5%.
+      const prices: string[] = [];
+      for (const skuId of [first, second]) {
+        const { res, userId } = await quote(dup, { skuId });
+        expect(res.status).toBe(201);
+        prices.push(String(res.body.data?.['priceTiyin']));
+        const row = await t.db.quote.findFirst({ where: { userId } });
+        expect(row).toMatchObject({ skuId, quantity: 100 });
+      }
+      expect(prices).toEqual(['1100000', '1050000']);
+    });
+
+    it('an inactive twin does not count: custom quantity stays open and uses the active pack', async () => {
+      const { dupInactive } = t.fixtures();
+      const shown = await detail(dupInactive);
+      expect([shown.allowCustomQty, shown.minQty, shown.maxQty]).toEqual([true, 50, 1000]);
+      const { res, userId } = await quote(dupInactive, { quantity: 100 });
+      expect(res.status).toBe(201);
+      const row = await t.db.quote.findFirst({ where: { userId } });
+      expect(row).toMatchObject({ skuId: dupInactive.skuIds[1], quantity: 100 });
+    });
   });
 });

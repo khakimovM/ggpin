@@ -1,15 +1,29 @@
-import { Logger } from '@nestjs/common';
 import { AppError } from '../../../common/exceptions/app-error';
 import type { PriceRequest } from '../price-book.types';
-import { NOW, THIRTY_MIN_MS, ago, fx, pack, priceBook, snapshot } from './price-book.fixtures';
+import {
+  NOW,
+  PREMIUM,
+  STARS,
+  THIRTY_MIN_MS,
+  ago,
+  costLookups,
+  expectRefused,
+  fx,
+  pack,
+  priceBook,
+  priceBookWithRepository,
+  silenceRefusalLogs,
+  snapshot,
+} from './price-book.fixtures';
 
 // Cross-slice checks: the catalog shows a price (displayPrices) and POST /quotes charges one
 // (price()). Both read the same tables through the same service, so for the same pack they
 // must agree: the same price, or "no price" on both sides.
 
-const STARS = { id: 'p_stars' };
+silenceRefusalLogs();
+
 const SKU_50 = pack({ id: 'sku_50', quantity: 50 });
-const DISPLAY_PRODUCT = { id: 'p_stars', skus: [SKU_50] };
+const DISPLAY_PRODUCT = { ...STARS, skus: [SKU_50] };
 
 // Stars are costed per star on the product (2 500 000 nano); this pack row says "50 stars cost
 // 0.2 TON", i.e. 4 000 000 nano per star, deliberately different so the two sources are told
@@ -49,13 +63,6 @@ async function displayed(book: ReturnType<typeof priceBook>): Promise<bigint | u
     .get('p_stars')
     ?.skuPriceTiyin.get('sku_50');
 }
-
-beforeEach(() => {
-  jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-});
-afterEach(() => {
-  jest.restoreAllMocks();
-});
 
 describe('catalog price and quote price for the same pack', () => {
   it('agree when only a product-level cost exists', async () => {
@@ -113,6 +120,83 @@ describe('catalog price and quote price for the same pack', () => {
     const book = priceBook({ rates: [fx()], snapshots: [PRODUCT_LEVEL, edgePack] });
     expect((await book.price(request())).priceTiyin).toBe(FROM_PACK_LEVEL);
     expect(await displayed(book)).toBe(FROM_PACK_LEVEL);
+  });
+});
+
+// A fixed-pack product (allowCustomQty=false, Premium) is priced from its pack-level cost row
+// only. The worker never writes a product-level row for it, so the quote must not look for one
+// and a stray one must not stand in for a missing or stale pack row. Same rule on both sides.
+describe('fixed-pack product: pack-level cost only', () => {
+  const PREMIUM_PACK = pack({ id: 'sku_50', quantity: 50 });
+  const FIXED_DISPLAY = { ...PREMIUM, skus: [PREMIUM_PACK] };
+  const premiumRow = (overrides = {}) =>
+    snapshot({ ...PACK_LEVEL, productId: PREMIUM.id, ...overrides });
+  const strayProductRow = snapshot({ id: 'cost_stray', productId: PREMIUM.id });
+  const quoteFor = (book: ReturnType<typeof priceBook>) =>
+    book.price(request({ product: PREMIUM }));
+  const shown = async (book: ReturnType<typeof priceBook>) => {
+    const prices = (await book.displayPrices([FIXED_DISPLAY], NOW)).get(PREMIUM.id);
+    return { from: prices?.fromPriceTiyin, sku: prices?.skuPriceTiyin.get('sku_50') };
+  };
+  const productLevelLookups = (
+    repository: ReturnType<typeof priceBookWithRepository>['repository'],
+  ) => costLookups(repository).filter(([, skuId]) => skuId === null);
+
+  it('a stale pack row with a fresh product row is PRICE_UNAVAILABLE (stale), never the product row', async () => {
+    const { service, repository } = priceBookWithRepository({
+      rates: [fx()],
+      snapshots: [premiumRow({ createdAt: ago(THIRTY_MIN_MS + 1) }), strayProductRow],
+    });
+    await expectRefused(quoteFor(service), 'cost snapshot is stale');
+    expect(productLevelLookups(repository)).toEqual([]);
+  });
+
+  it('the catalog shows no price for that pack either, from price null', async () => {
+    const { service } = priceBookWithRepository({
+      rates: [fx()],
+      snapshots: [premiumRow({ createdAt: ago(THIRTY_MIN_MS + 1) }), strayProductRow],
+    });
+    expect(await shown(service)).toEqual({ from: null, sku: undefined });
+  });
+
+  it('only a product row (no pack row) is PRICE_UNAVAILABLE on both sides', async () => {
+    const { service, repository } = priceBookWithRepository({
+      rates: [fx()],
+      snapshots: [strayProductRow],
+    });
+    await expectRefused(quoteFor(service), 'no cost snapshot');
+    expect(await shown(service)).toEqual({ from: null, sku: undefined });
+    expect(productLevelLookups(repository)).toEqual([]);
+  });
+
+  it('a custom-quantity request (no pack) on a fixed-pack product asks for no row at all', async () => {
+    const { service, repository } = priceBookWithRepository({
+      rates: [fx()],
+      snapshots: [strayProductRow],
+    });
+    await expectRefused(
+      service.price(request({ product: PREMIUM, sku: null, quantity: 120 })),
+      'no cost snapshot',
+    );
+    expect(costLookups(repository)).toEqual([]);
+  });
+
+  it('a fresh pack row prices on both sides, and a stray product row does not change it', async () => {
+    const { service } = priceBookWithRepository({
+      rates: [fx()],
+      snapshots: [premiumRow(), strayProductRow],
+    });
+    const quote = await quoteFor(service);
+    expect(quote.costSnapshotId).toBe('cost_pack');
+    expect(quote.priceTiyin).toBe(FROM_PACK_LEVEL);
+    expect(await shown(service)).toEqual({ from: FROM_PACK_LEVEL, sku: FROM_PACK_LEVEL });
+  });
+
+  it('custom-quantity products keep falling back to the product row (unchanged behaviour)', async () => {
+    const stalePack = snapshot({ ...PACK_LEVEL, createdAt: ago(THIRTY_MIN_MS + 1) });
+    const book = priceBook({ rates: [fx()], snapshots: [PRODUCT_LEVEL, stalePack] });
+    expect((await book.price(request({ product: STARS }))).costSnapshotId).toBe('cost_product');
+    expect(await displayed(book)).toBe(FROM_PRODUCT_LEVEL);
   });
 });
 

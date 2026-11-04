@@ -23,7 +23,7 @@ describe('QuotesService.create', () => {
     const { service, priceBook, repository } = setup();
     const out = await service.create('u1', bySku({ skuId: 's100' }));
     expect(priceBook.price).toHaveBeenCalledWith({
-      product: { id: 'p1' },
+      product: { id: 'p1', allowCustomQty: true },
       pricingSku: { id: 's100', quantity: 100, markupBps: 1100, minMarginTiyin: 100n },
       sku: { id: 's100' },
       quantity: 100,
@@ -49,7 +49,7 @@ describe('QuotesService.create', () => {
     const { service, priceBook, repository } = setup();
     await service.create('u1', byQty(250));
     expect(priceBook.price).toHaveBeenCalledWith({
-      product: { id: 'p1' },
+      product: { id: 'p1', allowCustomQty: true },
       pricingSku: { id: 's100', quantity: 100, markupBps: 1100, minMarginTiyin: 100n },
       sku: null,
       quantity: 250,
@@ -173,7 +173,7 @@ describe('QuotesService.create', () => {
     const typed = setup();
     const out = await typed.service.create('u1', byQty(100));
     expect(typed.priceBook.price).toHaveBeenCalledWith({
-      product: { id: 'p1' },
+      product: { id: 'p1', allowCustomQty: true },
       pricingSku: { id: 's100', quantity: 100, markupBps: 1100, minMarginTiyin: 100n },
       sku: { id: 's100' },
       quantity: 100,
@@ -200,6 +200,45 @@ describe('QuotesService.create', () => {
     const below = await failure(setup(found).service.create('u1', byQty(99)));
     expect([below.code, below.details]).toEqual(['QTY_OUT_OF_RANGE', { min: 100, max: 1000 }]);
     await expect(setup(found).service.create('u1', byQty(100))).resolves.toBeDefined();
+  });
+
+  describe('two active packs with the same quantity', () => {
+    const duplicated = (): ReturnType<typeof product> =>
+      product({}, [sku('s50', 50), sku('s100a', 100), sku('s100b', 100)]);
+
+    it('closes custom quantity: QTY_OUT_OF_RANGE with null bounds, whatever the quantity', async () => {
+      for (const quantity of [50, 99, 100, 101, 1000]) {
+        const { service, priceBook, repository } = setup(duplicated());
+        const error = await failure(service.create('u1', byQty(quantity)));
+        expect([quantity, error.code, error.details]).toEqual([
+          quantity,
+          'QTY_OUT_OF_RANGE',
+          { min: null, max: null },
+        ]);
+        expect(priceBook.price).not.toHaveBeenCalled();
+        expect(repository.create).not.toHaveBeenCalled();
+      }
+    });
+
+    it('does not depend on the row order', async () => {
+      const reversed = product({}, [sku('s100b', 100), sku('s100a', 100), sku('s50', 50)]);
+      const error = await failure(setup(reversed).service.create('u1', byQty(100)));
+      expect([error.code, error.details]).toEqual(['QTY_OUT_OF_RANGE', { min: null, max: null }]);
+    });
+
+    it('selling either duplicate by skuId still works and prices that pack', async () => {
+      for (const skuId of ['s100a', 's100b']) {
+        const { service, priceBook } = setup(duplicated());
+        await expect(service.create('u1', bySku({ skuId }))).resolves.toBeDefined();
+        expect(priceBook.price).toHaveBeenCalledWith(
+          expect.objectContaining({
+            pricingSku: expect.objectContaining({ id: skuId }) as unknown,
+            sku: { id: skuId },
+            quantity: 100,
+          }),
+        );
+      }
+    });
   });
 
   it('no active pack at all: custom quantity is QTY_OUT_OF_RANGE with null bounds', async () => {

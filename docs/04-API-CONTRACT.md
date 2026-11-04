@@ -218,7 +218,14 @@ belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
   (eng kichik paketdan past miqdorda markup oladigan paket yo‘q, shuning uchun u kotirovkada rad etiladi). Erkin miqdor
   o‘chirilgan, oraliq berilmagan, faol paket yo‘q yoki eng kichik faol paket `maxQty` dan katta bo‘lsa —
   `allowCustomQty: false`, `minQty: null`, `maxQty: null`. Katalog va `POST /quotes` shu bitta qoidadan foydalanadi, shuning
-  uchun katalog kotirovka rad etadigan miqdorni hech qachon ko‘rsatmaydi.
+  uchun katalog kotirovka rad etadigan miqdorni hech qachon ko‘rsatmaydi. Erkin miqdorli mahsulotda bir xil miqdorli ikki
+  faol paket bo‘lsa, erkin miqdor yopiladi (`allowCustomQty: false`, `minQty: null`, `maxQty: null`; `POST /quotes` —
+  `QTY_OUT_OF_RANGE` `{ min: null, max: null }`), chunki qaysi paket narx berishi noaniq bo‘ladi; paketlar baribir `skuId`
+  bilan sotiladi. 9-bosqich admin paneli bunday juftlikni yaratishga yo‘l qo‘ymaydi.
+- Narx manbai: `allowCustomQty` bo‘lmagan mahsulot (masalan Premium) faqat **paket darajasidagi** tannarxdan narxlanadi;
+  mahsulot darajasidagi tannarx qatori unda hech qachon so‘ralmaydi va ishlatilmaydi. Paket qatori eskirgan bo‘lsa katalogda
+  `fromPriceTiyin: null`, kotirovkada `503 PRICE_UNAVAILABLE`. Erkin miqdorli mahsulotda (Stars) yangi paket qatori
+  ustun, aks holda mahsulot qatori ishlatiladi.
 - `stock` — `null` = cheksiz (voucher'siz mahsulotlar); voucher mahsulotlarda `AVAILABLE`
   kodlar soni. Ro‘yxatda `inStock = stock > 0` (cheksizda `true`).
 - `description` / `help` tarjimasi bo‘lmasa `null` (boshqa tilga almashtirilmaydi).
