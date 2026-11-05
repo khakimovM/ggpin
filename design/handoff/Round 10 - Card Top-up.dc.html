@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Round 10 · Karta orqali to‘ldirish</title>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>html,body{margin:0;background:#D9DDE6;font-family:'Manrope',system-ui,sans-serif}a{color:#2C37C9}a:hover{color:#3D4BF5}</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:80px;width:max-content">
+  <header style="display:flex;flex-direction:column;gap:10px;max-width:1500px">
+    <span style="font:800 13px/1 Manrope,sans-serif;color:#3D4BF5;letter-spacing:.08em;text-transform:uppercase">ggpin · Round 10</span>
+    <h1 style="margin:0;font:800 48px/1.1 Manrope,sans-serif;letter-spacing:-.02em;color:#0B1020">Karta orqali to‘ldirish (P2P · Humo / Uzcard)</h1>
+    <p style="margin:0;font:500 18px/26px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">Replaces round 4 §3 (top-up flow) and the round 6 top-up modal. The card number and the exact amount appear only on the external web page; the Mini App shows the amount to pay but never the card. Click / Payme / Uzum / Rahmat / Stars tiles are removed from the landing, FAQ and history. Live frames: TopupMini.dc.html, PayPage.dc.html. Countdowns tick; copy buttons show toasts; “Davom etish” → waiting; “To‘lovni bekor qilish” → confirm → cancelled.</p>
+  </header>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="7">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 32px/1.2 Manrope,sans-serif;color:#0B1020">{{ g.title }}</h2><p style="margin:0;max-width:1500px;font:500 16px/24px Manrope,sans-serif;color:#3F4863;text-wrap:pretty">{{ g.note }}</p></div>
+      <sc-for list="{{ g.rows }}" as="row" hint-placeholder-count="1">
+        <div style="display:flex;gap:32px;align-items:flex-start">
+          <sc-for list="{{ row }}" as="it" hint-placeholder-count="4">
+            <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font:800 15px/1 Manrope,sans-serif;color:#3F4863">{{ it.label }}</figcaption><div style="width:{{ it.w }};border-radius:{{ it.r }};overflow:hidden;box-shadow:0 20px 60px -20px rgba(16,24,48,.35)">
+              <sc-if value="{{ it.mini }}" hint-placeholder-val="{{ true }}"><dc-import name="TopupMini" theme="{{ it.theme }}" lang="{{ it.lang }}" screen="{{ it.screen }}" amount-err="{{ it.err }}" amount-state="{{ it.as }}" wait="{{ it.wait }}" buy-variant="{{ it.buy }}" frozen="{{ it.frozen }}" hint-size="390px,844px"></dc-import></sc-if>
+              <sc-if value="{{ it.web }}"><dc-import name="PayPage" theme="{{ it.theme }}" lang="{{ it.lang }}" mode="{{ it.mode }}" state="{{ it.state }}" store-step="{{ it.step }}" viewport="{{ it.vp }}" frame-height="{{ it.fh }}" frozen="{{ it.frozen }}" hint-size="{{ it.hint }}"></dc-import></sc-if>
+            </div></figure>
+          </sc-for>
+        </div>
+      </sc-for>
+    </section>
+  </sc-for>
+
+  <section style="display:flex;flex-direction:column;gap:24px;max-width:1500px">
+    <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:800 32px/1.2 Manrope,sans-serif;color:#0B1020">8 · Component inventory — additions</h2><p style="margin:0;font:500 16px/24px Manrope,sans-serif;color:#3F4863">All five map to existing tokens; no new colours were needed. Tailwind classes use the round 9 variable mapping (e.g. <code>bg-accent-soft</code> → <code>var(--accent-soft)</code>).</p></div>
+    <div style="border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 10px 40px -20px rgba(16,24,48,.3)">
+      <table style="width:100%;border-collapse:collapse;font:600 14px/20px Manrope,sans-serif;color:#0B1020">
+        <thead><tr style="text-align:left;font:800 12px/16px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5E6784;background:#F2F4F9"><th style="padding:12px 18px">Component</th><th style="padding:12px">Anatomy / props</th><th style="padding:12px">Tokens</th><th style="padding:12px 18px 12px 12px">Motion &amp; a11y</th></tr></thead>
+        <tbody><sc-for list="{{ inv }}" as="c" hint-placeholder-count="5"><tr style="border-top:1px solid #E3E7F0;vertical-align:top"><td style="padding:16px 18px;font-weight:800;white-space:nowrap">{{ c.name }}<br><span style="font:600 12px/18px ui-monospace,Menlo,monospace;color:#5E6784">{{ c.code }}</span></td><td style="padding:16px 12px;color:#3F4863">{{ c.anat }}</td><td style="padding:16px 12px;font:600 12px/19px ui-monospace,Menlo,monospace;color:#3F4863">{{ c.tokens }}</td><td style="padding:16px 18px 16px 12px;color:#3F4863">{{ c.motion }}</td></tr></sc-for></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const M = (label, o) => ({ mini: true, web: false, theme: 'light', lang: 'uz', screen: 'amount', err: '', as: 'ready', wait: 'pending', buy: false, frozen: true, w: '390px', r: '36px', ...o, label });
+    const W = (label, o) => { const vp = o.vp || 'desktop'; const store = o.mode === 'store'; const w = o.w || (store ? (vp === 'tablet' ? '768px' : '1440px') : '390px'); const fh = o.fh || (store ? (vp === 'tablet' ? '1024px' : '900px') : '1240px'); return { mini: false, web: true, theme: 'light', lang: 'uz', mode: 'page', state: 'pending', step: 'pay', frozen: true, ...o, vp, w, fh, r: w === '390px' ? '36px' : '20px', hint: `${w},${fh}`, label }; };
+    const groups = [
+      { title: '1 · Mini App — summa', note: 'MoneyInput with chips, live validation (min / max / multiple of 1 000), new-account daily limit, card type segmented control, compact “Qanday ishlaydi?”. The bottom bar disables on error. A tail note explains the 1–999 so‘m addition before the user sees it.', rows: [
+        [M('Default · light · interactive', { frozen: false }), M('Default · dark', { theme: 'dark' }), M('Loading · light', { as: 'loading' }), M('Pending payment sheet · light', { as: 'pending' }), M('Pending sheet · dark', { as: 'pending', theme: 'dark' })],
+        [M('Minimal summa · light', { err: 'min' }), M('Maksimal summa · dark', { err: 'max', theme: 'dark' }), M('1 000 ga karrali · light', { err: 'mult' }), M('Kunlik limit · light', { err: 'limit' }), M('Unavailable · light', { as: 'unavailable' }), M('Unavailable · dark', { as: 'unavailable', theme: 'dark' })],
+      ] },
+      { title: '2 · Mini App — kutish', note: 'The page is opened in the external browser; the Mini App shows only the amount, a 30-minute ring and a calm live status. Cancel asks first. The Home pill sits with the order pill above the bottom nav and leads back here.', rows: [
+        [M('Waiting · light · ticking', { screen: 'waiting', frozen: false }), M('Waiting · dark', { screen: 'waiting', theme: 'dark' }), M('Cancel confirm · light', { screen: 'waiting', wait: 'cancelConfirm' }), M('Home pill · light', { screen: 'home', frozen: false }), M('Home pill · dark', { screen: 'home', theme: 'dark' })],
+        [M('Credited · light', { screen: 'waiting', wait: 'credited', frozen: false }), M('Credited → purchase · dark', { screen: 'waiting', wait: 'creditedBuy', theme: 'dark' }), M('Expired · light', { screen: 'waiting', wait: 'expired' }), M('Expired · dark', { screen: 'waiting', wait: 'expired', theme: 'dark' }), M('Cancelled · light', { screen: 'waiting', wait: 'cancelled' })],
+      ] },
+      { title: '3 · Web — to‘lov sahifasi “/pay/<id>”', note: 'No login, no navigation, no wallet. The amount card is the visual centre: the tail 347 gets an accent tint plus underline and a caption (never colour alone). Last 5 minutes switch the countdown to warning style without flashing. The status bar is sticky and polite-live.', rows: [
+        [W('Pending · 390 · light · interactive', { frozen: false }), W('Pending · 390 · dark', { theme: 'dark' }), W('< 5 daqiqa · 390 · light', { state: 'warn', frozen: false }), W('Network error · 390 · light', { state: 'netError' }), W('Loading · 390 · dark', { state: 'loading', theme: 'dark', frozen: false })],
+        [W('Credited · 390 · light', { state: 'credited', fh: '844px', frozen: false }), W('Expired · 390 · light', { state: 'expired', fh: '844px' }), W('Cancelled · 390 · dark', { state: 'cancelled', theme: 'dark', fh: '844px' }), W('Invalid link · 390 · light', { state: 'invalid', fh: '844px' }), W('Invalid link · 390 · dark', { state: 'invalid', theme: 'dark', fh: '844px' })],
+        [W('Pending · 1440 · light', { w: '1440px', fh: '1280px', frozen: false }), W('Pending · 1440 · dark', { w: '1440px', fh: '1280px', theme: 'dark' })],
+      ] },
+      { title: '4 · Web store — to‘ldirish oynasi', note: 'Two steps in one modal. Step 2 lays the amount card and card block next to the countdown, steps and warning at 1440; it stacks at 768. The wallet chip shows a “kutilmoqda” dot while a payment is pending.', rows: [
+        [W('Step 1 · 1440 · light · interactive', { mode: 'store', step: 'amount', frozen: false }), W('Step 2 · 1440 · light', { mode: 'store', step: 'pay', frozen: false }), W('Step 2 · 1440 · dark', { mode: 'store', step: 'pay', theme: 'dark' })],
+        [W('Step 2 · 768 · light', { mode: 'store', step: 'pay', vp: 'tablet' }), W('Step 1 · 768 · dark', { mode: 'store', step: 'amount', vp: 'tablet', theme: 'dark' }), W('Credited · 1440 · light', { mode: 'store', step: 'credited', frozen: false }), W('Expired · 1440 · dark', { mode: 'store', step: 'expired', theme: 'dark' }), W('Cancelled · 768 · light', { mode: 'store', step: 'cancelled', vp: 'tablet' })],
+      ] },
+      { title: '5–6 · Insufficient balance & Moliya', note: 'The shortfall rounds up to whole thousands (37 050 → 38 000). The variant label “… va sotib olish” is reserved for later. Moliya pins a pending payment on top; expired payments are not listed.', rows: [
+        [M('Insufficient · light', { screen: 'insufficient' }), M('Insufficient · dark', { screen: 'insufficient', theme: 'dark' }), M('Later variant · light', { screen: 'insufficient', buy: true }), M('Moliya · light', { screen: 'finance', frozen: false }), M('Moliya · dark', { screen: 'finance', theme: 'dark' })],
+      ] },
+      { title: '7 · Русский', note: 'Mini App screens 1–2 and pay page 3 in Russian. The longest labels (“Автоматически”, “Открыть страницу снова”, the 24-hour reassurance) wrap or fit at 390 without truncation.', rows: [
+        [M('Сумма · light', { lang: 'ru' }), M('Ожидание · light', { lang: 'ru', screen: 'waiting' }), M('Баланс пополнен · dark', { lang: 'ru', screen: 'waiting', wait: 'credited', theme: 'dark' }), M('Срок истёк · light', { lang: 'ru', screen: 'waiting', wait: 'expired' }), M('Лимит · dark', { lang: 'ru', err: 'limit', theme: 'dark' })],
+        [W('Оплата · 390 · light', { lang: 'ru' }), W('Оплата · 390 · dark', { lang: 'ru', theme: 'dark' }), W('Оплата получена · 390', { lang: 'ru', state: 'credited', fh: '844px' }), W('Ссылка устарела · 390', { lang: 'ru', state: 'invalid', fh: '844px' })],
+      ] },
+    ];
+    const inv = [
+      { name: 'AmountToPayCard', code: '<AmountToPay amount tail onCopy stale />', anat: 'Label · big tabular amount with highlighted tail (last 3 digits) · caption explaining the tail · primary “Nusxalash” (copies digits only) · optional “yangilanmadi” chip.', tokens: 'border-2 border-primary · bg-card · shadow-md · tail: bg-accent-soft + inset underline accent · caption text-accent-soft-foreground · font-display 40/48px', motion: 'Copy → toast (dur-base, ease-out). Tail is marked by tint + underline + caption, not colour alone. Amount has aria-label with the full number.' },
+      { name: 'CardNumberBlock', code: '<CardNumber bank number holder onCopy />', anat: 'Title + bank chip (text slot “Humo”/“Uzcard”) · number in 4 groups, 24px tabular · outline copy · holder row + verification caption.', tokens: 'bg-card · border-border · chip bg-muted · text-text / text-secondary · radius-xl', motion: 'Copy → toast “Karta raqami nusxalandi”. Groups are separate spans; aria-label holds the plain number. Hidden in expired / cancelled / invalid states.' },
+      { name: 'Countdown', code: '<Countdown seconds total variant="ring|bar" />', anat: 'Ring (Mini App, 64px) or bar (web) with “29:41 qoldi”. Under 5 minutes: warning surface + “5 daqiqadan kam qoldi”.', tokens: 'track bg-muted · fill primary → warning · surface card → warning-soft · text → warning-text', motion: 'Fill updates linearly once per second (1s linear). No flashing or pulsing at low time. role="timer", aria-live off.' },
+      { name: 'PaymentStatusBar', code: '<PaymentStatus state="waiting|error" onRetry />', anat: 'Sticky bottom bar (web) / card footer (Mini App) / modal footer (store). Live dot + “To‘lov kutilmoqda…” + time left; error variant shows wifi-off + “Qayta urinish”.', tokens: 'bg-surface/94 + blur · border-t border · dot info · error text-danger-text', motion: 'Dot: gg-pulse 1.6s ease-out infinite (static in reduced motion). role="status" aria-live="polite"; announces only state changes.' },
+      { name: 'PendingPaymentPill', code: '<PendingPill amount left href />', anat: 'Same family as “1 ta buyurtma bajarilmoqda”: elevated pill, 44px, live dot, “To‘lov kutilmoqda · 21:05”, chevron. Stacks above the order pill, above the bottom nav.', tokens: 'bg-elevated · border-border · shadow-md · radius-full · dot info', motion: 'Enters with gg-float-in (dur-slow, ease-out). Tap → waiting screen. Removed on credited / expired / cancelled.' },
+    ];
+    return { groups, inv };
+  }
+}
+</script>
+</body>
+</html>

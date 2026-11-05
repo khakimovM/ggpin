@@ -80,6 +80,12 @@
     },
     "errors": {
       "blocked": "Hisobingiz bloklangan. Yordam xizmatiga murojaat qiling."
+    },
+    "wallet": {
+      "topupCredited": "✅ Hisobingiz to‘ldirildi: {amount}\nBalans: {balance}",
+      "topupLateCredited": "✅ Kechikkan to‘lovingiz hisobga tushdi: {amount}\nBalans: {balance}",
+      "topupButton": "➕ Hisobni to‘ldirish",
+      "openTopup": "💳 Hisobni to‘ldirish uchun quyidagi tugmani bosing."
     }
   },
   "fields": {
@@ -113,6 +119,48 @@
     "INTERNAL_ERROR": "Ichki xatolik yuz berdi. Keyinroq qayta urinib ko‘ring.",
     "FULFILLMENT_UNAVAILABLE": "Yetkazib berish hozircha ishlamayapti. Keyinroq qayta urinib ko‘ring.",
     "RECIPIENT_CHECK_UNAVAILABLE": "Qabul qiluvchini tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.",
-    "PRICE_UNAVAILABLE": "Narx hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
+    "PRICE_UNAVAILABLE": "Narx hozircha mavjud emas. Keyinroq qayta urinib ko‘ring.",
+    "TOPUP_ALREADY_PENDING": "Sizda tugallanmagan to‘ldirish so‘rovi bor. Uni yakunlang yoki bekor qiling.",
+    "PAYMENT_METHOD_UNAVAILABLE": "To‘ldirish usuli hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
+  },
+  "alerts": {
+    "bankFeed": {
+      "unrecognized": "⚠️ Bank xabari tanilmadi. Ko‘rib chiqish: {reviewId}",
+      "rejected": "🚫 Bank xabari rad etildi ({reason}). Ko‘rib chiqish: {reviewId}",
+      "edited": "✏️ Bank xabari tahrirlandi: {messageId}. Avvalgi yozuv o‘zgarmadi.",
+      "cardUnknown": "❓ Nomaʼlum kartaga pul tushdi. Ko‘rib chiqish: {reviewId}",
+      "cardRetired": "📛 Faolsizlantirilgan karta ***{last4} ga pul tushdi. Ko‘rib chiqish: {reviewId}",
+      "chainBreak": "⛓ Karta ***{last4} balans zanjiri uzildi, avtomatik yozish to‘xtatildi. Ko‘rib chiqish: {reviewId}",
+      "autoCreditPaused": "⏸ Karta ***{last4} da avtomatik yozish to‘xtatilgan, to‘lov qo‘lda ko‘riladi: {reviewId}",
+      "noMatch": "❓ {amount} to‘lov hech bir so‘rovga mos kelmadi. Ko‘rib chiqish: {reviewId}",
+      "ambiguous": "⚠️ {amount} to‘lov bir nechta so‘rovga mos keldi. Ko‘rib chiqish: {reviewId}",
+      "duplicate": "♻️ {amount} takroriy to‘lov: so‘rov allaqachon to‘langan. Ko‘rib chiqish: {reviewId}",
+      "timeSkew": "🕒 Bank xabaridagi vaqt Telegram vaqtidan juda farq qiladi. Ko‘rib chiqish: {reviewId}",
+      "cardVerified": "✅ {bank} kartasi ***{last4} tasdiqlandi va faollashtirildi.",
+      "cardNearLimit": "📈 {bank} kartasi ***{last4}: limit {percent}% to‘ldi.",
+      "cardFull": "🈵 {bank} kartasi ***{last4} limiti to‘ldi, unga yangi so‘rovlar berilmaydi.",
+      "listenerDown": "🔴 Bank xabarlari tinglovchisi {minutes} daqiqadan beri ishlamayapti. Yangi to‘ldirish so‘rovlari to‘xtatildi.",
+      "sessionRevoked": "🔴 Bank xabarlari sessiyasi bekor qilingan, tinglovchi to‘xtadi. Qayta kirish kerak.",
+      "newAuthorization": "🚨 Ishchi akkauntga nomaʼlum yangi qurilma kirdi. Barcha kartalarda avtomatik yozish to‘xtatildi. Sessiyalarni tekshiring.",
+      "reconcileOk": "✅ Kunlik solishtirishda farq yo‘q. Tekshirilgan xabarlar: {count}. Chiqimlar: {debits}",
+      "reconcileMismatch": "⚠️ Kunlik solishtirishda farqlar topildi. Farqlar soni: {count}. Chiqimlar: {debits}",
+      "walletFrozen": "🧊 Foydalanuvchi {userId} hamyoni manfiy balans tufayli xaridlar uchun muzlatildi.",
+      "cancelledLate": "🚫 Bekor qilingan so‘rovga {amount} tushdi, avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}",
+      "possibleReversal": "↩️ Karta ***{last4} dan {amount} yechildi: yaqinda yozilgan to‘lov qaytarib olingan bo‘lishi mumkin. Ko‘rib chiqish: {reviewId}",
+      "userBlocked": "⛔ {amount} bloklangan foydalanuvchining so‘roviga tushdi, avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}",
+      "debit": "➖ Karta ***{last4} dan {amount} yechildi.",
+      "cardSilent": "🔇 {bank} kartasi ***{last4} ga uzoq vaqt pul tushmadi. Soatlar: {hours}. Tinglovchi va botni tekshiring.",
+      "cardDraining": "🚰 {bank} kartasi ***{last4} yopilmoqda: yangi so‘rovlar berilmaydi, mavjudlari muddatigacha yoziladi.",
+      "adminAction": "🛠 Ega amali: {action} ({ref}).",
+      "dailyLimit": "🛑 {amount} kunlik limitdan oshadi ({limit}), avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}"
+    },
+    "bot": {
+      "webhookFailed": "🔴 Bot webhook o‘rnatilmadi (urinish: {attempt}). API ishlayapti, fonda qayta uriniladi.",
+      "setupFailed": "🟠 Bot sozlamalari (buyruqlar, menyu) o‘rnatilmadi (urinish: {attempt}). Webhook o‘rnatilgan, sozlash fonda qayta uriniladi."
+    },
+    "limitReason": {
+      "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",
+      "NEW_ACCOUNT_DAILY_LIMIT": "yangi akkaunt: kuniga {cap}"
+    }
   }
 }

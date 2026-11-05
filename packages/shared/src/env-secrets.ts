@@ -14,6 +14,11 @@ export const WORKER_ONLY_SECRETS = [
   'FRAGMENT_SESSION_ENC_KEY',
   'TON_API_KEY',
   'RESELLER_STARS_API_KEY',
+  // Bank-feed Telegram user session (MTProto) that reads the card bots; an API that could
+  // see it could read or impersonate the account that confirms customer payments.
+  'BANK_FEED_API_HASH',
+  'BANK_FEED_SESSION_ENC',
+  'BANK_FEED_ENC_KEY',
 ] as const;
 
 // Secrets that only apps/api may hold. The worker refuses to boot with one: a worker that
@@ -32,6 +37,8 @@ export const API_ONLY_SECRETS = [
   'PAYME_KEY',
   'UZUM_SECRET',
   'RAHMAT_SECRET',
+  // HMAC pepper of the pay-link capability token hash (D-39).
+  'PAY_TOKEN_PEPPER',
 ] as const;
 
 export const MIN_GENERATED_SECRET_LENGTH = 32;
@@ -47,6 +54,7 @@ export const API_PRODUCTION_GENERATED_SECRETS = [
   'TG_SESSION_SECRET',
   'TELEGRAM_WEBHOOK_SECRET',
   'OTP_PEPPER',
+  'PAY_TOKEN_PEPPER',
 ] as const;
 
 export const API_PRODUCTION_ISSUED_CREDENTIALS = [
@@ -61,11 +69,14 @@ export const WORKER_PRODUCTION_GENERATED_SECRETS = [
   'TON_MNEMONIC_ENC',
   'WALLET_ENC_KEY',
   'FRAGMENT_SESSION_ENC_KEY',
+  'BANK_FEED_SESSION_ENC',
+  'BANK_FEED_ENC_KEY',
 ] as const;
 
 export const WORKER_PRODUCTION_ISSUED_CREDENTIALS = [
   'TON_API_KEY',
   'RESELLER_STARS_API_KEY',
+  'BANK_FEED_API_HASH',
 ] as const;
 
 /** Every secret env name the system knows; log redaction derives its key names from this. */
@@ -96,6 +107,9 @@ export const WORKER_ENV_PREFIXES = [
   'FRAGMENT_',
   'STEL_', // Fragment web-session cookie names (stel_ssid, stel_dt, ...)
   'RESELLER_',
+  // Bank-feed listener. Only its secret-shaped names are refused in the API: the tunables the
+  // API reads itself (BANK_FEED_HEARTBEAT_MAX_AGE_SEC) are not secrets and stay allowed.
+  'BANK_FEED_',
   'SUPPLIER_',
   'FAZERCARDS_',
   'WDGZONE_',

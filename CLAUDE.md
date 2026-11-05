@@ -8,8 +8,9 @@
 ## 1. What this project is
 
 **ggpin** is a digital top-up store for Uzbekistan, sold through a **Telegram bot + Mini App**
-and a **website** (landing + full web store). Users top up a so'm wallet (Click, Payme,
-Uzum, Rahmat) and buy:
+and a **website** (landing + full web store). Users top up a so'm wallet by P2P card transfer to
+our own Humo/Uzcard cards; the payment is matched by a unique amount from the bank bots'
+notifications (D-31, D-37). Click, Payme, Uzum, Rahmat come later (D-04). Users buy:
 
 1. **Telegram Stars** and **Telegram Premium** — bought by us on Fragment with our TON wallet
    and delivered straight to the customer's @username. **Built first.**
@@ -26,23 +27,23 @@ This is a production system that moves real money. Correctness and security outr
 
 ## 2. Stack (non-negotiable — ask before adding anything)
 
-| Layer         | Choice                                                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Monorepo      | npm workspaces + Turborepo                                                                                          |
-| API           | NestJS 11 (Fastify 5), TypeScript strict                                                                            |
-| Worker        | NestJS standalone app (`apps/worker`) — BullMQ consumers, the ONLY process holding wallet keys and supplier secrets |
-| DB / ORM      | PostgreSQL 16 + Prisma 7 (`@prisma/adapter-pg`); schema, migrations and client in `packages/db` (D-22)              |
-| Queue / cache | Redis 7 + BullMQ                                                                                                    |
-| Bot           | grammY (inside `apps/api`, webhook in prod, long polling in dev)                                                    |
-| Web           | Next.js 15 App Router (`apps/web`): landing (SSR/SEO), web store, Mini App routes `/tg/*`                           |
-| Admin         | React 19 + Vite SPA (`apps/admin`), separate subdomain, same React major as web                                     |
-| i18n          | `next-intl` (web), shared message catalogs in `packages/i18n` (uz, ru); bot uses the same catalogs                  |
-| UI            | Tailwind CSS + shadcn/ui style components in `packages/ui`, lucide-react, Framer Motion                             |
-| Server state  | TanStack Query v5 (web + admin); Zustand only for client-only state                                                 |
-| Validation    | Zod everywhere (`nestjs-zod` on API); schemas live in `packages/shared`                                             |
-| TON           | `@ton/ton`, `@ton/crypto` (worker only)                                                                             |
-| Tests         | Jest + Supertest (api, worker), Vitest + Testing Library (web, admin), Playwright (e2e)                             |
-| Deploy        | Docker Compose on our own VPS (api, worker, web, admin as separate containers)                                      |
+| Layer         | Choice                                                                                                                                                   |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo      | npm workspaces + Turborepo                                                                                                                               |
+| API           | NestJS 11 (Fastify 5), TypeScript strict                                                                                                                 |
+| Worker        | NestJS standalone app (`apps/worker`) — BullMQ consumers, the ONLY process holding wallet keys, supplier secrets and the bank-feed Telegram user session |
+| DB / ORM      | PostgreSQL 16 + Prisma 7 (`@prisma/adapter-pg`); schema, migrations and client in `packages/db` (D-22)                                                   |
+| Queue / cache | Redis 7 + BullMQ                                                                                                                                         |
+| Bot           | grammY (inside `apps/api`, webhook in prod, long polling in dev)                                                                                         |
+| Web           | Next.js 15 App Router (`apps/web`): landing (SSR/SEO), web store, Mini App routes `/tg/*`                                                                |
+| Admin         | React 19 + Vite SPA (`apps/admin`), separate subdomain, same React major as web                                                                          |
+| i18n          | `next-intl` (web), shared message catalogs in `packages/i18n` (uz, ru); bot uses the same catalogs                                                       |
+| UI            | Tailwind CSS + shadcn/ui style components in `packages/ui`, lucide-react, Framer Motion                                                                  |
+| Server state  | TanStack Query v5 (web + admin); Zustand only for client-only state                                                                                      |
+| Validation    | Zod everywhere (`nestjs-zod` on API); schemas live in `packages/shared`                                                                                  |
+| TON           | `@ton/ton`, `@ton/crypto` (worker only)                                                                                                                  |
+| Tests         | Jest + Supertest (api, worker), Vitest + Testing Library (web, admin), Playwright (e2e)                                                                  |
+| Deploy        | Docker Compose on our own VPS (api, worker, web, admin as separate containers)                                                                           |
 
 No Express, no Redux, no Moment.js, no `any`, no floating-point money.
 
@@ -104,8 +105,9 @@ stop and ask.
    cost exceeds the locked price's margin floor, the order is held, not sold at a loss.
 6. **Every user query is scoped to the owner** (`userId` from the verified session only).
    Another user's resource → 404.
-7. **Secrets never leave the worker.** TON mnemonic, Fragment cookies, supplier API keys
-   are read only in `apps/worker`. The API and web never import them.
+7. **Secrets never leave the worker.** TON mnemonic, Fragment cookies, supplier API keys and the
+   bank-feed Telegram session (secret `BANK_FEED_*`) are read only in `apps/worker`. The API and web
+   never import them.
 8. **Recipient is confirmed before payment.** Username/player ID/Steam login is validated
    and the resolved name shown to the user before the order can be paid.
 

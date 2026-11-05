@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — To‘lov</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+</helmet>
+<div data-theme="{{ theme }}" data-reduced="{{ reduced }}" lang="{{ lang }}" style="position:relative;width:100%;height:{{ frameH }};min-height:{{ minH }};overflow-y:{{ scrollY }};overflow-x:hidden;display:flex;flex-direction:column;background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif">
+
+  <sc-if value="{{ isPage }}" hint-placeholder-val="{{ true }}">
+    <header style="flex:none;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 max(16px,calc((100% - 560px)/2));border-bottom:1px solid var(--border);background:var(--surface)">
+      <span style="display:flex;align-items:center;gap:8px"><span style="width:30px;height:30px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 14px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 18px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span></span>
+      <div style="display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--muted)"><sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.onClick }}" aria-pressed="{{ l.on }}" style="min-width:44px;height:36px;padding:0 10px;border-radius:999px;border:none;background:{{ l.bg }};color:{{ l.fg }};box-shadow:{{ l.sh }};font:800 13px/1 Manrope,sans-serif;cursor:pointer">{{ l.label }}</button></sc-for></div>
+    </header>
+  </sc-if>
+
+  <sc-if value="{{ isStore }}">
+    <div aria-hidden="true" style="position:absolute;inset:0;display:flex;flex-direction:column">
+      <div style="height:72px;flex:none;display:flex;align-items:center;gap:20px;padding:0 {{ storePad }};border-bottom:1px solid var(--border);background:var(--surface)">
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font:800 15px/1 Unbounded,sans-serif;letter-spacing:-.14em;color:var(--primary-foreground);padding-right:2px">g<span style="color:var(--accent)">g</span></span><span style="font:700 19px/1 Unbounded,sans-serif;letter-spacing:-.04em">ggpin</span></span>
+        <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><span style="display:flex;gap:4px;font:700 15px/1 Manrope,sans-serif;color:var(--text-secondary)"><span style="padding:10px 12px">Katalog</span><span style="padding:10px 12px">Tarix</span><span style="padding:10px 12px">Profil</span></span><span style="flex:1;max-width:360px;height:44px;border-radius:12px;background:var(--input);border:1.5px solid var(--input-border)"></span></sc-if>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:999px;background:var(--card);border:1.5px solid var(--border);font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><sc-if value="{{ chipPending }}"><span style="display:flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:999px;background:var(--info-soft);color:var(--info-text);font:800 11px/1 Manrope,sans-serif">{{ dot }}kutilmoqda</span></sc-if>85 400 so‘m<span style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;font-size:16px"><i class="icon-plus"></i></span></span>
+        <span style="width:44px;height:44px;border-radius:50%;background:var(--primary-soft)"></span>
+      </div>
+      <div style="flex:1;padding:24px {{ storePad }};display:grid;grid-template-columns:{{ storeGrid }};gap:16px;align-content:start"><sc-for list="{{ ghost }}" as="g" hint-placeholder-count="8"><span style="height:220px;border-radius:20px;background:var(--card);border:1px solid var(--border)"></span></sc-for></div>
+      <div style="position:absolute;inset:0;background:var(--overlay)"></div>
+    </div>
+  </sc-if>
+
+  <div role="{{ shellRole }}" aria-modal="{{ isStore }}" aria-labelledby="pp-title" style="position:{{ shellPos }};left:50%;top:{{ shellTop }};transform:{{ shellTf }};width:{{ shellW }};max-height:{{ shellMaxH }};flex:1;display:flex;flex-direction:column;background:{{ shellBg }};border-radius:{{ shellR }};box-shadow:{{ shellSh }};border:{{ shellBd }};overflow:{{ shellOv }};z-index:10;animation:{{ shellAnim }}">
+    <sc-if value="{{ isStore }}">
+      <div style="flex:none;display:flex;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid var(--border)">
+        <h2 id="pp-title" style="margin:0;font:800 20px/26px Manrope,sans-serif">Hisobni to‘ldirish</h2>
+        <sc-if value="{{ showSteps }}"><ol style="list-style:none;margin:0 0 0 auto;padding:0;display:flex;align-items:center;gap:8px;font:700 13px/1 Manrope,sans-serif"><sc-for list="{{ stepper }}" as="st" hint-placeholder-count="2"><li style="display:flex;align-items:center;gap:6px;color:{{ st.fg }}"><span style="width:24px;height:24px;border-radius:50%;background:{{ st.bg }};color:{{ st.nfg }};display:grid;place-items:center;font:800 12px/1 Manrope,sans-serif">{{ st.n }}</span>{{ st.label }}<sc-if value="{{ st.sep }}"><span style="width:24px;height:2px;border-radius:1px;background:var(--border);margin-left:2px"></span></sc-if></li></sc-for></ol></sc-if>
+        <button aria-label="Yopish" style="margin-left:{{ closeMl }};width:40px;height:40px;border-radius:12px;border:none;background:var(--muted);color:var(--text);cursor:pointer;font-size:18px;display:grid;place-items:center"><i class="icon-x"></i></button>
+      </div>
+    </sc-if>
+
+    <div style="flex:1;min-height:0;overflow-y:{{ bodyScroll }};padding:{{ bodyPad }};display:flex;flex-direction:column;gap:16px">
+
+      <sc-if value="{{ sAmountStep }}">
+        <div style="display:grid;grid-template-columns:{{ amtCols }};gap:20px;align-items:start">
+          <section style="display:flex;flex-direction:column;gap:8px">
+            <label for="ps-amt" style="font:700 14px/20px Manrope,sans-serif;color:var(--text-secondary)">Summa</label>
+            <div style="display:flex;align-items:center;gap:8px;height:64px;padding:0 16px;border-radius:16px;background:var(--input);border:1.5px solid var(--input-border)"><input id="ps-amt" value="{{ amtStr }}" onChange="{{ onAmt }}" inputmode="numeric" style="flex:1;min-width:0;border:none;background:transparent;outline:none;font:600 28px/1 Unbounded,sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--text)"><span style="font:800 16px/1 Manrope,sans-serif;color:var(--text-muted)">so‘m</span></div>
+            <sc-if value="{{ aErr }}"><div role="alert" style="display:flex;gap:6px;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-circle-alert" style="font-size:15px;margin-top:1px"></i>{{ aErr }}</div></sc-if>
+            <sc-if value="{{ aOk }}" hint-placeholder-val="{{ true }}"><span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">5 000 so‘mdan 2 000 000 so‘mgacha, 1 000 so‘mga karrali</span></sc-if>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:4px"><sc-for list="{{ chips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="height:44px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer">{{ c.label }}</button></sc-for></div>
+            <span style="margin-top:10px;font:700 14px/20px Manrope,sans-serif;color:var(--text-secondary)">Karta turi</span>
+            <div role="radiogroup" style="display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--muted)"><sc-for list="{{ types }}" as="c" hint-placeholder-count="3"><button role="radio" aria-checked="{{ c.on }}" onClick="{{ c.onClick }}" style="flex:1;height:40px;border-radius:10px;border:none;background:{{ c.bg }};color:{{ c.fg }};box-shadow:{{ c.sh }};font:800 14px/1 Manrope,sans-serif;cursor:pointer">{{ c.label }}</button></sc-for></div>
+            <span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">Qaysi kartadan o‘tkazishingiz farqi yo‘q — istalgan bank ilovasidan bo‘ladi.</span>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:20px;background:var(--surface);border:1px solid var(--border)">
+            <h3 style="margin:0;font:800 16px/22px Manrope,sans-serif">Qanday ishlaydi?</h3>
+            <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><sc-for list="{{ how3 }}" as="x" hint-placeholder-count="3"><li style="display:flex;gap:12px;align-items:flex-start"><span style="width:26px;height:26px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 13px/1 Manrope,sans-serif;flex:none">{{ x.n }}</span><span style="font:600 14px/20px Manrope,sans-serif;padding-top:3px">{{ x.text }}</span></li></sc-for></ol>
+            <span style="display:flex;gap:8px;padding:10px 12px;border-radius:12px;background:var(--muted);font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary)"><i class="icon-info" style="font-size:15px;margin-top:1px;flex:none"></i>Summaga 1–999 so‘m qo‘shiladi — shu raqamlar orqali to‘lovingizni taniymiz.</span>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ sPay }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ isPage }}" hint-placeholder-val="{{ true }}"><h1 id="pp-title" style="margin:0;font:800 22px/28px Manrope,sans-serif;letter-spacing:-.01em">{{ t.pageTitle }}</h1></sc-if>
+        <div style="display:grid;grid-template-columns:{{ payCols }};gap:16px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+            <section aria-labelledby="pp-amt-l" style="position:relative;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:24px;background:var(--card);border:2px solid var(--primary);box-shadow:var(--shadow-md)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span id="pp-amt-l" style="font:800 15px/20px Manrope,sans-serif">{{ t.exact }}</span><sc-if value="{{ stale }}"><span style="display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:var(--muted);color:var(--text-muted);font:700 11px/1 Manrope,sans-serif;white-space:nowrap"><i class="icon-clock-alert" style="font-size:12px"></i>{{ t.stale }}</span></sc-if></div>
+              <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px">
+                <span style="font:600 {{ amtSize }}/1.15 Unbounded,sans-serif;letter-spacing:-.04em;font-variant-numeric:tabular-nums;white-space:nowrap">50 <span style="position:relative;padding:0 4px;margin:0 -2px;border-radius:8px;background:var(--accent-soft);color:var(--text);box-shadow:inset 0 -4px 0 var(--accent)">347</span></span>
+                <span style="font:800 20px/1 Manrope,sans-serif;color:var(--text-secondary)">{{ t.cur }}</span>
+              </div>
+              <span style="display:flex;align-items:center;gap:6px;font:700 13px/18px Manrope,sans-serif;color:var(--accent-soft-foreground)"><i class="icon-arrow-up-right" style="font-size:14px"></i>{{ t.tailCap }}</span>
+              <button onClick="{{ copyAmt }}" style="height:48px;border-radius:14px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 15px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer" style-active="transform:scale(.98)"><i class="icon-copy" style="font-size:17px"></i>{{ t.copy }}</button>
+            </section>
+
+            <section aria-labelledby="pp-card-l" style="display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:24px;background:var(--card);border:1px solid var(--border)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span id="pp-card-l" style="font:800 15px/20px Manrope,sans-serif">{{ t.cardNo }}</span><span style="height:30px;padding:0 12px;border-radius:999px;background:var(--muted);border:1px solid var(--border);font:800 13px/28px Manrope,sans-serif">Humo</span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font:800 {{ cardSize }}/1.2 Manrope,sans-serif;letter-spacing:.02em;font-variant-numeric:tabular-nums" aria-label="9860 1234 5678 9012"><span>9860</span><span>1234</span><span>5678</span><span>9012</span></div>
+              <button onClick="{{ copyCard }}" style="height:44px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><i class="icon-copy" style="font-size:16px"></i>{{ t.copy }}</button>
+              <div style="display:flex;flex-direction:column;gap:4px;padding-top:12px;border-top:1px solid var(--border)"><span style="display:flex;justify-content:space-between;gap:8px;font:600 14px/20px Manrope,sans-serif"><span style="color:var(--text-muted)">{{ t.holder }}</span><span style="font-weight:800;letter-spacing:.04em">ALISHER K.</span></span><span style="display:flex;gap:6px;font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary)"><i class="icon-user-check" style="font-size:14px;margin-top:2px;flex:none"></i>{{ t.holderCap }}</span></div>
+            </section>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+            <section role="timer" aria-live="off" style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:20px;background:{{ cdBg }};border:1px solid {{ cdBd }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px;font:800 15px/20px Manrope,sans-serif;color:{{ cdFg }}"><i class="{{ cdIcon }}" style="font-size:17px"></i>{{ cdText }}</span><span style="font:800 18px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;color:{{ cdFg }};white-space:nowrap">{{ leftLabel }}</span></div>
+              <span style="height:6px;border-radius:3px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ cdW }};border-radius:3px;background:{{ cdBar }};transition:width 1s linear"></span></span>
+            </section>
+            <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:20px;background:var(--card);border:1px solid var(--border)">
+              <h2 style="margin:0;font:800 16px/22px Manrope,sans-serif">{{ t.howTitle }}</h2>
+              <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><sc-for list="{{ steps }}" as="x" hint-placeholder-count="4"><li style="display:flex;gap:12px;align-items:flex-start"><span style="width:26px;height:26px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 13px/1 Manrope,sans-serif;flex:none">{{ x.n }}</span><span style="font:600 14px/20px Manrope,sans-serif;padding-top:3px;text-wrap:pretty">{{ x.text }}</span></li></sc-for></ol>
+            </section>
+            <section role="note" style="display:flex;gap:12px;padding:16px;border-radius:20px;background:var(--warning-soft);color:var(--text)"><i class="icon-triangle-alert" style="font-size:20px;color:var(--warning-text);flex:none"></i><span style="font:700 14px/21px Manrope,sans-serif;text-wrap:pretty">{{ t.warn }}</span></section>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ sLoading }}">
+        <div aria-busy="true" style="display:flex;flex-direction:column;gap:16px">
+          <span style="position:relative;overflow:hidden;width:60%;height:24px;border-radius:8px;background:var(--skeleton)">{{ sh }}</span>
+          <span style="position:relative;overflow:hidden;height:210px;border-radius:24px;background:var(--skeleton)">{{ sh }}</span>
+          <span style="position:relative;overflow:hidden;height:200px;border-radius:24px;background:var(--skeleton)">{{ sh }}</span>
+          <span style="position:relative;overflow:hidden;height:76px;border-radius:20px;background:var(--skeleton)">{{ sh }}</span>
+          <span style="position:relative;overflow:hidden;height:180px;border-radius:20px;background:var(--skeleton)">{{ sh }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ sFinal }}">
+        <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:{{ finalPad }}">
+          <sc-if value="{{ fOk }}">{{ confetti }}{{ pop }}</sc-if>
+          <sc-if value="{{ fNotOk }}"><span style="width:80px;height:80px;border-radius:50%;background:var(--muted);color:var(--text-secondary);display:grid;place-items:center;font-size:34px"><i class="{{ fIcon }}"></i></span></sc-if>
+          <h1 id="pp-title" style="margin:8px 0 0;max-width:420px;font:800 26px/32px Manrope,sans-serif;text-wrap:balance">{{ fTitle }}</h1>
+          <sc-if value="{{ fOk }}"><span style="font:600 18px/26px Manrope,sans-serif;font-variant-numeric:tabular-nums"><span style="font:600 26px/32px Unbounded,sans-serif;letter-spacing:-.03em;color:var(--success-text)">+50 347 {{ t.cur }}</span><br>{{ t.okSub }}</span></sc-if>
+          <sc-if value="{{ fBody }}"><p style="margin:0;max-width:400px;padding:12px 14px;border-radius:14px;background:{{ fBodyBg }};font:600 15px/22px Manrope,sans-serif;text-wrap:pretty">{{ fBody }}</p></sc-if>
+          <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:6px;margin-top:16px">
+            <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><sc-if value="{{ isPage }}" hint-placeholder-val="{{ true }}"><i class="icon-send" style="font-size:17px"></i></sc-if>{{ fCta }}</button>
+            <sc-if value="{{ fSupport }}"><a href="#support" style="padding:12px;font:700 14px/20px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none">{{ t.support }}</a></sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">
+      <div role="status" aria-live="polite" style="position:{{ barPos }};bottom:0;z-index:5;flex:none;display:flex;align-items:center;gap:12px;padding:{{ barPad }};background:color-mix(in oklab,var(--surface) 94%,transparent);backdrop-filter:blur(16px);border-top:1px solid var(--border)">
+        <sc-if value="{{ netErr }}"><span style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;font:800 15px/20px Manrope,sans-serif;color:var(--danger-text)"><i class="icon-wifi-off" style="font-size:18px"></i>{{ t.netErr }}</span><button onClick="{{ retry }}" style="height:44px;padding:0 16px;border-radius:12px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 14px/1 Manrope,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><i class="icon-refresh-cw" style="font-size:15px"></i>{{ t.retry }}</button></sc-if>
+        <sc-if value="{{ netOk }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;font:800 15px/20px Manrope,sans-serif">{{ dot }}{{ t.waiting }}</span><sc-if value="{{ isStore }}"><button style="height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">To‘lovni bekor qilish</button></sc-if><sc-if value="{{ isPage }}" hint-placeholder-val="{{ true }}"><span style="font:700 14px/1 Manrope,sans-serif;color:{{ cdFg }};font-variant-numeric:tabular-nums;white-space:nowrap">{{ leftLabel }}</span></sc-if></sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showAmtFooter }}">
+      <div style="flex:none;display:flex;justify-content:flex-end;gap:10px;padding:16px 20px;border-top:1px solid var(--border)"><button style="height:52px;min-width:220px;padding:0 24px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer;box-shadow:var(--shadow-glow);font-variant-numeric:tabular-nums">Davom etish · {{ amtFull }}</button></div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ toast }}"><div role="status" style="position:absolute;left:50%;bottom:{{ toastB }};transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;background:var(--text);color:var(--background);font:800 14px/1 Manrope,sans-serif;white-space:nowrap;box-shadow:var(--shadow-lg);animation:{{ toastAnim }}"><i class="icon-check" style="font-size:16px"></i>{{ toast }}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;uz&quot;,&quot;ru&quot;],&quot;default&quot;:&quot;uz&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;page&quot;,&quot;store&quot;],&quot;default&quot;:&quot;page&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pending&quot;,&quot;warn&quot;,&quot;loading&quot;,&quot;credited&quot;,&quot;expired&quot;,&quot;cancelled&quot;,&quot;invalid&quot;,&quot;netError&quot;],&quot;default&quot;:&quot;pending&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;storeStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amount&quot;,&quot;pay&quot;,&quot;credited&quot;,&quot;expired&quot;,&quot;cancelled&quot;],&quot;default&quot;:&quot;amount&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;viewport&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;tablet&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;frameHeight&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = this.init(p); }
+  init(p) { const st = p.state ?? 'pending'; return { lang: p.lang ?? 'uz', st, sec: st === 'warn' ? 271 : st === 'netError' ? 1702 : 1781, amt: '50000', type: 'auto', toast: '' }; }
+  componentDidMount() { if (!this.props.frozen) this.iv = setInterval(() => this.setState(s => ({ sec: Math.max(0, s.sec - 1) })), 1000); }
+  componentDidUpdate(prev) { if (['state', 'lang', 'mode', 'storeStep'].some(k => prev[k] !== this.props[k])) this.setState(this.init(this.props)); }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.tt); }
+  renderVals() {
+    const h = React.createElement, P = this.props, s = this.state;
+    const rm = !!P.reducedMotion || !!P.frozen;
+    const ru = s.lang === 'ru';
+    const store = P.mode === 'store';
+    const wide = P.viewport !== 'tablet';
+    const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+    const T = ru ? {
+      pageTitle: 'Пополнение баланса', exact: 'Переведите ровно эту сумму', cur: 'сум', tailCap: 'последние 3 цифры — это ваш платёж', copy: 'Копировать', cardNo: 'Номер карты', holder: 'Получатель', holderCap: 'Проверьте имя получателя перед переводом',
+      left: x => `Осталось ${x}`, lowLeft: 'Осталось меньше 5 минут', howTitle: 'Как оплатить', steps: ['Откройте банковское приложение', 'Выберите перевод на карту', 'Введите номер карты и ровно эту сумму', 'Переведите — деньги поступят за 1–2 минуты'],
+      warn: 'Не округляйте сумму и не делите её на части. Другая сумма не зачислится автоматически — в таком случае напишите в поддержку.', waiting: 'Ожидаем оплату…', netErr: 'Ошибка соединения', retry: 'Повторить', stale: 'не обновлено',
+      okTitle: 'Оплата получена!', okSub: 'зачислено на ваш баланс', exTitle: 'Срок оплаты истёк', exBody: 'Если вы уже перевели деньги, не волнуйтесь: платёж, поступивший в течение 24 часов, будет зачислен автоматически.', caTitle: 'Этот платёж отменён', invTitle: 'Ссылка устарела или неверна', invBody: 'Начните новый платёж внутри ggpin.', back: 'Вернуться в Telegram', support: 'Написать в поддержку', tAmt: 'Сумма скопирована', tCard: 'Номер карты скопирован',
+    } : {
+      pageTitle: 'Hisobni to‘ldirish', exact: 'Aynan shu summani o‘tkazing', cur: 'so‘m', tailCap: 'oxirgi 3 raqam to‘lovingizni tanitadi', copy: 'Nusxalash', cardNo: 'Karta raqami', holder: 'Karta egasi', holderCap: 'Karta egasi ismini o‘tkazishdan oldin tekshiring',
+      left: x => `${x} qoldi`, lowLeft: '5 daqiqadan kam qoldi', howTitle: 'Qanday to‘lash kerak', steps: ['Bank ilovangizni oching', 'Kartaga o‘tkazmani tanlang', 'Karta raqamini va aynan shu summani kiriting', 'O‘tkazing — pul 1–2 daqiqada tushadi'],
+      warn: 'Summani yaxlitlamang va bo‘lib yubormang. Boshqa summa avtomatik tushmaydi — bunday holda yordamga yozing.', waiting: 'To‘lov kutilmoqda…', netErr: 'Ulanishda xatolik', retry: 'Qayta urinish', stale: 'yangilanmadi',
+      okTitle: 'To‘lov qabul qilindi!', okSub: 'hisobingizga tushdi', exTitle: 'To‘lov muddati tugadi', exBody: 'Agar pulni o‘tkazgan bo‘lsangiz, xavotir olmang: 24 soat ichida tushgan to‘lov hisobingizga avtomatik yoziladi.', caTitle: 'Bu to‘lov bekor qilingan', invTitle: 'Havola eskirgan yoki noto‘g‘ri', invBody: 'Yangi to‘lovni ggpin ichidan boshlang.', back: 'Telegram’ga qaytish', support: 'Yordamga yozish', tAmt: 'Summa nusxalandi', tCard: 'Karta raqami nusxalandi',
+    };
+    const step = store ? (P.storeStep ?? 'amount') : null;
+    const st = store ? ({ amount: 'amount', pay: 'pending', credited: 'credited', expired: 'expired', cancelled: 'cancelled' }[step]) : s.st;
+    const payish = st === 'pending' || st === 'warn' || st === 'netError';
+    const final = ['credited', 'expired', 'cancelled', 'invalid'].includes(st);
+    const sec = s.sec, mmss = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, low = sec < 300;
+    const dot = h('span', { 'aria-hidden': true, style: { position: 'relative', width: 10, height: 10, flex: 'none', display: 'inline-block' } }, h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)', animation: rm ? 'none' : 'gg-pulse 1.6s var(--ease-out) infinite', opacity: rm ? 0 : 1 } }), h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)' } }));
+    const sh = h('span', { style: { position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,var(--skeleton-shine),transparent)', transform: 'translateX(-100%)', animation: rm ? 'none' : 'gg-shimmer var(--dur-shimmer) var(--ease-standard) infinite', opacity: rm ? 0 : 1 } });
+    const pop = h('span', { style: { width: 88, height: 88, borderRadius: '50%', background: 'var(--success)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 42, animation: rm ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+    const cols = ['var(--primary)', 'var(--accent)', 'var(--success)', 'var(--info)', 'var(--premium)'];
+    const confetti = rm ? null : h('span', { 'aria-hidden': true, style: { position: 'absolute', left: '50%', top: '30%', width: 0, height: 0, pointerEvents: 'none' } }, Array.from({ length: 16 }, (_, i) => { const a = i / 16 * Math.PI * 2; return h('span', { key: i, style: { position: 'absolute', width: 8, height: i % 2 ? 8 : 12, borderRadius: 2, background: cols[i % 5], '--dx': Math.round(Math.cos(a) * 130) + 'px', '--dy': Math.round(Math.sin(a) * 110 + 60) + 'px', '--r': (i * 47) + 'deg', animation: `gg-confetti 1400ms var(--ease-out) ${i * 18}ms both` } }); }));
+    const toast = msg => { this.setState({ toast: msg }); clearTimeout(this.tt); this.tt = setTimeout(() => this.setState({ toast: '' }), 1800); };
+    const copy = (txt, msg) => () => { try { navigator.clipboard.writeText(txt); } catch (e) {} toast(msg); };
+    const fMap = { credited: [T.okTitle, '', '', 'icon-check'], expired: [T.exTitle, T.exBody, 'var(--info-soft)', 'icon-timer-off'], cancelled: [T.caTitle, '', '', 'icon-circle-x'], invalid: [T.invTitle, T.invBody, 'var(--muted)', 'icon-link-2-off'] };
+    const f = fMap[st] || ['', '', '', ''];
+    const storeCta = { credited: 'Do‘konga qaytish', expired: 'Yangi to‘lov', cancelled: 'Yangi to‘lov' };
+    const n = Number(s.amt) || 0;
+    const aErr = !s.amt ? '' : n < 5000 ? 'Minimal summa 5 000 so‘m' : n > 2000000 ? 'Maksimal summa 2 000 000 so‘m' : n % 1000 ? 'Summa 1 000 so‘mga karrali bo‘lsin' : '';
+    const pill = on => ({ bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--text)' : 'var(--text-muted)', sh: on ? 'var(--shadow-sm)' : 'none' });
+    const twoCol = store && wide && st !== 'amount';
+    const modalW = !store ? '100%' : st === 'amount' ? (wide ? '880px' : '640px') : final ? '560px' : (wide ? '960px' : '640px');
+    return {
+      theme: P.theme ?? 'light', reduced: String(rm), lang: ru ? 'ru' : 'uz', t: T, isPage: !store, isStore: store, wide,
+      frameH: P.frameHeight ?? (store ? '900px' : 'auto'), minH: store ? '0' : '100vh', scrollY: store ? 'hidden' : (P.frameHeight ? 'auto' : 'visible'),
+      langs: [['uz', 'UZ'], ['ru', 'RU']].map(([id, label]) => ({ label, on: s.lang === id, ...pill(s.lang === id), onClick: () => this.setState({ lang: id }) })),
+      storePad: wide ? '40px' : '20px', storeGrid: wide ? 'repeat(4,minmax(0,1fr))' : 'repeat(2,minmax(0,1fr))', ghost: [1, 2, 3, 4, 5, 6, 7, 8], chipPending: store && payish,
+      shellRole: store ? 'dialog' : 'main', shellPos: store ? 'absolute' : 'relative', shellTop: store ? '50%' : '0', shellTf: store ? 'translate(-50%,-50%)' : 'translateX(-50%)', shellW: store ? `min(calc(100% - 40px),${modalW})` : 'min(100%,560px)', shellMaxH: store ? 'calc(100% - 48px)' : 'none',
+      shellBg: store ? 'var(--elevated)' : 'transparent', shellR: store ? '28px' : '0', shellSh: store ? 'var(--shadow-lg)' : 'none', shellBd: store ? '1px solid var(--border)' : 'none', shellOv: store ? 'hidden' : 'visible', shellAnim: 'none',
+      showSteps: store && !final, closeMl: store && !final ? '8px' : 'auto',
+      stepper: [['1', 'Summa', st === 'amount'], ['2', 'To‘lov', st !== 'amount']].map(([nn, label, on], i) => ({ n: nn, label, sep: i === 0, fg: on ? 'var(--text)' : 'var(--text-muted)', bg: on ? 'var(--primary)' : 'var(--muted)', nfg: on ? 'var(--primary-foreground)' : 'var(--text-muted)' })),
+      bodyScroll: store ? 'auto' : 'visible', bodyPad: store ? '20px' : '20px 16px 24px',
+      sAmountStep: st === 'amount', amtCols: wide ? 'minmax(0,1.2fr) minmax(0,1fr)' : 'minmax(0,1fr)', amtStr: s.amt ? fmt(n) : '', onAmt: e => this.setState({ amt: e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 8) }), amtFull: fmt(n) + ' so‘m', aErr, aOk: !aErr,
+      chips: [20000, 50000, 100000, 200000].map(v => { const on = n === v; return { label: fmt(v), bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text)', onClick: () => this.setState({ amt: String(v) }) }; }),
+      types: [['auto', 'Avtomatik'], ['humo', 'Humo'], ['uzcard', 'Uzcard']].map(([id, label]) => ({ label, on: s.type === id, ...pill(s.type === id), onClick: () => this.setState({ type: id }) })),
+      how3: ['Summani tanlang', 'Ko‘rsatilgan kartaga aynan shu summani o‘tkazing', 'Pul 1–2 daqiqada hisobingizga tushadi'].map((text, i) => ({ n: i + 1, text })),
+      sPay: payish, payCols: twoCol ? 'minmax(0,1.1fr) minmax(0,1fr)' : 'minmax(0,1fr)', amtSize: wide && !store ? '48px' : '40px', cardSize: '24px', stale: st === 'netError',
+      copyAmt: copy('50347', T.tAmt), copyCard: copy('9860123456789012', T.tCard),
+      cdBg: low ? 'var(--warning-soft)' : 'var(--card)', cdBd: low ? 'color-mix(in oklab,var(--warning) 45%,transparent)' : 'var(--border)', cdFg: low ? 'var(--warning-text)' : 'var(--text)', cdIcon: low ? 'icon-timer' : 'icon-clock', cdText: low ? T.lowLeft : (ru ? 'Срок оплаты' : 'To‘lov muddati'), cdW: (sec / 1800 * 100).toFixed(2) + '%', cdBar: low ? 'var(--warning)' : 'var(--primary)', mmss, leftLabel: T.left(mmss),
+      steps: T.steps.map((text, i) => ({ n: i + 1, text })),
+      sLoading: st === 'loading', sh, sFinal: final, finalPad: store ? '24px 8px' : '48px 8px 80px', fOk: st === 'credited', fNotOk: st !== 'credited', fTitle: f[0], fBody: f[1], fBodyBg: f[2], fIcon: f[3], fCta: store ? storeCta[st] : T.back, fSupport: st === 'expired', confetti, pop,
+      showBar: payish, barPos: store ? 'relative' : 'sticky', barPad: store ? '14px 20px' : '14px max(16px,calc((100% - 560px)/2 + 16px)) calc(14px + env(safe-area-inset-bottom))', netErr: st === 'netError', netOk: st !== 'netError', dot,
+      retry: () => this.setState({ st: 'pending' }), showAmtFooter: st === 'amount',
+      toast: s.toast, toastB: store ? '120px' : '96px', toastAnim: rm ? 'none' : 'gg-toast-in var(--dur-base) var(--ease-out)',
+    };
+  }
+}
+</script>
+</body>
+</html>

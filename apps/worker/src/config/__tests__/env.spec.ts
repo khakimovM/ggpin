@@ -84,6 +84,22 @@ describe('worker loadEnv', () => {
     }
   });
 
+  describe('OWNER_ALERT_CHAT_ID', () => {
+    it('accepts the numeric id of a user chat', () => {
+      expect(buildTestEnv({ OWNER_ALERT_CHAT_ID: '555000' }).OWNER_ALERT_CHAT_ID).toBe('555000');
+    });
+
+    // alerts leave through tg-outbox, which writes to user chats only
+    it.each(['-100123456', '-1', 'abc', '12 3', '+5', '1.5', '0', '012', '1'.repeat(21)])(
+      'refuses %j at boot',
+      (bad) => {
+        expect(messageOf({ ...TEST_ENV_SOURCE, OWNER_ALERT_CHAT_ID: bad })).toContain(
+          'OWNER_ALERT_CHAT_ID',
+        );
+      },
+    );
+  });
+
   describe('API-only secrets', () => {
     it.each(API_ONLY_SECRETS)('refuses to boot when %s is set', (name) => {
       const message = messageOf({ ...TEST_ENV_SOURCE, [name]: SECRET_VALUE });

@@ -8,6 +8,9 @@ export const QUEUES = {
   RECONCILE: 'reconcile',
   TG_OUTBOX: 'tg-outbox',
   PAYMENT_RECONCILE: 'payment-reconcile',
+  BANK_MESSAGE: 'bank-message',
+  TOPUP_EXPIRE: 'topup-expire',
+  NOTIFY: 'notify',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -67,6 +70,25 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
   [QUEUES.FRAGMENT_KEEPALIVE]: CRON_DEFAULTS,
   [QUEUES.RECONCILE]: CRON_DEFAULTS,
   [QUEUES.PAYMENT_RECONCILE]: CRON_DEFAULTS,
+  [QUEUES.TOPUP_EXPIRE]: CRON_DEFAULTS,
+  // One job per stored bank message (jobId `bm-<id>`), consumed by the worker with
+  // concurrency 1 so the balance chain is checked in message order. A retry is safe: the
+  // processor first looks for the message's BankMessageOutcome and does nothing if it exists.
+  // Failed jobs are kept longest: a stuck message is a possibly unpaid customer.
+  [QUEUES.BANK_MESSAGE]: {
+    attempts: 5,
+    backoff: { type: 'exponential', delay: 2_000 },
+    removeOnComplete: { age: 3 * DAY_SEC, count: 10_000 },
+    removeOnFail: { age: 30 * DAY_SEC, count: 10_000 },
+  },
+  // Worker -> api: "tell this user / the owner something happened" (notify.ts). The api renders
+  // the text and hands it to tg-outbox, so the worker never holds the bot token.
+  [QUEUES.NOTIFY]: {
+    attempts: 5,
+    backoff: { type: 'exponential', delay: 2_000 },
+    removeOnComplete: { age: DAY_SEC, count: 1_000 },
+    removeOnFail: { age: 7 * DAY_SEC, count: 5_000 },
+  },
   // Telegram 429s are handled by the processor with `retry_after`; these attempts cover
   // transient network errors only.
   [QUEUES.TG_OUTBOX]: {

@@ -36,6 +36,14 @@ function buildWebhookEnv(): ReturnType<typeof buildTestEnv> {
   });
 }
 
+async function waitFor(done: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!done()) {
+    if (Date.now() > deadline) throw new Error('timed out waiting for the bot setup');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
 describe('POST /api/v1/telegram/webhook (real app, fake Bot API)', () => {
   const fake = createFakeTelegram();
   const logLines: string[] = [];
@@ -95,7 +103,9 @@ describe('POST /api/v1/telegram/webhook (real app, fake Bot API)', () => {
     await app.close();
   });
 
-  it('registers the webhook with the secret and allowed updates at boot', () => {
+  it('registers the webhook with the secret and allowed updates at boot', async () => {
+    // Registration runs in the background (D-29.5): wait for its last step, the bot setup.
+    await waitFor(() => fake.callsOf('setMyCommands').length === 3);
     const [call] = fake.callsOf('setWebhook');
     expect(call?.payload).toEqual({
       url: WEBHOOK_URL,

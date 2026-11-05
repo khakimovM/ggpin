@@ -9,7 +9,7 @@
                        │ webhook          │ HTTPS (initData → token)
  Brauzer ──HTTPS──► apps/web (Next.js) ───┤
                        │                  ▼
- Admin ───HTTPS──► apps/admin ──────► apps/api (NestJS) ◄── Click / Payme / Uzum / Rahmat (callback)
+ Admin ───HTTPS──► apps/admin ──────► apps/api (NestJS)
                                           │   │
                                 Postgres ◄┘   └► Redis (kesh, BullMQ, lock'lar)
                                           ▲          │ navbatlar
@@ -19,6 +19,9 @@
               ┌───────────────────────────┼────────────────────────────┐
               ▼                           ▼                            ▼
    fragment.com (Stars/Premium)    TON tarmog‘i (hamyon)     Ta'minotchi API'lari (o‘yinlar)
+                                          │
+                                          ▼
+                      Telegram (MTProto): Humo / Uzcard bank botlari (bank-feed)
 ```
 
 ## Monorepo
@@ -26,7 +29,7 @@
 ```
 apps/
   api/      REST API, to‘lov callback'lari, bot, admin API
-  worker/   yetkazish (Fragment/TON, ta'minotchilar), narx sinxronlash, solishtirish (reconcile)
+  worker/   yetkazish (Fragment/TON, ta'minotchilar), bank-feed (P2P to‘lovlar), narx sinxronlash, solishtirish (reconcile)
   web/      landing, web do‘kon, Mini App
   admin/    admin panel
 packages/
@@ -42,53 +45,57 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 ## Nega worker alohida?
 
 - **Kalitlarni izolyatsiya qilish:** TON mnemonic, Fragment cookie'lari va ta'minotchi kalitlari
-  faqat worker'da. API buzilsa ham hamyonga yetib bo‘lmaydi.
+  faqat worker'da. API buzilsa ham hamyonga yetib bo‘lmaydi. Xuddi shunday bank-feed Telegram foydalanuvchi sessiyasi (`BANK_FEED_*`) ham faqat worker'da.
 - Worker'da tashqi port yo‘q; faqat Redis navbati va Postgres orqali gaplashadi.
 - Yetkazish sekin va qayta urinishli ish — API so‘rovlarini bloklamasligi kerak.
 
 ## API modullari (`apps/api/src/modules`)
 
-| Modul           | Vazifa                                                                           |
-| --------------- | -------------------------------------------------------------------------------- |
-| `auth`          | Mini App initData, web OTP (bot orqali), refresh, sessiyalar                     |
-| `users`         | profil, til, telefon                                                             |
-| `catalog`       | kategoriyalar, mahsulotlar, SKU, input sxemalari, stok                           |
-| `pricing`       | kotirovka (quote), FX kurslari, ustama qoidalari                                 |
-| `wallet`        | ledger, balans, keshbek tangalari                                                |
-| `orders`        | buyurtma yaratish (balansdan), ro‘yxat, tafsilot, holat oqimi (SSE yoki polling) |
-| `recipients`    | qabul qiluvchini tekshirish (worker'ga RPC navbati orqali)                       |
-| `payments`      | intent, provayder adapterlari, callback'lar, solishtirish                        |
-| `referrals`     | havolalar, bog‘lanish, bonus hisoblash                                           |
-| `promo`         | bonus kodlar, chegirma kodlari                                                   |
-| `notifications` | bot orqali xabarlar (outbox)                                                     |
-| `telegram`      | bot handlerlari, webhook                                                         |
-| `admin`         | admin auth, rollar, audit, barcha boshqaruv endpointlari                         |
-| `health`        | ready/live                                                                       |
+| Modul           | Vazifa                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `auth`          | Mini App initData, web OTP (bot orqali), refresh, sessiyalar                                                  |
+| `users`         | profil, til, telefon                                                                                          |
+| `catalog`       | kategoriyalar, mahsulotlar, SKU, input sxemalari, stok                                                        |
+| `pricing`       | kotirovka (quote), FX kurslari, ustama qoidalari                                                              |
+| `wallet`        | ledger, balans, keshbek tangalari                                                                             |
+| `orders`        | buyurtma yaratish (balansdan), ro‘yxat, tafsilot, holat oqimi (SSE yoki polling)                              |
+| `recipients`    | qabul qiluvchini tekshirish (worker'ga RPC navbati orqali)                                                    |
+| `payments`      | P2P to‘ldirish so‘rovi, karta puli, havola tokeni, tekshiruv navbati (provayder adapterlari — keyinroq, D-04) |
+| `referrals`     | havolalar, bog‘lanish, bonus hisoblash                                                                        |
+| `promo`         | bonus kodlar, chegirma kodlari                                                                                |
+| `notifications` | bot orqali xabarlar (outbox)                                                                                  |
+| `telegram`      | bot handlerlari, webhook                                                                                      |
+| `admin`         | admin auth, rollar, audit, barcha boshqaruv endpointlari                                                      |
+| `health`        | ready/live                                                                                                    |
 
 ## Worker modullari (`apps/worker/src`)
 
-| Modul                 | Vazifa                                                                       |
-| --------------------- | ---------------------------------------------------------------------------- |
-| `fulfillment`         | `fulfill-order` navbati, holat oqimi, adapter router (asosiy + zaxira)       |
-| `adapters/fragment`   | Stars, Premium; sessiya (cookie jar, keep-alive)                             |
-| `adapters/<supplier>` | o‘yin ta'minotchilari (keyingi bosqichlarda)                                 |
-| `ton`                 | hamyon, seqno lock, yuborish, tasdiqlash, balans                             |
-| `recipients`          | `validate-recipient` navbati (username/ID tekshiruvi)                        |
-| `pricing-sync`        | Fragment narxi, TON/USDT kursi, ta'minotchi narxlari (cron)                  |
-| `reconcile`           | NEEDS_REVIEW buyurtmalarni zanjirdan/ta'minotchidan tekshirish, hisobot      |
-| `alerts`              | egaga Telegram ogohlantirishlari (hamyon kam, sessiya o‘ldi, navbat tiqildi) |
+| Modul                 | Vazifa                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fulfillment`         | `fulfill-order` navbati, holat oqimi, adapter router (asosiy + zaxira)                                                                     |
+| `adapters/fragment`   | Stars, Premium; sessiya (cookie jar, keep-alive)                                                                                           |
+| `adapters/<supplier>` | o‘yin ta'minotchilari (keyingi bosqichlarda)                                                                                               |
+| `ton`                 | hamyon, seqno lock, yuborish, tasdiqlash, balans                                                                                           |
+| `recipients`          | `validate-recipient` navbati (username/ID tekshiruvi)                                                                                      |
+| `pricing-sync`        | Fragment narxi, TON/USDT kursi, ta'minotchi narxlari (cron)                                                                                |
+| `reconcile`           | NEEDS_REVIEW buyurtmalarni zanjirdan/ta'minotchidan tekshirish, hisobot; kunlik `payment-reconcile` (bank xabarlari tarixini qayta skan)   |
+| `bank-feed`           | MTProto tinglovchi (Humo/Uzcard botlari), parserlar, `bank-message` ishlovchisi (moslashtirish + TOPUP), `topup-expire`, `notify` job'lari |
+| `alerts`              | egaga Telegram ogohlantirishlari (hamyon kam, sessiya o‘ldi, navbat tiqildi)                                                               |
 
 ## Navbatlar (BullMQ)
 
-| Navbat               | jobId                 | Ishlovchi | Qayta urinish                                         |
-| -------------------- | --------------------- | --------- | ----------------------------------------------------- |
-| `fulfill-order`      | `orderId`             | worker    | 5 marta, eksponensial; noma'lum natija → NEEDS_REVIEW |
-| `validate-recipient` | `hash(product+input)` | worker    | 2 marta, 10 s timeout                                 |
-| `price-sync`         | cron                  | worker    | —                                                     |
-| `fragment-keepalive` | cron 20 daq           | worker    | —                                                     |
-| `reconcile`          | cron 10 daq           | worker    | —                                                     |
-| `tg-outbox`          | `messageId`           | api       | 429 → `retry_after`                                   |
-| `payment-reconcile`  | cron kunlik           | api       | —                                                     |
+| Navbat               | jobId                                       | Ishlovchi | Qayta urinish                                                                |
+| -------------------- | ------------------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| `fulfill-order`      | `orderId`                                   | worker    | 5 marta, eksponensial; noma'lum natija → NEEDS_REVIEW                        |
+| `validate-recipient` | `hash(product+input)`                       | worker    | 2 marta, 10 s timeout                                                        |
+| `price-sync`         | cron                                        | worker    | —                                                                            |
+| `fragment-keepalive` | cron 20 daq                                 | worker    | —                                                                            |
+| `reconcile`          | cron 10 daq                                 | worker    | —                                                                            |
+| `bank-message`       | `bm-<BankMessage.id>`                       | worker    | 5 marta, eksponensial 2 s; concurrency 1 (zanjir tartibi)                    |
+| `topup-expire`       | cron har 1 daq                              | worker    | —                                                                            |
+| `notify`             | `topup-<paymentId>`, `alert-<kind>-<refId>` | api       | 5 marta, eksponensial 2 s; payload faqat id'lar, matnni API render qiladi    |
+| `tg-outbox`          | `messageId`                                 | api       | 429 → `retry_after`                                                          |
+| `payment-reconcile`  | cron 03:00 Asia/Tashkent                    | worker    | —; tarixni qayta skan qilish MTProto talab qiladi, shuning uchun api'da emas |
 
 ## Asosiy oqim: Stars xaridi
 

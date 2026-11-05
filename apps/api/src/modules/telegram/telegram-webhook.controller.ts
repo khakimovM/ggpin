@@ -1,5 +1,15 @@
 import { timingSafeEqual } from 'node:crypto';
-import { Body, Controller, HttpCode, Inject, Logger, Post, Headers } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Logger,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { Public } from '../../common/auth/public.decorator';
@@ -13,6 +23,11 @@ import { safeErrorText } from './safe-error';
 // Only the envelope is checked; grammY and Telegram own the rest of the shape. Body size is
 // capped by the global Fastify bodyLimit.
 const UpdateEnvelope = z.looseObject({ update_id: z.number().int().nonnegative() });
+
+// Only the part of the Fastify reply this controller uses (see health.controller.ts).
+interface StatusReply {
+  status(statusCode: number): unknown;
+}
 
 function secretMatches(received: string | string[] | undefined, expected: string): boolean {
   if (typeof received !== 'string') return false;
@@ -41,7 +56,8 @@ export class TelegramWebhookController {
   async receive(
     @Headers('x-telegram-bot-api-secret-token') secret: string | string[] | undefined,
     @Body() body: unknown,
-  ): Promise<{ ok: true }> {
+    @Res({ passthrough: true }) reply: StatusReply,
+  ): Promise<{ ok: boolean }> {
     const expected = this.config.TELEGRAM_WEBHOOK_SECRET;
     // 404, not 401/403: do not confirm to a scanner that this endpoint exists.
     if (this.config.TELEGRAM_BOT_MODE !== 'webhook' || expected === undefined) {
@@ -51,6 +67,15 @@ export class TelegramWebhookController {
 
     const parsed = UpdateEnvelope.safeParse(body);
     if (!parsed.success) throw new AppError('VALIDATION_ERROR');
+
+    // D-29.5: boot no longer waits for Telegram, so an update can arrive before the bot has
+    // fetched its own info. handleUpdate would throw, the catch below would answer 200 and
+    // Telegram would drop the update for good; 503 makes Telegram retry it.
+    if (!this.bot.isInited()) {
+      this.logger.warn(`update ${parsed.data.update_id} refused: the bot is not initialised yet`);
+      reply.status(HttpStatus.SERVICE_UNAVAILABLE);
+      return { ok: false };
+    }
 
     try {
       // Update is Telegram's own schema; the envelope check above is all we verify.

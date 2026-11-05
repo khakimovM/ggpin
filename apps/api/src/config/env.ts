@@ -1,4 +1,4 @@
-import { testModeOutsideJestProblem } from '@repo/shared';
+import { TG_USER_CHAT_ID_PATTERN, TOPUP_DEFAULTS, testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import {
   duplicateSecretProblems,
@@ -8,6 +8,7 @@ import {
   telegramModeProblems,
   workerSecretProblems,
 } from './env-security';
+import { topupEnvProblems } from './topup-env';
 import { parseTrustedProxies } from './trust-proxy';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
@@ -61,84 +62,118 @@ const telegramIdList = z
   )
   .transform((ids): readonly bigint[] => ids.map((id) => BigInt(id)));
 
-const EnvSchema = z.object({
-  // No default: a forgotten NODE_ENV must not silently become "development" (insecure cookies,
-  // relaxed checks). apps/api/.env.example sets it; Jest sets "test".
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-  BRAND_NAME: z.string().min(1).optional(),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(5000),
-  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-  REDIS_URL: z.url({ protocol: /^rediss?$/ }),
-  WEB_URL: httpOrigin,
-  ADMIN_URL: httpOrigin,
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  TRUST_PROXY: trustedProxies,
-  // Swagger is off unless explicitly enabled; NODE_ENV=production refuses "true" (checked below).
-  SWAGGER_ENABLED: bool('false'),
+const EnvSchema = z
+  .object({
+    // No default: a forgotten NODE_ENV must not silently become "development" (insecure cookies,
+    // relaxed checks). apps/api/.env.example sets it; Jest sets "test".
+    NODE_ENV: z.enum(['development', 'test', 'production']),
+    BRAND_NAME: z.string().min(1).optional(),
+    API_PORT: z.coerce.number().int().min(1).max(65535).default(5000),
+    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+    WEB_URL: httpOrigin,
+    ADMIN_URL: httpOrigin,
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+    TRUST_PROXY: trustedProxies,
+    // Swagger is off unless explicitly enabled; NODE_ENV=production refuses "true" (checked below).
+    SWAGGER_ENABLED: bool('false'),
 
-  // ---- Auth and bot (phase 2): required, the API refuses to boot without them. ----
-  // Strength in production and pairwise difference are checked in loadEnv (env-security.ts),
-  // where the messages can name variables without echoing values.
-  JWT_ACCESS_SECRET: z.string(),
-  JWT_REFRESH_SECRET: z.string(),
-  TG_SESSION_SECRET: z.string(),
-  // Peppers the HMAC of one-time login codes: a 6-digit code is brute-forceable offline
-  // without a server-side secret.
-  OTP_PEPPER: z.string(),
-  // Capped at 24 h (60-security.md): a longer window would let a leaked initData log in for days.
-  TG_INITDATA_MAX_AGE_SEC: z.coerce.number().int().positive().max(86400).default(86400),
-  // Always required, even with TELEGRAM_BOT_MODE=off: Mini App initData is verified with an
-  // HMAC keyed by the bot token.
-  TELEGRAM_BOT_TOKEN: z
-    .string()
-    .regex(BOT_TOKEN_FORMAT, 'must look like "<bot id>:<secret>" as issued by BotFather'),
-  TELEGRAM_BOT_USERNAME: z
-    .string()
-    .regex(/^[A-Za-z0-9_]{5,32}$/, 'must be a Telegram bot username without "@" (5-32 chars)')
-    .regex(/bot$/i, 'must end in "bot" (Telegram rule for bot usernames)'),
-  // off: updates are not processed (API-only dev, tests); polling: long polling for dev;
-  // webhook: Telegram pushes updates (mandatory in production, see telegramModeProblems).
-  TELEGRAM_BOT_MODE: z.enum(['off', 'polling', 'webhook']).default('off'),
-  TELEGRAM_WEBHOOK_URL: httpUrl.optional(),
-  TELEGRAM_WEBHOOK_SECRET: z
-    .string()
-    .regex(WEBHOOK_SECRET_FORMAT, 'must be 32-256 chars of A-Z a-z 0-9 _ - (Telegram secret_token)')
-    .optional(),
-  MINI_APP_URL: httpUrl.optional(),
-  // Optional "News" button in the bot; hidden when unset.
-  TELEGRAM_NEWS_CHANNEL_URL: z.url({ protocol: /^https$/, hostname: /^t\.me$/ }).optional(),
+    // ---- Auth and bot (phase 2): required, the API refuses to boot without them. ----
+    // Strength in production and pairwise difference are checked in loadEnv (env-security.ts),
+    // where the messages can name variables without echoing values.
+    JWT_ACCESS_SECRET: z.string(),
+    JWT_REFRESH_SECRET: z.string(),
+    TG_SESSION_SECRET: z.string(),
+    // Peppers the HMAC of one-time login codes: a 6-digit code is brute-forceable offline
+    // without a server-side secret.
+    OTP_PEPPER: z.string(),
+    // Capped at 24 h (60-security.md): a longer window would let a leaked initData log in for days.
+    TG_INITDATA_MAX_AGE_SEC: z.coerce.number().int().positive().max(86400).default(86400),
+    // Always required, even with TELEGRAM_BOT_MODE=off: Mini App initData is verified with an
+    // HMAC keyed by the bot token.
+    TELEGRAM_BOT_TOKEN: z
+      .string()
+      .regex(BOT_TOKEN_FORMAT, 'must look like "<bot id>:<secret>" as issued by BotFather'),
+    TELEGRAM_BOT_USERNAME: z
+      .string()
+      .regex(/^[A-Za-z0-9_]{5,32}$/, 'must be a Telegram bot username without "@" (5-32 chars)')
+      .regex(/bot$/i, 'must end in "bot" (Telegram rule for bot usernames)'),
+    // off: updates are not processed (API-only dev, tests); polling: long polling for dev;
+    // webhook: Telegram pushes updates (mandatory in production, see telegramModeProblems).
+    TELEGRAM_BOT_MODE: z.enum(['off', 'polling', 'webhook']).default('off'),
+    TELEGRAM_WEBHOOK_URL: httpUrl.optional(),
+    TELEGRAM_WEBHOOK_SECRET: z
+      .string()
+      .regex(
+        WEBHOOK_SECRET_FORMAT,
+        'must be 32-256 chars of A-Z a-z 0-9 _ - (Telegram secret_token)',
+      )
+      .optional(),
+    MINI_APP_URL: httpUrl.optional(),
+    // Optional "News" button in the bot; hidden when unset.
+    TELEGRAM_NEWS_CHANNEL_URL: z.url({ protocol: /^https$/, hostname: /^t\.me$/ }).optional(),
 
-  // ---- Optional now; the named phase makes them required (and checks them at boot). ----
-  // Chat that receives operational alerts (low TON balance, NEEDS_REVIEW orders).
-  OWNER_ALERT_CHAT_ID: z
-    .string()
-    .regex(/^-?\d+$/, 'must be a numeric chat id')
-    .optional(),
-  // Phase 9 (admin): allowlist and money-action thresholds.
-  ADMIN_TELEGRAM_IDS: telegramIdList,
-  ADMIN_CONFIRM_THRESHOLD_TIYIN: bigintString('100000000'),
-  ADMIN_OPERATOR_REFUND_MAX_TIYIN: bigintString('50000000'),
-  // Phase 3 (pricing): how far the real supplier cost may rise above the quoted cost before
-  // fulfillment holds the order. Basis points (300 = 3%); stored on every quote as maxCost.
-  PRICE_TOLERANCE_BPS: z.coerce.number().int().min(0).max(10_000).default(300),
-  // Explicit opt-in to prices built from the worker's simulator sources (dry-run). Off unless set
-  // and refused in production (checked below): a worker left in dry-run must never be able to
-  // make the API sell at invented prices just because NODE_ENV is not "production".
-  PRICING_ALLOW_SIMULATED: bool('false'),
-  // Phase 4 (payments): provider credentials and top-up bounds.
-  TOPUP_MIN_TIYIN: bigintString('500000'),
-  TOPUP_MAX_TIYIN: bigintString('1000000000'),
-  CLICK_SERVICE_ID: z.string().optional(),
-  CLICK_MERCHANT_ID: z.string().optional(),
-  CLICK_SECRET_KEY: z.string().optional(),
-  PAYME_MERCHANT_ID: z.string().optional(),
-  PAYME_KEY: z.string().optional(),
-  PAYME_TEST_MODE: bool('true'),
-  UZUM_MERCHANT_ID: z.string().optional(),
-  UZUM_SECRET: z.string().optional(),
-  RAHMAT_MERCHANT_ID: z.string().optional(),
-  RAHMAT_SECRET: z.string().optional(),
-});
+    // ---- Optional now; the named phase makes them required (and checks them at boot). ----
+    // Chat that receives operational alerts (low TON balance, NEEDS_REVIEW orders, bank-feed
+    // events). Alerts travel through tg-outbox, which writes to user chats only (positive ids), so
+    // a group or channel id (negative) is refused here instead of failing silently when it matters.
+    OWNER_ALERT_CHAT_ID: z
+      .string()
+      .regex(
+        TG_USER_CHAT_ID_PATTERN,
+        'must be the numeric id of a user chat (positive digits; group ids are not supported)',
+      )
+      .optional(),
+    // Phase 9 (admin): allowlist and money-action thresholds.
+    ADMIN_TELEGRAM_IDS: telegramIdList,
+    ADMIN_CONFIRM_THRESHOLD_TIYIN: bigintString('100000000'),
+    ADMIN_OPERATOR_REFUND_MAX_TIYIN: bigintString('50000000'),
+    // Phase 3 (pricing): how far the real supplier cost may rise above the quoted cost before
+    // fulfillment holds the order. Basis points (300 = 3%); stored on every quote as maxCost.
+    PRICE_TOLERANCE_BPS: z.coerce.number().int().min(0).max(10_000).default(300),
+    // Explicit opt-in to prices built from the worker's simulator sources (dry-run). Off unless set
+    // and refused in production (checked below): a worker left in dry-run must never be able to
+    // make the API sell at invented prices just because NODE_ENV is not "production".
+    PRICING_ALLOW_SIMULATED: bool('false'),
+    // Phase 4 (payments): provider credentials and top-up bounds.
+    // Defaults come from TOPUP_DEFAULTS (packages/shared), the one place the owner's limits live.
+    TOPUP_MIN_TIYIN: bigintString(String(TOPUP_DEFAULTS.MIN_TIYIN)),
+    TOPUP_MAX_TIYIN: bigintString(String(TOPUP_DEFAULTS.MAX_TIYIN)),
+    // Base amounts are multiples of this (1 000 so'm); the unique extra is added on top.
+    TOPUP_STEP_TIYIN: bigintString(String(TOPUP_DEFAULTS.STEP_TIYIN)),
+    // 24 h cap on top-ups for every account, and the lower one for accounts younger than 7 days.
+    TOPUP_DAILY_MAX_TIYIN: bigintString(String(TOPUP_DEFAULTS.DAILY_MAX_TIYIN)),
+    TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN: bigintString(
+      String(TOPUP_DEFAULTS.NEW_ACCOUNT_DAILY_MAX_TIYIN),
+    ),
+    CLICK_SERVICE_ID: z.string().optional(),
+    CLICK_MERCHANT_ID: z.string().optional(),
+    CLICK_SECRET_KEY: z.string().optional(),
+    PAYME_MERCHANT_ID: z.string().optional(),
+    PAYME_KEY: z.string().optional(),
+    PAYME_TEST_MODE: bool('true'),
+    UZUM_MERCHANT_ID: z.string().optional(),
+    UZUM_SECRET: z.string().optional(),
+    RAHMAT_MERCHANT_ID: z.string().optional(),
+    RAHMAT_SECRET: z.string().optional(),
+  })
+  .superRefine((env, ctx) => {
+    // This check also runs when a field already failed its own parse (then it holds the raw
+    // string, and BigInt arithmetic would throw instead of reporting the field's own problem).
+    const values = [
+      env.TOPUP_MIN_TIYIN,
+      env.TOPUP_MAX_TIYIN,
+      env.TOPUP_STEP_TIYIN,
+      env.TOPUP_DAILY_MAX_TIYIN,
+      env.TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN,
+    ];
+    if (!values.every((value) => typeof value === 'bigint')) return;
+    for (const { name, message } of topupEnvProblems(env)) {
+      ctx.addIssue({ code: 'custom', path: [name], message });
+    }
+  });
 
 export type Env = Readonly<z.infer<typeof EnvSchema>>;
 
@@ -170,8 +205,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     for (const issue of parsed.error.issues) {
       const name = issue.path.map(String).join('.');
       // Zod messages never echo the input, but we also avoid relying on that for "missing".
+      // Only a non-custom issue on an unset variable is "missing": a cross-field rule on a defaulted
+      // variable (e.g. TOPUP_MIN_TIYIN vs the step) must keep its own message.
       const reason =
-        issue.path.length === 1 && clean[name] === undefined
+        issue.code !== 'custom' && issue.path.length === 1 && clean[name] === undefined
           ? 'is required but not set'
           : issue.message;
       problems.push(`${name || '(env)'}: ${reason}`);

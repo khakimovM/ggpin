@@ -5,6 +5,8 @@ import {
   MIN_GENERATED_SECRET_LENGTH,
   WORKER_ENV_PREFIXES,
   WORKER_ONLY_SECRETS,
+  WORKER_PRODUCTION_GENERATED_SECRETS,
+  WORKER_PRODUCTION_ISSUED_CREDENTIALS,
   apiSecretProblems,
   isBlank,
   isWorkerOnlySecretName,
@@ -54,6 +56,14 @@ const MUST_REFUSE = [
   'MOOGOLD_AUTH',
   'UNIPIN_CREDENTIALS',
   'SUPPLIER_X_PASSWD',
+  // Bank-feed Telegram user session (phase 4): exact names and the prefix rule.
+  'BANK_FEED_API_HASH',
+  'BANK_FEED_SESSION_ENC',
+  'BANK_FEED_ENC_KEY',
+  'BANK_FEED_SESSION',
+  'BANK_FEED_2FA_PASSWORD',
+  'BANK_FEED_LOGIN_CODE_TOKEN',
+  'BANK_FEED_PHONE_SECRET',
 ];
 
 // Legitimate names that previously stopped the API from booting, generic developer-shell
@@ -89,6 +99,18 @@ const MUST_ALLOW = [
   'DATABASE_URL',
   'JWT_ACCESS_SECRET',
   'API_PORT',
+  // Bank-feed settings that are not secrets; the API reads the first one itself.
+  'BANK_FEED_HEARTBEAT_MAX_AGE_SEC',
+  'BANK_FEED_MODE',
+  'BANK_FEED_POLL_SEC',
+  'BANK_FEED_API_ID',
+  'BANK_FEED_HUMO_BOT_ID',
+  'BANK_FEED_UZCARD_BOT_ID',
+  'BANK_FEED_HUMO_BOT_USERNAME',
+  'BANK_FEED_TEST_DC',
+  'BANK_TIME_SKEW_SEC',
+  'TOPUP_LATE_GRACE_SEC',
+  'PAY_TOKEN_PEPPER',
 ];
 
 describe('isWorkerOnlySecretName', () => {
@@ -150,6 +172,55 @@ describe('workerSecretProblems / apiSecretProblems', () => {
     ]);
     expect(isWorkerOnlySecretName('OTP_PEPPER')).toBe(false);
     expect(workerSecretProblems({ OTP_PEPPER: VALUE })).toEqual([]);
+  });
+});
+
+describe('bank-feed secrets (phase 4)', () => {
+  const SESSION = ['BANK_FEED_API_HASH', 'BANK_FEED_SESSION_ENC', 'BANK_FEED_ENC_KEY'] as const;
+
+  it('are worker-only and the API refuses to boot with any of them', () => {
+    for (const name of SESSION) {
+      expect(WORKER_ONLY_SECRETS).toContain(name);
+      const problems = workerSecretProblems({ [name]: VALUE });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain(name);
+      expect(problems[0]).not.toContain(VALUE);
+    }
+  });
+
+  it('BANK_FEED_HEARTBEAT_MAX_AGE_SEC is allowed in the API (it reads it, it is no secret)', () => {
+    expect(workerSecretProblems({ BANK_FEED_HEARTBEAT_MAX_AGE_SEC: '120' })).toEqual([]);
+    expect(isWorkerOnlySecretName('BANK_FEED_HEARTBEAT_MAX_AGE_SEC')).toBe(false);
+  });
+
+  it('are generated or issued secrets: placeholders fail in the worker in production', () => {
+    expect(WORKER_PRODUCTION_GENERATED_SECRETS).toEqual(
+      expect.arrayContaining(['BANK_FEED_SESSION_ENC', 'BANK_FEED_ENC_KEY']),
+    );
+    expect(WORKER_PRODUCTION_ISSUED_CREDENTIALS).toContain('BANK_FEED_API_HASH');
+    const problems = productionSecretProblems(
+      {
+        BANK_FEED_SESSION_ENC: 'change-me-session',
+        BANK_FEED_API_HASH: '<hash>',
+        BANK_FEED_ENC_KEY: 'short',
+      },
+      WORKER_PRODUCTION_GENERATED_SECRETS,
+      WORKER_PRODUCTION_ISSUED_CREDENTIALS,
+    );
+    expect(problems.map((p) => p.split(':')[0]).sort()).toEqual([
+      'BANK_FEED_API_HASH',
+      'BANK_FEED_ENC_KEY',
+      'BANK_FEED_SESSION_ENC',
+    ]);
+  });
+
+  it('PAY_TOKEN_PEPPER is API-only: the worker refuses it, the API accepts it', () => {
+    expect(API_ONLY_SECRETS).toContain('PAY_TOKEN_PEPPER');
+    expect(apiSecretProblems({ PAY_TOKEN_PEPPER: VALUE })).toEqual([
+      expect.stringContaining('PAY_TOKEN_PEPPER'),
+    ]);
+    expect(workerSecretProblems({ PAY_TOKEN_PEPPER: VALUE })).toEqual([]);
+    expect(API_PRODUCTION_GENERATED_SECRETS).toContain('PAY_TOKEN_PEPPER');
   });
 });
 
