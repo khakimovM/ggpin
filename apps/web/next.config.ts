@@ -27,6 +27,9 @@ export default function config(phase: string): NextConfig {
     poweredByHeader: false,
     // @repo/ui is consumed as TypeScript source (no build step).
     transpilePackages: ['@repo/ui'],
+    // Imports from the @repo/ui barrel are rewritten to the single component modules used, so a
+    // page does not pay for the whole component set (the package is marked side-effect free).
+    experimental: { optimizePackageImports: ['@repo/ui'] },
     // Linting runs once, from the root flat config (`npm run lint`, CI), not again inside builds.
     eslint: { ignoreDuringBuilds: true },
     headers: () =>

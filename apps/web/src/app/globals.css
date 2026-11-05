@@ -6,6 +6,8 @@
  * In the base layer they still win over Tailwind's default theme variables (theme layer).
  */
 @import '@repo/ui/tokens.css' layer(base);
+/* Extra radii the components use (rounded-badge / -control / -tile); tokens.css is untouched. */
+@import '@repo/ui/theme.css';
 
 /* Class scanning for the shared components (sources of @repo/ui are not under apps/web). */
 @source "../../../../packages/ui/src";

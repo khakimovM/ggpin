@@ -18,6 +18,19 @@ const APP_ENV = {
 const desktopChrome = devices['Desktop Chrome'];
 // Protocol-level specs run once, in the `http` project; rendering specs run per viewport.
 const HTTP_SPECS = /http\.spec\.ts/;
+// Behaviour that differs by layout: sheets are bottom sheets below 768px and modals from 768px.
+const MOBILE_ONLY = /\.mobile\.spec\.ts/;
+const DESKTOP_ONLY = /\.desktop\.spec\.ts/;
+
+// WebKit (the Safari engine Telegram on iOS uses) runs the component gallery locally. CI installs
+// chromium only, to keep that job small and fast; WebKit joins CI in phase 7 S12, when the full
+// journeys run on it too, together with the browser download in the workflow cache key.
+const webkitProject = {
+  name: 'webkit-390',
+  testMatch: /ui-gallery.*\.spec\.ts/,
+  testIgnore: DESKTOP_ONLY,
+  use: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } },
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -34,24 +47,25 @@ export default defineConfig({
     { name: 'http', testMatch: HTTP_SPECS },
     {
       name: 'mobile-390',
-      testIgnore: HTTP_SPECS,
+      testIgnore: [HTTP_SPECS, DESKTOP_ONLY],
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
     },
     {
       name: 'w375',
-      testIgnore: HTTP_SPECS,
+      testIgnore: [HTTP_SPECS, DESKTOP_ONLY],
       use: { ...desktopChrome, viewport: { width: 375, height: 812 } },
     },
     {
       name: 'w768',
-      testIgnore: HTTP_SPECS,
+      testIgnore: [HTTP_SPECS, MOBILE_ONLY],
       use: { ...desktopChrome, viewport: { width: 768, height: 1024 } },
     },
     {
       name: 'w1440',
-      testIgnore: HTTP_SPECS,
+      testIgnore: [HTTP_SPECS, MOBILE_ONLY],
       use: { ...desktopChrome, viewport: { width: 1440, height: 900 } },
     },
+    ...(process.env.CI ? [] : [webkitProject]),
   ],
   webServer: {
     command: `npm run build && npx next start --port ${PORT}`,

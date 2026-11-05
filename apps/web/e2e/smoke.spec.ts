@@ -50,6 +50,17 @@ test.describe('pages open without console or CSP errors', () => {
   }
 });
 
+// The gallery bundles @repo/shared and with it Zod, which probes `new Function` unless
+// instrumentation-client.ts switches it to jitless. A CSP without 'unsafe-eval' reports the probe.
+test('/dev/ui loads Zod without any CSP violation or console error', async ({ page }) => {
+  const problems = watchPage(page);
+  const response = await page.goto('/dev/ui');
+  expect(response?.status()).toBe(200);
+  await expect(page.locator('[data-section="foundations"]')).toBeVisible();
+  expect(await cspViolations(page)).toEqual([]);
+  expect(problems).toEqual([]);
+});
+
 test('home page declares hreflang alternates for uz and ru', async ({ page }) => {
   await page.goto('/');
   const hrefLangs = await page
