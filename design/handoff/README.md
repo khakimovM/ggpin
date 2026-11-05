@@ -1,6 +1,9 @@
 # Handoff bundle
 
 Claude Design eksporti: `GGPin Design System Final.zip`, 2026-10-29. 0–9-raundlar to‘liq.
+10-raund (P2P karta orqali to‘ldirish, `design/DESIGN-BRIEF.md` Prompt 10) 2026-11-04
+eksportidan qo‘shildi: `TopupMini.dc.html`, `PayPage.dc.html`, `Round 10 - Card Top-up.dc.html`,
+hamda Click/Payme matni karta o‘tkazmasiga almashgan `Account.dc.html` va `Site.dc.html`.
 Fayllar eksportdagidek, o‘zgartirilmagan. Yangilash uchun qayta eksport qilib, fayllarni
 butunlay almashtiring; faqat shu README saqlanadi. Ekranni qurish:
 `/implement-design <ekran nomi>`.
@@ -33,8 +36,14 @@ Har bir fayl bitta komponent; holatlar `data-props` dagi parametrlar bilan almas
 | `Admin.dc.html`          | Admin: dashboard, buyurtmalar, review  | `page`: dashboard, orders, order, review · `viewport`: desktop, tablet                               |
 | `AdminOps.dc.html`       | Admin operatsiyalar                    | `page`: users, products, pricing, payments, recon, wallet, fragment, suppliers, queues, bonus, broadcast, refs, audit, admins |
 | `RuScreens.dc.html`      | Asosiy ekranlarning ruscha varianti    | `screen`: home, stars, pubg, confirm, insufficient, order, topup, profile, hero, login               |
+| `TopupMini.dc.html`      | Mini App: P2P to‘ldirish (10-raund)    | `screen`: amount, waiting, home, insufficient, finance · `wait` · `amount-err` · `amount-state` · `buy-variant` · `lang` |
+| `PayPage.dc.html`        | `/pay/<id>` sahifasi va web do‘kon to‘ldirish modali (10-raund) | `mode`: page, store · `state`: pending, warn, loading, credited, expired, cancelled, invalid, netError · `store-step` · `viewport` · `lang` |
 
 Hamma ekran fayllarida `theme`: light, dark bor. Mobil kenglik — 390.
+
+**10-raund almashtirgan ekranlar:** `Checkout.dc.html` dagi `topup*` ekranlari, `Store.dc.html` dagi
+`topupStep` modali va `RuScreens.dc.html` dagi `topup` — Click/Payme/Uzum/Rahmat uchun chizilgan,
+P2P’da ishlatilmaydi (D-04, D-31, D-37). To‘ldirish faqat `TopupMini` va `PayPage` dan quriladi.
 
 ## Qolgan fayllar
 

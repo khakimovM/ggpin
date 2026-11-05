@@ -31,6 +31,16 @@ const SENSITIVE_EXACT: ReadonlySet<string> = new Set([
   'phonenumber',
   'pwd',
   'token',
+  // Pay-link and card data (phase 4): the link carries the token in its fragment, a PAN is
+  // card data, and the raw bank message holds balances and card digits (D-37, D-39).
+  'redirecturl',
+  'payurl',
+  'paylink',
+  'pan',
+  'cardnumber',
+  'holdername', // the card holder's name (ours, but still a person's name)
+  'rawtext',
+  'banktext',
   // Fragment web-session cookie names (stel_ssid, stel_dt, ...) and the page hash its API
   // calls carry: any of them alone lets someone act as our session. stel_token and
   // stel_ton_token end in "token" and are caught by the suffix rule.

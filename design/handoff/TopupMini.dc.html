@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ggpin — Hisobni to‘ldirish (Mini App)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Unbounded:wght@500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="ggpin-tokens.css">
+</helmet>
+<div data-theme="{{ theme }}" data-reduced="{{ reduced }}" lang="{{ lang }}" style="position:relative;width:390px;height:844px;overflow:hidden;display:flex;flex-direction:column;background:var(--background);color:var(--text);font-family:Manrope,system-ui,sans-serif">
+  <div style="flex:none;height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 34px;font:700 15px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums"><span>9:41</span><span style="display:flex;gap:6px;font-size:15px"><i class="icon-signal"></i><i class="icon-wifi"></i><i class="icon-battery-full"></i></span></div>
+  <div style="flex:none;height:44px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 12px;border-bottom:1px solid var(--border)">
+    <span style="display:flex;align-items:center;gap:2px;font:600 16px/1 Manrope,sans-serif;color:var(--primary-soft-foreground)"><sc-if value="{{ hasBack }}"><i class="icon-chevron-left" style="font-size:22px"></i></sc-if>{{ tgLeft }}</span>
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font:800 15px/18px Manrope,sans-serif">ggpin</span><span style="font:600 11px/13px Manrope,sans-serif;color:var(--text-muted)">bot</span></span>
+    <span style="justify-self:end;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--text-muted);display:grid;place-items:center;color:var(--text-muted);font-size:14px"><i class="icon-ellipsis"></i></span>
+  </div>
+
+  <main style="flex:1;min-height:0;overflow-y:auto;padding:16px 16px {{ mainPb }};display:flex;flex-direction:column;gap:16px">
+
+    <sc-if value="{{ sAmount }}" hint-placeholder-val="{{ true }}">
+      <h1 style="margin:0;font:800 26px/32px Manrope,sans-serif;letter-spacing:-.02em;text-wrap:balance">{{ t.title }}</h1>
+      <section style="display:flex;flex-direction:column;gap:8px">
+        <label for="tu-amt" style="font:700 14px/20px Manrope,sans-serif;color:var(--text-secondary)">{{ t.sum }}</label>
+        <div style="display:flex;align-items:center;gap:8px;height:64px;padding:0 16px;border-radius:16px;background:var(--input);border:1.5px solid {{ inBd }};box-shadow:{{ inSh }};transition:border-color var(--dur-fast),box-shadow var(--dur-fast)">
+          <input id="tu-amt" value="{{ amtStr }}" onChange="{{ onAmt }}" inputmode="numeric" autocomplete="off" aria-invalid="{{ hasErr }}" aria-describedby="tu-help" style="flex:1;min-width:0;border:none;background:transparent;outline:none;font:600 28px/1 Unbounded,sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--text)">
+          <span style="font:800 16px/1 Manrope,sans-serif;color:var(--text-muted)">{{ t.cur }}</span>
+        </div>
+        <sc-if value="{{ hasErr }}"><div role="alert" id="tu-help" style="display:flex;gap:6px;align-items:flex-start;font:700 13px/18px Manrope,sans-serif;color:var(--danger-text);text-wrap:pretty"><i class="icon-circle-alert" style="font-size:15px;margin-top:1px;flex:none"></i>{{ errText }}</div></sc-if>
+        <sc-if value="{{ noErr }}" hint-placeholder-val="{{ true }}"><div id="tu-help" style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ t.helper }}</div></sc-if>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:4px">
+          <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" aria-pressed="{{ c.on }}" style="height:44px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap;transition:background var(--dur-fast),border-color var(--dur-fast)">{{ c.label }}</button></sc-for>
+        </div>
+      </section>
+      <section style="display:flex;flex-direction:column;gap:8px">
+        <span style="font:700 14px/20px Manrope,sans-serif;color:var(--text-secondary)">{{ t.cardType }}</span>
+        <div role="radiogroup" style="display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--muted)"><sc-for list="{{ types }}" as="c" hint-placeholder-count="3"><button role="radio" aria-checked="{{ c.on }}" onClick="{{ c.onClick }}" style="flex:{{ c.flex }};min-width:0;height:40px;padding:0 4px;border-radius:10px;border:none;background:{{ c.bg }};color:{{ c.fg }};box-shadow:{{ c.sh }};font:800 13px/1 Manrope,sans-serif;cursor:pointer;white-space:nowrap">{{ c.label }}</button></sc-for></div>
+        <span style="font:600 13px/18px Manrope,sans-serif;color:var(--text-muted);text-wrap:pretty">{{ t.cardHelp }}</span>
+      </section>
+      <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:20px;background:var(--card);border:1px solid var(--border)">
+        <h2 style="margin:0;font:800 16px/22px Manrope,sans-serif">{{ t.how }}</h2>
+        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ how }}" as="h" hint-placeholder-count="3"><li style="display:flex;gap:12px;align-items:flex-start"><span style="width:26px;height:26px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 13px/1 Manrope,sans-serif;flex:none">{{ h.n }}</span><span style="font:600 14px/20px Manrope,sans-serif;padding-top:3px;text-wrap:pretty">{{ h.text }}</span></li></sc-for>
+        </ol>
+        <span style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--muted);font:600 13px/18px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty"><i class="icon-info" style="font-size:15px;margin-top:1px;flex:none"></i>{{ t.tailNote }}</span>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ sUnavailable }}">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px 12px 80px">
+        <span style="width:80px;height:80px;border-radius:50%;background:var(--muted);color:var(--text-secondary);display:grid;place-items:center;font-size:34px"><i class="icon-wallet-cards"></i></span>
+        <h1 style="margin:0;font:800 22px/28px Manrope,sans-serif;text-wrap:balance">{{ t.unTitle }}</h1>
+        <p style="margin:0;max-width:300px;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary)">{{ t.unBody }}</p>
+        <button style="margin-top:8px;width:100%;max-width:300px;height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><i class="icon-refresh-cw" style="font-size:17px"></i>{{ t.retry }}</button>
+        <a href="#support" style="font:700 14px/20px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none;padding:10px">{{ t.support }}</a>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sWaiting }}">
+      <sc-if value="{{ wPending }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px">
+          <span style="width:52px;height:52px;border-radius:16px;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font-size:24px"><i class="icon-external-link"></i></span>
+          <h1 style="margin:8px 0 0;font:800 24px/30px Manrope,sans-serif;letter-spacing:-.01em;text-wrap:balance">{{ t.wTitle }}</h1>
+          <p style="margin:0;font:500 15px/22px Manrope,sans-serif;color:var(--text-secondary);text-wrap:pretty">{{ t.wLine }}</p>
+        </div>
+        <section style="display:flex;flex-direction:column;border-radius:24px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:14px;padding:18px 16px">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font:700 13px/18px Manrope,sans-serif;color:var(--text-muted)">{{ t.toPay }}</span><span style="font:600 26px/32px Unbounded,sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap">{{ payStr }}</span></span>
+            <span role="timer" aria-label="{{ leftLabel }}" style="position:relative;width:64px;height:64px;flex:none">
+              <svg viewBox="0 0 64 64" width="64" height="64" style="display:block;transform:rotate(-90deg)"><circle cx="32" cy="32" r="28" fill="none" stroke="var(--muted)" stroke-width="4"></circle><circle cx="32" cy="32" r="28" fill="none" stroke="{{ ringC }}" stroke-width="4" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="{{ ringOff }}" style="transition:stroke-dashoffset 1s linear"></circle></svg>
+              <span style="position:absolute;inset:0;display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ mmss }}</span>
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--border);background:var(--surface)">
+            <span style="display:flex;align-items:center;gap:10px;font:700 14px/20px Manrope,sans-serif">{{ dot }}{{ t.waiting }}</span>
+            <span style="font:700 13px/18px Manrope,sans-serif;color:{{ leftC }};font-variant-numeric:tabular-nums;white-space:nowrap">{{ leftLabel }}</span>
+          </div>
+        </section>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+          <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><i class="icon-external-link" style="font-size:17px"></i>{{ t.reopen }}</button>
+          <button onClick="{{ askCancel }}" style="height:48px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 15px/1 Manrope,sans-serif;cursor:pointer">{{ t.cancelPay }}</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ wCredited }}">
+        <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px 8px 60px">
+          {{ confetti }}{{ pop }}
+          <h1 style="margin:8px 0 0;font:800 26px/32px Manrope,sans-serif;text-wrap:balance">{{ t.okTitle }}</h1>
+          <span style="font:600 30px/38px Unbounded,sans-serif;letter-spacing:-.03em;color:var(--success-text);font-variant-numeric:tabular-nums;white-space:nowrap">+{{ payStr }}</span>
+          <span style="padding:8px 14px;border-radius:999px;background:var(--muted);font:700 14px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ t.bal }}: {{ afterStr }}</span>
+          <div style="width:100%;display:flex;flex-direction:column;gap:8px;margin-top:20px">
+            <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer;box-shadow:var(--shadow-glow)">{{ okCta }}</button>
+            <sc-if value="{{ fromBuy }}"><button style="height:44px;border-radius:12px;border:none;background:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer">{{ t.home }}</button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ wEnd }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px 8px 60px">
+          <span style="width:80px;height:80px;border-radius:50%;background:var(--muted);color:var(--text-secondary);display:grid;place-items:center;font-size:34px"><i class="{{ endIcon }}"></i></span>
+          <h1 style="margin:0;font:800 22px/28px Manrope,sans-serif;text-wrap:balance">{{ endTitle }}</h1>
+          <sc-if value="{{ wExpired }}"><p style="margin:0;max-width:320px;padding:12px 14px;border-radius:14px;background:var(--info-soft);color:var(--text);font:600 14px/21px Manrope,sans-serif;text-wrap:pretty">{{ t.exBody }}</p></sc-if>
+          <div style="width:100%;display:flex;flex-direction:column;gap:6px;margin-top:16px">
+            <button onClick="{{ newPay }}" style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;cursor:pointer">{{ t.newPay }}</button>
+            <sc-if value="{{ wExpired }}"><a href="#support" style="padding:12px;font:700 14px/20px Manrope,sans-serif;color:var(--primary-soft-foreground);text-decoration:none">{{ t.support }}</a></sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ sHome }}">
+      <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:50%;background:var(--primary-soft);color:var(--primary-soft-foreground);display:grid;place-items:center;font:800 15px/1 Manrope,sans-serif">SR</span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font:800 16px/21px Manrope,sans-serif">Sardor</span><span style="font:600 13px/17px Manrope,sans-serif;color:var(--text-muted)">@sardor_r</span></span><span style="height:34px;padding:0 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent-soft-foreground);font:800 14px/34px Manrope,sans-serif">🪙 120</span></div>
+      <section style="position:relative;overflow:hidden;padding:18px;border-radius:28px;background:var(--primary);color:var(--primary-foreground);display:flex;flex-direction:column;gap:14px">
+        <span style="display:flex;flex-direction:column;gap:4px"><span style="font:700 14px/18px Manrope,sans-serif;opacity:.85">Balans</span><span style="font:600 34px/40px Unbounded,sans-serif;letter-spacing:-.04em;font-variant-numeric:tabular-nums">85 400 <span style="font:700 16px/1 Manrope,sans-serif;opacity:.85">so‘m</span></span></span>
+        <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px"><span style="height:44px;border-radius:14px;background:var(--accent);color:var(--accent-foreground);display:flex;align-items:center;justify-content:center;gap:6px;font:800 13px/1 Manrope,sans-serif"><i class="icon-plus" style="font-size:15px"></i>To‘ldirish</span><span style="height:44px;border-radius:14px;background:color-mix(in oklab,#fff 16%,transparent);display:flex;align-items:center;justify-content:center;font:800 13px/1 Manrope,sans-serif">Bonus kod</span><span style="height:44px;border-radius:14px;background:color-mix(in oklab,#fff 16%,transparent);display:flex;align-items:center;justify-content:center;font:800 13px/1 Manrope,sans-serif">Yordam</span></div>
+      </section>
+      <span style="height:48px;border-radius:14px;background:var(--input);border:1.5px solid var(--input-border);display:flex;align-items:center;gap:10px;padding:0 14px;font:600 15px/1 Manrope,sans-serif;color:var(--text-muted)"><i class="icon-search" style="font-size:17px"></i>Mahsulot qidirish…</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><span style="height:150px;border-radius:20px;background:var(--star-soft)"></span><span style="height:150px;border-radius:20px;background:var(--premium-soft)"></span></div>
+    </sc-if>
+
+    <sc-if value="{{ sFinance }}">
+      <h1 style="margin:0;font:800 26px/32px Manrope,sans-serif;letter-spacing:-.02em">Tarix</h1>
+      <div style="display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--muted)"><span style="flex:1;height:40px;border-radius:999px;display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif;color:var(--text-muted)">Buyurtmalar</span><span style="flex:1;height:40px;border-radius:999px;background:var(--card);box-shadow:var(--shadow-sm);display:grid;place-items:center;font:800 14px/1 Manrope,sans-serif">Moliya</span></div>
+      <a href="#waiting" onClick="{{ goWaiting }}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:20px;background:var(--info-soft);border:1.5px solid color-mix(in oklab,var(--info) 35%,transparent);text-decoration:none;color:var(--text)">
+        <span style="position:relative;width:44px;height:44px;border-radius:12px;background:var(--card);color:var(--info-text);display:grid;place-items:center;font-size:19px;flex:none"><i class="icon-hourglass"></i></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font:800 15px/20px Manrope,sans-serif">To‘lov kutilmoqda</span><span style="display:flex;align-items:center;gap:8px;font:700 13px/18px Manrope,sans-serif;color:var(--text-secondary);font-variant-numeric:tabular-nums">{{ dot }}50 347 so‘m · {{ mmss }}</span></span>
+        <i class="icon-chevron-right" style="font-size:18px;color:var(--text-muted)"></i>
+      </a>
+      <sc-for list="{{ fin }}" as="g" hint-placeholder-count="2">
+        <section style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;padding:0 4px;font:700 13px/18px Manrope,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)">{{ g.day }}</h2>
+          <div style="border-radius:20px;background:var(--card);border:1px solid var(--border);overflow:hidden"><sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 16px;border-top:{{ r.bt }}"><span style="width:44px;height:44px;border-radius:12px;background:{{ r.ibg }};color:{{ r.ifg }};display:grid;place-items:center;font-size:19px"><i class="{{ r.icon }}"></i></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font:800 15px/20px Manrope,sans-serif;text-wrap:pretty">{{ r.title }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted)">{{ r.sub }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="font:800 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;color:{{ r.c }}">{{ r.amt }}</span><span style="font:600 12px/16px Manrope,sans-serif;color:var(--text-muted);font-variant-numeric:tabular-nums">{{ r.time }}</span></span></div></sc-for></div>
+        </section>
+      </sc-for>
+    </sc-if>
+
+    <sc-if value="{{ sInsufficient }}">
+      <div style="display:flex;flex-direction:column;gap:12px;opacity:.6"><span style="height:120px;border-radius:24px;background:var(--muted)"></span><span style="height:22px;width:60%;border-radius:8px;background:var(--muted)"></span><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><span style="height:84px;border-radius:16px;background:var(--muted)"></span><span style="height:84px;border-radius:16px;background:var(--muted)"></span><span style="height:84px;border-radius:16px;background:var(--muted)"></span><span style="height:84px;border-radius:16px;background:var(--muted)"></span></div></div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;padding:12px 16px 34px;background:color-mix(in oklab,var(--surface) 94%,transparent);backdrop-filter:blur(16px);border-top:1px solid var(--border)">
+      <button onClick="{{ onContinue }}" disabled="{{ barDisabled }}" aria-busy="{{ loading }}" style="width:100%;height:56px;border-radius:16px;border:none;background:{{ barBg }};color:{{ barFg }};font:800 17px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;box-shadow:{{ barSh }};transition:background var(--dur-fast)"><sc-if value="{{ loading }}"><span style="display:flex;font-size:20px">{{ spin }}</span></sc-if>{{ t.cont }}<sc-if value="{{ showSum }}"><span style="opacity:.8;font-weight:700;font-variant-numeric:tabular-nums">· {{ amtFull }}</span></sc-if></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showNav }}">
+    <sc-if value="{{ sHome }}"><div style="position:absolute;left:0;right:0;bottom:110px;z-index:6;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none">
+      <a href="#waiting" onClick="{{ goWaiting }}" style="pointer-events:auto;display:flex;align-items:center;gap:10px;height:44px;padding:0 16px 0 14px;border-radius:999px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-md);text-decoration:none;color:var(--text);font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums">{{ dot }}{{ t.pill }} · {{ mmss }}<i class="icon-chevron-right" style="font-size:16px;color:var(--text-muted)"></i></a>
+      <span style="pointer-events:auto;display:flex;align-items:center;gap:10px;height:44px;padding:0 16px 0 14px;border-radius:999px;background:var(--elevated);border:1px solid var(--border);box-shadow:var(--shadow-md);font:800 14px/1 Manrope,sans-serif"><span style="display:flex;color:var(--status-processing);font-size:16px">{{ spin }}</span>1 ta buyurtma bajarilmoqda<i class="icon-chevron-right" style="font-size:16px;color:var(--text-muted)"></i></span>
+    </div></sc-if>
+    <nav style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:color-mix(in oklab,var(--surface) 92%,transparent);backdrop-filter:blur(16px);border-top:1px solid var(--border);padding:8px 16px 34px"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><sc-for list="{{ nav }}" as="n" hint-placeholder-count="3"><span style="height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:{{ n.fg }};font:800 11px/1 Manrope,sans-serif"><span style="width:56px;height:30px;border-radius:999px;background:{{ n.bg }};display:grid;place-items:center;font-size:19px"><i class="{{ n.icon }}"></i></span>{{ n.label }}</span></sc-for></div></nav>
+  </sc-if>
+
+  <sc-if value="{{ sheetPending }}">
+    <div style="position:absolute;inset:91px 0 0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end"><div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:var(--overlay)"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="ps-t" style="position:relative;background:var(--elevated);border-radius:28px 28px 0 0;box-shadow:var(--shadow-lg);padding:8px 16px 34px;display:flex;flex-direction:column;gap:14px;animation:{{ sheetAnim }}">
+        <span style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--input-border)"></span>
+        <span style="align-self:center;width:64px;height:64px;border-radius:50%;background:var(--info-soft);color:var(--info-text);display:grid;place-items:center;font-size:28px;margin-top:4px"><i class="icon-hourglass"></i></span>
+        <h2 id="ps-t" style="margin:0;text-align:center;font:800 20px/26px Manrope,sans-serif;text-wrap:balance">{{ t.pendTitle }}</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-radius:16px;background:var(--muted)"><span style="font:600 22px/28px Unbounded,sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap">{{ payStr }}</span><span style="display:flex;align-items:center;gap:8px;font:800 14px/1 Manrope,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap">{{ dot }}{{ leftLabel }}</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button style="height:52px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/1 Manrope,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><i class="icon-external-link" style="font-size:17px"></i>{{ t.openPay }}</button>
+          <button style="height:48px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/1 Manrope,sans-serif;cursor:pointer;padding:0 12px">{{ t.cancelNew }}</button>
+          <button onClick="{{ closeSheet }}" style="height:44px;border-radius:12px;border:none;background:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer">{{ t.close }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ sheetInsuff }}">
+    <div style="position:absolute;inset:91px 0 0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end"><div style="position:absolute;inset:0;background:var(--overlay)"></div>
+      <div role="dialog" aria-modal="true" style="position:relative;background:var(--elevated);border-radius:28px 28px 0 0;box-shadow:var(--shadow-lg);padding:8px 16px 34px;display:flex;flex-direction:column;gap:14px">
+        <span style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--input-border)"></span>
+        <span style="align-self:center;width:64px;height:64px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;font-size:28px;margin-top:4px"><i class="icon-wallet"></i></span>
+        <h2 style="margin:0;text-align:center;font:800 20px/26px Manrope,sans-serif">{{ ti.title }}</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:16px;background:var(--muted);font:600 15px/20px Manrope,sans-serif;font-variant-numeric:tabular-nums">
+          <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--text-secondary)">{{ ti.bal }}</span><span style="font-weight:800;white-space:nowrap">{{ ti.balV }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--text-secondary)">{{ ti.price }}</span><span style="font-weight:800;white-space:nowrap">{{ ti.priceV }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:10px;padding-top:10px;border-top:1px solid var(--border)"><span style="font-weight:800">{{ ti.short }}</span><span style="font-weight:800;color:var(--danger-text);white-space:nowrap">{{ ti.shortV }}</span></div>
+        </div>
+        <span style="text-align:center;font:600 13px/18px Manrope,sans-serif;color:var(--text-muted)">{{ ti.round }}</span>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button style="min-height:52px;padding:8px 14px;border-radius:16px;border:none;background:var(--primary);color:var(--primary-foreground);font:800 16px/20px Manrope,sans-serif;cursor:pointer;font-variant-numeric:tabular-nums;text-wrap:balance">{{ insPrimary }}</button>
+          <button style="min-height:48px;padding:8px 12px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 14px/18px Manrope,sans-serif;cursor:pointer">{{ ti.other }}</button>
+          <button style="height:44px;border-radius:12px;border:none;background:none;color:var(--text-secondary);font:700 14px/1 Manrope,sans-serif;cursor:pointer">{{ t.close }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ dlgCancel }}">
+    <div style="position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:24px"><div onClick="{{ closeCancel }}" style="position:absolute;inset:0;background:var(--overlay)"></div>
+      <div role="alertdialog" aria-modal="true" aria-labelledby="cd-t" style="position:relative;width:100%;max-width:320px;background:var(--elevated);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px;display:flex;flex-direction:column;gap:12px;text-align:center">
+        <h2 id="cd-t" style="margin:0;font:800 19px/25px Manrope,sans-serif">{{ t.cTitle }}</h2>
+        <p style="margin:0;display:flex;gap:8px;align-items:flex-start;text-align:left;padding:10px 12px;border-radius:12px;background:var(--warning-soft);color:var(--warning-text);font:700 14px/20px Manrope,sans-serif"><i class="icon-triangle-alert" style="font-size:16px;margin-top:2px;flex:none"></i>{{ t.cNote }}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px"><button onClick="{{ closeCancel }}" style="min-height:48px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--text);font:800 15px/1 Manrope,sans-serif;cursor:pointer">{{ t.cNo }}</button><button onClick="{{ doCancel }}" style="min-height:48px;padding:0 8px;border-radius:14px;border:none;background:var(--danger);color:var(--danger-foreground);font:800 15px/18px Manrope,sans-serif;cursor:pointer">{{ t.cYes }}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <span aria-hidden="true" style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--text);opacity:.85;z-index:40"></span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;uz&quot;,&quot;ru&quot;],&quot;default&quot;:&quot;uz&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amount&quot;,&quot;waiting&quot;,&quot;home&quot;,&quot;finance&quot;,&quot;insufficient&quot;],&quot;default&quot;:&quot;amount&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;amountErr&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;min&quot;,&quot;max&quot;,&quot;mult&quot;,&quot;limit&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;amountState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ready&quot;,&quot;loading&quot;,&quot;pending&quot;,&quot;unavailable&quot;],&quot;default&quot;:&quot;ready&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;wait&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pending&quot;,&quot;cancelConfirm&quot;,&quot;credited&quot;,&quot;creditedBuy&quot;,&quot;expired&quot;,&quot;cancelled&quot;],&quot;default&quot;:&quot;pending&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;buyVariant&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;secondsLeft&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;frozen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = this.init(p); }
+  init(p) {
+    const err = p.amountErr ?? '';
+    return { screen: p.screen ?? 'amount', amt: { min: '3000', max: '2500000', mult: '50500', limit: '600000' }[err] || '50000', type: 'auto', loading: p.amountState === 'loading', sheet: p.amountState === 'pending', wait: p.wait ?? 'pending', cancel: p.wait === 'cancelConfirm', sec: p.secondsLeft ?? (p.amountState === 'pending' || p.screen === 'home' || p.screen === 'finance' ? 1265 : 1781) };
+  }
+  componentDidMount() { if (!this.props.frozen) this.iv = setInterval(() => this.setState(s => ({ sec: Math.max(0, s.sec - 1) })), 1000); }
+  componentDidUpdate(prev) { if (['screen', 'amountErr', 'amountState', 'wait', 'lang', 'secondsLeft'].some(k => prev[k] !== this.props[k])) this.setState(this.init(this.props)); }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.t); }
+  renderVals() {
+    const h = React.createElement, P = this.props, s = this.state;
+    const rm = !!P.reducedMotion || !!P.frozen;
+    const ru = P.lang === 'ru';
+    const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+    const T = ru ? {
+      title: 'Пополнение баланса', sum: 'Сумма', cur: 'сум', helper: 'От 5 000 до 2 000 000 сум, кратно 1 000', eMin: 'Минимальная сумма 5 000 сум', eMax: 'Максимальная сумма 2 000 000 сум', eMult: 'Сумма должна быть кратна 1 000', eLimit: 'Для новых аккаунтов дневной лимит 500 000 сум. Попробуйте завтра.',
+      cardType: 'Тип карты', types: ['Автоматически', 'Humo', 'Uzcard'], cardHelp: 'Неважно, с какой карты вы переводите — подойдёт любое банковское приложение.', how: 'Как это работает?', steps: ['Выберите сумму', 'Переведите ровно эту сумму на указанную карту', 'Деньги поступят на баланс за 1–2 минуты'], tailNote: 'К сумме добавится 1–999 сум — по этим цифрам мы узнаём ваш платёж.', cont: 'Продолжить',
+      pendTitle: 'У вас есть незавершённый платёж', openPay: 'Открыть страницу оплаты', cancelNew: 'Отменить и начать новый', close: 'Закрыть', unTitle: 'Пополнение временно недоступно', unBody: 'Попробуйте снова через несколько минут.', retry: 'Повторить', support: 'Написать в поддержку',
+      wTitle: 'Страница оплаты открыта в браузере', wLine: 'Номер карты и точная сумма — на той странице. После перевода вернитесь сюда.', toPay: 'Сумма к оплате', waiting: 'Ожидаем оплату…', reopen: 'Открыть страницу снова', cancelPay: 'Отменить платёж', cTitle: 'Отменить платёж?', cNote: 'Если вы уже перевели деньги, не отменяйте.', cYes: 'Да, отменить', cNo: 'Назад',
+      okTitle: 'Баланс пополнен!', bal: 'Баланс', contBuy: 'Продолжить покупку', home: 'На главную', exTitle: 'Срок оплаты истёк', exBody: 'Если вы уже перевели деньги, не волнуйтесь: платёж, поступивший в течение 24 часов, будет зачислен автоматически.', newPay: 'Новый платёж', caTitle: 'Платёж отменён', left: x => `Осталось ${x}`, pill: 'Ожидаем оплату', back: 'Назад', closeTg: 'Закрыть',
+    } : {
+      title: 'Hisobni to‘ldirish', sum: 'Summa', cur: 'so‘m', helper: '5 000 so‘mdan 2 000 000 so‘mgacha, 1 000 so‘mga karrali', eMin: 'Minimal summa 5 000 so‘m', eMax: 'Maksimal summa 2 000 000 so‘m', eMult: 'Summa 1 000 so‘mga karrali bo‘lsin', eLimit: 'Yangi akkauntlar uchun kunlik limit 500 000 so‘m. Ertaga yana urinib ko‘ring.',
+      cardType: 'Karta turi', types: ['Avtomatik', 'Humo', 'Uzcard'], cardHelp: 'Qaysi kartadan o‘tkazishingiz farqi yo‘q — istalgan bank ilovasidan bo‘ladi.', how: 'Qanday ishlaydi?', steps: ['Summani tanlang', 'Ko‘rsatilgan kartaga aynan shu summani o‘tkazing', 'Pul 1–2 daqiqada hisobingizga tushadi'], tailNote: 'Summaga 1–999 so‘m qo‘shiladi — shu raqamlar orqali to‘lovingizni taniymiz.', cont: 'Davom etish',
+      pendTitle: 'Sizda tugallanmagan to‘lov bor', openPay: 'To‘lov sahifasini ochish', cancelNew: 'Bekor qilish va yangisini boshlash', close: 'Yopish', unTitle: 'To‘ldirish vaqtincha mavjud emas', unBody: 'Bir necha daqiqadan keyin qayta urinib ko‘ring.', retry: 'Qayta urinish', support: 'Yordamga yozish',
+      wTitle: 'To‘lov sahifasi brauzerda ochildi', wLine: 'Karta raqami va aniq summa o‘sha sahifada. O‘tkazgach shu yerga qayting.', toPay: 'To‘lanadigan summa', waiting: 'To‘lov kutilmoqda…', reopen: 'Sahifani qayta ochish', cancelPay: 'To‘lovni bekor qilish', cTitle: 'To‘lovni bekor qilasizmi?', cNote: 'Agar pulni allaqachon o‘tkazgan bo‘lsangiz, bekor qilmang.', cYes: 'Ha, bekor qilish', cNo: 'Ortga',
+      okTitle: 'Balans to‘ldirildi!', bal: 'Balans', contBuy: 'Xaridni davom ettirish', home: 'Bosh sahifaga', exTitle: 'To‘lov muddati tugadi', exBody: 'Agar pulni o‘tkazgan bo‘lsangiz, xavotir olmang: 24 soat ichida tushgan to‘lov hisobingizga avtomatik yoziladi.', newPay: 'Yangi to‘lov', caTitle: 'To‘lov bekor qilindi', left: x => `${x} qoldi`, pill: 'To‘lov kutilmoqda', back: 'Orqaga', closeTg: 'Yopish',
+    };
+    const screen = s.screen, cur = ' ' + T.cur;
+    const n = Number(s.amt) || 0;
+    const err = P.amountErr === 'limit' ? T.eLimit : !s.amt ? '' : n < 5000 ? T.eMin : n > 2000000 ? T.eMax : n % 1000 ? T.eMult : '';
+    const chips = [20000, 50000, 100000, 200000].map(v => { const on = n === v; return { label: fmt(v), on, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary-soft)' : 'var(--card)', fg: on ? 'var(--primary-soft-foreground)' : 'var(--text)', onClick: () => this.setState({ amt: String(v) }) }; });
+    const types = ['auto', 'humo', 'uzcard'].map((id, i) => { const on = s.type === id; return { label: T.types[i], on, flex: i === 0 ? 1.5 : 1, bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--text)' : 'var(--text-muted)', sh: on ? 'var(--shadow-sm)' : 'none', onClick: () => this.setState({ type: id }) }; });
+    const sec = s.sec, mmss = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    const low = sec < 300;
+    const dot = h('span', { 'aria-hidden': true, style: { position: 'relative', width: 10, height: 10, flex: 'none', display: 'inline-block' } },
+      h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)', animation: rm ? 'none' : 'gg-pulse 1.6s var(--ease-out) infinite', opacity: rm ? 0 : 1 } }),
+      h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--info)' } }));
+    const spin = h('i', { className: 'icon-loader-circle', style: { display: 'inline-block', lineHeight: 1, animation: rm ? 'none' : 'gg-spin 900ms linear infinite' } });
+    const pop = h('span', { style: { width: 88, height: 88, borderRadius: '50%', background: 'var(--success)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 42, animation: rm ? 'none' : 'gg-pop var(--dur-slower) var(--ease-spring) both' } }, h('i', { className: 'icon-check' }));
+    const cols = ['var(--primary)', 'var(--accent)', 'var(--success)', 'var(--info)', 'var(--premium)'];
+    const confetti = rm ? null : h('span', { 'aria-hidden': true, style: { position: 'absolute', left: '50%', top: '38%', width: 0, height: 0, pointerEvents: 'none' } }, Array.from({ length: 16 }, (_, i) => { const a = i / 16 * Math.PI * 2; return h('span', { key: i, style: { position: 'absolute', width: 8, height: i % 2 ? 8 : 12, borderRadius: i % 3 ? 2 : 6, background: cols[i % 5], '--dx': Math.round(Math.cos(a) * (110 + (i % 4) * 22)) + 'px', '--dy': Math.round(Math.sin(a) * (90 + (i % 3) * 30) + 60) + 'px', '--r': (i * 47) + 'deg', animation: `gg-confetti 1400ms var(--ease-out) ${i * 18}ms both` } }); }));
+    const isAmount = screen === 'amount' && P.amountState !== 'unavailable';
+    const isWaiting = screen === 'waiting';
+    const w = s.wait;
+    const tabRoot = screen === 'home' || screen === 'finance';
+    const ti = ru ? { title: 'Недостаточно средств', bal: 'Ваш баланс:', price: 'Цена:', short: 'Не хватает:', round: 'Сумма пополнения округлена до 1 000 сум', other: 'Пополнить на другую сумму' } : { title: 'Mablag‘ yetarli emas', bal: 'Balansingiz:', price: 'Narx:', short: 'Yetishmaydi:', round: 'To‘ldirish summasi 1 000 so‘mga yaxlitlandi', other: 'Boshqa summa bilan to‘ldirish' };
+    Object.assign(ti, { balV: '85 400' + cur, priceV: '122 450' + cur, shortV: '37 050' + cur });
+    const insPrimary = P.buyVariant ? (ru ? 'Пополнить на 38 000 сум и купить' : '38 000 so‘m to‘ldirish va sotib olish') : (ru ? 'Пополнить на 38 000 сум' : '38 000 so‘m to‘ldirish');
+    const finRow = (icon, ibg, ifg, title, sub, amt, c, time) => ({ icon, ibg, ifg, title, sub, amt, c, time });
+    const fin = [
+      { day: 'Bugun', rows: [finRow('icon-wallet', 'var(--success-soft)', 'var(--success)', 'Balans to‘ldirildi · Karta', 'Humo · 50 000 + 347', '+50 347 so‘m', 'var(--success-text)', '13:58'), finRow('icon-shopping-bag', 'var(--muted)', 'var(--text-secondary)', 'Xarid #10482', 'Telegram Stars · 500 ⭐', '−110 000 so‘m', 'var(--text)', '14:05'), finRow('icon-ticket', 'var(--accent-soft)', 'var(--accent-soft-foreground)', 'Bonus kod', 'GG5000', '+5 000 so‘m', 'var(--success-text)', '12:10')] },
+      { day: 'Kecha', rows: [finRow('icon-undo-2', 'var(--success-soft)', 'var(--success)', 'Pul qaytarildi #10470', 'PUBG Mobile · 660 UC', '+120 750 so‘m', 'var(--success-text)', '21:19'), finRow('icon-gift', 'var(--accent-soft)', 'var(--accent-soft-foreground)', 'Referal bonus', 'Dilnoza K. xaridi', '+1 100 so‘m', 'var(--success-text)', '16:40')] },
+    ].map(g => ({ ...g, rows: g.rows.map((r, i) => ({ ...r, bt: i ? '1px solid var(--border)' : 'none' })) }));
+    const navOn = screen === 'finance' ? 1 : 0;
+    const nav = [['icon-house', 'Bosh sahifa'], ['icon-history', 'Tarix'], ['icon-circle-user', 'Profil']].map(([icon, label], i) => ({ icon, label, fg: i === navOn ? 'var(--primary-soft-foreground)' : 'var(--text-muted)', bg: i === navOn ? 'var(--primary-soft)' : 'transparent' }));
+    const disabled = !!err || !s.amt || s.loading;
+    return {
+      theme: P.theme ?? 'light', reduced: String(rm), lang: ru ? 'ru' : 'uz', t: T, ti, insPrimary,
+      hasBack: !tabRoot, tgLeft: tabRoot ? T.closeTg : T.back, mainPb: isAmount ? '120px' : tabRoot ? '200px' : '40px',
+      sAmount: isAmount, sUnavailable: screen === 'amount' && P.amountState === 'unavailable', sWaiting: isWaiting, sHome: screen === 'home', sFinance: screen === 'finance', sInsufficient: screen === 'insufficient',
+      amtStr: s.amt ? fmt(n) : '', onAmt: e => this.setState({ amt: e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 8) }), amtFull: fmt(n) + cur,
+      hasErr: !!err, noErr: !err, errText: err, inBd: err ? 'var(--danger)' : 'var(--input-border)', inSh: err ? '0 0 0 3px var(--danger-soft)' : 'none', chips, types, how: T.steps.map((text, i) => ({ n: i + 1, text })),
+      showBar: isAmount, loading: s.loading, barDisabled: disabled, showSum: !err && !!s.amt, barBg: err || !s.amt ? 'var(--muted)' : 'var(--primary)', barFg: err || !s.amt ? 'var(--text-muted)' : 'var(--primary-foreground)', barSh: err || !s.amt ? 'none' : 'var(--shadow-glow)',
+      onContinue: () => { if (disabled) return; this.setState({ loading: true }); clearTimeout(this.t); this.t = setTimeout(() => this.setState({ loading: false, screen: 'waiting', wait: 'pending', sec: 1800 }), 900); },
+      spin, dot, pop, confetti, mmss, leftLabel: T.left(mmss), leftC: low ? 'var(--warning-text)' : 'var(--text-secondary)', ringC: low ? 'var(--warning)' : 'var(--primary)', ringOff: (175.9 * (1 - sec / 1800)).toFixed(1),
+      payStr: '50 347' + cur, afterStr: '135 747' + cur,
+      wPending: w === 'pending' || w === 'cancelConfirm', wCredited: w === 'credited' || w === 'creditedBuy', fromBuy: w === 'creditedBuy', okCta: w === 'creditedBuy' ? T.contBuy : T.home,
+      wEnd: w === 'expired' || w === 'cancelled', wExpired: w === 'expired', endTitle: w === 'expired' ? T.exTitle : T.caTitle, endIcon: w === 'expired' ? 'icon-timer-off' : 'icon-circle-x',
+      askCancel: () => this.setState({ cancel: true }), closeCancel: () => this.setState({ cancel: false }), doCancel: () => this.setState({ cancel: false, wait: 'cancelled' }), dlgCancel: isWaiting && s.cancel,
+      newPay: () => this.setState({ screen: 'amount', wait: 'pending' }),
+      sheetPending: isAmount && s.sheet, closeSheet: () => this.setState({ sheet: false }), sheetAnim: rm ? 'none' : 'gg-sheet-in var(--dur-slow) var(--ease-out)',
+      sheetInsuff: screen === 'insufficient', showNav: tabRoot, nav, fin, goWaiting: e => { e.preventDefault(); this.setState({ screen: 'waiting', wait: 'pending' }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

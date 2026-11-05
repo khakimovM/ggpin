@@ -32,8 +32,14 @@ describe('queues', () => {
       QUEUES.FRAGMENT_KEEPALIVE,
       QUEUES.RECONCILE,
       QUEUES.PAYMENT_RECONCILE,
+      QUEUES.TOPUP_EXPIRE,
     ]) {
       expect(QUEUE_JOB_DEFAULTS[cron].attempts).toBe(1);
+    }
+    // Phase 4 queues (docs/02-ARCHITECTURE.md): bank-message and notify retry with 2 s backoff.
+    for (const name of [QUEUES.BANK_MESSAGE, QUEUES.NOTIFY]) {
+      expect(QUEUE_JOB_DEFAULTS[name].attempts).toBe(5);
+      expect(QUEUE_JOB_DEFAULTS[name].backoff.delay).toBe(2_000);
     }
   });
 });

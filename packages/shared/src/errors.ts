@@ -22,6 +22,7 @@ export const ERROR_CODES = [
   'OUT_OF_STOCK',
   'QTY_OUT_OF_RANGE',
   'TOPUP_AMOUNT_OUT_OF_RANGE',
+  'TOPUP_ALREADY_PENDING',
   'CODE_INVALID',
   'CODE_EXPIRED',
   'CODE_ALREADY_USED',
@@ -31,6 +32,7 @@ export const ERROR_CODES = [
   'FULFILLMENT_UNAVAILABLE',
   'RECIPIENT_CHECK_UNAVAILABLE',
   'PRICE_UNAVAILABLE',
+  'PAYMENT_METHOD_UNAVAILABLE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);
@@ -57,6 +59,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   OUT_OF_STOCK: 422,
   QTY_OUT_OF_RANGE: 422,
   TOPUP_AMOUNT_OUT_OF_RANGE: 422,
+  TOPUP_ALREADY_PENDING: 409,
   CODE_INVALID: 422,
   CODE_EXPIRED: 422,
   CODE_ALREADY_USED: 422,
@@ -66,6 +69,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   FULFILLMENT_UNAVAILABLE: 503,
   RECIPIENT_CHECK_UNAVAILABLE: 503,
   PRICE_UNAVAILABLE: 503,
+  PAYMENT_METHOD_UNAVAILABLE: 503,
 };
 
 /** The wire `message` for an error: the i18n key, never user-facing text. */

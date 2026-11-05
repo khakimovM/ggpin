@@ -20,6 +20,38 @@ const URL_USERINFO = /(:\/\/)[^\s/?#]*@/g; // scheme://user:pass@host -> scheme:
 const BOT_TOKEN = /(?<!\d)\d{6,12}:[A-Za-z0-9_-]{30,}/g; // 123456789:AA..., also inside /bot<token>/
 const AUTH_SCHEME = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
 
+// The pay-link token: `#t=` (the current form, D-37 (15)), `?t=` and `&t=` (the retired query
+// form, in case an old link is logged), and the same three URL-encoded (`%23t%3D`, `%3Ft%3D`,
+// `%26t%3D`: a link logged inside another URL). Only the value is hidden.
+const PAY_TOKEN_PARAM = /((?:[?&#]|%23|%3f|%26)t(?:=|%3d))[A-Za-z0-9_-]{8,}/gi;
+
+// A card number: 16 digits, optionally in groups separated by one space, no-break/thin/narrow
+// space or dash, not part of a longer word or digit run. Our own card ranges (Uzcard 8600, Humo
+// 9860, UnionPay 5614) are hidden whatever the check digit says; any other 16 digits only when
+// they pass the Luhn check, so an arbitrary 16-digit id is not hit.
+const CARD_NUMBER = /(?<![\w.])(?:\d[ \u00A0\u2009\u202F-]?){15}\d(?!\w)/g;
+const LOCAL_CARD_RANGE = /^(?:8600|9860|5614)/;
+
+function passesLuhn(digits: string): boolean {
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i -= 1) {
+    let d = digits.charCodeAt(i) - 48;
+    if (double) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
+function hideCardNumber(match: string): string {
+  const digits = match.replace(/\D/g, '');
+  return LOCAL_CARD_RANGE.test(digits) || passesLuhn(digits) ? REDACTED : match;
+}
+
 // Phone numbers. Uzbek: +998 90 123 45 67 in any common spacing, anchored on both sides so
 // longer digit runs (amounts, ids) are not touched.
 const PHONE =
@@ -37,6 +69,8 @@ function scrub(text: string): string {
     .replace(URL_USERINFO, `$1${REDACTED}@`)
     .replace(BOT_TOKEN, REDACTED)
     .replace(AUTH_SCHEME, `$1 ${REDACTED}`)
+    .replace(PAY_TOKEN_PARAM, `$1${REDACTED}`)
+    .replace(CARD_NUMBER, hideCardNumber)
     .replace(INTL_PHONE, REDACTED)
     .replace(PHONE, REDACTED)
     .replace(LOCAL_PHONE, REDACTED);

@@ -28,7 +28,9 @@ describe('loadEnv', () => {
       TG_INITDATA_MAX_AGE_SEC: 86400,
       TELEGRAM_BOT_MODE: 'off',
       ADMIN_CONFIRM_THRESHOLD_TIYIN: 100000000n,
-      TOPUP_MAX_TIYIN: 1000000000n,
+      TOPUP_MAX_TIYIN: 200000000n,
+      TOPUP_DAILY_MAX_TIYIN: 500000000n,
+      TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN: 50000000n,
       PRICE_TOLERANCE_BPS: 300,
     });
     expect(env.ADMIN_TELEGRAM_IDS).toEqual([]);
@@ -107,8 +109,8 @@ describe('loadEnv', () => {
   });
 
   it('parses money limits as BigInt and rejects non-digit strings', () => {
-    const big = '9007199254740993'; // 2^53 + 1: not representable as a Number
-    expect(buildTestEnv({ TOPUP_MAX_TIYIN: big }).TOPUP_MAX_TIYIN).toBe(9007199254740993n);
+    const big = '9007199254741000000'; // above 2^53 and a multiple of the step: Number would round it
+    expect(buildTestEnv({ TOPUP_MAX_TIYIN: big }).TOPUP_MAX_TIYIN).toBe(9007199254741000000n);
     for (const bad of ['1.5', '-1', '1e9', '12abc', '0x10']) {
       expect(messageOf({ ...TEST_ENV_SOURCE, TOPUP_MIN_TIYIN: bad })).toContain('TOPUP_MIN_TIYIN');
     }

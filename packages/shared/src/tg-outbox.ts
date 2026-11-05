@@ -32,9 +32,16 @@ export const tgInlineKeyboardSchema = z.strictObject({
 });
 export type TgInlineKeyboard = z.infer<typeof tgInlineKeyboardSchema>;
 
+/**
+ * A Telegram USER chat id: positive, no leading zero, at most 20 digits. Group and channel ids
+ * are negative, and the outbox never writes to them; the API and worker env use the same
+ * pattern for OWNER_ALERT_CHAT_ID so a bad id fails at boot, not on the first alert.
+ */
+export const TG_USER_CHAT_ID_PATTERN = /^[1-9]\d{0,19}$/;
+
 export const tgOutboxJobSchema = z.strictObject({
-  // User chat ids only (digits); the bot never writes to groups.
-  chatId: z.string().regex(/^\d{1,20}$/),
+  // User chat ids only; the bot never writes to groups.
+  chatId: z.string().regex(TG_USER_CHAT_ID_PATTERN),
   // Pre-rendered HTML with user-controlled parts already escaped by the producer.
   text: z.string().min(1).max(TG_TEXT_MAX_LENGTH),
   replyMarkup: tgInlineKeyboardSchema.optional(),

@@ -1,4 +1,4 @@
-import { testModeOutsideJestProblem } from '@repo/shared';
+import { TG_USER_CHAT_ID_PATTERN, testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
 
@@ -27,7 +27,10 @@ const EnvSchema = z.object({
     .optional(),
   OWNER_ALERT_CHAT_ID: z
     .string()
-    .regex(/^-?\d+$/, 'must be a numeric chat id')
+    .regex(
+      TG_USER_CHAT_ID_PATTERN,
+      'must be the numeric id of a user chat (positive digits; group ids are not supported)',
+    )
     .optional(),
 
   // Real money moves only when this is false. Defaults to true outside production (see
