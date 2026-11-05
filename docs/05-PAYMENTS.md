@@ -69,7 +69,9 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 - Foydalanuvchi asos summani beradi (masalan 20 000 so‘m); API unga 1–999 so‘m qo‘shimcha qo‘shadi (20 341 so‘m) — aynan shu summa
   to‘lovning identifikatori. Hamma summa tiyinda, `BigInt`.
 - **Band muddati (`reservedUntil`).** Har P2P summa kartada `reservedUntil` gacha band: yaratilganda `expiresAt + grace` (30 daqiqa + 24 soat),
-  so‘rov `PAID` bo‘lsa `paidAt + grace` (shunda to‘langandan keyin yana shu summa kelsa u begona pul emas, `DUPLICATE`). Himoya — DB exclusion
+  so‘rov `PAID` bo‘lsa aynan `GREATEST(reservedUntil, paidAt + grace)`, bunda `grace = reservedUntil − expiresAt` (yaratilishda qo‘yilgan farq); ya’ni muddat
+  hech qachon qisqarmaydi va 30 daqiqa ichida to‘langan so‘rovda eski, uzunroq muddat qoladi; boshqa qiymatni DB rad etadi (`reservedUntilAtCreation` /
+  `reservedUntilWhenPaid`, `intent-state.ts`). Shunda to‘langandan keyin yana shu summa kelsa u begona pul emas, `DUPLICATE`. Himoya — DB exclusion
   constraint (S2): bir kartada bir summa uchun ikkita ustma-ust tushuvchi band oralig‘i bo‘lmaydi. Eslatma: `reservedUntil` o‘tgach summa qayta
   berilishi mumkin; shuning uchun tanlashda oxirgi 7 kunda ishlatilmagan qo‘shimchalar afzal ko‘riladi (tavsiya).
 - Noyoblik **karta bo‘yicha umumiy summa** orasida. Bitta tranzaksiyada **bitta** karta uchun `pg_advisory_xact_lock` olinadi (ikkinchisini ushlab turib
@@ -177,14 +179,14 @@ oldingi xabar ishlanmagani uchun zanjirni tekshirib bo‘lmaydi, shuning uchun k
 6. Kirim nomzodlari: `P2P_CARD`, shu karta, holati **`PENDING` / `EXPIRED` / `CANCELLED`**, summasi **aynan teng**, `reservedUntil ≥ xabar vaqti`, so‘rov yaratilishidan 120 s dan oldingi emas
    (`createdAt − 120 s ≤ tgDate`). Bank vaqti va Telegram vaqti farqi `BANK_TIME_SKEW_SEC` (600 s) dan oshsa — review `TIME_SKEW`.
 
-| Nomzod                                                                                               | Natija                                                                         |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 1 ta `PENDING`                                                                                       | avtomatik TOPUP, `notify TOPUP_CREDITED`                                       |
-| 1 ta `EXPIRED` (grace ichida)                                                                        | avtomatik TOPUP, so‘rov `PAID`, `notify TOPUP_LATE_CREDITED` (D-37 (5))        |
-| 1 ta `CANCELLED` (grace ichida)                                                                      | **avtomatik yozilmaydi**: review `CANCELLED_LATE` (foydalanuvchi bekor qilgan) |
-| 0 ta nomzod, lekin **alohida qidiruvda** shu summali `PAID` so‘rov topildi (`paidAt + grace` ichida) | review `DUPLICATE` — ega qo‘lda yozadi                                         |
-| 0 ta                                                                                                 | review `NO_MATCH`                                                              |
-| 2+ ta                                                                                                | review `AMBIGUOUS` + alert (bo‘lmasligi kerak)                                 |
+| Nomzod                                                                                              | Natija                                                                         |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1 ta `PENDING`                                                                                      | avtomatik TOPUP, `notify TOPUP_CREDITED`                                       |
+| 1 ta `EXPIRED` (grace ichida)                                                                       | avtomatik TOPUP, so‘rov `PAID`, `notify TOPUP_LATE_CREDITED` (D-37 (5))        |
+| 1 ta `CANCELLED` (grace ichida)                                                                     | **avtomatik yozilmaydi**: review `CANCELLED_LATE` (foydalanuvchi bekor qilgan) |
+| 0 ta nomzod, lekin **alohida qidiruvda** shu summali `PAID` so‘rov topildi (`reservedUntil` ichida) | review `DUPLICATE` — ega qo‘lda yozadi                                         |
+| 0 ta                                                                                                | review `NO_MATCH`                                                              |
+| 2+ ta                                                                                               | review `AMBIGUOUS` + alert (bo‘lmasligi kerak)                                 |
 
 `NO_MATCH` haqida: summa hech bir so‘rovning band oralig‘ida bo‘lmasa, pul kimniki ekanini bilib bo‘lmaydi — ega ko‘radi. **Qoldiq xavf:** grace’dan
 (24 soat) keyin kelgan kech to‘lov, agar o‘sha summa shu vaqtda boshqa foydalanuvchining `PENDING` so‘roviga berilgan bo‘lsa, ajratib bo‘lmaydi va
@@ -222,6 +224,8 @@ yopish (`CANCELLED → PAID`) faqat shu yo‘l bilan (`actor: admin`) va faqat *
 (`EXPIRED`/`CANCELLED` → `PAID` yo‘q): pul faqat review orqali, so‘rovsiz yoziladi (`Payment` + `reviewId`, `intentId` yo‘q), `reservedUntil` esa uzaytirilmaydi. **Xavfsizlik (S8 dizayni):** `ADMIN_CONFIRM_THRESHOLD_TIYIN` dan katta pul amalida
 (`review:credit`, `wallet:adjust`, `payment:reverse`) summa qayta kiritiladi **va** ega botdan OTP oladi (`rules/60-security.md`: yangi OTP tasdig‘i); **har
 pul yoki karta amali haqida egaga alert** (`adminAction`: amal va `AuditLog` havolasi, summasiz). Noto‘g‘ri/ortiqcha pul qaytarish — bot tashqarisida (D-37 (5)).
+
+`review:credit --intent` faqat xabar kartasi va summasi so‘rovniki bilan **aynan** mos bo‘lsa ishlaydi (DB `Payment` triggeri boshqasini rad etadi); mos kelmasa — `--user` (so‘rovsiz, `reviewId` bilan). `UNRECOGNIZED` va `REJECTED` xabar `review:credit` bilan pulga aylanmaydi (DB faqat `PARSED` kirim xabarini qabul qiladi): bunday pulni ega faqat `wallet:adjust` orqali, sabab va `AuditLog` bilan yozadi.
 
 ## 8. Havola tokeni (D-39)
 

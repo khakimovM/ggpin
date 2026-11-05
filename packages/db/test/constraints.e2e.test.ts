@@ -19,6 +19,7 @@ describe('idempotency uniques', () => {
     const intent = await createIntent(user.id);
     const payment = {
       intentId: intent.id,
+      userId: user.id,
       provider: 'CLICK',
       providerTxnId: 'click-txn-1',
       amountTiyin: 1_000_000n,
@@ -27,8 +28,22 @@ describe('idempotency uniques', () => {
     } as const;
     await db.payment.create({ data: payment });
     await expectPrismaError(db.payment.create({ data: payment }), 'P2002');
-    // Same txn id from another provider is a different transaction.
-    await db.payment.create({ data: { ...payment, provider: 'PAYME' } });
+    // Same txn id from another provider is a different transaction (on that provider's own
+    // intent: a payment has the provider of its intent).
+    const paymeIntent = await db.paymentIntent.create({
+      data: {
+        userId: user.id,
+        provider: 'PAYME',
+        amountTiyin: 1_000_000n,
+        purpose: 'TOPUP',
+        idempotencyKey: 'payme-intent',
+        requestHash: 'hash-a',
+        expiresAt: new Date(Date.now() + 600_000),
+      },
+    });
+    await db.payment.create({
+      data: { ...payment, provider: 'PAYME', intentId: paymeIntent.id },
+    });
   });
 
   it('Order(userId, idempotencyKey): the same key cannot create a second order', async () => {

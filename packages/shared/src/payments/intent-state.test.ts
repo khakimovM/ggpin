@@ -4,9 +4,10 @@ import {
   IntentTransitionError,
   assertIntentTransition,
   canTransitionIntent,
-  intentReservedUntil,
   intentTransitionRefusal,
   isWithinGrace,
+  reservedUntilAtCreation,
+  reservedUntilWhenPaid,
   type IntentActor,
   type IntentStatus,
 } from './intent-state';
@@ -97,20 +98,46 @@ describe('intent state machine', () => {
 });
 
 describe('reservation window', () => {
+  const createdAt = new Date('2026-11-04T09:30:00.000Z');
   const expiresAt = new Date('2026-11-04T10:00:00.000Z');
   const grace = 86_400;
-  const reservedUntil = intentReservedUntil({ expiresAt, paidAt: null }, grace);
+  const reservedUntil = reservedUntilAtCreation(expiresAt, grace);
+  const intent = { expiresAt, reservedUntil };
   const at = (offsetMs: number): Date => new Date(reservedUntil.getTime() + offsetMs);
 
-  it('an unpaid intent is reserved until expiresAt + grace', () => {
+  it('a new intent is reserved until expiresAt + grace', () => {
     expect(reservedUntil.toISOString()).toBe('2026-11-05T10:00:00.000Z');
+    expect(createdAt.getTime()).toBeLessThan(expiresAt.getTime());
   });
 
-  it('a paid intent is reserved until paidAt + grace, so a repeat transfer is a DUPLICATE', () => {
+  it('paying inside the request window keeps the longer old reservation', () => {
+    // paidAt + grace = 09:05 + 24 h = 09:05 next day, earlier than the old 10:00 end.
     const paidAt = new Date('2026-11-04T09:05:00.000Z');
-    expect(intentReservedUntil({ expiresAt, paidAt }, grace).toISOString()).toBe(
-      '2026-11-05T09:05:00.000Z',
+    expect(reservedUntilWhenPaid(intent, paidAt).toISOString()).toBe('2026-11-05T10:00:00.000Z');
+  });
+
+  it('a late payment (expired, inside grace) raises the end to paidAt + grace', () => {
+    const paidAt = new Date('2026-11-05T08:00:00.000Z');
+    expect(reservedUntilWhenPaid(intent, paidAt).toISOString()).toBe('2026-11-06T08:00:00.000Z');
+  });
+
+  it('is exact at the crossover: paidAt = expiresAt keeps the end, one ms later raises it', () => {
+    expect(reservedUntilWhenPaid(intent, expiresAt).getTime()).toBe(reservedUntil.getTime());
+    expect(reservedUntilWhenPaid(intent, new Date(expiresAt.getTime() + 1)).getTime()).toBe(
+      reservedUntil.getTime() + 1,
     );
+  });
+
+  it('never shrinks, whatever paidAt is', () => {
+    const early = new Date('2000-01-01T00:00:00.000Z');
+    expect(reservedUntilWhenPaid(intent, early).getTime()).toBe(reservedUntil.getTime());
+  });
+
+  it('reads the grace from the stored gap, not from configuration', () => {
+    // An intent created under a 1 h grace keeps that grace when it is paid later.
+    const short = { expiresAt, reservedUntil: reservedUntilAtCreation(expiresAt, 3_600) };
+    const paidAt = new Date('2026-11-04T10:30:00.000Z');
+    expect(reservedUntilWhenPaid(short, paidAt).toISOString()).toBe('2026-11-04T11:30:00.000Z');
   });
 
   it('is inclusive at the boundary and exclusive one millisecond later', () => {

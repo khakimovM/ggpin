@@ -49,24 +49,35 @@ const TRANSITIONS: Readonly<Record<IntentStatus, readonly IntentStatus[]>> = Obj
 
 /**
  * Whether the unique amount of an intent is still reserved at `at` (the bank message time for
- * a payment). `reservedUntil` is `intentReservedUntil(...)`. The boundary is inclusive.
+ * a payment). `reservedUntil` is the stored column (`reservedUntilAtCreation` / `reservedUntilWhenPaid`).
+ * The boundary is inclusive.
  */
 export function isWithinGrace(at: Date, reservedUntil: Date): boolean {
   return at.getTime() <= reservedUntil.getTime();
 }
 
 /**
- * Until when an intent's amount stays reserved on its card (D-37 (2)): `expiresAt + grace`
- * while it is waiting, expired or cancelled; `paidAt + grace` once PAID, so a second transfer
- * of the same amount right after a payment is recognised as a DUPLICATE, not a stranger's money.
- * Backed by a DB exclusion constraint (phase 4 S2).
+ * `PaymentIntent.reservedUntil` of a new intent (D-37 (2)): the request deadline plus the grace.
+ * The grace is the gap this value fixes for the intent's whole life (see below).
  */
-export function intentReservedUntil(
-  intent: { readonly expiresAt: Date; readonly paidAt: Date | null },
-  graceSec: number,
+export function reservedUntilAtCreation(expiresAt: Date, graceSec: number): Date {
+  return new Date(expiresAt.getTime() + graceSec * 1000);
+}
+
+/**
+ * The ONLY `reservedUntil` the database accepts when an intent becomes PAID (trigger
+ * `PaymentIntent_p2p_guard`, phase 4 S2): `GREATEST(reservedUntil, paidAt + grace)`, where
+ * `grace = reservedUntil - expiresAt` is the gap set at creation. The trigger does not write the
+ * value, it refuses any other. A reservation never shrinks (an amount still owed to the payer
+ * must not be handed out again), and paying inside the original window keeps the old, longer end:
+ * `paidAt + grace` alone would be SHORTER there and be refused.
+ */
+export function reservedUntilWhenPaid(
+  intent: { readonly expiresAt: Date; readonly reservedUntil: Date },
+  paidAt: Date,
 ): Date {
-  const from = intent.paidAt ?? intent.expiresAt;
-  return new Date(from.getTime() + graceSec * 1000);
+  const graceMs = intent.reservedUntil.getTime() - intent.expiresAt.getTime();
+  return new Date(Math.max(intent.reservedUntil.getTime(), paidAt.getTime() + graceMs));
 }
 
 /** The refusal reason for a transition, or null when it is allowed. */
