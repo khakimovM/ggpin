@@ -18,24 +18,26 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 
 ## Xato kodlari
 
-| HTTP | Kod                                                                            | Qachon                                                                  |
-| ---- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| 400  | `VALIDATION_ERROR`                                                             | Zod xatosi (`details.fields`)                                           |
-| 401  | `UNAUTHORIZED`, `INITDATA_INVALID`, `INITDATA_EXPIRED`, `TOKEN_REUSE_DETECTED` | auth                                                                    |
-| 403  | `USER_BLOCKED`, `PURCHASE_FROZEN`                                              | bloklangan / to‘lov qaytarilgan foydalanuvchi                           |
-| 404  | `NOT_FOUND`                                                                    | resurs yo‘q yoki boshqa foydalanuvchiniki                               |
-| 409  | `IDEMPOTENCY_CONFLICT`                                                         | bir xil kalit, boshqa body                                              |
-| 410  | `QUOTE_EXPIRED`                                                                | kotirovka muddati tugagan                                               |
-| 413  | `PAYLOAD_TOO_LARGE`                                                            | so‘rov tanasi ruxsat etilgan hajmdan katta                              |
-| 422  | `INSUFFICIENT_BALANCE` (`details: {balance, required, shortfall}`)             | balans yetmaydi                                                         |
-| 422  | `RECIPIENT_NOT_FOUND`, `RECIPIENT_INVALID`, `RECIPIENT_HAS_PREMIUM`            | qabul qiluvchi                                                          |
-| 422  | `PRODUCT_UNAVAILABLE`, `OUT_OF_STOCK`, `QTY_OUT_OF_RANGE`                      | katalog                                                                 |
-| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE`                                                    | to‘ldirish chegaralari                                                  |
-| 422  | `CODE_INVALID`, `CODE_EXPIRED`, `CODE_ALREADY_USED`, `NOT_ENOUGH_COINS`        | promo; `CODE_INVALID`/`CODE_EXPIRED` web kirish OTP’si uchun ham (D-26) |
-| 429  | `RATE_LIMITED`                                                                 | throttler                                                               |
-| 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi)    |
-| 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                       |
-| 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                         |
+| HTTP | Kod                                                                            | Qachon                                                                                                                                                                                               |
+| ---- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`                                                             | Zod xatosi (`details.fields`)                                                                                                                                                                        |
+| 401  | `UNAUTHORIZED`, `INITDATA_INVALID`, `INITDATA_EXPIRED`, `TOKEN_REUSE_DETECTED` | auth                                                                                                                                                                                                 |
+| 403  | `USER_BLOCKED`, `PURCHASE_FROZEN`                                              | bloklangan / to‘lov qaytarilgan foydalanuvchi                                                                                                                                                        |
+| 404  | `NOT_FOUND`                                                                    | resurs yo‘q yoki boshqa foydalanuvchiniki                                                                                                                                                            |
+| 409  | `IDEMPOTENCY_CONFLICT` (to‘lov so‘rovida `details: {intentId}`)                | bir xil kalit, boshqa body; to‘lov so‘rovida yana: bir xil body, lekin so‘rov endi `PENDING`/muddatli emas                                                                                           |
+| 409  | `TOPUP_ALREADY_PENDING` (`details: {intentId}`)                                | foydalanuvchida kutilayotgan to‘ldirish so‘rovi bor                                                                                                                                                  |
+| 410  | `QUOTE_EXPIRED`                                                                | kotirovka muddati tugagan                                                                                                                                                                            |
+| 413  | `PAYLOAD_TOO_LARGE`                                                            | so‘rov tanasi ruxsat etilgan hajmdan katta                                                                                                                                                           |
+| 422  | `INSUFFICIENT_BALANCE` (`details: {balance, required, shortfall}`)             | balans yetmaydi                                                                                                                                                                                      |
+| 422  | `RECIPIENT_NOT_FOUND`, `RECIPIENT_INVALID`, `RECIPIENT_HAS_PREMIUM`            | qabul qiluvchi                                                                                                                                                                                       |
+| 422  | `PRODUCT_UNAVAILABLE`, `OUT_OF_STOCK`, `QTY_OUT_OF_RANGE`                      | katalog                                                                                                                                                                                              |
+| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE` (`details: {min, max, step, reason?}`)             | to‘ldirish chegaralari; `reason`: `DAILY_LIMIT` (barcha akkaunt, 24 soat), `NEW_ACCOUNT_DAILY_LIMIT` (7 kundan yosh akkaunt); kunlik limitda `max` = bugun QOLGAN limit (`max < min` — limit tugadi) |
+| 422  | `CODE_INVALID`, `CODE_EXPIRED`, `CODE_ALREADY_USED`, `NOT_ENOUGH_COINS`        | promo; `CODE_INVALID`/`CODE_EXPIRED` web kirish OTP’si uchun ham (D-26)                                                                                                                              |
+| 429  | `RATE_LIMITED`                                                                 | throttler; to‘ldirish: 5 so‘rov / 10 daqiqa, 10 so‘rov / 24 soat, bir vaqtda 3 TO‘LANMAGAN band so‘rov (`Retry-After`)                                                                               |
+| 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi)                                                                                                                                 |
+| 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                                                                                                                                                    |
+| 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                                                                                                                                                      |
+| 503  | `PAYMENT_METHOD_UNAVAILABLE`                                                   | to‘ldirish usuli hozir yo‘q (sig‘imli karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti)                                                                                                  |
 
 ## Auth
 
@@ -110,7 +112,58 @@ Faqat `@PublicCache(N)` bilan belgilangan yo‘l — hozir uchta `GET /catalog/*
 | ----- | ------------ | -------------------------------------------------------------------------------------- |
 | PATCH | `/me`        | `{ locale }`                                                                           |
 | GET   | `/me/wallet` | `{ balanceTiyin, coins, currency: "UZS" }`                                             |
-| GET   | `/me/ledger` | moliya tarixi (kind filtri)                                                            |
+| GET   | `/me/ledger` | moliya tarixi (kind filtri; «Hamyon» bo‘limiga qarang)                                 |
+
+## Hamyon
+
+Balans saqlanmaydi: u `LedgerEntry` yig‘indisi (Redis keshi `wallet:{userId}`, har ledger yozuvidan keyin o‘chiriladi).
+Ikkala yo‘l ham sessiya talab qiladi, javoblari `Cache-Control: no-store`. Pul — string, tiyinda.
+
+**`GET /me/wallet`**
+
+```json
+{
+  "success": true,
+  "data": { "balanceTiyin": "2034100", "coins": "0", "currency": "UZS" }
+}
+```
+
+- `balanceTiyin` ishorali: to‘ldirish bekor qilinib (`TOPUP_REVERSAL`) pul allaqachon sarflangan bo‘lsa manfiy bo‘lishi mumkin
+  (`"-550000"`); shunda hisob xaridlar uchun muzlatiladi (`403 PURCHASE_FROZEN`), to‘ldirish esa ochiq qoladi.
+- `coins` — keshbek tangalari soni, string; 10-bosqichgacha doim `"0"`.
+
+**`GET /me/ledger?kind=&page=1&limit=20`** — moliya tarixi, eng yangisi birinchi. `kind` ixtiyoriy
+(`TOPUP`, `TOPUP_REVERSAL`, `PURCHASE`, `REFUND`, `REFERRAL_BONUS`, `REFERRAL_BONUS_REVERSAL`, `ADJUSTMENT`); noma’lum qiymat,
+noma’lum kalit yoki `limit` > 100 — `400 VALIDATION_ERROR`. Faqat o‘zining yozuvlari.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm3ledger0000000000000001",
+      "kind": "PURCHASE",
+      "amountTiyin": "-550000",
+      "createdAt": "2026-11-04T10:12:00.000Z",
+      "orderId": "cm3order00000000000000001",
+      "paymentId": null
+    },
+    {
+      "id": "cm3ledger0000000000000000",
+      "kind": "TOPUP",
+      "amountTiyin": "2034100",
+      "createdAt": "2026-11-04T10:05:00.000Z",
+      "orderId": null,
+      "paymentId": "cm3payment00000000000001"
+    }
+  ],
+  "meta": { "page": 1, "limit": 20, "total": 2 }
+}
+```
+
+- `amountTiyin` ishorali: kirim musbat, chiqim manfiy.
+- `orderId` faqat buyurtmadan kelgan yozuvda (`PURCHASE`, `REFUND`), `paymentId` faqat to‘lovdan kelganida (`TOPUP`,
+  `TOPUP_REVERSAL`); qolganlarida (`REFERRAL_BONUS*`, `ADJUSTMENT`) ikkalasi `null` — ichki audit id ko‘rsatilmaydi.
 
 ## Katalog
 
@@ -233,15 +286,56 @@ belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
 
 ## Qabul qiluvchi va kotirovka
 
-| POST | `/recipients/validate` | `{ productId, input: { username } }` → `{ recipientToken, displayName, photoUrl?, warnings[] }` (**5-bosqichda**; hozircha yo‘q) |
-| ---- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| POST | `/quotes`              | `{ productId, skuId? , quantity?, recipientToken, discountCode? }` → `201` kotirovka                                             |
+| POST | `/recipients/validate` | `{ productId, input: { username } }` → `{ recipientToken, displayName, photoUrl?, warnings[] }` (LOYIHA / DRAFT, 5-bosqich; shakli quyida) |
+| ---- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST | `/quotes`              | `{ productId, skuId? , quantity?, recipientToken, discountCode? }` → `201` kotirovka                                                       |
 
 `recipientToken` — 43 belgili base64url, 10 daqiqa amal qiladi, faqat shu foydalanuvchi +
 shu mahsulot uchun va ishlatilganda o‘chmaydi: foydalanuvchi shu qabul qiluvchi
 uchun muddat ichida boshqa paketga ham kotirovka olishi mumkin. Token Redis'da faqat SHA-256
 xeshi bilan saqlanadi. `/recipients/validate` 5-bosqichda qo‘shiladi; shu paytgacha token
 faqat testlarda beriladi.
+
+**`POST /recipients/validate`** — **LOYIHA (DRAFT): 5-bosqich rejasida tasdiqlanadi.** Shakl frontend mock yozishi uchun oldindan yozilgan;
+o‘zgarishi mumkin. Sessiya majburiy (cookie sessiyada `X-CSRF-Token` va `Origin`, Bearer’da kerak emas). Body `.strict()`:
+
+```json
+{ "productId": "t8uqj5v97wzo7r850h24xis1", "input": { "username": "aziz_k" } }
+```
+
+- `input` kalitlari — mahsulotning `inputSchema` maydonlari (`key`); qiymat maydon turiga qarab tekshiriladi (`tgUsername`:
+  5–32 belgi, harf/raqam/`_`, harf bilan boshlanadi, `@` siz — katalogdagi `help` matni shuni aytadi). O‘yinlarda (G-bosqichlar) kalitlar
+  `playerId`, `zone` kabi bo‘ladi. Ortiqcha kalit — `400`.
+- Javob `200` (qabul qiluvchi topildi):
+
+```json
+{
+  "success": true,
+  "data": {
+    "recipientToken": "<43 belgili token>",
+    "displayName": "Aziz",
+    "photoUrl": "https://cdn.example/avatars/aziz.jpg",
+    "warnings": []
+  }
+}
+```
+
+- `photoUrl` ixtiyoriy (rasm bo‘lmasa kalit yo‘q). `recipientToken` — yuqoridagi qoidalar bilan (43 belgi, 10 daqiqa, shu foydalanuvchi va mahsulot).
+- `warnings[]` — qabul qiluvchi to‘g‘ri, lekin foydalanuvchi bilishi kerak bo‘lgan **bloklamaydigan** holatlar. Element: `{ "code": "…",
+"message": "warnings.…" }` (`message` — i18n kaliti). Hozircha hech qanday ogohlantirish yo‘q: doim `[]`. Qabul qiluvchi mahsulotni olmasa
+  (masalan «Premium allaqachon bor») bu bloklovchi `422 RECIPIENT_HAS_PREMIUM` bo‘lib qoladi; Fragment’ning haqiqiy xatti-harakati 5-bosqich
+  fixture’lari bilan tasdiqlanadi (`docs/06-FULFILLMENT.md`).
+- Javob `Cache-Control: no-store`.
+
+| Status | Kod                            | Qachon                                                                     |
+| ------ | ------------------------------ | -------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`             | body shakli yoki `input` qiymati noto‘g‘ri; noma’lum kalit                 |
+| 401    | `UNAUTHORIZED`                 | sessiya yo‘q yoki yaroqsiz                                                 |
+| 404    | `NOT_FOUND`                    | `productId` mavjud emas; cookie sessiyada CSRF/`Origin` noto‘g‘ri          |
+| 422    | `PRODUCT_UNAVAILABLE`          | mahsulot faol emas                                                         |
+| 422    | `RECIPIENT_NOT_FOUND`          | format to‘g‘ri, lekin Fragment/ta’minotchi bunday qabul qiluvchini topmadi |
+| 429    | `RATE_LIMITED` + `Retry-After` | tavsiya: 20 so‘rov / daqiqa / foydalanuvchi                                |
+| 503    | `RECIPIENT_CHECK_UNAVAILABLE`  | tekshiruv ~10 soniyada tugamadi yoki ta’minotchi ishlamayapti              |
 
 **`POST /quotes`** — sessiya majburiy (cookie sessiyada `X-CSRF-Token` + ruxsat etilgan
 `Origin` ham kerak, aks holda `404 NOT_FOUND`, D-26; Mini App Bearer tokeni uchun CSRF kerak
@@ -312,18 +406,411 @@ Buyurtma holatlari klientda: `PAID, QUEUED → "Navbatda"`, `PROCESSING → "Baj
 `HELD, NEEDS_REVIEW → "Tekshirilmoqda"`, `DELIVERED → "Yetkazildi"`,
 `FAILED, REFUNDED → "Bajarilmadi — pul qaytarildi"`, `CANCELLED → "Bekor qilindi"`.
 
-## To‘lovlar
+> **LOYIHA (DRAFT) — 5-bosqich rejasida tasdiqlanadi.** Quyidagi buyurtma shakllari (`POST /orders`, `GET /orders`, `GET /orders/:id`) va
+> `/recipients/validate` frontend mock yoza olishi uchun oldindan yozilgan (D-37 (17)); 5-bosqichda o‘zgarishi mumkin. Maydonlar `Order` va
+> `Quote` modellaridan hamda `docs/04`, `docs/06` dagi mavjud jumlalardan olingan. Hujjatlar hal qilmagan joylar uchun tavsiyalar pastda.
 
-| GET  | `/payments/methods`                                   | faol provayderlar, min/max, komissiya ma'lumoti                                                                                        |
-| ---- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| POST | `/payments/intents`                                   | `Idempotency-Key`; `{ provider, amountTiyin, purpose: "TOPUP" \| "TOPUP_AND_BUY", quoteId? }` → `{ intentId, redirectUrl, expiresAt }` |
-| GET  | `/payments/intents/:id`                               | holat (`PENDING \| PAID \| CANCELLED \| EXPIRED`), buyurtma (TOPUP_AND_BUY bo‘lsa)                                                     |
-| POST | `/payments/click/prepare`, `/payments/click/complete` | Click callback (public, imzo)                                                                                                          |
-| POST | `/payments/payme`                                     | Payme JSON-RPC (public, Basic auth)                                                                                                    |
-| POST | `/payments/uzum/*`, `/payments/rahmat/*`              | shartnoma hujjatiga ko‘ra                                                                                                              |
+Hamma javob `Cache-Control: no-store`; hamma yo‘l sessiya talab qiladi; boshqa foydalanuvchining buyurtmasi — `404 NOT_FOUND`. Javoblarda
+tannarx, kurs, ustama, urinishlar, ichki sabab matni va ichki id’lar **yo‘q**.
 
-`TOPUP_AND_BUY`: to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, keyin kotirovka hali
-amal qilsa avtomatik xarid qilinadi; amal qilmasa pul balansda qoladi va foydalanuvchiga xabar boradi.
+**Buyurtma (`order`)** — ro‘yxat elementi va `POST /orders` javobi shu shaklda:
+
+```json
+{
+  "id": "cm3order00000000000000001",
+  "number": 1042,
+  "status": "PAID",
+  "productId": "t8uqj5v97wzo7r850h24xis1",
+  "productSlug": "telegram-stars",
+  "productName": "Telegram Stars",
+  "skuId": "yjo81wz8x26v7v2m20s9imoh",
+  "quantity": 50,
+  "recipient": { "displayName": "Aziz", "fields": { "username": "aziz_k" } },
+  "priceTiyin": "550000",
+  "discountTiyin": "0",
+  "totalTiyin": "550000",
+  "currency": "UZS",
+  "createdAt": "2026-11-04T10:12:00.000Z",
+  "deliveredAt": null
+}
+```
+
+- `status` — xom holat (`PAID`, `QUEUED`, `PROCESSING`, `HELD`, `NEEDS_REVIEW`, `DELIVERED`, `FAILED`, `CANCELLED`, `REFUNDED`); yorliq
+  klientda (yuqoridagi xarita). `number` — foydalanuvchiga ko‘rinadigan `#`.
+- `recipient` har mahsulotga mos: `displayName` — ko‘rsatiladigan nom, `fields` — mahsulot formasi kalitlari (`{ username }` Telegram uchun,
+  `{ playerId, zone }` o‘yin uchun); Telegram username’ga bog‘lanmagan.
+- `totalTiyin = priceTiyin − discountTiyin` (kotirovkadagidek); hamyondan aynan `totalTiyin` yechiladi.
+- `skuId` erkin miqdorli buyurtmada `null` bo‘lishi mumkin; `quantity` har doim bor.
+- `productName` — katalogdagidek `?locale=uz|ru` bo‘yicha (standart `uz`); `GET /orders` va `GET /orders/:id` shu parametrni qabul qiladi.
+
+**`POST /orders`** — `Idempotency-Key` majburiy; sessiya (cookie sessiyada `X-CSRF-Token` + `Origin`). Body `.strict()`:
+
+```json
+{ "quoteId": "ghj3p0w7k1cz9r4t6u8v2xyb" }
+```
+
+`201`: `data` — `{ "order": { … } }` (yuqoridagi shakl, `status: "PAID"`). Bitta tranzaksiyada hamyon qulflanadi, balans tekshiriladi,
+`Order(PAID)` va `LedgerEntry(PURCHASE)` yoziladi; commit’dan keyin yetkazish navbatga qo‘yiladi. Idempotent takror (bir xil kalit va
+body) — o‘sha buyurtma yana `201` bilan qaytadi, ikkinchi yechilish bo‘lmaydi.
+
+| Status | Kod                                                       | Qachon                                                    |
+| ------ | --------------------------------------------------------- | --------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`                                        | body shakli; `Idempotency-Key` yo‘q yoki shakli noto‘g‘ri |
+| 401    | `UNAUTHORIZED`                                            | sessiya yo‘q                                              |
+| 403    | `USER_BLOCKED`, `PURCHASE_FROZEN`                         | bloklangan; to‘lovi qaytarilgan (xarid cheklangan)        |
+| 404    | `NOT_FOUND`                                               | kotirovka yo‘q yoki boshqa foydalanuvchiniki              |
+| 409    | `IDEMPOTENCY_CONFLICT`                                    | bir xil kalit, boshqa body                                |
+| 409    | `QUOTE_ALREADY_USED` + `{ orderId }` (tavsiya)            | kotirovka boshqa kalit bilan allaqachon ishlatilgan       |
+| 410    | `QUOTE_EXPIRED`                                           | kotirovka muddati tugagan                                 |
+| 422    | `INSUFFICIENT_BALANCE` + `{balance, required, shortfall}` | balans yetmaydi; hech narsa yozilmaydi                    |
+| 429    | `RATE_LIMITED` + `Retry-After`                            | foydalanuvchiga 10 buyurtma/daqiqa                        |
+
+«10 buyurtma/daqiqa» — o‘ylab topilmagan: manba `.claude/rules/10-backend-nestjs.md` («order create 10/min/user»).
+
+**`GET /orders?status=&locale=&page=1&limit=20`** — faqat o‘zining buyurtmalari, eng yangisi birinchi. `status` ixtiyoriy: bitta xom holat yoki
+vergul bilan ajratilgan bir nechtasi (`status=PAID,QUEUED`, klient yorliq guruhi uchun bitta so‘rov); noma’lum qiymat/kalit yoki `limit` > 100 — `400`.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm3order00000000000000001",
+      "number": 1042,
+      "status": "DELIVERED",
+      "…": "…"
+    }
+  ],
+  "meta": { "page": 1, "limit": 20, "total": 1 }
+}
+```
+
+**`GET /orders/:id?locale=`** — ro‘yxat shakli + `timeline[]` va `voucher`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cm3order00000000000000001",
+    "number": 1042,
+    "status": "DELIVERED",
+    "…": "…",
+    "deliveredAt": "2026-11-04T10:13:10.000Z",
+    "timeline": [
+      { "status": "PAID", "at": "2026-11-04T10:12:00.000Z" },
+      { "status": "QUEUED", "at": "2026-11-04T10:12:01.000Z" },
+      { "status": "PROCESSING", "at": "2026-11-04T10:12:05.000Z" },
+      { "status": "DELIVERED", "at": "2026-11-04T10:13:10.000Z" }
+    ],
+    "voucher": null
+  }
+}
+```
+
+- `timeline` — holatga kirish vaqtlari, eskisi birinchi (kamida bitta); kim o‘zgartirgani va izoh ko‘rsatilmaydi.
+- `voucher` — `{ "code": "…" }` faqat `DELIVERED` voucher mahsulotda (G4); Stars va Premium uchun doim `null`.
+- Polling: terminal holatgacha har ~2 soniyada (`GET /orders/:id/stream` SSE — ixtiyoriy).
+
+**5-bosqich shakllari: tavsiyalar** (hujjatlar hal qilmagan savollar; ega tasdig‘i 5-bosqich rejasida):
+
+| #   | Savol                                    | Tavsiya                                                                                                                                       |
+| --- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q-A | «Premium allaqachon bor»                 | mavjud bloklovchi `422 RECIPIENT_HAS_PREMIUM` qoladi; `warnings[]` faqat bloklamaydigan holatlar uchun; haqiqiy Fragment javobi fixture bilan |
+| Q-B | buyurtma javobida `productName` tili     | katalogdagidek `?locale=` (`uz` yoki `ru`) (standart `uz`)                                                                                    |
+| Q-C | `GET /orders?status=`                    | vergul bilan ajratilgan bir nechta holat                                                                                                      |
+| Q-D | boshqa kalit bilan ishlatilgan kotirovka | `409 QUOTE_ALREADY_USED` + `details.orderId` (faqat o‘zining buyurtmasi)                                                                      |
+| Q-E | `/recipients/validate` limiti            | 20 so‘rov / daqiqa / foydalanuvchi                                                                                                            |
+| Q-F | `POST /orders` javobi                    | hujjatdagi `{ order }` o‘rami saqlanadi                                                                                                       |
+| —   | `Idempotency-Key` formati                | 8–128 belgi, `[A-Za-z0-9_-]`                                                                                                                  |
+
+## To‘lovlar (P2P karta, D-31, D-37)
+
+Hamyon foydalanuvchining o‘z kartasidan **bizning Humo yoki Uzcard kartamizga P2P o‘tkazma** bilan to‘ldiriladi. Har so‘rovga
+noyob summa beriladi (asos summa 1 000 so‘mga karrali + 1–999 so‘m qo‘shimcha); to‘lov bank botlarining xabaridan shu summa
+bo‘yicha topiladi (`docs/05-PAYMENTS.md`). Click, Payme, Uzum va Rahmat — keyinroq (D-04), ularning yo‘llari quyida «Keyinroq» bandida.
+
+| Metod | Yo‘l                               | Kim                    | Tavsif                                                                    |
+| ----- | ---------------------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| GET   | `/payments/methods`                | sessiya                | usullar, bank bo‘yicha mavjudlik, min/max/qadam                           |
+| POST  | `/payments/intents`                | sessiya                | `Idempotency-Key`; yangi to‘ldirish so‘rovi → `201`                       |
+| GET   | `/payments/intents?status=&limit=` | sessiya                | o‘z so‘rovlari, eng yangisi birinchi                                      |
+| GET   | `/payments/intents/:id`            | sessiya                | bitta so‘rov holati (polling uchun)                                       |
+| POST  | `/payments/intents/:id/cancel`     | sessiya                | kutilayotgan so‘rovni bekor qilish                                        |
+| POST  | `/payments/intents/:id/pay-link`   | sessiya                | yangi to‘lov havolasi (eskisi o‘ladi)                                     |
+| GET   | `/payments/pay/:intentId`          | `X-Pay-Token` sarlavha | `@Public`; to‘lov sahifasi uchun faqat shu so‘rovning ko‘rsatma ma’lumoti |
+
+Cookie sessiyali yozuv so‘rovlarida (`POST`) `X-CSRF-Token` va ruxsat etilgan `Origin` kerak (D-26); Bearer tokenli Mini App
+so‘rovida kerak emas. Hamma javoblar `Cache-Control: no-store`. Boshqa foydalanuvchining so‘rovi — `404 NOT_FOUND`.
+
+**`Idempotency-Key`** (buyurtma va to‘lov so‘rovi yaratishda majburiy): 8–128 belgi, faqat `A–Z a–z 0–9 _ -` (UUID mos keladi);
+foydalanuvchi bo‘yicha noyob. Yo‘q yoki shakli noto‘g‘ri — `400 VALIDATION_ERROR`.
+
+### `GET /payments/methods`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "code": "P2P_CARD",
+      "available": true,
+      "banks": [
+        { "bank": "HUMO", "available": true },
+        { "bank": "UZCARD", "available": false }
+      ],
+      "minTiyin": "500000",
+      "maxTiyin": "200000000",
+      "stepTiyin": "100000"
+    }
+  ]
+}
+```
+
+- `minTiyin` 5 000 so‘m, `maxTiyin` 2 000 000 so‘m (bitta so‘rov), `stepTiyin` 1 000 so‘m: klient chegaralarni qattiq yozmaydi, shu yerdan oladi.
+- `available: false` — faol karta sig‘imi yo‘q yoki bank xabarlari tinglovchisi javob bermayapti; bank bo‘yicha alohida ko‘rsatiladi.
+
+### `POST /payments/intents`
+
+So‘rov (`.strict()`; noma’lum kalit, jumladan `quoteId` — `400`):
+
+```json
+{
+  "provider": "P2P_CARD",
+  "amountTiyin": "2000000",
+  "purpose": "TOPUP",
+  "bank": "HUMO"
+}
+```
+
+- `amountTiyin` — **asos** summa (20 000 so‘m), 1 000 so‘mga karrali, `minTiyin..maxTiyin` ichida. `bank` ixtiyoriy: berilmasa
+  avtomatik (bo‘sh sig‘imi eng ko‘p karta); bank ichida karta avtomatik tanlanadi.
+- `purpose: "TOPUP_AND_BUY"` hozircha **`400 VALIDATION_ERROR`** (avtomatik xarid 5-bosqichda); `provider` faqat `P2P_CARD`.
+
+`201`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "intentId": "cm3intent00000000000000001",
+    "status": "PENDING",
+    "baseAmountTiyin": "2000000",
+    "payAmountTiyin": "2034100",
+    "card": {
+      "bank": "HUMO",
+      "number": "9999000000000001",
+      "holderName": "TEST H."
+    },
+    "expiresAt": "2026-11-04T10:30:00.000Z",
+    "redirectUrl": "https://ggpin.uz/pay/cm3intent00000000000000001?locale=uz#t=<43 belgili token>",
+    "currency": "UZS"
+  }
+}
+```
+
+- `payAmountTiyin` — foydalanuvchi **aynan shu** summani o‘tkazadi: `baseAmountTiyin` + 1–999 so‘m (`34100` tiyin = 341 so‘m).
+  Summa kartaning boshqa so‘rovlaridan farq qiladi (D-37 (2)).
+- **Band muddati.** Har summa `reservedUntil` gacha band: yaratilganda `expiresAt + 24 soat`; so‘rov `PAID` bo‘lsa `paidAt + 24 soat`
+  (shunda to‘langandan keyin yana shu summa kelsa u begona pul emas, `DUPLICATE` deb taniladi). DB’da exclusion constraint bilan
+  himoyalangan.
+- Hisobga xabardagi **to‘liq tushgan summa** (`payAmountTiyin`) yoziladi, asos summa emas.
+- `expiresAt` — yaratilgandan 30 daqiqa. Muddat tugagach (`EXPIRED`) kelgan pul 24 soat ichida, bitta nomzod bo‘lsa, baribir avtomatik yoziladi
+  va foydalanuvchiga «kech tushdi» xabari boradi. **Bekor qilingan** (`CANCELLED`) so‘rovga kelgan pul avtomatik yozilmaydi: egaga
+  ko‘rib chiqishga tushadi (`CANCELLED_LATE`). Grace’dan keyingi pul ham ko‘rib chiqishga tushadi.
+- `card.number` — 16 raqam, ajratgichsiz (klient formatlaydi). Bu **bizning** qabul qiluvchi kartamiz; u faqat shu so‘rov egasiga
+  va faqat `PENDING` holatda qaytadi. `card.holderName` — **qisqa shakl** (`ALISHER KARIMOV` → `ALISHER K.`); to‘liq ism API’dan chiqmaydi.
+- **Yopishqoq karta.** Foydalanuvchiga imkon qadar oldingi kartasi beriladi; baribir karta raqami har safar boshqacha bo‘lishi mumkin
+  (to‘lgan, bloklangan yoki bank o‘zgargan bo‘lsa). Shuning uchun Mini App va to‘lov sahifasi har safar «karta raqami har safar boshqacha
+  bo‘lishi mumkin: eski kartaga o‘tkazmang» deb ogohlantiradi.
+- `redirectUrl` — `null` emas: `${WEB_URL}/pay/<intentId>?locale=<uz|ru>#t=<token>`. Token URL **fragmentida** (`#t=`), so‘rov qatorida emas
+  (D-37 (15), D-39). Sahifa tili — `?locale=` (foydalanuvchining tili, API qo‘yadi; D-38 Q21). Mini App uni `openLink` bilan ochadi.
+- **Idempotent takror** (bir xil kalit va body): so‘rov hali `PENDING` va `now < expiresAt` bo‘lsa — o‘sha so‘rov yana `201` bilan, **yangi** token
+  bilan qaytadi (eski havola o‘ladi). Aks holda (so‘rov `PAID`, `EXPIRED`, `CANCELLED`) yangi havola berilmaydi: `409 IDEMPOTENCY_CONFLICT` +
+  `details: { intentId }`. Boshqa body — ham `409 IDEMPOTENCY_CONFLICT` (+ `details.intentId`).
+
+Tekshiruv tartibi: tezlik limiti (5 so‘rov / 10 daqiqa va 10 so‘rov / 24 soat / foydalanuvchi; oshsa `429 RATE_LIMITED` + `Retry-After`; «10 / 24 soat» — **yaratilgan `PaymentIntent` lar soni**: rad etilgan urinishlar (`409`, `422`, `429`, `503`) intent yaratmaydi va sanalmaydi, ularni 5 / 10 daqiqa limiti qoplaydi) →
+validatsiya (`400`) → idempotentlik → kutilayotgan so‘rov (`409 TOPUP_ALREADY_PENDING`) → band so‘rovlar soni (quyida; `429 RATE_LIMITED`) → summa
+chegaralari va kunlik cheklar (`422`) → tinglovchi holati va karta sig‘imi (`503 PAYMENT_METHOD_UNAVAILABLE`). Foydalanuvchida bir vaqtda faqat
+**bitta** `PENDING` so‘rov bo‘ladi (DB’da `UNIQUE (userId) WHERE status = 'PENDING'`; poygada buzilsa ham `409 TOPUP_ALREADY_PENDING`,
+`details.intentId` faqat `WHERE userId = sessiya` bilan topiladi).
+
+**Band so‘rovlar cheki.** Bir vaqtda ko‘pi bilan **3 ta TO‘LANMAGAN** band so‘rov: `PENDING` va `reservedUntil > now` bo‘lgan `EXPIRED`/`CANCELLED`.
+`PAID` sanalmaydi: chek «yarat → bekor qil» orqali summalarni egallash fermasiga qarshi, to‘langan so‘rov esa haqiqiy pul. Oshsa
+`429 RATE_LIMITED` va `Retry-After` = shu band so‘rovlarning eng yaqin `reservedUntil`i.
+
+**Kunlik to‘ldirish cheklari** (`422 TOPUP_AMOUNT_OUT_OF_RANGE`, `details.reason`): **barcha** akkauntlarga 24 soatda 5 000 000 so‘m
+(`TOPUP_DAILY_MAX_TIYIN`, `reason: "DAILY_LIMIT"`); 7 kundan yosh akkauntga 500 000 so‘m (`reason: "NEW_ACCOUNT_DAILY_LIMIT"`).
+
+- _Nima sanaladi:_ **ASOS summa** (`baseAmountTiyin`), tasodifiy 1–999 so‘m qo‘shimcha emas: aks holda aynan 500 000 so‘m so‘rash chekdan oshib ketardi.
+  Oxirgi 24 soatdagi `PAID` so‘rovlar (`paidAt` bo‘yicha) va `PENDING` so‘rovlar (`createdAt` bo‘yicha) asos summalari yig‘indisi + yangi so‘rov.
+  `EXPIRED` va `CANCELLED` sanalmaydi (pul tushmagan). Aynan 500 000 so‘m — ruxsat; 501 000 so‘m — `422` (yangi akkaunt).
+- _Ikkala chek pul yozilayotganda ham qayta tekshiriladi_ (xuddi shu formula); oshsa pul avtomatik yozilmaydi: review `DAILY_LIMIT` (qaysi chek oshgani
+  review ma’lumotida yoziladi).
+- _`details.max` — bugun QOLGAN limit_ (`min`/`step` o‘zgarmaydi). Qolgan limit `min` dan kichik bo‘lsa ham kod shu (`TOPUP_AMOUNT_OUT_OF_RANGE`), `max < min`
+  bo‘ladi (`0` ham mumkin): klient buni «bugungi limit tugadi» deb ko‘rsatadi, «summa juda katta» deb emas. Sxema va hisob: `checkDailyTopupLimit`, `dailyLimitDetails`.
+
+`purchaseFrozen` foydalanuvchi to‘ldira oladi (qarzini yopish uchun); bloklangan — `403 USER_BLOCKED`.
+
+### `GET /payments/intents/:id` va `GET /payments/intents?status=&limit=`
+
+`status`: `PENDING | PAID | CANCELLED | EXPIRED`; `limit` ≤ 100 (standart 20); ro‘yxat sahifalanmaydi (`meta` yo‘q), eng yangisi birinchi.
+
+```json
+{
+  "success": true,
+  "data": {
+    "intentId": "cm3intent00000000000000001",
+    "status": "PAID",
+    "baseAmountTiyin": "2000000",
+    "payAmountTiyin": "2034100",
+    "card": null,
+    "expiresAt": "2026-11-04T10:30:00.000Z",
+    "paidAt": "2026-11-04T10:05:00.000Z",
+    "creditedTiyin": "2034100",
+    "currency": "UZS"
+  }
+}
+```
+
+- `card` faqat `PENDING` da bor, aks holda `null`. `paidAt` va `creditedTiyin` **aynan** `PAID` da to‘ldirilgan, aks holda `null`.
+- Holatlar: `PENDING` (kutilmoqda) → `PAID` | `EXPIRED` | `CANCELLED`. `EXPIRED` so‘rov 24 soat ichida kech to‘lov kelsa `PAID` ga o‘tishi
+  mumkin — klient `EXPIRED` ni qat’iy yakun deb hisoblamasligi va `/me/wallet` ni ham yangilashi kerak. `CANCELLED` esa avtomatik `PAID`
+  bo‘lmaydi (faqat ega qo‘lda ko‘rib chiqsa).
+- Mini App tashqi sahifadan qaytganda (`visibilitychange`) `/me/wallet` va shu so‘rovni qayta so‘raydi. Polling oralig‘i **kamida 5 soniya**.
+
+### `POST /payments/intents/:id/cancel`
+
+Body `{}` (`.strict()`). `200`: `{ "intentId": "…", "status": "CANCELLED" }`. Faqat o‘ziniki va faqat `PENDING` bo‘lsa; aks holda
+`404 NOT_FOUND`. Bekor qilingan so‘rovning summasi baribir 24 soat band turadi; shu vaqt ichida unga pul kelsa avtomatik yozilmaydi,
+egaga ko‘rib chiqishga tushadi (`CANCELLED_LATE`), shuning uchun foydalanuvchi bekor qilingan so‘rovga o‘tkazma qilmasligi kerak.
+
+### `POST /payments/intents/:id/pay-link`
+
+Body `{}` (`.strict()`). `200`: `{ "redirectUrl": "https://ggpin.uz/pay/<intentId>?locale=<uz|ru>#t=<yangi token>", "expiresAt": "…" }`. Faqat o‘ziniki,
+`PENDING` va `now < expiresAt` bo‘lsa; aks holda `404` (muddati o‘tgan yoki bekor qilingan so‘rovga havola berilmaydi). Yangi token berilganda
+eskisi darhol o‘ladi.
+
+### Havola tokeni va `GET /payments/pay/:intentId` (D-39)
+
+Mini App to‘lov sahifasini `openLink` bilan sessiyasiz ochadi, shuning uchun sahifa faqat bitta so‘rovga bog‘langan **capability token**
+bilan ishlaydi. Token havolaning **fragmentida** (`#t=`) turadi: fragment hech qaysi serverga (bizniki ham, proksi ham) va `Referer` ga
+yuborilmaydi. Sahifa uni `location.hash` dan o‘qiydi va API’ga `X-Pay-Token` sarlavhasida yuboradi.
+
+**Sahifa tili (D-38 Q21).** Havolada til so‘rov qatorida: `?locale=uz` yoki `?locale=ru` (so‘rovni yaratgan foydalanuvchining tili; `buildPayLink(…, locale)`).
+Sahifa tilni `readPayLocaleFromQuery` bilan oladi: `locale` yo‘q yoki noma’lum bo‘lsa — `uz` (standart); faqat `uz` va `ru` qabul qilinadi; sahifada til almashtirgich
+bor. Havolada **boshqa hech qanday** so‘rov parametri bo‘lmaydi (`PayLinkUrlSchema` ularni rad etadi): maxfiy narsa faqat fragmentda.
+
+```
+GET /api/v1/payments/pay/cm3intent00000000000000001
+X-Pay-Token: <43 belgili token>
+```
+
+`200`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "intentId": "cm3intent00000000000000001",
+    "status": "PENDING",
+    "baseAmountTiyin": "2000000",
+    "payAmountTiyin": "2034100",
+    "card": {
+      "bank": "HUMO",
+      "number": "9999000000000001",
+      "holderName": "TEST H."
+    },
+    "expiresAt": "2026-11-04T10:30:00.000Z",
+    "ownerHint": "S***r",
+    "currency": "UZS"
+  }
+}
+```
+
+- Javobda foydalanuvchi id’si, username, balans, ledger va boshqa so‘rovlar **yo‘q**. `card` faqat `PENDING` da; `PAID` bo‘lgach
+  `expiresAt` gacha `card: null` bilan o‘qiladi (sahifa «to‘landi» ko‘rsatadi).
+- **`ownerHint`** — havola kimning hisobini to‘ldirishini ko‘rsatuvchi yashirilgan belgi: begona odam yuborgan havolani to‘lovchi
+  darhol payqashi uchun. Qoida (`maskOwnerHint(firstName, username)`): faqat **harf va raqamlar** qoladi (bo‘shliq, boshqaruv, bidi va nol kenglikli belgilar,
+  combining belgilar, «ko‘rinmas ism» belgilari U+3164, U+115F, U+2800 va shunga o‘xshashlar olib tashlanadi); birinchi va oxirgi belgi, o‘rtasida `***`
+  (`Sardor` → `S***r`); ikki yoki undan kam belgili nom — faqat birinchi belgi (`Al` → `A***`, `S` → `S***`), chunki ikki harfli ism to‘liq ko‘rinib qolardi. `firstName` dan hech narsa qolmasa `username` (`@` siz) ishlatiladi, u ham bo‘sh bo‘lsa `null`.
+  Belgilar kod nuqtasi bo‘yicha sanaladi (kirill, astral harflar); emoji harf emas. Sxema: `OwnerHintSchema`.
+- Token: 32 tasodifiy bayt, base64url, 43 belgi. DB’da faqat HMAC xeshi saqlanadi; ochiq token faqat `POST /payments/intents` va
+  `…/pay-link` javobida bor, hech qayerda loglanmaydi.
+- Token faqat **o‘qish** huquqi beradi, bitta so‘rovga bog‘langan va `expiresAt` gacha amal qiladi; shu vaqt ichida ko‘p marta
+  o‘qiladi (sahifa polling qiladi, kamida 5 s). «Bir martalik» — qayta berilganda eskisi o‘lishi va bekor qilinganda
+  (`CANCELLED`) token o‘chishi ma’nosida.
+- **Har qanday xato bir xil `404 NOT_FOUND`** (javob tanasi va vaqti bir xil): noma’lum yoki **noto‘g‘ri shakldagi `intentId`** (Fastify `maxParamLength` 100: undan uzun
+  parametrni router o‘zi 404 qiladi, javob konverti bir xil; sxemadagi `.max(128)` faqat zaxira), token yo‘q
+  yoki noto‘g‘ri shaklda, boshqa so‘rovniki, muddati o‘tgan, **bekor qilingan**. Sahifa shunda «havola eskirgan yoki bekor qilingan» deydi.
+  Token mavjudligini aniqlab bo‘lmaydi; `intentId` shakli ham `400` bermaydi.
+- `@Public` (sessiya shart emas), `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. CORS — faqat `WEB_URL`.
+  Limit: IP’ga 300/daqiqa (IPv6 /64) va so‘rovga 30/daqiqa; oshsa `429 RATE_LIMITED` + `Retry-After`.
+
+**Frontend talablari (`/pay/[intentId]`, `/topup`, Mini App; 7-bosqich):**
+
+1. _Token._ `location.hash` dan o‘qiladi (`readPayTokenFromHash`), darhol `history.replaceState` bilan URL’dan olib tashlanadi (`?locale=` qoladi); faqat klientda
+   (SSR’da fragment yo‘q) xotirada yoki `sessionStorage`da saqlanadi, hech qachon `localStorage`da yoki cookie’da emas. Token yo‘q yoki
+   yaroqsiz bo‘lsa va web sessiya bo‘lsa — sessiyali `GET /payments/intents/:id` ishlatiladi; bo‘lmasa «havola eskirgan yoki bekor qilingan».
+2. _So‘rovlar._ `fetch(..., { credentials: 'omit' })` va `X-Pay-Token` sarlavhasi; sahifa cookie’siz ishlaydi. Polling oralig‘i ≥ 5 s, terminal
+   holatda to‘xtaydi.
+3. _`POST /payments/intents` avtomatik qayta yuborilmaydi_ (tarmoq xatosida ham, TanStack Query `retry: false`): foydalanuvchi o‘zi qayta bosadi.
+4. _`openLink`_ faqat `${WEB_URL}/pay/` bilan boshlanadigan URL’ni ochadi (allowlist), boshqasini rad etadi.
+5. _/pay HTML javobi sarlavhalari:_ `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Content-Security-Policy: frame-ancestors 'none'`.
+6. _Uchinchi tomon resursi yo‘q_ `/pay` va `/topup` da: shrift `next/font` bilan o‘zimizdan, ikonkalar bundle ichida, tashqi CSS/CDN/analytics/widget yo‘q.
+7. _Ogohlantirishlar_ (matn `pay.*` va `tg.*` i18n kalitlarida, uz va ru): «Bu havola faqat o‘z ggpin hisobingizni to‘ldirish uchun. Boshqa odam
+   yuborgan bo‘lsa, to‘lamang»; `ownerHint` ko‘rsatiladi («Hisob: S***r»); «Karta raqami har safar boshqacha bo‘lishi mumkin: eski kartaga
+   o‘tkazmang»; summa aynan `payAmountTiyin` bo‘lishi kerak, farqli summa o‘tkazilsa avtomatik topilmasligi; bekor qilingan so‘rovga o‘tkazma qilinmasligi.
+8. Hamyon yoki profil ma’lumoti ko‘rsatilmaydi; `Referrer-Policy: no-referrer`.
+
+### Xatolar (to‘ldirish)
+
+| HTTP | Kod                          | `details`                     | Qachon                                                                                                                                                |
+| ---- | ---------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`           | `fields`                      | shakl noto‘g‘ri; `purpose: "TOPUP_AND_BUY"`; `Idempotency-Key` yo‘q                                                                                   |
+| 409  | `TOPUP_ALREADY_PENDING`      | `{ intentId }`                | foydalanuvchida kutilayotgan so‘rov bor                                                                                                               |
+| 409  | `IDEMPOTENCY_CONFLICT`       | `{ intentId }`                | bir xil kalit, boshqa body; yoki bir xil body, lekin so‘rov endi `PENDING`/muddatli emas                                                              |
+| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE`  | `{ min, max, step, reason? }` | chegaradan tashqari yoki qadamga karrali emas; `reason`: `DAILY_LIMIT` (barcha), `NEW_ACCOUNT_DAILY_LIMIT`; kunlik limitda `max` = bugun QOLGAN limit |
+| 429  | `RATE_LIMITED`               | —                             | 5 so‘rov / 10 daqiqa, 10 so‘rov / 24 soat, bir vaqtda 3 TO‘LANMAGAN band so‘rov; pay endpoint limitlari (`Retry-After`)                               |
+| 503  | `PAYMENT_METHOD_UNAVAILABLE` | —                             | sig‘imli faol karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti                                                                            |
+
+`409 TOPUP_ALREADY_PENDING`:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "TOPUP_ALREADY_PENDING",
+    "message": "errors.TOPUP_ALREADY_PENDING",
+    "details": { "intentId": "cm3intent00000000000000001" }
+  }
+}
+```
+
+`422 TOPUP_AMOUNT_OUT_OF_RANGE` (`min`, `max`, `step` — tiyinda, string; kunlik limitda ham xuddi shu uchta maydon va `reason`):
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "TOPUP_AMOUNT_OUT_OF_RANGE",
+    "message": "errors.TOPUP_AMOUNT_OUT_OF_RANGE",
+    "details": { "min": "500000", "max": "200000000", "step": "100000" }
+  }
+}
+```
+
+### Keyinroq (D-04)
+
+Quyidagi yo‘llar hozir **mavjud emas**; provayderlar D-04 qayta ko‘rilganda ulanadi va `docs/providers/<code>.md` ga ko‘ra yoziladi.
+
+| Metod | Yo‘l                                                  | Holat                                      |
+| ----- | ----------------------------------------------------- | ------------------------------------------ |
+| POST  | `/payments/click/prepare`, `/payments/click/complete` | keyinroq (D-04): Click callback            |
+| POST  | `/payments/payme`                                     | keyinroq (D-04): Payme JSON-RPC            |
+| POST  | `/payments/uzum/*`, `/payments/rahmat/*`              | keyinroq (D-04): shartnoma hujjatiga ko‘ra |
+
+`TOPUP_AND_BUY` (yetishmagan summani to‘lab, kotirovka amal qilsa avtomatik xarid qilish) — 5-bosqichda; shunda so‘rovga `quoteId`
+qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotirovka amal qilmasa pul balansda qoladi.
 
 ## Referal, keshbek, promo
 

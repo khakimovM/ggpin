@@ -86,17 +86,31 @@ narx sinxronlash (Fragment narxi — dry-run simulyatordan); kotirovka endpointi
 
 ---
 
-## 4 — Hamyon va to‘lovlar (birinchi provayder)
+## 4 — Hamyon va to‘lovlar (P2P karta, D-31/D-37)
 
-**Vazifa:** ledger, balans + kesh, `PaymentIntent`, birinchi provayder (Click **yoki** Payme — D-04),
-callback'lar, TOPUP, reversal, `TOPUP_AND_BUY` asosi, bot xabari, solishtirish skeleti.
+**Vazifa:** ledger (TOPUP, TOPUP_REVERSAL, ADJUSTMENT), balans + Redis kesh, `/me/wallet`, `/me/ledger`; P2P to‘ldirish
+so‘rovi (noyob summa, TTL, karta tanlash, havola tokeni); karta puli (VERIFYING/ACTIVE/FULL/RETIRED, limit, test o‘tkazma);
+bank xabarlari tinglovchisi (MTProto, faqat worker); Humo/Uzcard parserlari; moslashtirish + TOPUP (bitta `$transaction`,
+xabar id bo‘yicha idempotent); tekshiruv navbati (servis + ega CLI); kunlik solishtirish; bot xabarlari va ega
+ogohlantirishlari. `TOPUP_AND_BUY` — faqat `purpose` maydoni, avtomatik xarid 5-bosqichda. Spec: `docs/05-PAYMENTS.md`.
 
 **Qabul mezonlari**
 
-- [ ] Sandbox bilan to‘liq to‘ldirish oqimi ishlaydi
-- [ ] Noto‘g‘ri imzo / summa / replay ×3 / bekor qilish testlari yashil
-- [ ] Parallel callback'lar bitta TOPUP beradi
-- [ ] `security-auditor` — to‘lov moduli bo‘yicha critical/high yo‘q
+- [ ] Fake tinglovchi + fixture bilan to‘liq oqim: so‘rov → pay sahifasi API → xabar → TOPUP → bot xabari → `/me/wallet`
+- [ ] Bitta xabar 3 marta (update + tarix + qayta ishga tushish) → bitta TOPUP; parallel 2 ishlovchi → bitta TOPUP
+- [ ] Tanilmagan / forward / tahrir / begona yuboruvchi / zanjir buzilishi / mos kelmagan / grace’dan keyingi kech / takroriy → avtomatik yozilmaydi, review + alert
+- [ ] Bitta kartada 50 parallel so‘rov → 50 xil summa; summa `reservedUntil` gacha band (exclusion constraint); ikkinchi kutilayotgan so‘rov rad
+- [ ] Bekor qilingan (`CANCELLED`) so‘rovga kelgan pul avtomatik yozilmaydi (review `CANCELLED_LATE`); muddati o‘tgan (`EXPIRED`) grace ichida yoziladi
+- [ ] Bir vaqtda ko‘pi bilan 3 to‘lanmagan band so‘rov (`PAID` sanalmaydi), kuniga 10 so‘rov (`429` + `Retry-After`)
+- [ ] Kunlik cheklar ASOS summa bo‘yicha: barcha akkaunt 5 000 000 so‘m, yangi akkaunt 500 000 so‘m (aynan 500 000 ruxsat, 501 000 → `422`, `details.max` = qolgan limit); pul yozilayotganda ikkalasi qayta tekshiriladi → review `DAILY_LIMIT`
+- [ ] Karta `DRAINING`: yangi so‘rov berilmaydi, mavjudlari `reservedUntil` gacha yoziladi, keyin `RETIRED`
+- [ ] Har DEBIT haqida egaga alert; yaqinda yozilgan to‘lovga teng chiqim → review `POSSIBLE_REVERSAL`; bloklangan foydalanuvchi → review `USER_BLOCKED`
+- [ ] FULL/VERIFYING kartaga yo‘naltirilmaydi; FULL kartaga yo‘ldagi to‘lov yoziladi
+- [ ] Noma’lum yangi avtorizatsiya → hamma kartada avtomatik yozish to‘xtaydi + alert; jim karta (kunduzgi soatlar) → bitta alert
+- [ ] Havola tokeni URL fragmentida (`#t=`): begona / eski / rotatsiya qilingan / muddati o‘tgan / noto‘g‘ri `intentId` → bir xil 404; javobda faqat so‘rov ma’lumoti va `ownerHint`
+- [ ] Sessiya satri va havola tokeni logda/javobda yo‘q; worker sirlari API’da bo‘lsa boot rad
+- [ ] **Ega ruxsati bilan:** haqiqiy ishchi akkaunt + test karta, kichik o‘tkazma hisobga tushdi; zanjir har operatsiyada uzilmadi
+- [ ] `security-auditor` — to‘lov moduli va bank-feed bo‘yicha critical/high yo‘q
 
 ---
 
@@ -175,13 +189,13 @@ audit log, adminlar.
 ## 10 — Referal, keshbek, chegirma va bonus kodlar, qolgan to‘lov usullari
 
 **Vazifa:** referal bonus (DELIVERED'da), keshbek tangalar, chegirma tier'lari va kodlari, bonus kodlar,
-rassilka, 2–4-to‘lov provayderlari (Payme/Click, Uzum, Rahmat), Telegram Stars to‘ldirish (D-03 ga qarab).
+rassilka, to‘lov provayderlari Click/Payme/Uzum/Rahmat (D-04 qayta ko‘rilganda), Telegram Stars to‘ldirish (D-33).
 
 **Qabul mezonlari**
 
 - [ ] Referal/keshbek faqat DELIVERED'da, admin qaytarishida bekor bo‘ladi
 - [ ] Kodlar bir martalik, brute force rate limit
-- [ ] Har yangi provayder 4-bosqich testlaridan o‘tgan
+- [ ] Har yangi provayder (D-04 qayta ko‘rilganda) 4-bosqich testlaridan o‘tgan
 
 ---
 

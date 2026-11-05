@@ -21,7 +21,10 @@ describe('tgOutboxJobSchema', () => {
   it.each([
     ['empty text', { chatId: '1', text: '' }],
     ['text over the limit', { chatId: '1', text: 'x'.repeat(TG_TEXT_MAX_LENGTH + 1) }],
-    ['non-digit chat id', { chatId: '-100123', text: 'x' }],
+    ['group chat id', { chatId: '-100123', text: 'x' }],
+    ['zero chat id', { chatId: '0', text: 'x' }],
+    ['leading zero', { chatId: '012', text: 'x' }],
+    ['21 digits', { chatId: '1'.repeat(21), text: 'x' }],
     ['numeric chat id', { chatId: 123, text: 'x' }],
     ['empty chat id', { chatId: '', text: 'x' }],
     ['replyMarkup is not an object', { chatId: '1', text: 'x', replyMarkup: 'kb' }],

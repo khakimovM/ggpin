@@ -20,6 +20,9 @@ describe('error codes', () => {
     expect(ERROR_HTTP_STATUS.INTERNAL_ERROR).toBe(500);
     expect(ERROR_HTTP_STATUS.PAYLOAD_TOO_LARGE).toBe(413);
     expect(ERROR_HTTP_STATUS.PRICE_UNAVAILABLE).toBe(503);
+    expect(ERROR_HTTP_STATUS.TOPUP_ALREADY_PENDING).toBe(409);
+    expect(ERROR_HTTP_STATUS.PAYMENT_METHOD_UNAVAILABLE).toBe(503);
+    expect(ERROR_HTTP_STATUS.TOPUP_AMOUNT_OUT_OF_RANGE).toBe(422);
   });
 
   it('validates codes with the Zod enum and builds the i18n message key', () => {
