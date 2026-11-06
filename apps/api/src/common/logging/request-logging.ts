@@ -2,7 +2,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { PinoLogger } from 'nestjs-pino';
 import type { Logger } from 'pino';
 import { REQUEST_ID_HEADER } from './request-id';
-import { loggablePath } from './serializers';
+import { MAX_PATH_LENGTH, loggablePath } from './serializers';
 
 /** The slice of a Fastify request the logging code reads (structural: no direct fastify import). */
 export interface LogRequest {
@@ -17,7 +17,6 @@ export interface LogRequest {
 }
 
 const HEALTH_PREFIX = '/api/v1/health';
-const MAX_PATH_LENGTH = 128;
 const MAX_USER_AGENT_LENGTH = 200;
 
 /** The route pattern (`/api/v1/orders/:id`), never the raw URL: ids and tokens stay out. */

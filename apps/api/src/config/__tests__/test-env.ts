@@ -8,6 +8,7 @@ export const TEST_JWT_ACCESS_SECRET = fake('test-access-', 'x'.repeat(24));
 export const TEST_JWT_REFRESH_SECRET = fake('test-refresh-', 'y'.repeat(24));
 export const TEST_TG_SESSION_SECRET = fake('test-tgsession-', 'z'.repeat(24));
 export const TEST_OTP_PEPPER = fake('test-pepper-', 'p'.repeat(24));
+export const TEST_PAY_TOKEN_PEPPER = fake('test-paytoken-', 'q'.repeat(24));
 export const TEST_BOT_TOKEN = fake('123456789', ':', 'AAH', 'a'.repeat(32));
 export const TEST_BOT_USERNAME = 'ggpin_test_bot';
 export const TEST_WEBHOOK_SECRET = fake('test-webhook-', 'w'.repeat(24));
@@ -24,6 +25,7 @@ export const TEST_ENV_SOURCE: Readonly<Record<string, string>> = {
   JWT_REFRESH_SECRET: TEST_JWT_REFRESH_SECRET,
   TG_SESSION_SECRET: TEST_TG_SESSION_SECRET,
   OTP_PEPPER: TEST_OTP_PEPPER,
+  PAY_TOKEN_PEPPER: TEST_PAY_TOKEN_PEPPER,
   TELEGRAM_BOT_TOKEN: TEST_BOT_TOKEN,
   TELEGRAM_BOT_USERNAME: TEST_BOT_USERNAME,
 };

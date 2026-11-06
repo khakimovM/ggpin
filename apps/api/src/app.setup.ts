@@ -2,6 +2,7 @@ import fastifyCookie from '@fastify/cookie';
 import { VersioningType } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
+import { API_DEFAULT_VERSION, API_PREFIX } from './common/http/api-path';
 import { registerRequestHooks } from './common/logging/request-logging';
 import { applyCachePolicy } from './common/http/cache-policy';
 import { applyCors, applySecurityHeaders } from './common/http/security-headers';
@@ -17,8 +18,8 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
   // through Pino, so boot output is structured and redacted like everything else.
   app.useLogger(app.get(Logger));
   registerRequestHooks(app);
-  app.setGlobalPrefix('api');
-  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+  app.setGlobalPrefix(API_PREFIX);
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: API_DEFAULT_VERSION });
   await applySecurityHeaders(app, config);
   applyCors(app, config);
   // After helmet and CORS so preflights and security headers are already settled when a request

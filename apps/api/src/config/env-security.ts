@@ -28,6 +28,7 @@ const MUST_DIFFER = [
   'TG_SESSION_SECRET',
   'OTP_PEPPER',
   'TELEGRAM_WEBHOOK_SECRET',
+  'PAY_TOKEN_PEPPER',
 ];
 
 export function duplicateSecretProblems(source: Source): string[] {
@@ -53,6 +54,7 @@ const PLACEHOLDER_CHECKED = [
   'TG_SESSION_SECRET',
   'OTP_PEPPER',
   'TELEGRAM_WEBHOOK_SECRET',
+  'PAY_TOKEN_PEPPER',
 ];
 
 export function placeholderSecretProblems(source: Source): string[] {

@@ -1,8 +1,7 @@
 import helmet from '@fastify/helmet';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { CSRF_HEADER } from '@repo/shared';
 import type { AppConfig } from '../../config/config.module';
-import { corsOrigins } from './cors-origins';
+import { corsPolicyFor } from './cors-origins';
 
 export const SWAGGER_PATH = 'docs'; // served at /api/docs (global prefix)
 
@@ -47,16 +46,12 @@ export async function applySecurityHeaders(
 
 // Credentialed CORS (cookie sessions) needs an explicit allowlist: a wildcard is invalid
 // with credentials. A non-listed Origin simply gets no CORS headers, so the browser blocks
-// the response; the server does not error.
+// the response; the server does not error. The policy is chosen per request path
+// (cors-origins.ts): the public pay page has its own, narrower one (D-39).
 export function applyCors(app: NestFastifyApplication, config: AppConfig): void {
   app.enableCors({
-    origin: corsOrigins(config),
-    credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    // The CSRF header is required on state-changing cookie-session routes (rules/60-security.md,
-    // D-26): a cross-site page cannot send it without a preflight, which this allowlist rejects.
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', CSRF_HEADER],
-    exposedHeaders: ['Retry-After', 'X-Request-Id'],
-    maxAge: 600,
+    delegator: (request, callback) => {
+      callback(null, { ...corsPolicyFor(config, request.url) });
+    },
   });
 }

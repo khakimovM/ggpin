@@ -5,14 +5,13 @@ import { AppError } from '../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import type { Db } from '../../infra/prisma/db';
 import {
-  checkedAdjustAmount,
   checkedId,
   checkedIp,
   checkedOperator,
   checkedReason,
-  requireConfirmation,
   validationError,
-} from './wallet-admin.input';
+} from '../../common/admin/admin-input';
+import { checkedAdjustAmount, requireConfirmation } from './wallet-admin.input';
 import {
   PAYMENT_REVERSE,
   WALLET_ADJUST,

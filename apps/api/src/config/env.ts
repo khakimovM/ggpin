@@ -8,7 +8,7 @@ import {
   telegramModeProblems,
   workerSecretProblems,
 } from './env-security';
-import { topupEnvProblems } from './topup-env';
+import { topupEnvProblems, topupTuningProblems, topupTuningShape } from './topup-env';
 import { parseTrustedProxies } from './trust-proxy';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
@@ -148,6 +148,11 @@ const EnvSchema = z
     TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN: bigintString(
       String(TOPUP_DEFAULTS.NEW_ACCOUNT_DAILY_MAX_TIYIN),
     ),
+    // Suffix range, TTL, grace, new-account age and bank-feed heartbeat age (topup-env.ts).
+    ...topupTuningShape,
+    // Keys the HMAC of the pay-link capability token (D-39). API-only; rotating it kills every
+    // open pay link (docs/05 runbook). Production strength: env-security.ts.
+    PAY_TOKEN_PEPPER: z.string(),
     CLICK_SERVICE_ID: z.string().optional(),
     CLICK_MERCHANT_ID: z.string().optional(),
     CLICK_SECRET_KEY: z.string().optional(),
@@ -169,6 +174,16 @@ const EnvSchema = z
       env.TOPUP_DAILY_MAX_TIYIN,
       env.TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN,
     ];
+    const tuning = [
+      env.TOPUP_LATE_GRACE_SEC,
+      env.TOPUP_CAPACITY_HOLD_SEC,
+      env.TOPUP_INTENT_TTL_SEC,
+    ];
+    if (tuning.every((value) => typeof value === 'number')) {
+      for (const { name, message } of topupTuningProblems(env)) {
+        ctx.addIssue({ code: 'custom', path: [name], message });
+      }
+    }
     if (!values.every((value) => typeof value === 'bigint')) return;
     for (const { name, message } of topupEnvProblems(env)) {
       ctx.addIssue({ code: 'custom', path: [name], message });

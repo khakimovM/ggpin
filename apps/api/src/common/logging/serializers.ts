@@ -6,6 +6,8 @@ import { REDACTED, redactSecrets } from '@repo/shared';
 
 const SAFE_REQUEST_HEADERS = ['user-agent', 'content-length'] as const;
 const MAX_HEADER_LENGTH = 200;
+/** Paths are cut here in every log line: an 8 000-character id (D-42 (2)) must not bloat the log. */
+export const MAX_PATH_LENGTH = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -62,7 +64,7 @@ export function serializeRequest(req: unknown): unknown {
   return redactSecrets({
     id: req.id,
     method: req.method,
-    path: typeof req.url === 'string' ? loggablePath(req.url) : undefined,
+    path: typeof req.url === 'string' ? loggablePath(req.url).slice(0, MAX_PATH_LENGTH) : undefined,
     headers,
   });
 }
