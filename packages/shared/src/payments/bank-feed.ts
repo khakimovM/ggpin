@@ -104,6 +104,7 @@ export const ALERT_KINDS = [
   'cardVerified',
   'cardNearLimit',
   'cardFull',
+  'cardReservedHigh',
   'listenerDown',
   'sessionRevoked',
   'newAuthorization',
@@ -164,6 +165,9 @@ export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly
     cardVerified: ['bank', 'last4'],
     cardNearLimit: ['bank', 'last4', 'percent'],
     cardFull: ['bank', 'last4'],
+    // Unpaid reservations hold over half of what the card may still receive (D-42 (1)): one per
+    // card per hour. `percent` is a whole number (reserved share of the remaining limit).
+    cardReservedHigh: ['bank', 'last4', 'percent'],
     listenerDown: ['minutes'],
     sessionRevoked: [],
     newAuthorization: [],

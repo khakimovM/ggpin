@@ -3,6 +3,7 @@ import { PrismaClient } from './generated/prisma/client.js';
 
 export * from './generated/prisma/client.js';
 export * from './ledger/index.js';
+export { lockTopupCard } from './payments/card-lock.js';
 
 /** How long a query waits for a pooled connection before it fails. */
 export const CONNECTION_TIMEOUT_MS = 5_000;

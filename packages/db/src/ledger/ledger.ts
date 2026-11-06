@@ -23,7 +23,7 @@ export class NotInTransactionError extends Error {
  * NOT a usable discriminator: the transaction client still exposes it at runtime although its
  * type omits it. A test pins both facts so a Prisma upgrade that changes them fails loudly.
  */
-function assertInTransaction(tx: Tx, helper: string): void {
+export function assertInTransaction(tx: Tx, helper: string): void {
   if ('$connect' in tx) throw new NotInTransactionError(helper);
 }
 

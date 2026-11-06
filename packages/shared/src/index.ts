@@ -18,6 +18,7 @@ export * from './notify';
 export * from './order-state';
 export * from './orders/order-schemas';
 export * from './payments/bank-feed';
+export * from './payments/card-lock';
 export * from './payments/intent-state';
 export * from './payments/pay-link';
 export * from './payments/topup-limits';

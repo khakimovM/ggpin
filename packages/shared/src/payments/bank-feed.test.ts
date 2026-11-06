@@ -53,6 +53,7 @@ describe('bank feed vocabulary', () => {
       'cardVerified',
       'cardNearLimit',
       'cardFull',
+      'cardReservedHigh',
       'listenerDown',
       'sessionRevoked',
       'newAuthorization',
