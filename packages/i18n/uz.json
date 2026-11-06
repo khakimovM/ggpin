@@ -139,6 +139,7 @@
       "cardVerified": "✅ {bank} kartasi ***{last4} tasdiqlandi va faollashtirildi.",
       "cardNearLimit": "📈 {bank} kartasi ***{last4}: limit {percent}% to‘ldi.",
       "cardFull": "🈵 {bank} kartasi ***{last4} limiti to‘ldi, unga yangi so‘rovlar berilmaydi.",
+      "cardReservedHigh": "⏳ {bank} kartasi ***{last4}: to‘lanmagan band so‘rovlar qolgan limitning {percent}% ini egallab turibdi. Sig‘imni card:limit buyrug‘i bilan oshiring yoki shubhali akkauntlarni tekshiring.",
       "listenerDown": "🔴 Bank xabarlari tinglovchisi {minutes} daqiqadan beri ishlamayapti. Yangi to‘ldirish so‘rovlari to‘xtatildi.",
       "sessionRevoked": "🔴 Bank xabarlari sessiyasi bekor qilingan, tinglovchi to‘xtadi. Qayta kirish kerak.",
       "newAuthorization": "🚨 Ishchi akkauntga nomaʼlum yangi qurilma kirdi. Barcha kartalarda avtomatik yozish to‘xtatildi. Sessiyalarni tekshiring.",

@@ -63,6 +63,8 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
   (`daytimeMinutesBetween`, `isCardSilent`). Alert har jimlik davriga **bitta**: `refId` = `<cardId>_<oxirgi kirim vaqti, epoch soniya>`, shuning uchun
   davr tugamaguncha (yangi kirim kelmaguncha) job id o‘zgarmaydi va qayta yuborilmaydi.
 - `card:add` egasi ismini qisqa shaklga keltirib ko‘radi (`shortHolderName`); natija **bo‘sh** chiqsa (ism faqat ko‘rinmas belgilardan iborat) kartani rad etadi.
+- `card:add` karta raqamini (16 raqam, bo‘shliq va chiziqcha tashlab yuboriladi) **Luhn** nazorat raqami bilan tekshiradi (ISO/IEC 7812): bitta xato yoki
+  ikki almashgan raqam karta mijozlarga ko‘rsatilishidan oldin ushlanadi; mos kelmasa — rad (`VALIDATION_ERROR`, `field: pan`).
 
 ## 3. Noyob summa va karta tanlash
 
@@ -75,7 +77,7 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
   constraint (S2): bir kartada bir summa uchun ikkita ustma-ust tushuvchi band oralig‘i bo‘lmaydi. Eslatma: `reservedUntil` o‘tgach summa qayta
   berilishi mumkin; shuning uchun tanlashda oxirgi 7 kunda ishlatilmagan qo‘shimchalar afzal ko‘riladi (tavsiya).
 - Noyoblik **karta bo‘yicha umumiy summa** orasida. Bitta tranzaksiyada **bitta** karta uchun `pg_advisory_xact_lock` olinadi (ikkinchisini ushlab turib
-  uchinchisi olinmaydi — deadlock yo‘q; kartalar `id` tartibida ketma-ket sinab ko‘riladi, har biri alohida tranzaksiyada). Bo‘sh qo‘shimchalardan
+  uchinchisi olinmaydi — deadlock yo‘q; kartalar «Karta tanlash» tartibida — avval yopishqoq karta, keyin bo‘sh sig‘imi kattaroq, teng bo‘lsa `id` — ketma-ket sinab ko‘riladi, har biri alohida tranzaksiyada). Bo‘sh qo‘shimchalardan
   `crypto.randomInt` bilan tanlanadi; DB himoyasi — `UNIQUE (userId) WHERE status = 'PENDING' AND provider = 'P2P_CARD'` va exclusion constraint.
   Poyga bo‘lsa bitta qayta urinish, keyin `503`. **Tanlash tartibi:** (1) oxirgi 7 kunda hech bir so‘rovga berilmagan bo‘sh qo‘shimchalardan tasodifiy;
   (2) bunday qo‘shimcha qolmasa — **LRU zaxirasi**: hozir bo‘sh (`reservedUntil` o‘tgan) qo‘shimchalar ichidan eng uzoq vaqt oldin band bo‘lganini olish
@@ -83,7 +85,15 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 - **Muddat.** So‘rov 30 daqiqa (`TOPUP_INTENT_TTL_SEC`); summa muddatdan keyin yana 24 soat band (`TOPUP_LATE_GRACE_SEC`) (D-37 (2)).
 - **Karta tanlash.** Foydalanuvchi bankni tanlaydi yoki «avtomatik» (D-37 (3)); bank ichida karta avtomatik: `ACTIVE`, pauza qilinmagan, sig‘imi
   yetadigan. **Yopishqoq karta:** foydalanuvchiga imkon qadar oldingi kartasi beriladi (sig‘imi bor bo‘lsa); aks holda eng katta bo‘sh sig‘imli karta.
-  Sig‘im = limit − qabul qilingan − band summalar (grace ichidagilar ham; oylik chek bo‘lsa joriy oy, Asia/Tashkent). Hech biri yo‘q yoki tinglovchi
+  Sig‘im = limit − qabul qilingan − band summalar (oylik chek bo‘lsa joriy oy, Asia/Tashkent). **Band summalar (D-42 (1), D-37 (6) ni o‘zgartiradi):** har bir to‘lanmagan
+  so‘rov (`PENDING`, `EXPIRED`, `CANCELLED`) bitta shart bilan sanaladi: `reservedUntil > now` va `expiresAt > now − TOPUP_CAPACITY_HOLD_SEC`, ya’ni
+  `LEAST(reservedUntil, expiresAt + hold)` gacha (standart 3600 s, > 0, ≤ `TOPUP_LATE_GRACE_SEC`, production’da ≥ `TOPUP_INTENT_TTL_SEC`). Muddati ichidagi
+  `PENDING` shunda to‘liq sanaladi, muddati o‘tgan, lekin sweep hali `EXPIRED` qilmagan `PENDING` esa `EXPIRED` bilan bir vaqtda sanalmay qoladi; `PAID` band emas, uning puli «qabul qilingan»da. Summaning o‘zi esa butun grace davomida band qoladi: exclusion constraint,
+  qo‘shimcha tanlash va «3 ta to‘lanmagan band so‘rov» cheki `reservedUntil` bo‘yicha. Shunda «yarat → bekor qil» kartani 24 soat emas, ko‘pi bilan
+  `expiresAt + 1 soat` gacha band qiladi. **Qoldiq xavf:** `expiresAt + hold` dan keyin bu sig‘im boshqalarga beriladi, kech to‘lov esa `reservedUntil` gacha
+  (24 soat) kelishi mumkin, shuning uchun karta limitdan oshib ketishi mumkin. Runbook: karta limitini bank chegarasidan zaxira bilan pastroq qo‘ying. S6 da
+  `paidAt > expiresAt + hold` bo‘lgan to‘lov kartani limitdan oshirsa, egaga alert boradi. Kartada to‘lanmagan band ulush qolgan limitning (umrlik va oylik qoldiqning kichigi) 50% idan oshsa, egaga alert
+  (faqat id’lar, karta bo‘yicha soatiga bitta, so‘rov yaratilgandan keyin tekshiriladi, best effort). Hech biri yo‘q yoki tinglovchi
   heartbeat’i `BANK_FEED_HEARTBEAT_MAX_AGE_SEC` (120 s) dan eski bo‘lsa — `503 PAYMENT_METHOD_UNAVAILABLE`. Karta raqami har safar boshqacha bo‘lishi
   mumkinligi Mini App va to‘lov sahifasida ogohlantiriladi.
 - **Band qilish fermasiga qarshi:** bir vaqtda 1 ta `PENDING` va jami **3 ta TO‘LANMAGAN** band so‘rov (`PENDING` va `reservedUntil > now` bo‘lgan
@@ -275,25 +285,26 @@ Job faqat `{ alert, refId }` olib yuradi; API `refId` bo‘yicha ma’lumotni ba
 `alert-<alert>-<refId>`: BullMQ bir xil id ni qayta qabul qilmaydi, shuning uchun `refId` har **mantiqiy hodisaga** bitta bo‘lishi kerak (takrorlanishi
 kerak bo‘lgan alertlarda vaqt bo‘lagi qo‘shiladi). `refId` faqat `[A-Za-z0-9_]`, ko‘pi bilan 64 belgi.
 
-| Alert                                                               | `refId`                                  | Parametrlar manbasi                                                                                                                   |
-| ------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `unrecognized`, `cardUnknown`, `timeSkew`                           | `PaymentReview.id`                       | `reviewId` = refId                                                                                                                    |
-| `rejected`                                                          | `PaymentReview.id`                       | `reviewId`; `reason` = `BankMessage.rejectReason` (kod, matn emas)                                                                    |
-| `cardRetired`, `chainBreak`, `autoCreditPaused`                     | `PaymentReview.id`                       | `reviewId`; `last4` = kartadan                                                                                                        |
-| `noMatch`, `ambiguous`, `duplicate`, `cancelledLate`, `userBlocked` | `PaymentReview.id`                       | `reviewId`; `amount` = xabar summasi (`formatMoney`)                                                                                  |
-| `dailyLimit`                                                        | `PaymentReview.id`                       | `reviewId`; `amount`; `limit` = oshgan chekning o‘qiladigan matni (`alerts.limitReason.<kod>`, `{cap}` = chek summasi, `formatMoney`) |
-| `possibleReversal`                                                  | `PaymentReview.id`                       | `reviewId`; `last4`; `amount`                                                                                                         |
-| `edited`                                                            | `BankMessage.id`                         | `messageId` = refId                                                                                                                   |
-| `debit`                                                             | `BankMessage.id`                         | `last4`; `amount` (xabardan, har chiqim uchun)                                                                                        |
-| `cardVerified`, `cardFull`, `cardDraining`                          | `TopupCard.id`                           | `bank`; `last4`                                                                                                                       |
-| `cardNearLimit`                                                     | `<cardId>_80` (80% chegarasi, bir marta) | `bank`; `last4`; `percent`                                                                                                            |
-| `cardSilent`                                                        | `<cardId>_<oxirgi kirim, epoch soniya>`  | `bank`; `last4`; `hours` = kunduzgi jimlik soatlari                                                                                   |
-| `listenerDown`                                                      | `<epoch soat>` (soat bo‘lagi)            | `minutes` = heartbeat yoshi                                                                                                           |
-| `sessionRevoked`                                                    | `<epoch soat>`                           | —                                                                                                                                     |
-| `newAuthorization`                                                  | `<Telegram avtorizatsiya id>`            | —                                                                                                                                     |
-| `reconcileOk`, `reconcileMismatch`                                  | `<yyyymmdd>` (Asia/Tashkent)             | `count` = tekshirilgan xabarlar yoki farqlar; `debits` = chiqimlar soni                                                               |
-| `walletFrozen`                                                      | `<userId>_<ledgerEntryId>`               | `userId` (refId ning birinchi qismi)                                                                                                  |
-| `adminAction`                                                       | `AuditLog.id`                            | `action` = `AuditLog.action`; `ref` = `AuditLog.id` (summasiz)                                                                        |
+| Alert                                                               | `refId`                                                        | Parametrlar manbasi                                                                                                                   |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `unrecognized`, `cardUnknown`, `timeSkew`                           | `PaymentReview.id`                                             | `reviewId` = refId                                                                                                                    |
+| `rejected`                                                          | `PaymentReview.id`                                             | `reviewId`; `reason` = `BankMessage.rejectReason` (kod, matn emas)                                                                    |
+| `cardRetired`, `chainBreak`, `autoCreditPaused`                     | `PaymentReview.id`                                             | `reviewId`; `last4` = kartadan                                                                                                        |
+| `noMatch`, `ambiguous`, `duplicate`, `cancelledLate`, `userBlocked` | `PaymentReview.id`                                             | `reviewId`; `amount` = xabar summasi (`formatMoney`)                                                                                  |
+| `dailyLimit`                                                        | `PaymentReview.id`                                             | `reviewId`; `amount`; `limit` = oshgan chekning o‘qiladigan matni (`alerts.limitReason.<kod>`, `{cap}` = chek summasi, `formatMoney`) |
+| `possibleReversal`                                                  | `PaymentReview.id`                                             | `reviewId`; `last4`; `amount`                                                                                                         |
+| `edited`                                                            | `BankMessage.id`                                               | `messageId` = refId                                                                                                                   |
+| `debit`                                                             | `BankMessage.id`                                               | `last4`; `amount` (xabardan, har chiqim uchun)                                                                                        |
+| `cardVerified`, `cardFull`, `cardDraining`                          | `TopupCard.id`                                                 | `bank`; `last4`                                                                                                                       |
+| `cardNearLimit`                                                     | `<cardId>_80` (80% chegarasi, bir marta)                       | `bank`; `last4`; `percent`                                                                                                            |
+| `cardReservedHigh`                                                  | `<cardId>_<epoch soat>` (soatiga bitta; `cardReservedHighRef`) | `bank`; `last4`; `percent` = to‘lanmagan band ulushi, bazadan qayta hisoblanadi (`reservedSharePercent`)                              |
+| `cardSilent`                                                        | `<cardId>_<oxirgi kirim, epoch soniya>`                        | `bank`; `last4`; `hours` = kunduzgi jimlik soatlari                                                                                   |
+| `listenerDown`                                                      | `<epoch soat>` (soat bo‘lagi)                                  | `minutes` = heartbeat yoshi                                                                                                           |
+| `sessionRevoked`                                                    | `<epoch soat>`                                                 | —                                                                                                                                     |
+| `newAuthorization`                                                  | `<Telegram avtorizatsiya id>`                                  | —                                                                                                                                     |
+| `reconcileOk`, `reconcileMismatch`                                  | `<yyyymmdd>` (Asia/Tashkent)                                   | `count` = tekshirilgan xabarlar yoki farqlar; `debits` = chiqimlar soni                                                               |
+| `walletFrozen`                                                      | `<userId>_<ledgerEntryId>`                                     | `userId` (refId ning birinchi qismi)                                                                                                  |
+| `adminAction`                                                       | `AuditLog.id`                                                  | `action` = `AuditLog.action`; `ref` = `AuditLog.id` (summasiz)                                                                        |
 
 `refId` ni yasash: `alertRef.walletFrozen`, `alertRef.cardSilent` (`packages/shared/src/notify.ts`). Bot-lifecycle alertlari (`webhookFailed`, `setupFailed`) bu navbatdan
 o‘tmaydi: API ularni to‘g‘ridan-to‘g‘ri `tg-outbox` ga qo‘yadi (job id boot vaqti va urinish raqamidan).

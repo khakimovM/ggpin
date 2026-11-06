@@ -39,6 +39,8 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                                                                                                                                                      |
 | 503  | `PAYMENT_METHOD_UNAVAILABLE`                                                   | to‘ldirish usuli hozir yo‘q (sig‘imli karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti)                                                                                                  |
 
+Buzilgan percent-kodlashli URL (masalan `%ZZ`) marshrutlashdan oldin HTTP qatlamida standart shaklsiz xom `400` oladi (D-42 (3)); bizning havolalarimiz (id va token base64url) buni hech qachon keltirib chiqarmaydi.
+
 ## Auth
 
 | Metod | Yo‘l                                           | Tavsif                                                                     |
@@ -739,8 +741,8 @@ X-Pay-Token: <43 belgili token>
 - Token faqat **o‘qish** huquqi beradi, bitta so‘rovga bog‘langan va `expiresAt` gacha amal qiladi; shu vaqt ichida ko‘p marta
   o‘qiladi (sahifa polling qiladi, kamida 5 s). «Bir martalik» — qayta berilganda eskisi o‘lishi va bekor qilinganda
   (`CANCELLED`) token o‘chishi ma’nosida.
-- **Har qanday xato bir xil `404 NOT_FOUND`** (javob tanasi va vaqti bir xil): noma’lum yoki **noto‘g‘ri shakldagi `intentId`** (Fastify `maxParamLength` 100: undan uzun
-  parametrni router o‘zi 404 qiladi, javob konverti bir xil; sxemadagi `.max(128)` faqat zaxira), token yo‘q
+- **Har qanday xato bir xil `404 NOT_FOUND`** (javob tanasi va vaqti bir xil): noma’lum yoki **noto‘g‘ri shakldagi `intentId`** (Fastify `maxParamLength` 16 384: uzun
+  parametr ham odatdagi yo‘ldan o‘tadi va shakl tekshiruvi uni xuddi shu 404 ga aylantiradi), token yo‘q
   yoki noto‘g‘ri shaklda, boshqa so‘rovniki, muddati o‘tgan, **bekor qilingan**. Sahifa shunda «havola eskirgan yoki bekor qilingan» deydi.
   Token mavjudligini aniqlab bo‘lmaydi; `intentId` shakli ham `400` bermaydi.
 - `@Public` (sessiya shart emas), `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. CORS — faqat `WEB_URL`.

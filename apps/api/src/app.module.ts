@@ -13,6 +13,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PricingModule } from './modules/pricing/pricing.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { RecipientsModule } from './modules/recipients/recipients.module';
@@ -44,6 +45,7 @@ export class AppModule {
         HealthModule,
         UsersModule,
         WalletModule,
+        PaymentsModule,
         PricingModule,
         CatalogModule,
         RecipientsModule,
