@@ -3,6 +3,14 @@
     "loading": "Загрузка…",
     "retry": "Повторить",
     "comingSoon": "Скоро",
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "currency": {
+      "uzs": "сум"
+    },
+    "error": {
+      "network": "Нет соединения с интернетом. Проверьте подключение и попробуйте снова."
+    },
     "money": {
       "uzs": "{amount} сум",
       "usdt": "{amount} USDT",

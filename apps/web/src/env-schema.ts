@@ -27,6 +27,26 @@ const botUsername = z
 // https (see assertSecureUrls).
 const httpUrl = z.url({ protocol: /^https?$/ });
 
+// The API and site URLs are joined with paths all over the app (`${base}/auth/refresh`, cookie
+// path `/api/v1/auth`), so they are normalised here, once: no trailing slash (it would produce
+// `//auth/refresh`), and no query, hash or credentials (they would be glued into every request).
+const baseUrl = httpUrl
+  .refine(
+    (value) => {
+      if (/[?#]/.test(value)) return false;
+      // A refinement can run on a value the URL check already rejected. (try/catch, not
+      // URL.canParse: that is missing before Safari 17, i.e. in the iOS 16 Telegram web view.)
+      try {
+        const url = new URL(value);
+        return url.username === '' && url.password === '';
+      } catch {
+        return false;
+      }
+    },
+    { message: 'must not contain a query, a hash or credentials' },
+  )
+  .transform((value) => value.replace(/\/+$/, ''));
+
 const mockList = z
   .string()
   .transform((value) =>
@@ -38,8 +58,8 @@ const mockList = z
   .pipe(z.array(z.enum(MOCK_GROUP_NAMES)));
 
 const schema = z.object({
-  NEXT_PUBLIC_API_URL: httpUrl,
-  NEXT_PUBLIC_SITE_URL: httpUrl,
+  NEXT_PUBLIC_API_URL: baseUrl,
+  NEXT_PUBLIC_SITE_URL: baseUrl,
   NEXT_PUBLIC_BOT_USERNAME: botUsername,
   NEXT_PUBLIC_API_MOCKS: mockList,
   // Empty means "no support link": the UI hides the "write to operator" entry.

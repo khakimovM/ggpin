@@ -2,14 +2,14 @@ import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 import createNextIntlPlugin from 'next-intl/plugin';
 import { parseClientEnv } from './src/env-schema';
+import { assertNoMocksInProduction, isProductionRun } from './src/mock-guard';
 import { buildHeaderRules } from './src/security-headers';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 export default function config(phase: string): NextConfig {
-  // Only the API origin is needed here (CSP). Strict checks (required values, no mocks in
-  // production) live in src/env.ts and run when the app code is built: `next typegen` shares the
-  // production-build phase, so it must not fail on a developer's local mock settings.
+  // Only the API origin is needed here (CSP); the strict checks (required values, https) live in
+  // src/env.ts and run when the app code is built.
   const env = parseClientEnv(
     {
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
@@ -20,6 +20,12 @@ export default function config(phase: string): NextConfig {
     },
     { production: false },
   );
+  // Mocks are refused here, in the config itself, so no page or layout has to import env.ts first.
+  // (isProductionRun explains why `next typegen` is not treated as a production run.)
+  assertNoMocksInProduction({
+    isProduction: isProductionRun(phase, process.argv),
+    mocks: env.NEXT_PUBLIC_API_MOCKS,
+  });
   const apiOrigin = new URL(env.NEXT_PUBLIC_API_URL).origin;
 
   const nextConfig: NextConfig = {

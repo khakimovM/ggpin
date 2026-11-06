@@ -3,6 +3,14 @@
     "loading": "Yuklanmoqda…",
     "retry": "Qayta urinish",
     "comingSoon": "Tez orada",
+    "today": "Bugun",
+    "yesterday": "Kecha",
+    "currency": {
+      "uzs": "so‘m"
+    },
+    "error": {
+      "network": "Internet bilan aloqa yo‘q. Ulanishni tekshirib, qayta urinib ko‘ring."
+    },
     "money": {
       "uzs": "{amount} so‘m",
       "usdt": "{amount} USDT",

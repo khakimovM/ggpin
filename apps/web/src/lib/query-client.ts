@@ -1,7 +1,7 @@
 import { isServer, QueryClient } from '@tanstack/react-query';
 
-// The API error type arrives with the API client (S2); until then any thrown value that carries a
-// numeric HTTP `status` is treated as an HTTP error.
+// ApiError carries the HTTP status (0 = no response). Any other thrown value with a numeric
+// `status` is treated the same way; one without it is a network-level failure.
 function statusOf(error: unknown): number | undefined {
   if (typeof error === 'object' && error !== null && 'status' in error) {
     const { status } = error;
@@ -10,12 +10,16 @@ function statusOf(error: unknown): number | undefined {
   return undefined;
 }
 
-// A 4xx answer will not change on a second try (validation, auth, not found, insufficient
-// balance), so it is surfaced at once. 5xx and network errors get one more attempt.
+export const MAX_QUERY_RETRIES = 2;
+
+// Only failures that can pass on their own are retried: no answer at all (offline, reset
+// connection) and 5xx. A 4xx will not change on a second try (validation, auth, not found,
+// insufficient balance), and a 2xx that failed schema validation is a contract break, not a
+// glitch; both surface at once.
 export function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (failureCount >= MAX_QUERY_RETRIES) return false;
   const status = statusOf(error);
-  if (status !== undefined && status >= 400 && status < 500) return false;
-  return failureCount < 1;
+  return status === undefined || status === 0 || status >= 500;
 }
 
 // 30 s suits catalog-like data. Money views (wallet, orders, payment intents) must not rely on
@@ -30,6 +34,9 @@ export function makeQueryClient(): QueryClient {
         retry: shouldRetry,
         refetchOnWindowFocus: false,
       },
+      // A repeated mutation could move money twice. Retrying is the user's decision, and it
+      // reuses the same Idempotency-Key.
+      mutations: { retry: false },
     },
   });
 }

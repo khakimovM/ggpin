@@ -130,3 +130,30 @@ describe('parseClientEnv', () => {
     ).toThrow();
   });
 });
+
+describe('API and site URL normalisation', () => {
+  it.each([
+    ['https://api.example.test/api/v1/', 'https://api.example.test/api/v1'],
+    ['https://api.example.test/api/v1///', 'https://api.example.test/api/v1'],
+    ['https://example.test/', 'https://example.test'],
+    ['http://localhost:5000/api/v1', 'http://localhost:5000/api/v1'],
+  ])('%s -> %s', (given, expected) => {
+    const env = parseClientEnv({ ...valid, NEXT_PUBLIC_API_URL: given }, { production: false });
+    expect(env.NEXT_PUBLIC_API_URL).toBe(expected);
+    const site = parseClientEnv({ ...valid, NEXT_PUBLIC_SITE_URL: given }, { production: false });
+    expect(site.NEXT_PUBLIC_SITE_URL).toBe(expected);
+  });
+
+  it.each([
+    'https://api.example.test/api/v1?key=1',
+    'https://api.example.test/api/v1?',
+    'https://api.example.test/api/v1#frag',
+    'https://api.example.test/api/v1/#',
+    'https://user@api.example.test/api/v1',
+    'https://user:hunter2@api.example.test/api/v1',
+  ])('rejects %s (query, hash or credentials)', (url) => {
+    for (const name of ['NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_SITE_URL'] as const) {
+      expect(() => parseClientEnv({ ...valid, [name]: url }, { production: false })).toThrow();
+    }
+  });
+});
