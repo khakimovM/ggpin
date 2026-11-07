@@ -12,10 +12,20 @@ describe('POST /payments/intents on a busy card', () => {
     const user = await e2e.newUser();
     const { status, elapsedMs } = await e2e.db().$transaction(
       async (tx) => {
+        // The wait is timed on Postgres' own clock, the one lock_timeout runs on: the Docker VM's
+        // clock drifts from the host's by more than the tolerance (a "3 s" wait once read 2856 ms
+        // on Date.now()). clock_timestamp() is wall time, not the transaction's start time.
+        const dbClockMs = async (): Promise<number> => {
+          const rows = await tx.$queryRaw<{ ms: number }[]>`
+            SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`;
+          const row = rows[0];
+          if (row === undefined) throw new Error('clock_timestamp() returned no row');
+          return row.ms;
+        };
         await lockTopupCard(tx, card.id);
-        const started = Date.now();
+        const started = await dbClockMs();
         const res = await e2e.create(user);
-        return { status: res.status, elapsedMs: Date.now() - started };
+        return { status: res.status, elapsedMs: (await dbClockMs()) - started };
       },
       { timeout: 20_000 },
     );

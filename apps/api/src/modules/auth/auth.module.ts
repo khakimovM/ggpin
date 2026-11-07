@@ -9,7 +9,11 @@ import { AuthSessionsController } from './auth-sessions.controller';
 import { AuthWebappController } from './auth-webapp.controller';
 import { InitDataVerifier } from './init-data.verifier';
 import { LoginRequestRepository } from './login-request.repository';
-import { MiniAppAuthService } from './mini-app-auth.service';
+import {
+  ACCOUNT_LIMIT_TIMEOUT,
+  ACCOUNT_LIMIT_TIMEOUT_MS,
+  MiniAppAuthService,
+} from './mini-app-auth.service';
 import { NewLoginNoticeService } from './new-login-notice.service';
 import { OtpLoginService } from './otp-login.service';
 import { TokenCodec } from './token-codec';
@@ -30,6 +34,7 @@ import { WebSessionService } from './web-session.service';
     TokenCodec,
     InitDataVerifier,
     MiniAppAuthService,
+    { provide: ACCOUNT_LIMIT_TIMEOUT, useValue: ACCOUNT_LIMIT_TIMEOUT_MS },
     WebSessionRepository,
     WebSessionService,
     LoginRequestRepository,
