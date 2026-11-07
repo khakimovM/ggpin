@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { installCatalogApi } from '../fixtures/catalog';
 
 // A fake API for the sign-in and session journeys. The browser never reaches a real API: every
 // request to the API origin is answered here with `page.route`, shaped like docs/04 (envelope,
@@ -211,6 +212,9 @@ export async function installFakeApi(
       await answer(route, 404, error('NOT_FOUND'));
     }
   });
+
+  // Layered on top: the catalog and the wallet answer, everything else falls through to the above.
+  await installCatalogApi(page);
 
   return api;
 }

@@ -82,9 +82,7 @@ test('a referral link binds the new user to the inviter, once', async ({ page, r
   const newcomer = newTelegramId();
   await openMiniApp(page, newcomer, `ref_${inviter.referralCode}`);
   // The page is really signed in: the home screen greets the profile the API created.
-  await expect(
-    page.getByRole('heading', { name: `Xush kelibsiz, User${newcomer}!` }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: `User${newcomer}` })).toBeVisible();
   expect(page.url()).toMatch(/\/tg$/);
 
   expect(await referredBy(newcomer)).toBe(String(inviter.telegramId));
@@ -94,7 +92,7 @@ test('a referral link binds the new user to the inviter, once', async ({ page, r
 test('without a start parameter nobody is bound', async ({ page }) => {
   const user = newTelegramId();
   await openMiniApp(page, user, undefined);
-  await expect(page.getByRole('heading', { name: `Xush kelibsiz, User${user}!` })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: `User${user}` })).toBeVisible();
   expect(await referredByIdOf(user)).toBeNull();
 });
 
@@ -103,7 +101,7 @@ test('a link to a code that does not exist binds nobody and still lets the user 
 }) => {
   const user = newTelegramId();
   await openMiniApp(page, user, 'ref_zzzzzzzz');
-  await expect(page.getByRole('heading', { name: `Xush kelibsiz, User${user}!` })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: `User${user}` })).toBeVisible();
   expect(await referredByIdOf(user)).toBeNull();
 });
 
@@ -113,7 +111,7 @@ test('a link to a code that does not exist binds nobody and still lets the user 
 test('an existing account that opens its own link stays unbound', async ({ page, request }) => {
   const account = await signInDirect(request, newTelegramId());
   await openMiniApp(page, account.telegramId, `ref_${account.referralCode}`);
-  await expect(page.getByRole('heading', { name: /^Xush kelibsiz, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(await referredByIdOf(account.telegramId)).toBeNull();
 });
 
@@ -122,7 +120,7 @@ test('a link used by an existing account does not rebind it', async ({ page, req
   const second = await signInDirect(request, newTelegramId());
   // `second` already exists, so a link replayed on it is only a candidate that is dropped.
   await openMiniApp(page, second.telegramId, `ref_${first.referralCode}`);
-  await expect(page.getByRole('heading', { name: /^Xush kelibsiz, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(await referredByIdOf(second.telegramId)).toBeNull();
 });
 

@@ -49,13 +49,13 @@ const journeyCases = [
     lang: 'uz',
     theme: 'light',
     wrong: 'Kod noto‘g‘ri. Yana 4 ta urinish qoldi',
-    welcome: 'Xush kelibsiz, Sardor!',
+    welcome: 'Katalog',
   },
   {
     lang: 'ru',
     theme: 'dark',
     wrong: 'Код неверный. Осталось 4 попытки',
-    welcome: 'Добро пожаловать, Sardor!',
+    welcome: 'Каталог',
   },
 ] as const;
 

@@ -15,7 +15,7 @@ import { watchPage } from '../support/gallery';
 import { axeViolations, INIT_DATA, open, overflow } from './support';
 
 // The Mini App shell (phase 7 S4): the link to Telegram (ready/expand, theme, safe area), the
-// splash, and the home placeholder. API faked with `page.route`; the Telegram SDK is a fake
+// and the splash. The home screen is in home.spec.ts. API faked with `page.route`; the Telegram SDK is a fake
 // installed before the page scripts (fixtures/telegram.ts). The gates are in gates.spec.ts.
 
 const BACKGROUND = { light: 'rgb(242, 244, 249)', dark: 'rgb(8, 12, 24)' } as const;
@@ -113,7 +113,9 @@ test.describe('Telegram connection', () => {
       answers: [{ kind: 'ok', user: { locale: 'uz' } }],
     });
     // Signed in as a uz profile although Telegram said ru.
-    await expect(page.getByRole('heading', { name: 'Xush kelibsiz, Sardor!' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: uz.store.catalog.categories.all, exact: true }),
+    ).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', 'uz');
   });
 });
@@ -168,27 +170,6 @@ test.describe('splash', () => {
       expect(await axeViolations(page)).toEqual([]);
       api.release();
     });
-  }
-});
-
-test.describe('home placeholder', () => {
-  for (const scheme of ['light', 'dark'] as const) {
-    for (const lang of ['uz', 'ru'] as const) {
-      test(`${scheme} / ${lang}: welcome, no overflow, accessibility scan clean`, async ({
-        page,
-      }) => {
-        await open(page, {
-          colorScheme: scheme,
-          languageCode: lang,
-          answers: [{ kind: 'ok', user: { locale: lang } }],
-        });
-        const welcome = lang === 'uz' ? 'Xush kelibsiz, Sardor!' : 'Добро пожаловать, Sardor!';
-        await expect(page.getByRole('heading', { name: welcome })).toBeVisible();
-        await expect(page.locator('html')).toHaveAttribute('lang', lang);
-        expect(await overflow(page)).toBeLessThanOrEqual(0);
-        expect(await axeViolations(page)).toEqual([]);
-      });
-    }
   }
 });
 

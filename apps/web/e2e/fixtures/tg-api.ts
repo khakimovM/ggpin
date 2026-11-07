@@ -1,5 +1,6 @@
 import type { Page, Request, Route } from '@playwright/test';
 import { API_PATTERN, USER } from '../support/fake-api';
+import { installCatalogApi } from './catalog';
 
 // A fake API for the Mini App shell: only `POST /auth/telegram/webapp` (and `GET /me`) exist. The
 // browser never reaches a real API; every call is answered here, shaped like docs/04.
@@ -99,6 +100,9 @@ export async function installTgApi(page: Page, answers: LoginAnswer[] = [{ kind:
       await reply(route, 404, failure('NOT_FOUND'));
     }
   });
+
+  // Layered on top: the catalog and the wallet answer, everything else falls through to the above.
+  await installCatalogApi(page);
 
   return api;
 }
