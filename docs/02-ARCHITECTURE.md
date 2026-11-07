@@ -92,6 +92,7 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 | `fragment-keepalive` | cron 20 daq                                 | worker    | —                                                                            |
 | `reconcile`          | cron 10 daq                                 | worker    | —                                                                            |
 | `bank-message`       | `bm-<BankMessage.id>`                       | worker    | 5 marta, eksponensial 2 s; concurrency 1 (zanjir tartibi)                    |
+| `card-limit`         | `cl-<BankMessage.id>`                       | worker    | 8 marta, eksponensial 2 s; tugasa alert `limitCheckFailed`                   |
 | `topup-expire`       | cron har 1 daq                              | worker    | —                                                                            |
 | `notify`             | `topup-<paymentId>`, `alert-<kind>-<refId>` | api       | 5 marta, eksponensial 2 s; payload faqat id'lar, matnni API render qiladi    |
 | `tg-outbox`          | `messageId`                                 | api       | 429 → `retry_after`                                                          |

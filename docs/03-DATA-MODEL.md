@@ -459,6 +459,11 @@ m9: `PENDING` unique yolg‘iz o‘zi `P2002` beradi), `payment-intent-guard` (M
 to‘lov, `GG002` qo‘riqchisi), `ledger` (qulf, M1, 2^53 dan katta summa), `schema` (haqiqiy `pg_enum`); unit: `src/payments-enums.test.ts`,
 `src/schema.test.ts`.
 
+**7-migratsiya `20261107090000_p4_bank_message_card_date_index`** (S6, D-43 (2); faqat qo‘shimcha, qo‘llangan migratsiyalar tahrirlanmadi):
+`BankMessage(cardId, tgDate)` indeksi. Karta sig‘imi so‘rovi (`cardTotals`, `packages/db/src/payments/card-totals.ts`) PARSED kirimlarni karta va
+`tgDate >= verifiedAt` / oy boshi bo‘yicha yig‘adi; API (taqsimlovchi, karta buyruqlari, notify renderer) va worker (80% alert, `ACTIVE → FULL`,
+`lateOverLimit`) shu bitta so‘rovni ishlatadi. Zanjir so‘rovi avvalgidek `(cardId, tgMessageId)` indeksida.
+
 ## Seed (boshlang‘ich ma’lumotlar)
 
 `npm run db:seed` → `packages/db`: `tsc -p tsconfig.seed.json` (`dist/seed` ga) → `prisma db seed`
