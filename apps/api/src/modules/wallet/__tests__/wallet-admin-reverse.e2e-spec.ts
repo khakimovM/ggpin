@@ -1,4 +1,6 @@
 import { OPERATOR, adminProbes } from './wallet-admin-e2e.shared';
+import { ownerCode } from '../../../common/admin/owner-otp/__tests__/owner-otp.testing';
+import { reverseOtpTarget } from '../wallet-admin.input';
 import { useWalletE2e } from './wallet-e2e.helpers';
 
 const e2e = useWalletE2e();
@@ -216,12 +218,18 @@ describe('WalletAdminService.reverseTopup (real P2P_CARD shape, real database)',
     );
     expect(await sumOf(user.id)).toBe(amountTiyin);
 
+    const otp = await ownerCode(e2e.app(), {
+      action: 'payment:reverse',
+      amountTiyin,
+      target: reverseOtpTarget(paymentId),
+    });
     await expect(
       e2e.admin().reverseTopup({
         paymentId,
         reason: 'large',
         ...OPERATOR,
         confirmAmountTiyin: amountTiyin,
+        otp,
       }),
     ).resolves.toMatchObject({ applied: true, balanceTiyin: 0n });
   });

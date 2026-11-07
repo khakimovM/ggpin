@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { WalletNotFoundError } from '@repo/db';
+import { scrubSecretsInText } from '@repo/shared';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
@@ -8,10 +9,13 @@ import {
   checkedId,
   checkedIp,
   checkedOperator,
+  checkedOsUser,
   checkedReason,
   validationError,
 } from '../../common/admin/admin-input';
-import { checkedAdjustAmount, requireConfirmation } from './wallet-admin.input';
+import { requireOwnerConfirmation } from '../../common/admin/owner-otp/owner-otp';
+import { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
+import { adjustOtpTarget, checkedAdjustAmount, reverseOtpTarget } from './wallet-admin.input';
 import {
   PAYMENT_REVERSE,
   WALLET_ADJUST,
@@ -23,57 +27,9 @@ import { WalletCache } from './wallet-cache';
 import { WalletFrozenAlert } from './wallet-frozen-alert';
 import { WalletRepository, isUniqueViolation, type AuditEntryData } from './wallet.repository';
 
-export interface AdjustWalletInput {
-  readonly userId: string;
-  /** Signed tiyin, never 0. */
-  readonly amountTiyin: bigint;
-  readonly reason: string;
-  /** Who runs the command (the CLI --operator); stored in AuditLog.after.operator. */
-  readonly operator: string;
-  /** Optional client address for the AuditLog (IPv4/IPv6 literal). */
-  readonly ip?: string | null;
-  /** Required when |amount| exceeds ADMIN_CONFIRM_THRESHOLD_TIYIN; must equal `amountTiyin`. */
-  readonly confirmAmountTiyin?: bigint;
-  /**
-   * Optional caller-chosen AuditLog id. The CLI generates one per command, so re-running the same
-   * command (after a timeout) finds the first run and writes nothing again. The same id with a
-   * different user, amount or reason is a different request and is refused (IDEMPOTENCY_CONFLICT).
-   */
-  readonly auditId?: string;
-}
+import type { AdjustWalletInput, ReverseTopupInput, WalletChange } from './wallet-admin.types';
 
-export interface ReverseTopupInput {
-  readonly paymentId: string;
-  readonly reason: string;
-  readonly operator: string;
-  readonly ip?: string | null;
-  /** Required when the reversed amount exceeds the threshold; must equal that amount. */
-  readonly confirmAmountTiyin?: bigint;
-}
-
-export interface WalletChange {
-  /** False when this call found the work already done (a replay) and wrote nothing. */
-  readonly applied: boolean;
-  readonly userId: string;
-  readonly auditId: string;
-  readonly ledgerEntryId: string;
-  /** The balance after the change (for a replay: the balance now). */
-  readonly balanceTiyin: bigint;
-  /**
-   * The user's `purchaseFrozen` flag after the transaction, NOT "balance < 0". Nothing here and
-   * no incoming top-up clears it (D-41): only the owner does, with the S8 CLI command
-   * `user:unfreeze --reason`.
-   */
-  readonly frozen: boolean;
-  /** This call flipped the flag false -> true, so the owner is owed a walletFrozen alert. */
-  readonly newlyFrozen: boolean;
-  /**
-   * The walletFrozen alert is on the queue. False when none was due (`newlyFrozen` is false) and
-   * also when one was due but the enqueue failed, so `newlyFrozen && !alertQueued` means "tell the
-   * owner another way".
-   */
-  readonly alertQueued: boolean;
-}
+export type { AdjustWalletInput, ReverseTopupInput, WalletChange } from './wallet-admin.types';
 
 /**
  * Owner-only money corrections (docs/05 section 9). Not reachable over HTTP: the owner CLI calls
@@ -91,6 +47,7 @@ export class WalletAdminService {
     private readonly repo: WalletRepository,
     private readonly cache: WalletCache,
     private readonly alert: WalletFrozenAlert,
+    private readonly otp: OwnerOtpVerifier,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
@@ -101,10 +58,15 @@ export class WalletAdminService {
     const reason = checkedReason(input.reason);
     const operator = checkedOperator(input.operator);
     const ip = checkedIp(input.ip);
+    const osUser = checkedOsUser(input.osUser);
     const auditId = input.auditId === undefined ? undefined : checkedId('auditId', input.auditId);
-    requireConfirmation(
+    const confirm = input.confirmAmountTiyin;
+    const target = adjustOtpTarget(userId, auditId);
+    const otpVerified = await this.otp.verifyIfGiven(input.otp, confirm, 'wallet:adjust', target);
+    requireOwnerConfirmation(
       amount,
-      input.confirmAmountTiyin,
+      confirm,
+      otpVerified,
       this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN,
     );
 
@@ -124,7 +86,7 @@ export class WalletAdminService {
         targetType: 'User',
         targetId: userId,
         before: { balanceTiyin: before.toString() },
-        after: { balanceTiyin: after.toString(), operator },
+        after: { balanceTiyin: after.toString(), operator, osUser, otpVerified },
         reason,
       });
       const entry = await this.repo.appendEntry(tx, {
@@ -140,11 +102,27 @@ export class WalletAdminService {
     return this.afterCommit(committed);
   }
 
+  /** The payment payment:reverse would reverse (unlocked; the CLI re-types its amount). */
+  async payment(paymentId: string): Promise<{ userId: string; amountTiyin: bigint }> {
+    const found = await this.repo.findPayment(checkedId('paymentId', paymentId));
+    if (found === null) throw new AppError('NOT_FOUND');
+    return { userId: found.userId, amountTiyin: found.amountTiyin };
+  }
+
   async reverseTopup(input: ReverseTopupInput): Promise<WalletChange> {
     const paymentId = checkedId('paymentId', input.paymentId);
     const reason = checkedReason(input.reason);
     const operator = checkedOperator(input.operator);
     const ip = checkedIp(input.ip);
+    const osUser = checkedOsUser(input.osUser);
+    const confirm = input.confirmAmountTiyin;
+    const otpTarget = reverseOtpTarget(paymentId);
+    const otpVerified = await this.otp.verifyIfGiven(
+      input.otp,
+      confirm,
+      'payment:reverse',
+      otpTarget,
+    );
 
     // Read once without a lock only to learn whose wallet to lock; the owner never changes.
     const known = await this.repo.findPayment(paymentId);
@@ -188,9 +166,10 @@ export class WalletAdminService {
         // No amounts in the log (the audit row carries reversedTiyin); the ledger side wins.
         this.logger.warn(`payment ${paymentId}: credited amount differs from the payment row`);
       }
-      requireConfirmation(
+      requireOwnerConfirmation(
         amount,
-        input.confirmAmountTiyin,
+        confirm,
+        otpVerified,
         this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN,
       );
 
@@ -210,6 +189,8 @@ export class WalletAdminService {
           paymentStatus: 'CANCELLED',
           reversedTiyin: amount.toString(),
           operator,
+          osUser,
+          otpVerified,
         },
         reason,
       });
@@ -272,7 +253,7 @@ export class WalletAdminService {
       await this.alert.raise(committed.userId, committed.ledgerEntryId);
       return { ...committed, alertQueued: true };
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'unknown error';
+      const reason = error instanceof Error ? scrubSecretsInText(error.message) : 'unknown error';
       this.logger.error(`walletFrozen alert for ${committed.ledgerEntryId} not queued: ${reason}`);
       return { ...committed, alertQueued: false };
     }

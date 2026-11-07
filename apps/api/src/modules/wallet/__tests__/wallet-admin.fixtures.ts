@@ -1,4 +1,5 @@
 import type { LedgerEntry, Payment } from '@repo/db';
+import type { OwnerOtpVerifier } from '../../../common/admin/owner-otp/owner-otp.verifier';
 import type { Clock } from '../../../common/clock/clock';
 import type { AppConfig } from '../../../config/config.module';
 import { WalletAdminService } from '../wallet-admin.service';
@@ -43,14 +44,19 @@ export function setup(balance = 1_000_000n) {
   const alert = { raise: jest.fn().mockResolvedValue(undefined) };
   const config = { ADMIN_CONFIRM_THRESHOLD_TIYIN: THRESHOLD } as unknown as AppConfig;
   const clock: Clock = { now: () => NOW };
+  // A given code counts as verified here; the real checks are OwnerOtpVerifier's (own e2e).
+  const otp = {
+    verifyIfGiven: jest.fn((answer: unknown) => Promise.resolve(answer !== undefined)),
+  };
   const service = new WalletAdminService(
     repo as unknown as WalletRepository,
     cache as unknown as WalletCache,
     alert as unknown as WalletFrozenAlert,
+    otp as unknown as OwnerOtpVerifier,
     config,
     clock,
   );
-  return { service, repo, cache, alert };
+  return { service, repo, cache, alert, otp };
 }
 
 export function payment(overrides: Partial<Payment> = {}): Payment {

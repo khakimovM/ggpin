@@ -3,6 +3,7 @@ import {
   WALLET_CACHE_TTL_SEC,
   decodeCachedBalance,
   encodeCachedBalance,
+  scrubSecretsInText,
   walletCacheKey,
 } from '@repo/shared';
 import { RedisService } from '../../infra/redis/redis.service';
@@ -80,7 +81,8 @@ export class WalletCache {
 
   // No key and no value in the log: the key holds a user id, the value a balance.
   private warn(op: string, error: unknown): void {
-    const reason = error instanceof Error ? error.message : 'unknown error';
+    // ioredis messages can quote the connection URL (password): scrubbed like every Redis error.
+    const reason = error instanceof Error ? scrubSecretsInText(error.message) : 'unknown error';
     this.logger.warn(`wallet cache ${op} failed: ${reason}`);
   }
 }

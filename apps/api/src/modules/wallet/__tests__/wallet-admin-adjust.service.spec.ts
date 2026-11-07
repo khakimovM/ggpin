@@ -8,6 +8,8 @@ const adjustInput = {
   ...OPERATOR,
 };
 
+const OTP = { challengeId: '0'.repeat(32), code: '123456' };
+
 describe('WalletAdminService.adjust: input rules (nothing is written on a rejection)', () => {
   it.each([
     ['empty reason', { reason: '' }],
@@ -52,17 +54,27 @@ describe('WalletAdminService.adjust: input rules (nothing is written on a reject
     expect(repo.transaction).not.toHaveBeenCalled();
   });
 
-  it('above the threshold with the exact amount: applied; a big debit needs it too', async () => {
-    const { service } = setup(THRESHOLD * 2n);
+  it('above the threshold with the exact amount and the owner code: applied; a big debit needs it too', async () => {
+    const { service, otp } = setup(THRESHOLD * 2n);
     const credit = { ...adjustInput, amountTiyin: THRESHOLD + 1n };
+    // The re-typed amount alone is not enough (D-46).
     await expect(
       service.adjust({ ...credit, confirmAmountTiyin: THRESHOLD + 1n }),
+    ).rejects.toMatchObject({ details: { field: 'otp', reason: 'OTP_REQUIRED' } });
+    await expect(
+      service.adjust({ ...credit, confirmAmountTiyin: THRESHOLD + 1n, otp: OTP }),
     ).resolves.toMatchObject({ applied: true });
+    expect(otp.verifyIfGiven).toHaveBeenLastCalledWith(
+      OTP,
+      THRESHOLD + 1n,
+      'wallet:adjust',
+      'user u1 key -',
+    );
 
     const debit = { ...adjustInput, amountTiyin: -(THRESHOLD + 1n) };
     await expect(service.adjust(debit)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     await expect(
-      service.adjust({ ...debit, confirmAmountTiyin: -(THRESHOLD + 1n) }),
+      service.adjust({ ...debit, confirmAmountTiyin: -(THRESHOLD + 1n), otp: OTP }),
     ).resolves.toMatchObject({ applied: true });
   });
 
@@ -90,7 +102,7 @@ describe('WalletAdminService.adjust: the transaction', () => {
         targetType: 'User',
         targetId: 'u1',
         before: { balanceTiyin: '1000000' },
-        after: { balanceTiyin: '1500000', operator: 'aziz' },
+        after: { balanceTiyin: '1500000', operator: 'aziz', osUser: null, otpVerified: false },
         reason: 'support credit',
         ip: '203.0.113.7',
       }),

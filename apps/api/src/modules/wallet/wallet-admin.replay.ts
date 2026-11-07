@@ -1,6 +1,6 @@
 import { AppError } from '../../common/exceptions/app-error';
 import type { Db } from '../../infra/prisma/db';
-import type { WalletChange } from './wallet-admin.service';
+import type { WalletChange } from './wallet-admin.types';
 import type { WalletRepository } from './wallet.repository';
 
 export type Committed = Omit<WalletChange, 'alertQueued'>;

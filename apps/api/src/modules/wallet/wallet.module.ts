@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
 import { WalletAdminService } from './wallet-admin.service';
 import { WalletCache } from './wallet-cache';
 import { WalletFrozenAlert } from './wallet-frozen-alert';
@@ -14,7 +15,15 @@ import { WalletService } from './wallet.service';
 // from a user-session route. It moves money and writes the AuditLog on the caller's word.
 @Module({
   controllers: [WalletController],
-  providers: [WalletRepository, WalletCache, WalletFrozenAlert, WalletService, WalletAdminService],
+  providers: [
+    WalletRepository,
+    WalletCache,
+    WalletFrozenAlert,
+    WalletService,
+    WalletAdminService,
+    // Checks the owner's code of a money action above the threshold (D-46); Redis only.
+    OwnerOtpVerifier,
+  ],
   exports: [WalletService, WalletAdminService, WalletCache],
 })
 export class WalletModule {}

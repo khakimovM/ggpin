@@ -10,16 +10,11 @@ export function checkedAdjustAmount(amountTiyin: bigint): bigint {
   return amountTiyin;
 }
 
-/**
- * Above the threshold the operator must retype the exact amount (the CLI asks for it): a typo in
- * a large number is caught before money moves. Equal to the threshold needs no confirmation.
- */
-export function requireConfirmation(
-  amountTiyin: bigint,
-  confirmAmountTiyin: bigint | undefined,
-  thresholdTiyin: bigint,
-): void {
-  const magnitude = amountTiyin < 0n ? -amountTiyin : amountTiyin;
-  if (magnitude <= thresholdTiyin) return;
-  if (confirmAmountTiyin !== amountTiyin) throw validationError('confirmAmountTiyin');
+/** What the owner's code for wallet:adjust is bound to (ids only; the key makes it one command). */
+export function adjustOtpTarget(userId: string, auditId: string | undefined): string {
+  return `user ${userId} key ${auditId ?? '-'}`;
+}
+
+export function reverseOtpTarget(paymentId: string): string {
+  return `payment ${paymentId}`;
 }

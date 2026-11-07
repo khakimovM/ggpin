@@ -1,4 +1,6 @@
 import { alertRef } from '@repo/shared';
+import { ownerCode } from '../../../common/admin/owner-otp/__tests__/owner-otp.testing';
+import { adjustOtpTarget } from '../wallet-admin.input';
 import { OPERATOR, adminProbes } from './wallet-admin-e2e.shared';
 import { useWalletE2e } from './wallet-e2e.helpers';
 
@@ -132,10 +134,21 @@ describe('WalletAdminService.adjust (real database)', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(await sumOf(user.id)).toBe(0n);
 
-    await expect(e2e.admin().adjust({ ...base, confirmAmountTiyin: big })).resolves.toMatchObject({
-      applied: true,
-      balanceTiyin: big,
+    // The re-typed amount alone is not enough: the owner's code too (D-46).
+    await expect(e2e.admin().adjust({ ...base, confirmAmountTiyin: big })).rejects.toMatchObject({
+      details: { field: 'otp', reason: 'OTP_REQUIRED' },
     });
+    expect(await sumOf(user.id)).toBe(0n);
+    const otp = await ownerCode(e2e.app(), {
+      action: 'wallet:adjust',
+      amountTiyin: big,
+      target: adjustOtpTarget(user.id, undefined),
+    });
+    const done = await e2e.admin().adjust({ ...base, confirmAmountTiyin: big, otp });
+    expect(done).toMatchObject({ applied: true, balanceTiyin: big });
+    expect(
+      (await e2e.db().auditLog.findUniqueOrThrow({ where: { id: done.auditId } })).after,
+    ).toMatchObject({ otpVerified: true });
   });
 
   it('a negative result freezes purchases and queues the walletFrozen alert after the commit', async () => {

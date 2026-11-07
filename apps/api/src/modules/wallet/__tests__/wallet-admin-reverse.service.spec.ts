@@ -67,6 +67,8 @@ describe('WalletAdminService.reverseTopup', () => {
           paymentStatus: 'CANCELLED',
           reversedTiyin: '2000000',
           operator: 'aziz',
+          osUser: null,
+          otpVerified: false,
         },
       }),
     );
@@ -127,8 +129,15 @@ describe('WalletAdminService.reverseTopup', () => {
     expect(repo.appendEntry).not.toHaveBeenCalled();
     expect(repo.cancelConfirmedPayment).not.toHaveBeenCalled();
 
+    await expect(service.reverseTopup({ ...input, confirmAmountTiyin: big })).rejects.toMatchObject(
+      { details: { field: 'otp', reason: 'OTP_REQUIRED' } },
+    );
     await expect(
-      service.reverseTopup({ ...input, confirmAmountTiyin: big }),
+      service.reverseTopup({
+        ...input,
+        confirmAmountTiyin: big,
+        otp: { challengeId: '0'.repeat(32), code: '123456' },
+      }),
     ).resolves.toMatchObject({ applied: true });
   });
 

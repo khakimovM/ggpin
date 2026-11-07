@@ -165,6 +165,15 @@ export class WalletRepository {
     return count === 1;
   }
 
+  /** Clears the flag (owner CLI `user:unfreeze`, D-41); false when it was not set. */
+  async unfreezePurchases(tx: Db, userId: string): Promise<boolean> {
+    const { count } = await tx.user.updateMany({
+      where: { id: userId, purchaseFrozen: true },
+      data: { purchaseFrozen: false },
+    });
+    return count === 1;
+  }
+
   async isPurchaseFrozen(tx: Db, userId: string): Promise<boolean> {
     const user = await tx.user.findUnique({
       where: { id: userId },

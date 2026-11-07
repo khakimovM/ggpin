@@ -60,3 +60,17 @@ export function checkedId(field: string, value: string): string {
   if (!ResourceIdSchema.safeParse(value).success) throw validationError(field);
   return value;
 }
+
+export const OS_USER_MAX_LENGTH = 128;
+// A login name, optionally "name (sudo from other)": letters, digits, . _ - $ ( ) and single
+// spaces; nothing invisible.
+const OS_USER_SHAPE = /^[\p{L}\p{N}._$()-]+(?: [\p{L}\p{N}._$()-]+)*$/u;
+
+/** The OS account that ran the CLI (AuditLog.after.osUser); null when the CLI could not tell. */
+export function checkedOsUser(osUser: string | null | undefined): string | null {
+  if (osUser === undefined || osUser === null) return null;
+  if (osUser.length > OS_USER_MAX_LENGTH || !OS_USER_SHAPE.test(osUser)) {
+    throw validationError('osUser');
+  }
+  return osUser;
+}
