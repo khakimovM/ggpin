@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildHeaderRules } from './security-headers';
+import { buildCsp, buildHeaderRules, cspKindFor } from './security-headers';
 
 const API_ORIGIN = 'https://api.example.test';
-const rules = buildHeaderRules({ apiOrigin: API_ORIGIN, isDev: false });
+const NONCE = 'AAAAAAAAAAAAAAAAAAAAAA==';
+const OPTIONS = { apiOrigin: API_ORIGIN, isDev: false };
+const rules = buildHeaderRules({ isDev: false });
 
 // Rules are found by their `source`, never by position.
 const TG = '/tg/:path*';
@@ -14,23 +16,23 @@ function headerOf(source: string, key: string, list = rules): string {
   if (!rule) throw new Error(`no rule for ${source}`);
   return rule.headers.find((h) => h.key === key)?.value ?? '';
 }
-const csp = (source: string, list = rules) => headerOf(source, 'Content-Security-Policy', list);
+
+const directive = (policy: string, name: string): string =>
+  policy.split('; ').find((part) => part.startsWith(`${name} `)) ?? '';
 
 describe('buildHeaderRules', () => {
   it('has exactly the three non-overlapping sources', () => {
     expect(rules.map((r) => r.source).sort()).toEqual([PAY, REST, TG].sort());
   });
 
-  it('limits connect-src to self and the API origin', () => {
-    expect(csp(REST)).toContain(`connect-src 'self' ${API_ORIGIN};`);
-  });
-
-  it('allows Telegram Web framing and telegram.org scripts only under /tg', () => {
-    expect(csp(TG)).toContain('frame-ancestors https://web.telegram.org');
-    expect(csp(TG)).toMatch(/script-src [^;]*https:\/\/telegram\.org/);
+  it('carries a strict fallback CSP with no script source at all (the middleware replaces it)', () => {
+    expect(headerOf(TG, 'Content-Security-Policy')).toBe(
+      "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org",
+    );
     for (const source of [PAY, REST]) {
-      expect(csp(source)).toContain("frame-ancestors 'none'");
-      expect(csp(source)).not.toMatch(/script-src [^;]*telegram\.org/);
+      expect(headerOf(source, 'Content-Security-Policy')).toBe(
+        "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      );
     }
   });
 
@@ -54,27 +56,89 @@ describe('buildHeaderRules', () => {
     }
   });
 
-  it('allows inline styles (React/motion/Radix need them) but no remote style sources', () => {
-    for (const source of [TG, PAY, REST]) {
-      expect(csp(source)).toContain("style-src 'self' 'unsafe-inline';");
-    }
-  });
-
-  it('sends HSTS everywhere in production', () => {
+  it('sends HSTS everywhere in production and nowhere in development', () => {
     for (const r of rules) {
       expect(r.headers.find((h) => h.key === 'Strict-Transport-Security')?.value).toBe(
         'max-age=63072000; includeSubDomains',
       );
     }
-  });
-
-  it('allows eval and websockets, and omits HSTS, only in development', () => {
-    const dev = buildHeaderRules({ apiOrigin: API_ORIGIN, isDev: true });
-    expect(csp(REST, dev)).toContain("'unsafe-eval'");
-    expect(csp(REST, dev)).toContain("connect-src 'self' https://api.example.test ws:");
-    expect(csp(REST)).not.toContain("'unsafe-eval'");
-    for (const r of dev) {
+    for (const r of buildHeaderRules({ isDev: true })) {
       expect(r.headers.some((h) => h.key === 'Strict-Transport-Security')).toBe(false);
     }
+  });
+});
+
+describe('cspKindFor', () => {
+  it('treats only /tg and below as the Mini App', () => {
+    expect(cspKindFor('/tg')).toBe('tg');
+    expect(cspKindFor('/tg/orders/1')).toBe('tg');
+    expect(cspKindFor('/tgx')).toBe('default');
+    expect(cspKindFor('/ru/tg')).toBe('default');
+    expect(cspKindFor('/')).toBe('default');
+    expect(cspKindFor('/pay/abc')).toBe('default');
+  });
+});
+
+describe('buildCsp', () => {
+  it('puts the nonce and strict-dynamic in script-src, never unsafe-inline', () => {
+    for (const kind of ['tg', 'default'] as const) {
+      const script = directive(buildCsp(kind, NONCE, OPTIONS), 'script-src');
+      expect(script).toContain(`'nonce-${NONCE}'`);
+      expect(script).toContain("'strict-dynamic'");
+      expect(script).not.toContain("'unsafe-inline'");
+      expect(script).not.toContain("'unsafe-eval'");
+    }
+  });
+
+  it('embeds the nonce it is given, so two requests get two policies', () => {
+    const other = 'BBBBBBBBBBBBBBBBBBBBBB==';
+    expect(buildCsp('default', other, OPTIONS)).not.toBe(buildCsp('default', NONCE, OPTIONS));
+    expect(buildCsp('default', other, OPTIONS)).toContain(`'nonce-${other}'`);
+  });
+
+  it('refuses a nonce that could add a directive to the header', () => {
+    for (const bad of [
+      '',
+      'short',
+      `${NONCE}; script-src *`,
+      "x'y".padEnd(24, 'a'),
+      'a b'.padEnd(24, 'a'),
+    ]) {
+      expect(() => buildCsp('default', bad, OPTIONS)).toThrow();
+    }
+  });
+
+  it('limits connect-src to self and the API origin', () => {
+    expect(directive(buildCsp('default', NONCE, OPTIONS), 'connect-src')).toBe(
+      `connect-src 'self' ${API_ORIGIN}`,
+    );
+  });
+
+  it('allows Telegram Web framing and telegram.org scripts only under /tg', () => {
+    const tg = buildCsp('tg', NONCE, OPTIONS);
+    expect(directive(tg, 'frame-ancestors')).toBe('frame-ancestors https://web.telegram.org');
+    expect(directive(tg, 'script-src')).toContain('https://telegram.org/js/telegram-web-app.js');
+    // The SDK file only, not every script of the host.
+    expect(directive(tg, 'script-src')).not.toMatch(
+      /https:\/\/telegram\.org(?!\/js\/telegram-web-app\.js)/,
+    );
+    const rest = buildCsp('default', NONCE, OPTIONS);
+    expect(directive(rest, 'frame-ancestors')).toBe("frame-ancestors 'none'");
+    expect(directive(rest, 'script-src')).not.toContain('telegram.org');
+  });
+
+  it('allows inline styles (React/motion/Radix need them) but no remote style sources', () => {
+    for (const kind of ['tg', 'default'] as const) {
+      expect(directive(buildCsp(kind, NONCE, OPTIONS), 'style-src')).toBe(
+        "style-src 'self' 'unsafe-inline'",
+      );
+    }
+  });
+
+  it('allows eval and websockets only in development', () => {
+    const dev = buildCsp('default', NONCE, { ...OPTIONS, isDev: true });
+    expect(directive(dev, 'script-src')).toContain("'unsafe-eval'");
+    expect(directive(dev, 'connect-src')).toBe(`connect-src 'self' ${API_ORIGIN} ws:`);
+    expect(buildCsp('default', NONCE, OPTIONS)).not.toContain("'unsafe-eval'");
   });
 });

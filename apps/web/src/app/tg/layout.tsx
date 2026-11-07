@@ -1,6 +1,7 @@
 import { BRAND } from '@repo/shared';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { ThemeScript } from '../../csp/ThemeScript';
 import { env } from '../../env';
 import { FONT_CLASSES } from '../fonts';
 import '../globals.css';
@@ -20,7 +21,10 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, view
 // (phase 7 S4). Until then the default locale is used.
 export default function TelegramLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="uz" className={FONT_CLASSES}>
+    <html lang="uz" className={FONT_CLASSES} suppressHydrationWarning>
+      <head>
+        <ThemeScript variant="tg" />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

@@ -1,4 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { mockMatchMedia } from '../../../test/match-media';
@@ -104,6 +106,41 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.dataset.reduced).toBe('true');
     await userEvent.click(screen.getByRole('button', { name: 'reduce' }));
     expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it('hydration: never writes the server-snapshot theme over the one the page script set', () => {
+    // The page's pre-paint script has set dark (stored). The server render knows nothing of that
+    // (no storage, light OS), so a write from that pass would flash light before dark returns.
+    mockSystemScheme(false);
+    window.localStorage.setItem('ggpin-theme', 'dark');
+    document.documentElement.dataset.theme = 'dark';
+    const tree = (
+      <ThemeProvider variant="web">
+        <Probe />
+      </ThemeProvider>
+    );
+    const container = document.createElement('div');
+    document.body.append(container);
+    container.innerHTML = renderToString(tree);
+
+    // The records of every write, with the value it replaced (oldValue), so a write that is undone
+    // within the same task is still seen.
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+      attributeOldValue: true,
+    });
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    act(() => {
+      root = hydrateRoot(container, tree);
+    });
+    const written = observer.takeRecords().map((record) => record.oldValue);
+    observer.disconnect();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(written).not.toContain('light');
+    act(() => root?.unmount());
+    container.remove();
   });
 
   it('useTheme outside the provider fails loudly', () => {

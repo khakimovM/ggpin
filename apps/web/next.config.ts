@@ -8,7 +8,7 @@ import { buildHeaderRules } from './src/security-headers';
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 export default function config(phase: string): NextConfig {
-  // Only the API origin is needed here (CSP); the strict checks (required values, https) live in
+  // Only the mock guard needs the env here; the strict checks (required values, https) live in
   // src/env.ts and run when the app code is built.
   const env = parseClientEnv(
     {
@@ -26,7 +26,6 @@ export default function config(phase: string): NextConfig {
     isProduction: isProductionRun(phase, process.argv),
     mocks: env.NEXT_PUBLIC_API_MOCKS,
   });
-  const apiOrigin = new URL(env.NEXT_PUBLIC_API_URL).origin;
 
   const nextConfig: NextConfig = {
     reactStrictMode: true,
@@ -38,8 +37,7 @@ export default function config(phase: string): NextConfig {
     experimental: { optimizePackageImports: ['@repo/ui'] },
     // Linting runs once, from the root flat config (`npm run lint`, CI), not again inside builds.
     eslint: { ignoreDuringBuilds: true },
-    headers: () =>
-      Promise.resolve(buildHeaderRules({ apiOrigin, isDev: phase === PHASE_DEVELOPMENT_SERVER })),
+    headers: () => Promise.resolve(buildHeaderRules({ isDev: phase === PHASE_DEVELOPMENT_SERVER })),
   };
   return withNextIntl(nextConfig);
 }

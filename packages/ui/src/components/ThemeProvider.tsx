@@ -80,6 +80,19 @@ function useStored(key: string): string | null {
   );
 }
 
+// False while the page hydrates (the server snapshot), true on every later render. The values the
+// provider computes during hydration come from the server snapshots above (nothing stored, light
+// OS), so they can be wrong; the page's pre-paint script has already set the real ones, and
+// writing the wrong ones over it would flash the other theme.
+const noopSubscribe = () => () => undefined;
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 function isPreference(value: string | null): value is ThemePreference {
   return value === 'light' || value === 'dark' || value === 'system';
 }
@@ -95,6 +108,7 @@ export function ThemeProvider({
   const storedTheme = useStored(THEME_KEY);
   const storedReduced = useStored(REDUCED_KEY);
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)');
+  const hydrated = useHydrated();
 
   const preference: ThemePreference = isPreference(storedTheme) ? storedTheme : defaultPreference;
   const reduced = reducedMotion ?? storedReduced === 'true';
@@ -110,15 +124,16 @@ export function ThemeProvider({
 
   // Tokens switch on <html data-theme>; portals (sheets, toasts) live outside any wrapper div.
   useIsoLayoutEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    if (hydrated) document.documentElement.dataset.theme = theme;
+  }, [theme, hydrated]);
 
   // [data-reduced="true"] in tokens.css turns off all CSS animation and transition. When the
   // switch is off the attribute is removed so the OS media query alone decides.
   useIsoLayoutEffect(() => {
+    if (!hydrated) return;
     if (reduced) document.documentElement.dataset.reduced = 'true';
     else delete document.documentElement.dataset.reduced;
-  }, [reduced]);
+  }, [reduced, hydrated]);
 
   const setPreference = useCallback(
     (next: ThemePreference) => {

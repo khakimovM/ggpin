@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { env } from '../../env';
 import { AuthSync } from '../../features/auth/AuthSync';
+import { ThemeScript } from '../../csp/ThemeScript';
 import { MESSAGES } from '../../i18n/messages';
 import { routing } from '../../i18n/routing';
 import { FONT_CLASSES } from '../fonts';
@@ -17,10 +18,6 @@ export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_SITE_URL),
   title: BRAND.name,
 };
-
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
-}
 
 export default async function LocaleLayout({
   children,
@@ -39,6 +36,9 @@ export default async function LocaleLayout({
   return (
     // ThemeProvider writes data-theme / data-reduced on <html> after hydration.
     <html lang={locale} className={FONT_CLASSES} suppressHydrationWarning>
+      <head>
+        <ThemeScript variant="web" />
+      </head>
       <body>
         <NextIntlClientProvider locale={locale} messages={{ common, errors, web }}>
           <ThemeProvider variant="web">
