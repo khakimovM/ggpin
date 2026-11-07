@@ -10,6 +10,7 @@ import {
   PAY_TOKEN_LENGTH,
   PAY_TOKEN_PATTERN,
   REVIEW_ALERT,
+  reviewAlertOf,
   REVIEW_KINDS,
   TOPUP_CARD_STATUSES,
   bankMessageJobId,
@@ -47,13 +48,38 @@ describe('bank feed vocabulary', () => {
     }
   });
 
+  it('reviewAlertOf: a review on a card with a telling note gets its own alert', () => {
+    expect(reviewAlertOf('UNRECOGNIZED', 'TITLE_UNKNOWN', true)).toBe('titleUnknown');
+    expect(reviewAlertOf('UNRECOGNIZED', 'SENDER_MISMATCH', true)).toBe('integrityAnomaly');
+    expect(reviewAlertOf('UNRECOGNIZED', 'TEXT_HASH_MISMATCH', true)).toBe('integrityAnomaly');
+    expect(reviewAlertOf('UNRECOGNIZED', 'PROCESSING_FAILED', true)).toBe('processingFailed');
+    expect(reviewAlertOf('AMBIGUOUS', 'AMOUNT_REALLOCATED', true)).toBe('amountReallocated');
+    expect(reviewAlertOf('AMBIGUOUS', null, true)).toBe('ambiguous');
+    // A note only counts with the kind it belongs to.
+    expect(reviewAlertOf('UNRECOGNIZED', 'AMOUNT_REALLOCATED', true)).toBe('unrecognized');
+    // Without a card these alerts could not name it: the generic one.
+    expect(reviewAlertOf('UNRECOGNIZED', 'PROCESSING_FAILED', false)).toBe('unrecognized');
+    expect(reviewAlertOf('UNRECOGNIZED', 'REPARSE_MISMATCH', true)).toBe('unrecognized');
+    expect(reviewAlertOf('UNRECOGNIZED', null, true)).toBe('unrecognized');
+    expect(reviewAlertOf('NO_MATCH', 'TITLE_UNKNOWN', true)).toBe('noMatch');
+  });
+
   it('every alert is raised by something: a review kind or an operational event', () => {
     const operational = [
+      // Review alerts chosen by note (reviewAlertOf), not by kind.
+      'titleUnknown',
+      'integrityAnomaly',
+      'processingFailed',
+      'amountReallocated',
+      // Matcher failures that leave no review (limit check, a fail-closed write that failed).
+      'limitCheckFailed',
+      'messageStuck',
       'edited',
       'cardVerified',
       'cardNearLimit',
       'cardFull',
       'cardReservedHigh',
+      'lateOverLimit',
       'listenerDown',
       'sessionRevoked',
       'newAuthorization',

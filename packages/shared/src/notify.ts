@@ -2,7 +2,9 @@
 // decides how it reads. The payload carries ids only; the API loads the amount and the user's
 // language from the database, renders the text, escapes it and puts it on `tg-outbox`.
 // That keeps user-facing text and the bot token out of the worker (CLAUDE.md invariant 7)
-// and keeps money amounts out of Redis jobs, which stay for days.
+// and keeps money amounts out of the notify jobs, which stay NOTIFY_DEDUPE_SEC (30 days) for
+// deduplication. The rendered text (with the amount and balance) exists only in the tg-outbox
+// job, which is kept one day.
 import { z } from 'zod';
 import { BankFeedAlertKindSchema } from './payments/bank-feed';
 import { tgOutboxJobId } from './tg-outbox';
@@ -41,6 +43,19 @@ export const alertRef = {
   cardSilent: (cardId: string, lastCreditAt: Date): string =>
     `${cardId}_${Math.floor(lastCreditAt.getTime() / 1000)}`,
 } as const;
+
+// Prisma cuid2 ids never contain '_', so the first '_' of a composite refId ends the id.
+const COMPOSITE_REF = /^([A-Za-z0-9]{1,40})_([A-Za-z0-9_]{1,40})$/;
+
+/**
+ * The leading row id of a composite `refId` (`<cardId>_<epoch>`,
+ * `<userId>_<ledgerEntryId>`): the notify renderer reads the card or the user back from it.
+ * Null for anything that is not `<id>_<suffix>`.
+ */
+export function refIdSubject(refId: string): string | null {
+  const match = COMPOSITE_REF.exec(refId);
+  return match?.[1] ?? null;
+}
 
 /**
  * Stable per logical notification: `topup-<paymentId>` and `alert-<alert>-<refId>`. BullMQ

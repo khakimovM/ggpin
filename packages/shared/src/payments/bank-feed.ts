@@ -4,6 +4,7 @@
 // (heartbeat, review kinds, alerts) and the Prisma enums must stay in step with them (a DB
 // test compares both lists once the schema lands in phase 4, slice S2).
 import { z } from 'zod';
+import { TASHKENT_UTC_OFFSET_MINUTES } from '../tashkent-time';
 import { tgOutboxJobId } from '../tg-outbox';
 
 export const CARD_BANKS = ['HUMO', 'UZCARD'] as const;
@@ -79,10 +80,16 @@ export type PaymentReviewResolution = (typeof PAYMENT_REVIEW_RESOLUTIONS)[number
 
 /**
  * Owner-alert kinds. Each one is the tail of an i18n key `alerts.bankFeed.<kind>`; the
- * review kinds map onto their alert in `REVIEW_ALERT`, the rest are operational events.
+ * review kinds map onto their alert in `REVIEW_ALERT` (an UNRECOGNIZED review on a card with
+ * one of the notes in `NOTE_ALERT` raises that alert instead, see `reviewAlertOf`), the rest
+ * are operational events.
  */
 export const ALERT_KINDS = [
   'unrecognized',
+  'titleUnknown',
+  'integrityAnomaly',
+  'processingFailed',
+  'amountReallocated',
   'rejected',
   'edited',
   'cardUnknown',
@@ -105,12 +112,15 @@ export const ALERT_KINDS = [
   'cardNearLimit',
   'cardFull',
   'cardReservedHigh',
+  'lateOverLimit',
   'listenerDown',
   'sessionRevoked',
   'newAuthorization',
   'reconcileOk',
   'reconcileMismatch',
   'walletFrozen',
+  'limitCheckFailed',
+  'messageStuck',
 ] as const;
 export const BankFeedAlertKindSchema = z.enum(ALERT_KINDS);
 export type BankFeedAlertKind = z.infer<typeof BankFeedAlertKindSchema>;
@@ -134,6 +144,36 @@ export const REVIEW_ALERT: Readonly<Record<PaymentReviewKind, BankFeedAlertKind>
 });
 
 /**
+ * Reviews whose note says more than their kind: the owner sees the card (and, where it helps,
+ * the amount) and, for the ones that pause the card, that auto-credit stopped. The integrity
+ * anomalies (SENDER_MISMATCH, TEXT_HASH_MISMATCH) share one security alert that names the code.
+ */
+const NOTE_ALERT: Readonly<
+  Record<string, { readonly kind: PaymentReviewKind; readonly alert: BankFeedAlertKind }>
+> = Object.freeze({
+  TITLE_UNKNOWN: { kind: 'UNRECOGNIZED', alert: 'titleUnknown' },
+  SENDER_MISMATCH: { kind: 'UNRECOGNIZED', alert: 'integrityAnomaly' },
+  TEXT_HASH_MISMATCH: { kind: 'UNRECOGNIZED', alert: 'integrityAnomaly' },
+  PROCESSING_FAILED: { kind: 'UNRECOGNIZED', alert: 'processingFailed' },
+  AMOUNT_REALLOCATED: { kind: 'AMBIGUOUS', alert: 'amountReallocated' },
+});
+
+/**
+ * The alert of one review: by kind, except a review ON A CARD whose (kind, note) is listed in
+ * NOTE_ALERT (D-43 (1) TITLE_UNKNOWN, the integrity anomalies, a message that failed every
+ * attempt, an amount already given to another request). Those alerts name the card, so a
+ * card-less review keeps the generic one.
+ */
+export function reviewAlertOf(
+  kind: PaymentReviewKind,
+  note: string | null,
+  onCard: boolean,
+): BankFeedAlertKind {
+  const byNote = note === null ? undefined : NOTE_ALERT[note];
+  return onCard && byNote !== undefined && byNote.kind === kind ? byNote.alert : REVIEW_ALERT[kind];
+}
+
+/**
  * `{placeholders}` each alert text takes, in `alerts.bankFeed.<kind>`. Alerts carry ids and
  * reason codes only: never a full card number, balance, message text or phone
  * (rules/60-security.md). A test in packages/i18n holds both locales to these lists.
@@ -141,6 +181,14 @@ export const REVIEW_ALERT: Readonly<Record<PaymentReviewKind, BankFeedAlertKind>
 export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly string[]>> =
   Object.freeze({
     unrecognized: ['reviewId'],
+    // D-43 (1): an exact match without a known title, never credited automatically.
+    titleUnknown: ['reviewId', 'bank', 'last4', 'amount'],
+    // Both pause the card's auto-credit (docs/05 §6) and say so. integrityAnomaly is a security
+    // signal; reason = the note code (SENDER_MISMATCH may also be a misconfigured bot id).
+    integrityAnomaly: ['reviewId', 'bank', 'last4', 'reason'],
+    processingFailed: ['reviewId', 'bank', 'last4'],
+    // A late payment whose amount was meanwhile given to a newer request (docs/05 §6 step 7).
+    amountReallocated: ['reviewId', 'bank', 'last4', 'amount'],
     rejected: ['reviewId', 'reason'],
     edited: ['messageId'],
     cardUnknown: ['reviewId'],
@@ -168,12 +216,22 @@ export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly
     // Unpaid reservations hold over half of what the card may still receive (D-42 (1)): one per
     // card per hour. `percent` is a whole number (reserved share of the remaining limit).
     cardReservedHigh: ['bank', 'last4', 'percent'],
+    // D-42 residual risk: a payment that arrived after `expiresAt + TOPUP_CAPACITY_HOLD_SEC` (its
+    // share of the card had already been handed out again) left the card over its receive limit.
+    // One per payment (refId = Payment.id); `amount` is that payment's amount.
+    lateOverLimit: ['bank', 'last4', 'amount'],
     listenerDown: ['minutes'],
     sessionRevoked: [],
     newAuthorization: [],
     reconcileOk: ['count', 'debits'],
     reconcileMismatch: ['count', 'debits'],
     walletFrozen: ['userId'],
+    // The card-limit check of a received CREDIT failed every attempt (refId = BankMessage.id).
+    limitCheckFailed: ['messageId', 'bank', 'last4'],
+    // A message's last attempt failed and fail-closed did not complete (its review could not be
+    // written, or the post-commit effects failed): sent without any database write, ids only
+    // (refId = BankMessage.id).
+    messageStuck: ['messageId'],
   });
 
 // ---- Tunables shared by the worker (writer) and the API (reader) ----------------------------
@@ -195,7 +253,6 @@ export const BANK_FEED_DEFAULTS = {
   REVERSAL_WINDOW_SEC: 7 * 24 * 60 * 60,
 } as const;
 
-const TASHKENT_UTC_OFFSET_MIN = 5 * 60;
 const NIGHT_END_HOUR = 8;
 
 /**
@@ -211,7 +268,7 @@ export function daytimeMinutesBetween(from: Date, to: Date): number {
 // Daytime minutes from the local epoch up to `minute`, in closed form: whole local days count
 // (1440 - night) each, the partial day counts what is past the night. O(1), whatever the range.
 function daytimeMinutesBefore(minute: number): number {
-  const local = minute + TASHKENT_UTC_OFFSET_MIN;
+  const local = minute + TASHKENT_UTC_OFFSET_MINUTES;
   const nightMinutes = NIGHT_END_HOUR * 60;
   const days = Math.floor(local / 1440);
   const intoDay = local - days * 1440;

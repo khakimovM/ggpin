@@ -655,6 +655,9 @@ model BankMessage {
 
   @@unique([senderId, tgMessageId])
   @@index([cardId, tgMessageId])
+  // Card capacity (`cardTotals`, @repo/db): PARSED CREDIT sums per card since verifiedAt / month
+  // start, read by the API allocator and the worker after every credit (D-42, D-43).
+  @@index([cardId, tgDate])
   @@index([createdAt])
 }
 
