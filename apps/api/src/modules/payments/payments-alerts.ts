@@ -1,6 +1,12 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { QUEUES, notifyJobId, notifyJobSchema, type BankFeedAlertKind } from '@repo/shared';
+import {
+  QUEUES,
+  notifyJobId,
+  notifyJobSchema,
+  scrubSecretsInText,
+  type BankFeedAlertKind,
+} from '@repo/shared';
 import type { Queue } from 'bullmq';
 
 export const NOTIFY_JOB_NAME = 'notify';
@@ -24,7 +30,8 @@ export class PaymentsAlerts {
       await this.queue.add(NOTIFY_JOB_NAME, job, { jobId });
       return jobId;
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'unknown error';
+      // ioredis messages can quote the connection URL (password): scrubbed (I2).
+      const reason = error instanceof Error ? scrubSecretsInText(error.message) : 'unknown error';
       this.logger.error(`owner alert ${alert} for ${refId} not queued: ${reason}`);
       return null;
     }

@@ -59,7 +59,15 @@ describe('card service input', () => {
     expect(checkedActor({ operator: 'owner', ip: '203.0.113.7' })).toEqual({
       operator: 'owner',
       ip: '203.0.113.7',
+      osUser: null,
     });
+    // The OS account (S8-L5): a login, optionally "(sudo from x)"; nothing invisible.
+    expect(checkedActor({ operator: 'owner', osUser: 'root (sudo from aziz)' }).osUser).toBe(
+      'root (sudo from aziz)',
+    );
+    for (const bad of ['', ' root', 'a‮b', 'a\nb', 'x'.repeat(129)]) {
+      expect(fieldOf(() => checkedActor({ operator: 'owner', osUser: bad }))).toBe('osUser');
+    }
     expect(fieldOf(() => checkedActor({ operator: ' owner' }))).toBe('operator');
     expect(fieldOf(() => checkedActor({ operator: 'owner', ip: 'not-an-ip' }))).toBe('ip');
     expect(checkedBank('UZCARD')).toBe('UZCARD');

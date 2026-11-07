@@ -5,6 +5,7 @@ import {
   checkedId,
   checkedIp,
   checkedOperator,
+  checkedOsUser,
   checkedReason,
   INVISIBLE,
   MAX_BIGINT_TIYIN,
@@ -22,16 +23,33 @@ export function cardInputError(field: string, reason?: string): AppError {
   return validationError(field, reason);
 }
 
-/** Who ran the CLI command: an operator name and, when known, the SSH client address. */
+/** Who ran the CLI command: an operator name and, when known, the SSH client and OS account. */
 export interface CardAdminActor {
   readonly operator: string;
   readonly ip?: string | null;
+  /** The OS login (and the sudo caller), AuditLog.after.osUser (S8-L5). */
+  readonly osUser?: string | null;
+}
+
+export interface CheckedActor {
+  readonly operator: string;
+  readonly ip: string | null;
+  readonly osUser: string | null;
 }
 
 const HOLDER_MAX = 64;
 
-export function checkedActor(actor: CardAdminActor): { operator: string; ip: string | null } {
-  return { operator: checkedOperator(actor.operator), ip: checkedIp(actor.ip) };
+export function checkedActor(actor: CardAdminActor): CheckedActor {
+  return {
+    operator: checkedOperator(actor.operator),
+    ip: checkedIp(actor.ip),
+    osUser: checkedOsUser(actor.osUser),
+  };
+}
+
+/** The "who" fields every CLI AuditLog.after carries. */
+export function actorAfter(actor: CheckedActor): { operator: string; osUser: string | null } {
+  return { operator: actor.operator, osUser: actor.osUser };
 }
 
 export function checkedCardId(id: string): string {

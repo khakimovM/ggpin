@@ -6,6 +6,7 @@ import { AppError } from '../../common/exceptions/app-error';
 import type { Db } from '../../infra/prisma/db';
 import {
   cardInputError,
+  actorAfter,
   checkedActor,
   checkedBank,
   checkedCardId,
@@ -17,6 +18,14 @@ import {
   type CardAdminActor,
 } from './card-admin.input';
 import { CardAdminRepository } from './card-admin.repository';
+import type {
+  AddCardInput,
+  AddedCard,
+  AuditExtra,
+  CardAudit,
+  CardChange,
+  Committed,
+} from './card-admin.types';
 import { CARD_FULL_PERCENT, receivedUsagePercent, tashkentMonthStart } from './card-capacity';
 import { CardPoolRepository } from './card-pool.repository';
 import { assertCardTransition } from './card-state';
@@ -29,39 +38,13 @@ export const LAST4_REUSE_COOLDOWN_DAYS = 30;
 const LIVE_LAST4_INDEX = 'TopupCard_bank_last4_active_key';
 const DAY_MS = 86_400_000;
 
-export interface AddCardInput {
-  readonly bank: string;
-  readonly pan: string;
-  readonly holderName: string;
-  /** Required (D-37 (6)): what the card may receive over its whole life, tiyin. */
-  readonly limitTiyin: bigint;
-  readonly monthlyLimitTiyin?: bigint;
-  readonly reason: string;
-  readonly actor: CardAdminActor;
-}
-
-export interface CardChange {
-  /** False when the card was already in the requested state: nothing written, no audit. */
-  readonly applied: boolean;
-  readonly cardId: string;
-  readonly status: TopupCardStatus;
-  readonly auditId: string | null;
-  /** Every owner alert of an applied change is queued (false if not applied or Redis failed). */
-  readonly alertQueued: boolean;
-}
-
-type Committed<T extends CardChange> = Omit<T, 'alertQueued'>;
-
-export interface AddedCard extends CardChange {
-  /** The owner sends exactly this to the card; its bank message moves the card to ACTIVE. */
-  readonly verifyAmountTiyin: bigint;
-}
-
-interface Audit {
-  readonly action: string;
-  readonly reason: string;
-  readonly actor: { operator: string; ip: string | null };
-}
+export type {
+  AddCardInput,
+  AddedCard,
+  AuditExtra,
+  CardAudit,
+  CardChange,
+} from './card-admin.types';
 
 const json = (card: TopupCard) => ({
   status: card.status,
@@ -214,21 +197,28 @@ export class CardAdminService {
     });
   }
 
-  pauseAutoCredit(cardId: string, reason: string, actor: CardAdminActor): Promise<CardChange> {
-    return this.setPaused(cardId, true, this.audit('CARD_PAUSE', reason, actor));
-  }
-
-  resumeAutoCredit(cardId: string, reason: string, actor: CardAdminActor): Promise<CardChange> {
-    return this.setPaused(cardId, false, this.audit('CARD_RESUME', reason, actor));
-  }
-
-  private setPaused(cardId: string, paused: boolean, audit: Audit): Promise<CardChange> {
+  /**
+   * Auto-credit off or on (the CLI goes through CardPauseService, which checks the open pause
+   * reviews before a resume). `check` runs under the card lock before anything is written.
+   */
+  setPaused(
+    cardId: string,
+    paused: boolean,
+    audit: CardAudit,
+    check: (tx: Db) => Promise<AuditExtra> = () => Promise.resolve({}),
+  ): Promise<CardChange> {
     return this.change(cardId, async (tx, card) => {
       // A retired card takes no money and never comes back: pausing it is a mistake, not a no-op.
       if (card.status === 'RETIRED') throw cardInputError('status', 'RETIRED');
-      if (card.autoCreditPaused === paused) return null;
+      if (card.autoCreditPaused === paused) {
+        if (!paused) return null;
+        // The worker may have paused it already: the owner's own card:pause is still written,
+        // so a later review:accept-chain keeps the card paused for it (S8 R1).
+        return { card, audit, extra: { ...(await check(tx)), alreadyPaused: true } };
+      }
+      const extra = await check(tx);
       const updated = await this.repo.updateCard(tx, card.id, { autoCreditPaused: paused });
-      return { card: updated, audit, extra: {} };
+      return { card: updated, audit, extra };
     });
   }
 
@@ -239,7 +229,7 @@ export class CardAdminService {
     mutate: (
       tx: Db,
       card: TopupCard,
-    ) => Promise<{ card: TopupCard; audit: Audit; extra: Record<string, number> } | null>,
+    ) => Promise<{ card: TopupCard; audit: CardAudit; extra: AuditExtra } | null>,
   ): Promise<CardChange> {
     const cardId = checkedCardId(rawCardId);
     const result = await this.pool.transaction(async (tx): Promise<Committed<CardChange>> => {
@@ -259,14 +249,14 @@ export class CardAdminService {
     return { ...result, alertQueued: await this.afterCommit(result) };
   }
 
-  private audit(action: string, reason: string, actor: CardAdminActor): Audit {
+  audit(action: string, reason: string, actor: CardAdminActor): CardAudit {
     return { action, reason: checkedReason(reason), actor: checkedActor(actor) };
   }
 
   private writeAudit(
     tx: Db,
     cardId: string,
-    audit: Audit,
+    audit: CardAudit,
     before: ReturnType<typeof json> | null,
     after: Record<string, string | number | boolean | null>,
   ): Promise<string> {
@@ -275,7 +265,7 @@ export class CardAdminService {
       action: audit.action,
       targetId: cardId,
       before,
-      after: { ...after, operator: audit.actor.operator },
+      after: { ...after, ...actorAfter(audit.actor) },
       reason: audit.reason,
     });
   }

@@ -2,7 +2,10 @@ import { randomBytes } from 'node:crypto';
 import type { TopupCard } from '@repo/db';
 import { TopupIntentCreatedSchema, notifyJobId } from '@repo/shared';
 import { AppError } from '../../../common/exceptions/app-error';
+import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { CardAdminService, type AddCardInput } from '../card-admin.service';
+import { CardPauseRepository } from '../card-pause.repository';
+import { CardPauseService } from '../card-pause.service';
 import { PaymentsAlerts } from '../payments-alerts';
 import { TEST_HOLDER, syntheticPan } from './payments.fixtures';
 import { tokenOf, usePaymentsE2e } from './payments-e2e.helpers';
@@ -10,6 +13,9 @@ import { tokenOf, usePaymentsE2e } from './payments-e2e.helpers';
 const e2e = usePaymentsE2e();
 const ACTOR = { operator: 'owner-cli', ip: '203.0.113.5' };
 const admin = () => e2e.app().get(CardAdminService);
+// card:pause / card:resume live in the owner CLI's graph only; built here on the same services.
+const pauses = () =>
+  new CardPauseService(admin(), new CardPauseRepository(), e2e.app().get(PrismaService));
 
 async function refusal(promise: Promise<unknown>): Promise<Record<string, unknown> | undefined> {
   const error: unknown = await promise.then(
@@ -159,11 +165,11 @@ describe('retireCard', () => {
     // Pause/resume of a RETIRED card is refused too, and writes no AuditLog (m9).
     const audits = () => e2e.db().auditLog.count({ where: { targetId: card.id } });
     const before = await audits();
-    expect(await refusal(admin().pauseAutoCredit(card.id, 'pause it', ACTOR))).toEqual({
+    expect(await refusal(pauses().pauseAutoCredit(card.id, 'pause it', ACTOR))).toEqual({
       field: 'status',
       reason: 'RETIRED',
     });
-    expect(await refusal(admin().resumeAutoCredit(card.id, 'resume it', ACTOR))).toEqual({
+    expect(await refusal(pauses().resumeAutoCredit(card.id, 'resume it', ACTOR))).toEqual({
       field: 'status',
       reason: 'RETIRED',
     });
@@ -244,14 +250,21 @@ describe('setLimit and pause/resume', () => {
     expect(await limit({ limitTiyin: 10_000_000_000n, monthlyLimitTiyin: null })).toBe('ACTIVE');
   });
 
-  it('a paused card gets no requests; resumed, it does; repeating either is a no-op', async () => {
+  it('a paused card gets no requests; resumed, it does; a second pause is recorded, a second resume is a no-op', async () => {
     const card = await e2e.card();
-    const pause = await admin().pauseAutoCredit(card.id, 'new device login', ACTOR);
+    const pause = await pauses().pauseAutoCredit(card.id, 'new device login', ACTOR);
     track('adminAction', pause.auditId);
-    expect((await admin().pauseAutoCredit(card.id, 'again', ACTOR)).applied).toBe(false);
+    // The owner's decision is written even when the card is already paused (S8 R1).
+    const again = await pauses().pauseAutoCredit(card.id, 'again', ACTOR);
+    track('adminAction', again.auditId);
+    expect(again.applied).toBe(true);
+    expect(again.auditId).not.toBe(pause.auditId);
+    const row = await e2e.db().auditLog.findUniqueOrThrow({ where: { id: again.auditId ?? '' } });
+    expect(row).toMatchObject({ action: 'CARD_PAUSE', after: { alreadyPaused: true } });
     expect((await e2e.create(await e2e.newUser())).status).toBe(503);
-    const resume = await admin().resumeAutoCredit(card.id, 'checked', ACTOR);
+    const resume = await pauses().resumeAutoCredit(card.id, 'checked', ACTOR);
     track('adminAction', resume.auditId);
+    expect((await pauses().resumeAutoCredit(card.id, 'again', ACTOR)).applied).toBe(false);
     expect((await e2e.create(await e2e.newUser())).status).toBe(201);
   });
 
@@ -259,7 +272,7 @@ describe('setLimit and pause/resume', () => {
     const card = await e2e.card();
     const raise = jest.spyOn(e2e.app().get(PaymentsAlerts), 'raise').mockResolvedValueOnce(null);
     try {
-      const pause = await admin().pauseAutoCredit(card.id, 'new device login', ACTOR);
+      const pause = await pauses().pauseAutoCredit(card.id, 'new device login', ACTOR);
       expect(pause).toMatchObject({ applied: true, alertQueued: false });
       const row = await e2e.db().topupCard.findUniqueOrThrow({ where: { id: card.id } });
       expect(row.autoCreditPaused).toBe(true);
