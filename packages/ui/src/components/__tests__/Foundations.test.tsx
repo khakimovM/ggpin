@@ -177,6 +177,13 @@ describe('Card and Avatar', () => {
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
   });
 
+  it('draws the 44 px of the Mini App profile line, with its 15 px initials', () => {
+    render(<Avatar name="Sardor" size={44} />);
+    const avatar = screen.getByRole('img', { name: 'Sardor' });
+    expect(avatar).toHaveStyle({ width: '44px', height: '44px' });
+    expect(avatar.firstElementChild?.className).toContain('text-[15px]');
+  });
+
   it('falls back to initials when there is no photo', () => {
     render(<Avatar name="Sardor Rahimov" size={40} />);
     expect(screen.getByLabelText('Sardor Rahimov')).toHaveTextContent('SR');

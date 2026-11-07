@@ -9,7 +9,7 @@ export interface AvatarProps {
   name?: string;
   /** Telegram photo_url or an uploaded picture. */
   src?: string;
-  size?: 24 | 32 | 40 | 48 | 56;
+  size?: 24 | 32 | 40 | 44 | 48 | 56;
   /** Small marker in the bottom-right corner (the accent "g" of the design). */
   badge?: ReactNode;
   className?: string;
@@ -19,6 +19,8 @@ const TEXT_SIZE: Record<number, string> = {
   24: 'text-[9px]',
   32: 'text-xs',
   40: 'text-sm',
+  // The Mini App home's profile line (MiniApp.dc.html): 44 px with 15 px initials.
+  44: 'text-[15px]',
   48: 'text-base',
   56: 'text-xl',
 };

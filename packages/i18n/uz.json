@@ -23,6 +23,68 @@
       "stars": "{amount} Stars"
     }
   },
+  "store": {
+    "catalog": {
+      "title": "Katalog",
+      "results": "Natijalar",
+      "count": "{count, plural, one {# ta mahsulot} other {# ta mahsulot}}",
+      "fromPrice": "{price} <muted>dan</muted>",
+      "soldOut": "Tugagan",
+      "badge": {
+        "popular": "Mashhur",
+        "auto": "Avto",
+        "code": "Promokod"
+      },
+      "categories": {
+        "label": "Kategoriyalar",
+        "all": "Hammasi",
+        "withCount": "{name} · {count}",
+        "error": "Kategoriyalarni yuklab bo‘lmadi"
+      },
+      "search": {
+        "label": "Mahsulot qidirish",
+        "placeholder": "Mahsulot qidirish…",
+        "clear": "Tozalash"
+      },
+      "loading": "Mahsulotlar yuklanmoqda…",
+      "error": {
+        "title": "Mahsulotlarni yuklab bo‘lmadi",
+        "body": "Balansingiz va buyurtmalaringiz xavfsiz."
+      },
+      "empty": {
+        "title": "Katalog hozircha bo‘sh",
+        "body": "Mahsulotlar tez orada qo‘shiladi."
+      },
+      "emptyCategory": {
+        "title": "Bu kategoriyada mahsulot yo‘q",
+        "cta": "Barcha mahsulotlar"
+      },
+      "noResults": {
+        "title": "Hech narsa topilmadi",
+        "body": "“{query}” bo‘yicha mahsulot yo‘q. Boshqacha yozib ko‘ring.",
+        "cta": "Qidiruvni tozalash"
+      },
+      "offline": {
+        "title": "Internet aloqasi yo‘q",
+        "body": "Narxlar va balans eskirgan bo‘lishi mumkin"
+      }
+    }
+  },
+  "wallet": {
+    "card": {
+      "label": "Hamyon",
+      "balance": "Balans",
+      "topUp": "Hisobni to‘ldirish",
+      "bonus": "Bonus kod",
+      "help": "Yordam",
+      "soon": "Tez orada",
+      "coins": "Keshbek: {count, plural, one {# tanga} other {# tanga}}",
+      "loading": "Balans yuklanmoqda…",
+      "error": {
+        "title": "Balansni yuklab bo‘lmadi"
+      }
+    }
+  },
   "web": {
     "login": {
       "back": "Bosh sahifaga",
@@ -94,13 +156,19 @@
       "empty": "Faol sessiyalar yo‘q",
       "revokeError": "Sessiyani yakunlab bo‘lmadi. Qayta urinib ko‘ring."
     },
-    "store": {
-      "welcome": "Xush kelibsiz, {name}!",
-      "welcomeAnon": "Xush kelibsiz!",
-      "profile": "Profil"
-    },
     "profile": {
       "title": "Profil"
+    },
+    "nav": {
+      "main": "Asosiy",
+      "catalog": "Katalog",
+      "profile": "Profil",
+      "menu": "Hisob menyusi",
+      "theme": "Mavzuni almashtirish",
+      "language": "Til",
+      "topUp": "Hisobni to‘ldirish (tez orada)",
+      "langUz": "O‘zbekcha",
+      "langRu": "Русский"
     }
   },
   "tg": {
@@ -131,10 +199,6 @@
       "error": {
         "title": "Xatolik yuz berdi"
       }
-    },
-    "home": {
-      "welcome": "Xush kelibsiz, {name}!",
-      "welcomeAnon": "Xush kelibsiz!"
     }
   },
   "admin": {
