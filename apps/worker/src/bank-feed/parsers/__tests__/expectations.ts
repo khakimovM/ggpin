@@ -15,6 +15,7 @@ const humo = (
   bankTxnAt: SYN.instant,
   channel: SYN.humoChannel,
   titleHint: direction,
+  titleKnown: true,
   ...overrides,
 });
 
@@ -31,6 +32,7 @@ const uzcard = (
   bankTxnAt: SYN.instant,
   channel: SYN.uzcardChannel,
   titleHint: direction,
+  titleKnown: true,
   ...overrides,
 });
 
@@ -51,7 +53,7 @@ export const FIXTURE_EXPECTATIONS: ReadonlyArray<
   ['edge.humo.fe0f.txt', 'HUMO_BOT', humo('CREDIT')],
   ['edge.humo.alt-markers.txt', 'HUMO_BOT', humo('DEBIT')],
   ['edge.humo.nbsp.txt', 'HUMO_BOT', humo('CREDIT')],
-  ['edge.humo.no-title.txt', 'HUMO_BOT', humo('CREDIT', { titleHint: null })],
+  ['edge.humo.no-title.txt', 'HUMO_BOT', humo('CREDIT', { titleHint: null, titleKnown: false })],
   ['edge.uzcard.alt-markers.txt', 'UZCARD_BOT', uzcard('CREDIT', '1111')],
   ['edge.uzcard.thin-space.txt', 'UZCARD_BOT', uzcard('CREDIT', '1111')],
   ['edge.uzcard.crlf-blank-lines.txt', 'UZCARD_BOT', uzcard('CREDIT', '1111')],

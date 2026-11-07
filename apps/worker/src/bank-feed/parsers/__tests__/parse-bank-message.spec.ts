@@ -43,6 +43,7 @@ describe('parseBankMessage', () => {
       bankTxnAt: SYN.instant,
       channel: SYN.uzcardChannel,
       titleHint: 'CREDIT',
+      titleKnown: true,
     });
   });
 

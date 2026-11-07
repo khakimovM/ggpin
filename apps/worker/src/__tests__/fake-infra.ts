@@ -3,6 +3,8 @@ import { getQueueToken } from '@nestjs/bullmq';
 import type { TestingModuleBuilder } from '@nestjs/testing';
 import { QUEUE_NAMES } from '@repo/shared';
 import { RedisService } from '../infra/redis/redis.service';
+import { BankMessageProcessor } from '../bank-feed/bank-message.processor';
+import { CardLimitProcessor } from '../bank-feed/card-limit.processor';
 import { PriceSyncProcessor } from '../pricing-sync/price-sync.processor';
 
 export interface FakeRedisClient {
@@ -41,5 +43,11 @@ export function withFakeInfra(
     queues.set(name, queue);
     result = result.overrideProvider(getQueueToken(name)).useValue(queue);
   }
-  return result.overrideProvider(PriceSyncProcessor).useValue({});
+  return result
+    .overrideProvider(PriceSyncProcessor)
+    .useValue({})
+    .overrideProvider(BankMessageProcessor)
+    .useValue({})
+    .overrideProvider(CardLimitProcessor)
+    .useValue({});
 }

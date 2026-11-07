@@ -1,6 +1,8 @@
-import { TG_USER_CHAT_ID_PATTERN, testModeOutsideJestProblem } from '@repo/shared';
+import { testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
+import { workerBankFeedProblems, workerBankFeedShape } from './bank-feed-env';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
+import { workerTopupProblems, workerTopupShape } from './topup-env';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
@@ -25,13 +27,6 @@ const EnvSchema = z.object({
     .string()
     .regex(/^[A-Za-z0-9_]{5,32}$/, 'must be a Telegram bot username without "@"')
     .optional(),
-  OWNER_ALERT_CHAT_ID: z
-    .string()
-    .regex(
-      TG_USER_CHAT_ID_PATTERN,
-      'must be the numeric id of a user chat (positive digits; group ids are not supported)',
-    )
-    .optional(),
 
   // Real money moves only when this is false. Defaults to true outside production (see
   // loadEnv); in production it must be set explicitly.
@@ -53,6 +48,11 @@ const EnvSchema = z.object({
   FRAGMENT_SESSION_ENC_KEY: z.string().optional(),
   RESELLER_STARS_API_URL: z.url({ protocol: /^https?$/ }).optional(),
   RESELLER_STARS_API_KEY: z.string().optional(),
+
+  // Phase 4 (P2P top-ups): matcher knobs, equal to the API's (topup-env.ts).
+  ...workerTopupShape,
+  // Phase 4: pinned bank-bot ids and the matcher's lock wait (bank-feed-env.ts).
+  ...workerBankFeedShape,
 });
 
 export type Env = Readonly<z.infer<typeof EnvSchema>>;
@@ -101,6 +101,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   // worker-secret check): refused in every environment, not only production.
   problems.push(...apiSecretProblems(clean));
   if (production) problems.push(...productionSecretProblems(clean));
+  if (parsed.success) {
+    problems.push(...workerTopupProblems(parsed.data));
+    problems.push(...workerBankFeedProblems(parsed.data, production));
+  }
 
   if (!parsed.success || problems.length > 0) throw new EnvValidationError(problems);
   return Object.freeze(parsed.data);

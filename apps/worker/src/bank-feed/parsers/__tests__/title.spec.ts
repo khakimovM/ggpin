@@ -36,12 +36,9 @@ describe('title against direction', () => {
   describe.each([
     ['colon', 'HUMO_BOT', "To'lov:", 'DEBIT'],
     ['exclamation mark', 'HUMO_BOT', "To'lov!", 'DEBIT'],
-    ['comma', 'HUMO_BOT', "To'lov, TEST", 'DEBIT'],
     ['full stop', 'HUMO_BOT', "To'lov.", 'DEBIT'],
     ['double quotes', 'HUMO_BOT', '"To\'lov"', 'DEBIT'],
     ['guillemets', 'HUMO_BOT', "\u{AB}To'ldirish\u{BB}", 'CREDIT'],
-    ['ideographic space (U+3000)', 'HUMO_BOT', "To'lov\u{3000}TEST", 'DEBIT'],
-    ['zero-width space after (U+200B)', 'HUMO_BOT', "To'lov\u{200B}TEST", 'DEBIT'],
     ['zero-width space before (U+200B)', 'HUMO_BOT', "\u{200B}To'lov", 'DEBIT'],
     ['zero-width joiner inside (U+200D)', 'HUMO_BOT', "To\u{200D}'lov", 'DEBIT'],
     ['modifier prime U+02B9', 'HUMO_BOT', 'To\u{2B9}lov', 'DEBIT'],
@@ -68,22 +65,67 @@ describe('title against direction', () => {
       expect(parseBankMessage(source, text)).toEqual(conflict);
     });
 
-    it('accepted with its own sign, with the hint', () => {
+    it('accepted with its own sign, with the hint, as a KNOWN title', () => {
       const text = message(source, `${BELL} ${title}`, SIGN[direction]);
       expect(parseBankMessage(source, text)).toEqual(
-        expect.objectContaining({ ok: true, direction, titleHint: direction }),
+        expect.objectContaining({ ok: true, direction, titleHint: direction, titleKnown: true }),
       );
     });
+  });
+
+  // N1 / D-43 (1): a known title followed by more words still REFUSES the opposite sign (prefix
+  // rule), but it is not the known title, so it is never credited automatically.
+  describe.each([
+    ['comma', 'HUMO_BOT', "To'lov, TEST", 'DEBIT'],
+    ['ideographic space (U+3000)', 'HUMO_BOT', "To'lov\u{3000}TEST", 'DEBIT'],
+    ['zero-width space after (U+200B)', 'HUMO_BOT', "To'lov\u{200B}TEST", 'DEBIT'],
+    ['a word after the credit title', 'HUMO_BOT', "To'ldirish TEST", 'CREDIT'],
+    ['Russian credit title with a word after', 'HUMO_BOT', 'Пополнение наличными', 'CREDIT'],
+    ['a status in brackets', 'HUMO_BOT', "To'ldirish (bekor qilindi)", 'CREDIT'],
+    ['a suffix after a dash', 'UZCARD_BOT', 'Perevod na kartu - otmena', 'CREDIT'],
+    ['a second credit word', 'UZCARD_BOT', "Kartaga o'tkazma qaytarildi", 'CREDIT'],
+  ] as const)('%s', (_, source, title, direction) => {
+    it('refused against the opposite sign', () => {
+      const text = message(source, `${BELL} ${title}`, SIGN[OPPOSITE[direction]]);
+      expect(parseBankMessage(source, text)).toEqual(conflict);
+    });
+
+    it('with its own sign: the hint, but NOT a known title (TITLE_UNKNOWN later)', () => {
+      const text = message(source, `${BELL} ${title}`, SIGN[direction]);
+      expect(parseBankMessage(source, text)).toEqual(
+        expect.objectContaining({ ok: true, direction, titleHint: direction, titleKnown: false }),
+      );
+    });
+  });
+
+  it.each([
+    ['full stop', 'HUMO_BOT', "To'ldirish."],
+    ['emoji after', 'HUMO_BOT', "To'ldirish ✅"],
+    ['colour dot before, full stop after', 'UZCARD_BOT', '🟢 Perevod na kartu.'],
+    ['several marks after', 'UZCARD_BOT', "Kartaga o'tkazma!!"],
+  ] as const)('the exact title with %s is known', (_, source, title) => {
+    expect(parseBankMessage(source, message(source, title, PLUS))).toEqual(
+      expect.objectContaining({ ok: true, titleHint: 'CREDIT', titleKnown: true }),
+    );
   });
 
   it.each([
     ['unknown title', `${BELL} TEST`],
     ['a longer word is not the known title', `${BELL} To'lovlar`],
     ['a digit continues the word', `${BELL} To'lov2`],
-  ])('%s: accepted without a hint', (_, title) => {
+  ])('%s: accepted without a hint, not a known title', (_, title) => {
     expect(parseBankMessage('HUMO_BOT', message('HUMO_BOT', title, PLUS))).toEqual(
-      expect.objectContaining({ ok: true, titleHint: null }),
+      expect.objectContaining({ ok: true, titleHint: null, titleKnown: false }),
     );
+  });
+
+  it('a colour dot gives a direction hint but is not a known title (D-43 (1))', () => {
+    expect(parseBankMessage('UZCARD_BOT', message('UZCARD_BOT', '🟢 TEST', PLUS))).toEqual(
+      expect.objectContaining({ ok: true, titleHint: 'CREDIT', titleKnown: false }),
+    );
+    expect(
+      parseBankMessage('UZCARD_BOT', message('UZCARD_BOT', '🟢 Perevod na kartu', PLUS)),
+    ).toEqual(expect.objectContaining({ ok: true, titleHint: 'CREDIT', titleKnown: true }));
   });
 
   it('the title list belongs to the bot: a Humo title means nothing to Uzcard and back', () => {

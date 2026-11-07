@@ -1,8 +1,8 @@
-/**
- * Asia/Tashkent is UTC+5 all year (no DST since 1992). Assumption recorded in docs/05-PAYMENTS.md
- * §5 rule 5: the bots print local time; confirmed against a real message in phase 4, slice S11.
- */
-export const TASHKENT_UTC_OFFSET_MINUTES = 5 * 60;
+import { TASHKENT_UTC_OFFSET_MINUTES } from '@repo/shared';
+
+// The bots print local time, Asia/Tashkent = UTC+5 (docs/05-PAYMENTS.md §5 rule 5; confirmed
+// against a real message in phase 4, slice S11). The constant lives in @repo/shared.
+export { TASHKENT_UTC_OFFSET_MINUTES };
 
 // "HH:MM DD.MM.YYYY" (Humo) and "DD.MM.YY HH:MM" (Uzcard); either bot may use either.
 const TIME_FIRST = /^(\d{2}):(\d{2}) (\d{2})\.(\d{2})\.(\d{4})$/;

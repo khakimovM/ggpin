@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
+import { BankFeedModule } from './bank-feed/bank-feed.module';
 import { WorkerConfigModule, type WorkerConfig } from './config/config.module';
 import { HeartbeatModule } from './heartbeat/heartbeat.module';
 import { buildLoggerParams } from './logging/logger-params';
@@ -15,7 +16,7 @@ export interface WorkerModuleOptions {
 }
 
 // Queue processors are added by their phases (docs/02-ARCHITECTURE.md#worker-modullari):
-// price-sync in phase 3; validate-recipient, fulfill-order and fragment-keepalive in phase 5.
+// price-sync in phase 3; bank-message in phase 4; validate-recipient, fulfill-order and fragment-keepalive in phase 5.
 // Every queue is registered already. BullWorkersShutdown (QueueModule) drains all processors
 // before Prisma and Redis disconnect, whichever module they live in.
 @Module({})
@@ -32,6 +33,7 @@ export class WorkerModule {
         QueueModule,
         HeartbeatModule,
         PricingSyncModule,
+        BankFeedModule,
       ],
     };
   }

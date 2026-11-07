@@ -8,7 +8,7 @@ import {
   type ParseFailureReason,
   type ParsedBankMessage,
 } from './parse-result';
-import { titleHints, type KnownTitle } from './title';
+import { exactTitleDirections, titleHints, type KnownTitle } from './title';
 
 /** What differs between the bots: the card line shape and the titles whose meaning we know. */
 export interface BankProfile {
@@ -110,6 +110,7 @@ export function parseWithProfile(text: string, profile: BankProfile): BankParseR
     bankTxnAt: bankTxnAt.at,
     channel,
     titleHint: hints.length > 0 ? direction : null,
+    titleKnown: hasTitle && exactTitleDirections(first, profile.titles).length > 0,
   };
   return parsed;
 }

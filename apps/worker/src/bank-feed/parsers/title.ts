@@ -1,7 +1,11 @@
 import type { BankDirection } from '@repo/shared';
 import { titleColor } from './markers';
 
-/** A first-line title whose meaning is known. Only ever used to REFUSE a message, never to accept one. */
+/**
+ * A first-line title whose meaning is known. Two uses with two rules: a line that merely STARTS
+ * with it (prefix, `titleHints`) can only REFUSE a message (DIRECTION_CONFLICT); a line counts as
+ * a KNOWN title for auto-credit only when it IS the title (`exactTitleDirections`, D-43 (1)).
+ */
 export interface KnownTitle {
   readonly text: string;
   readonly direction: BankDirection;
@@ -22,6 +26,8 @@ const DASHES = /[\u{2010}-\u{2015}\u{2212}]/gu;
 // The title's leading emoji, quotes, punctuation and spaces.
 const LEADING_NON_LETTERS = /^[^\p{L}]+/u;
 const WORD_CHARACTER = /^[\p{L}\p{N}]/u;
+// What may follow an exact title: punctuation, emoji, spaces (nothing with a letter or digit).
+const TRAILING_NON_WORD = /[^\p{L}\p{N}]+$/u;
 
 function canonical(text: string): string {
   return text
@@ -35,21 +41,38 @@ function canonical(text: string): string {
 }
 
 /**
+ * Directions of the known titles the line IS, the only rule that makes a title "known" for
+ * auto-credit (D-43 (1)): an exact match of the canonical text, a prefix is not enough. Allowed
+ * around it: a leading colour dot / emoji / quotes (dropped by `canonical`) and trailing
+ * punctuation or emoji. "To'ldirish TEST", "Пополнение наличными" or "... (bekor qilindi)" are
+ * NOT known: if the bank changes its wording, the message goes to review instead of being
+ * credited silently.
+ */
+export function exactTitleDirections(line: string, titles: readonly KnownTitle[]): BankDirection[] {
+  const text = canonical(line).replace(TRAILING_NON_WORD, '');
+  return titles
+    .filter((title) => canonical(title.text).replace(TRAILING_NON_WORD, '') === text)
+    .map((title) => title.direction);
+}
+
+/** Directions of the known title texts the line starts with (prefix rule, refusal only). */
+function prefixTitleDirections(line: string, titles: readonly KnownTitle[]): BankDirection[] {
+  const text = canonical(line);
+  return titles
+    .filter((title) => {
+      const key = canonical(title.text);
+      return text.startsWith(key) && !WORD_CHARACTER.test(text.slice(key.length));
+    })
+    .map((title) => title.direction);
+}
+
+/**
  * Every direction the title line implies: its colour dot and any known title it starts with.
  * The key must end at a word boundary (`^key(?![\p{L}\p{N}])`): "To'lov:", "To'lov!" or
  * "To'lov TEST" match, "To'lovlar" does not. An unknown title implies nothing. A match can only
  * refuse a message, so matching generously is the safe direction.
  */
 export function titleHints(line: string, titles: readonly KnownTitle[]): BankDirection[] {
-  const hints: BankDirection[] = [];
   const color = titleColor(line);
-  if (color !== null) hints.push(color);
-  const text = canonical(line);
-  for (const title of titles) {
-    const key = canonical(title.text);
-    if (text.startsWith(key) && !WORD_CHARACTER.test(text.slice(key.length))) {
-      hints.push(title.direction);
-    }
-  }
-  return hints;
+  return [...(color === null ? [] : [color]), ...prefixTitleDirections(line, titles)];
 }
