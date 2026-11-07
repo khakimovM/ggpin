@@ -281,6 +281,49 @@ pul yoki karta amali haqida egaga alert** (`adminAction`: amal va `AuditLog` hav
 
 `review:credit --intent` faqat xabar kartasi va summasi so‘rovniki bilan **aynan** mos bo‘lsa ishlaydi (DB `Payment` triggeri boshqasini rad etadi); mos kelmasa — `--user` (so‘rovsiz, `reviewId` bilan). `UNRECOGNIZED` va `REJECTED` xabar `review:credit` bilan pulga aylanmaydi (DB faqat `PARSED` kirim xabarini qabul qiladi): bunday pulni ega faqat `wallet:adjust` orqali, sabab va `AuditLog` bilan yozadi.
 
+**CLI (S8).** `apps/api/src/cli/ops-cli.ts` (`NestFactory.createApplicationContext`, HTTP yo‘q; API env’i, o‘zining modul grafi `OpsCliModule`, bot va
+navbat iste’molchilarisiz). Serverda `apps/api` ichida `node --env-file-if-exists=.env dist/cli/ops-cli.js <buyruq> ...`, yoki repo ildizidan
+`npm --logs-max=0 -w apps/api run -s ops -- <buyruq> ...` (`--logs-max=0` shart: npm debug log’i argv’ni saqlaydi). Yordam matni inglizcha (ichki vosita),
+`help <buyruq>`. Har o‘zgartiruvchi buyruqda `--reason` va `--operator` majburiy (`AuditLog.actorType = CLI`, `actorId = null`, `after.operator`).
+`AuditLog.ip` — SSH mijoz manzili (`SSH_CONNECTION`, bo‘lmasa `SSH_CLIENT`); `--ip` faqat SSH’siz konsolda olinadi, SSH manzilidan farq qilsa buyruq rad
+etiladi. `after.osUser` — OS akkaunti (`os.userInfo().username`, sudo bo‘lsa `<login> (sudo from <SUDO_USER>)`). Summalar so‘mda (`50000`, `1250.50`;
+manfiy — `--amount=-500`). `card:add` da karta raqami va egasi ismi buyruq qatorida **berilmaydi**: bank va limitlar tekshirilgach ikkalasi ekranda
+ko‘rinmasdan so‘raladi (shell tarixi va npm log’iga tushmaydi); chiqishda va AuditLog’da faqat bank va last4. Qo‘shimcha: `review:list --card <id>` (`--limit` 1–100
+butun son), `user:unfreeze <userId>` (D-41). `review:show` bank matnining har qatorini `| ` bilan boshlaydi va `--- end bank text ---` bilan tugatadi;
+boshqa qiymatlarda yangi qator ham `\u{A}` bo‘lib chiqadi. Natija: 0 — bajarildi, 1 — rad etildi (kod va maydon, qiymat emas), 2 — buyruq noto‘g‘ri yozilgan.
+
+- **Chegaradan katta summa (D-46):** `review:credit`, `wallet:adjust`, `payment:reverse` da summa qayta kiritiladi, mos kelsa ega Telegram’iga
+  (`OWNER_ALERT_CHAT_ID`) bir martalik kod boradi (3 daqiqa, 5 urinish, amal + summa + target’ga bog‘langan), kod ekranda ko‘rinmasdan kiritiladi. Servis kodni
+  tranzaksiyadan oldin tekshiradi, AuditLog `after.otpVerified = true`. Rad etishlar: `OTP_REQUIRED`, `OTP_INVALID`, `OTP_MISMATCH`, `OTP_EXPIRED`
+  (muddati o‘tgan yoki ishlatilgan), `OTP_LOCKED`, `OTP_UNAVAILABLE`. Buyruq tugagach kod xabari navbatdan o‘chiriladi. `OTP_INVALID` va `OTP_LOCKED`
+  security `warn` log yozadi (faqat amal va natija; kod, challenge va binding yo‘q). `review:credit` kodi `--confirm-override` va `--bank-verified` ga ham
+  bog‘langan (`confirms=override: blocked, overLimit; bank-verified` chiqadi va xabarda ko‘rinadi); servis bu satrni hamyon qulfi ostida qayta hisoblaydi,
+  mos kelmasa `OTP_MISMATCH`. Redis faqat ichki tarmoqda va parol bilan ishlaydi: kod matni outbox job’ida yuborilguncha turadi.
+- **Kim bajargani:** SSH ip va operatorning haqiqiy manbai — sshd `auth.log` (IP + kalit fingerprint); tekshiruvda uni AuditLog vaqti, `ip` va
+  `after.osUser` bilan solishtiring. OTP shell’ga (API env’i) ega hujumchiga qarshi emas: asosiy nazorat — SSH huquqi faqat egada (D-46).
+- `review:credit`: avval holat chiqadi — summa, foydalanuvchi: bloklangan, `purchaseFrozen`, akkaunt yoshi, bugungi base yig‘indi / limit (matcher formulasi).
+  Bloklangan yoki limitdan oshgan bo‘lsa `--confirm-override` siz hech narsa yozilmaydi (holat va override AuditLog `after` da; override OTP o‘rnini bosmaydi).
+  `SENDER_MISMATCH` / `TEXT_HASH_MISMATCH` izohli review’ga faqat `--bank-verified` bilan (ega bank ilovasida tekshirgan; `after.bankVerified`). Qulflar tartibi:
+  xabar kartasi (yagona karta qulfi) → review qatori `FOR UPDATE` → intent `FOR UPDATE` → `Wallet`. Bitta tranzaksiyada
+  `Payment(CONFIRMED, reviewId, bankMessageId, providerTxnId = "<senderId>:<tgMessageId>")` → intent `PAID` (`assertIntentTransition`, `actor: admin`,
+  `paidAt` = xabar vaqti) → `LedgerEntry(TOPUP, PAYMENT/<paymentId>)` → `AuditLog(REVIEW_CREDIT)` → review `RESOLVED / CREDITED_USER`. Commit’dan keyin:
+  `DEL wallet:{userId}`, `notify TOPUP_CREDITED`, `adminAction`. Yopilgan review qayta yopilmaydi; bitta xabar faqat bir marta pulga aylanadi (boshqa review
+  orqali ham); xabarning boshqa review’i `RETURNED_OFFLINE` bilan yopilgan bo‘lsa rad (`RETURNED_OFFLINE`). `--intent` da summa orada yangi so‘rovga
+  berilgan bo‘lsa (worker’ning `overlappingIntent` predikati) `AMOUNT_REALLOCATED`.
+- `review:returned-offline` faqat qabul qilingan (PARSED CREDIT) va hali Payment’ga aylanmagan xabarga (aylangan bo‘lsa `ALREADY_CREDITED`: pul
+  `payment:reverse` bilan qaytariladi). `review:show` xabarning Payment’ini `bankMessageId` bo‘yicha ko‘rsatadi (avtomatik yoki qaysi review orqali).
+- `review:accept-chain` faqat `CHAIN_BREAK` uchun va xabar hech kimga yozilmagan kirim bo‘lsa **rad etiladi** (`CREDIT_UNDECIDED`): avval pul hal qilinadi.
+  Karta qulfi ostida kartaning boshqa pauza sabablari tekshiriladi: ochiq `CHAIN_BREAK` (shu jumladan `PREDECESSOR_PENDING`), `UNRECOGNIZED` +
+  `SENDER_MISMATCH` / `TEXT_HASH_MISMATCH` / `PROCESSING_FAILED`, egasining oxirgi qarori `CARD_PAUSE` bo‘lsa (qachon yozilgani muhim emas;
+  uzilishdan oldin qilingan pauza ham hisoblanadi). Bunday pauza faqat `CARD_RESUME` bilan bekor bo‘ladi: accept-chain turgan pauza ustidan
+  kartani yoqmaydi. Pauzadagi kartaga `card:pause` ham `CARD_PAUSE` auditini yozadi (`after.alreadyPaused = true`). Sabab bo‘lsa review yopiladi, lekin
+  avtomatik yozish yoqilmaydi (`autoCreditResumed = false`, qolgan sabablar va `card:resume` maslahati chiqadi); bo‘lmasa `autoCreditPaused = false`.
+  `card:resume` ham ochiq pauza review’larini ko‘rsatadi va ular bor bo‘lsa `--confirm-override` talab qiladi (`after.openPauseReviews`, `after.override`).
+- `wallet:adjust` da `--key <id>` majburiy (AuditLog id): kalitsiz buyruq hech narsa yozmaydi va yangi kalit chiqaradi; xuddi shu kalit + xuddi shu so‘rov →
+  `applied=false`, boshqa summa yoki sabab → `IDEMPOTENCY_CONFLICT`. `payment:reverse` va `review:credit` ning tabiiy kalitlari bor.
+- `wallet:adjust`, `payment:reverse`, `user:unfreeze` va har review/karta amalidan keyin egaga `adminAction` alerti.
+- **Kechiktirildi:** CLI orqali yaratilgan pul (musbat ADJUSTMENT + REVIEW_CREDIT) uchun kunlik limit — S11 / 9-bosqich.
+
 ## 8. Havola tokeni (D-39)
 
 Mini App to‘ldirish sahifasini web domenda `openLink` bilan sessiyasiz ochadi (D-03), shuning uchun `POST /payments/intents` javobidagi
