@@ -13,7 +13,7 @@ export function ProfileView() {
   const name = me.data?.firstName ?? me.data?.username ?? undefined;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[640px] flex-col gap-5 px-4 py-8 md:px-8">
+    <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-5 px-4 py-8 md:px-8">
       <h1 className="m-0 text-2xl leading-8 font-extrabold">{t('title')}</h1>
       <div className="flex items-center gap-3">
         <Avatar name={name} size={56} />

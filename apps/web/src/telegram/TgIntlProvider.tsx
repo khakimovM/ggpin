@@ -9,7 +9,7 @@ import { useTgUiStore } from '../stores/tg-ui-store';
 const TIME_ZONE = 'Asia/Tashkent';
 
 /** The namespaces the Mini App screens read; both languages travel to the client. */
-export type TgMessages = Pick<Messages, 'common' | 'errors' | 'tg'>;
+export type TgMessages = Pick<Messages, 'common' | 'errors' | 'tg' | 'store' | 'wallet'>;
 export interface TgCatalogs {
   uz: TgMessages;
   ru: TgMessages;

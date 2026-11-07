@@ -5,7 +5,8 @@ import type { ReactNode } from 'react';
 import { requestNonce } from '../../csp/request-nonce';
 import { ThemeScript } from '../../csp/ThemeScript';
 import { env } from '../../env';
-import { MESSAGES } from '../../i18n/messages';
+import { MESSAGES, type Messages } from '../../i18n/messages';
+import type { TgMessages } from '../../telegram/TgIntlProvider';
 import { TgRoot } from '../../telegram/TgRoot';
 import { FONT_CLASSES } from '../fonts';
 import '../globals.css';
@@ -24,9 +25,16 @@ const TELEGRAM_SDK = 'https://telegram.org/js/telegram-web-app.js';
 
 // Only the namespaces the Mini App screens read travel to the client, in both languages: the
 // language is chosen on the client (Telegram's language_code, then the profile's locale).
+const pick = ({ common, errors, tg, store, wallet }: Messages): TgMessages => ({
+  common,
+  errors,
+  tg,
+  store,
+  wallet,
+});
 const CATALOGS = {
-  uz: { common: MESSAGES.uz.common, errors: MESSAGES.uz.errors, tg: MESSAGES.uz.tg },
-  ru: { common: MESSAGES.ru.common, errors: MESSAGES.ru.errors, tg: MESSAGES.ru.tg },
+  uz: pick(MESSAGES.uz),
+  ru: pick(MESSAGES.ru),
 };
 
 // This is a root layout of its own (the Mini App has no locale prefix). `lang` starts as the

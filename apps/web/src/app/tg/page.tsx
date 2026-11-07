@@ -1,4 +1,4 @@
-import { TgHome } from '../../features/tg-auth/TgHome';
+import { TgHome } from '../../features/tg-home/TgHome';
 
 // The Mini App entry. The gate, providers and Telegram connection live in the layout (TgRoot);
 // this page renders only once a session exists.

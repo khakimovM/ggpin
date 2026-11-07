@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { env } from '../../env';
 import { useTelegram } from '../../telegram/telegram-context';
-import { openTelegramUrl, resolveTelegramUrl } from '../../telegram/open-link';
+import { openTelegramUrl } from '../../telegram/open-link';
+import { supportLink } from '../../telegram/support-link';
 import { TelegramBackButton } from '../../telegram/TelegramBackButton';
 import { callSdk } from '../../telegram/webapp';
 import { GateScreen } from './GateScreen';
@@ -35,17 +36,17 @@ function externalLink(href: string, icon: typeof Send, label: string) {
  * button.
  */
 function SupportAction({ label, inTelegram }: { label: string; inTelegram: boolean }) {
-  const href = env.NEXT_PUBLIC_SUPPORT_URL;
-  if (href === '') return null;
-  if (inTelegram && resolveTelegramUrl(href) !== null) {
+  const link = supportLink(env.NEXT_PUBLIC_SUPPORT_URL);
+  if (link.kind === 'none') return null;
+  if (inTelegram && link.kind === 'telegram') {
     return (
-      <Button size="lg" glow className="w-full" onClick={() => openTelegramUrl(href)}>
+      <Button size="lg" glow className="w-full" onClick={() => openTelegramUrl(link.href)}>
         <Icon icon={MessageCircle} size={18} />
         {label}
       </Button>
     );
   }
-  return externalLink(href, MessageCircle, label);
+  return externalLink(link.href, MessageCircle, label);
 }
 
 function Gate({ gate, onRetry }: { gate: GateInfo; onRetry: () => void }) {
