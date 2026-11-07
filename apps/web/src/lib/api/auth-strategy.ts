@@ -23,7 +23,11 @@ export type RecoverOutcome = { kind: 'retry' } | { kind: 'lost'; error: ApiError
 
 export interface AuthStrategy {
   readonly channel: 'web' | 'tg';
-  /** Adds the channel's credentials (cookie flag, CSRF header or bearer token). */
+  /**
+   * Adds the channel's credentials (cookie flag, CSRF header or bearer token). The web channel
+   * throws `UNAUTHORIZED` for `required` / `optional` requests after `signOut()`, so they never
+   * reach the network.
+   */
   prepare(request: TransportRequest, mode: SessionMode): TransportRequest;
   /**
    * Counts successful refreshes/logins. A request remembers the value it was sent with; a 401
@@ -46,7 +50,8 @@ export interface AuthStrategy {
   onSessionLost(redirect: boolean, reason?: ApiError): void;
   /**
    * The user signed out on purpose. Final until the next sign-in: nothing tries to renew the
-   * session and nothing redirects, whichever request still fails afterwards.
+   * session and nothing redirects, whichever request still fails afterwards. Called BEFORE the
+   * logout request, so a request that fails while it is being retried cannot start a refresh.
    */
   signOut(): void;
   /**

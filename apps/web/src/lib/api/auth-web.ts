@@ -1,35 +1,16 @@
 // Web store channel: httpOnly cookies set by the API, a CSRF header on writes, and one shared
 // refresh when the short-lived access cookie expires. The client never sees a token.
 import { CSRF_HEADER } from '@repo/shared';
+import { REFRESH_LOCK_NAME, withRefreshLock, type LockManagerLike } from './auth-lock';
 import type { AuthStrategy, RecoverOutcome, SessionLostHandler } from './auth-strategy';
+import { authTiming } from './auth-timing';
 import { errorFromResponse } from './envelope';
-import { ApiError, isApiError } from './errors';
+import { ApiError } from './errors';
 import { timeoutSignal, type Transport, type TransportRequest } from './transport';
 import { apiUrl } from './url';
 
-/** Cross-tab mutex name (Web Locks API). */
-export const REFRESH_LOCK_NAME = 'ggpin-refresh';
-
-/**
- * How long a refresh may take before the browser gives up on it. Deliberately long: the server
- * rotates the refresh token as it handles the request, so it can commit the rotation while the
- * response is still on its way. If we aborted early we would keep the OLD cookie, the next
- * refresh would send it again, and the server would take that for a stolen, replayed token and
- * revoke the whole session family. A slow answer is much cheaper than a forced sign-out.
- * The cross-tab lock is held until the request has finished (or this timeout fires).
- */
-export const REFRESH_TIMEOUT_MS = 60_000;
-
-/** Waiting for another tab's refresh can take up to its own timeout, plus a margin. */
-export const LOCK_WAIT_MS = REFRESH_TIMEOUT_MS + 15_000;
-
-export interface LockManagerLike {
-  request<T>(
-    name: string,
-    options: { signal?: AbortSignal },
-    callback: () => Promise<T>,
-  ): Promise<T>;
-}
+// Re-exported for the callers that always found them here.
+export { REFRESH_LOCK_NAME, type LockManagerLike };
 
 export interface WebAuthDeps {
   apiBaseUrl: string;
@@ -38,8 +19,6 @@ export interface WebAuthDeps {
   getLocks?: () => LockManagerLike | undefined;
   onSessionLost: SessionLostHandler;
   now?: () => number;
-  /** Overrides the timeouts above; for tests, which cannot wait a minute. */
-  timeouts?: { refreshMs?: number; lockWaitMs?: number };
 }
 
 const SAFE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -49,16 +28,14 @@ const NETWORK = (): ApiError => new ApiError({ status: 0, code: 'NETWORK' });
 
 export function createWebAuth(deps: WebAuthDeps): AuthStrategy {
   const now = deps.now ?? Date.now;
-  const refreshMs = deps.timeouts?.refreshMs ?? REFRESH_TIMEOUT_MS;
-  const lockWaitMs = deps.timeouts?.lockWaitMs ?? LOCK_WAIT_MS;
   let epoch = 0;
   let inflight: Promise<RecoverOutcome> | null = null;
   // Set once the session is known to be gone; cleared by the next sign-in.
   let lostError: ApiError | null = null;
   let lostNotified = false;
   // The user signed out on purpose. Unlike a lost session this is final until the next sign-in:
-  // no mode tries a refresh, and nothing redirects (a redirect would carry the previous user's
-  // page in `next`).
+  // session-bound requests are refused in `prepare` without touching the network, nothing tries a
+  // refresh, and nothing redirects (a redirect would carry the previous user's page in `next`).
   let signedOut = false;
 
   async function refreshOnce(): Promise<RecoverOutcome> {
@@ -75,7 +52,7 @@ export function createWebAuth(deps: WebAuthDeps): AuthStrategy {
         body: '{}',
         credentials: 'include',
         cache: 'no-store',
-        signal: timeoutSignal(refreshMs),
+        signal: timeoutSignal(authTiming().refreshMs),
       });
     } catch {
       // Offline or slow during a refresh says nothing about the session: keep it.
@@ -93,25 +70,18 @@ export function createWebAuth(deps: WebAuthDeps): AuthStrategy {
     throw error;
   }
 
-  async function runExclusive(): Promise<RecoverOutcome> {
-    const locks = deps.getLocks?.();
-    if (locks === undefined) return refreshOnce();
-    try {
-      // The signal bounds the wait for another tab that holds the lock.
-      return await locks.request(
-        REFRESH_LOCK_NAME,
-        { signal: timeoutSignal(lockWaitMs) },
-        refreshOnce,
-      );
-    } catch (error) {
-      throw isApiError(error) ? error : NETWORK();
-    }
-  }
+  const runExclusive = (): Promise<RecoverOutcome> =>
+    withRefreshLock(deps.getLocks?.(), refreshOnce);
 
   return {
     channel: 'web',
 
     prepare(request: TransportRequest, mode): TransportRequest {
+      // After a deliberate sign-out nothing session-bound may leave the browser: it would carry
+      // cookies that are (or, if the logout request got no answer, may still be) valid, and its
+      // 401 could start a refresh. `login` (the logout retry itself, a new sign-in) and
+      // `anonymous` (public reads) are not session-bound and go through.
+      if (signedOut && (mode === 'required' || mode === 'optional')) throw signedOutError();
       const headers = SAFE_METHODS.has(request.method)
         ? request.headers
         : { ...request.headers, [CSRF_HEADER]: '1' };

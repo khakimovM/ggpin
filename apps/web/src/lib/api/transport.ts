@@ -66,3 +66,19 @@ export function timeoutSignal(ms: number): AbortSignal {
   setTimeout(() => controller.abort(), ms);
   return controller.signal;
 }
+
+/**
+ * A signal that aborts when any of the given ones does. `AbortSignal.any` is missing before
+ * Safari 17.4 (older Telegram web views), so this does it by hand.
+ */
+export function anySignal(signals: readonly AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+  }
+  return controller.signal;
+}

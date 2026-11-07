@@ -165,9 +165,11 @@ describe('logout when the network drops the request', () => {
     let call = 0;
     const seen = stubFetch(() => answers[call++] ?? ok({}));
     const { webAuth } = await load();
+    const { __setAuthTimingForTests } = await import('../auth-timing');
+    __setAuthTimingForTests({ logoutRetryDelaysMs: [0, 0] });
     const { logout } = await import('../auth');
     const signOut = vi.spyOn(webAuth, 'signOut');
-    return { seen, signOut, logout: () => logout([0, 0]) };
+    return { seen, signOut, logout };
   }
 
   it('NETWORK, NETWORK, 200: succeeds on the third attempt', async () => {

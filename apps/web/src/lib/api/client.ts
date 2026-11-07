@@ -6,7 +6,8 @@ import { env } from '../../env';
 import { getQueryClient } from '../query-client';
 import type { AuthStrategy } from './auth-strategy';
 import { createTgAuth, type TgAuth } from './auth-tg';
-import { createWebAuth, type LockManagerLike } from './auth-web';
+import type { LockManagerLike } from './auth-lock';
+import { createWebAuth } from './auth-web';
 import { ApiError } from './errors';
 import { createApiClient, type ApiRequest } from './http';
 import { isMocked, type MockGroupName } from './mock-groups';
@@ -33,7 +34,8 @@ const onSessionLost = createSessionLostHandler({
   navigate: (url) => window.location.assign(url),
 });
 
-function getLocks(): LockManagerLike | undefined {
+/** The cross-tab lock the refresh, the sign-in and the sign-out share (see auth-lock.ts). */
+export function getLocks(): LockManagerLike | undefined {
   return typeof navigator === 'undefined' ? undefined : navigator.locks;
 }
 

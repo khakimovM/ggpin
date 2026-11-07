@@ -1,21 +1,56 @@
-import { WalletResponseSchema } from '@repo/shared';
-import { describe, expect, it, vi } from 'vitest';
+import { CSRF_HEADER, WalletResponseSchema } from '@repo/shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  LOCK_WAIT_MS,
+  LOGOUT_ATTEMPT_TIMEOUT_MS,
+  REFRESH_TIMEOUT_MS,
+  __setAuthTimingForTests,
+  authTiming,
+  type AuthTiming,
+} from '../auth-timing';
 import { createWebAuth, type LockManagerLike } from '../auth-web';
 import { BASE, ME, clientFor, failure, scripted, success, tick, type Script } from './helpers';
 
 const WALLET = { balanceTiyin: '12550000', coins: '150', currency: 'UZS' };
 const isRefresh = (url: string): boolean => url.endsWith('/auth/refresh');
 
+let restoreTiming: () => void = () => undefined;
+afterEach(() => restoreTiming());
+
 function setup(
   script: Script,
   getLocks?: () => LockManagerLike | undefined,
-  timeouts?: { refreshMs?: number; lockWaitMs?: number },
+  timing?: Partial<AuthTiming>,
 ) {
+  if (timing !== undefined) restoreTiming = __setAuthTimingForTests(timing);
   const { transport, calls } = scripted(script);
   const onSessionLost = vi.fn();
-  const auth = createWebAuth({ apiBaseUrl: BASE, transport, onSessionLost, getLocks, timeouts });
+  const auth = createWebAuth({ apiBaseUrl: BASE, transport, onSessionLost, getLocks });
   return { auth, client: clientFor(transport, auth), calls, onSessionLost };
 }
+
+describe('auth timing', () => {
+  it('pins the refresh timeout at 60 s and keeps the lock wait above it', () => {
+    // A shorter refresh timeout risks aborting a refresh whose rotation the server already
+    // committed (then the old cookie is replayed and the session family is revoked); a lock wait
+    // not longer than the refresh would give up on a tab that is still legitimately refreshing.
+    expect(REFRESH_TIMEOUT_MS).toBe(60_000);
+    expect(LOCK_WAIT_MS).toBeGreaterThan(REFRESH_TIMEOUT_MS);
+    expect(LOGOUT_ATTEMPT_TIMEOUT_MS).toBe(10_000);
+    expect(authTiming()).toMatchObject({
+      refreshMs: REFRESH_TIMEOUT_MS,
+      lockWaitMs: LOCK_WAIT_MS,
+      logoutAttemptMs: LOGOUT_ATTEMPT_TIMEOUT_MS,
+    });
+  });
+
+  it('the test override restores the defaults', () => {
+    const restore = __setAuthTimingForTests({ refreshMs: 5, lockWaitMs: 6 });
+    expect(authTiming()).toMatchObject({ refreshMs: 5, lockWaitMs: 6 });
+    restore();
+    expect(authTiming().refreshMs).toBe(REFRESH_TIMEOUT_MS);
+  });
+});
 
 const refreshCalls = (calls: { url: string }[]): number =>
   calls.filter((call) => isRefresh(call.url)).length;
@@ -75,6 +110,37 @@ describe('web channel: refresh outcomes', () => {
     });
     expect(refreshCalls(calls)).toBe(0); // the refresh itself never started
     expect(onSessionLost).not.toHaveBeenCalled();
+  });
+});
+
+describe('web channel: after a deliberate sign-out', () => {
+  it('session-bound requests are refused in prepare, public and login ones are not', async () => {
+    const { client, auth, calls, onSessionLost } = setup(() => success(WALLET));
+    auth.signOut();
+
+    for (const session of ['required', 'optional'] as const) {
+      await expect(
+        client.fetch({ path: '/me/wallet', session }, WalletResponseSchema),
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    }
+    expect(calls).toHaveLength(0);
+    expect(onSessionLost).not.toHaveBeenCalled();
+
+    await client.fetch({ path: '/catalog/categories', session: 'anonymous' }, WalletResponseSchema);
+    await client.fetch(
+      { method: 'POST', path: '/auth/logout', body: {}, session: 'login' },
+      WalletResponseSchema,
+    );
+    expect(calls.map((call) => call.credentials)).toEqual(['omit', 'include']);
+    expect(calls[1]?.headers[CSRF_HEADER]).toBe('1');
+  });
+
+  it('a new sign-in lets session-bound requests out again', async () => {
+    const { client, auth, calls } = setup(() => success(WALLET));
+    auth.signOut();
+    auth.onSignedIn?.();
+    await client.fetch({ path: '/me/wallet' }, WalletResponseSchema);
+    expect(calls).toHaveLength(1);
   });
 });
 

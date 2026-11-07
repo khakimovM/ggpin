@@ -12,6 +12,12 @@ export const qk = {
   me: () => ['me'] as const,
   sessions: () => ['sessions'] as const,
 
+  // The status poll of one login attempt. The attempt number, not the nonce, goes into the key:
+  // the nonce is a login capability and keys end up in devtools and error reports.
+  auth: {
+    loginStatus: (attempt: number) => ['auth', 'login-status', attempt] as const,
+  },
+
   catalog: {
     all: ['catalog'] as const,
     categories: (locale: Locale) => ['catalog', 'categories', locale] as const,

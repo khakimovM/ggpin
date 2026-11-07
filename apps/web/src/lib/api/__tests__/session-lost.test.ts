@@ -113,7 +113,17 @@ describe('what counts as private', () => {
     const roots = rootsOfRegistry();
     // A new root must be added here on purpose: the review of this list is the point.
     expect([...roots].sort()).toEqual(
-      ['catalog', 'me', 'orders', 'payments', 'quote', 'referrals', 'sessions', 'wallet'].sort(),
+      [
+        'auth',
+        'catalog',
+        'me',
+        'orders',
+        'payments',
+        'quote',
+        'referrals',
+        'sessions',
+        'wallet',
+      ].sort(),
     );
     for (const root of roots) {
       expect(isPrivateRoot(root), String(root)).toBe(root !== 'catalog');
