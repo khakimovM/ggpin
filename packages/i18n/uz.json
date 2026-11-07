@@ -166,6 +166,9 @@
       "webhookFailed": "🔴 Bot webhook o‘rnatilmadi (urinish: {attempt}). API ishlayapti, fonda qayta uriniladi.",
       "setupFailed": "🟠 Bot sozlamalari (buyruqlar, menyu) o‘rnatilmadi (urinish: {attempt}). Webhook o‘rnatilgan, sozlash fonda qayta uriniladi."
     },
+    "ownerConfirm": {
+      "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
+    },
     "limitReason": {
       "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",
       "NEW_ACCOUNT_DAILY_LIMIT": "yangi akkaunt: kuniga {cap}"
