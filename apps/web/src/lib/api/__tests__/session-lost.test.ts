@@ -150,3 +150,20 @@ describe('clearPrivateQueries and mutations', () => {
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 });
+
+describe('a lost session inside the Mini App', () => {
+  it('clears private data but never navigates away from /tg, even when asked to redirect', () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(qk.wallet.balance(), { balanceTiyin: '100' });
+    const navigate = vi.fn();
+    const onSessionLost = createSessionLostHandler({
+      getClient: () => queryClient,
+      getLocation: () => ({ pathname: '/tg/orders/1', search: '?tab=open' }),
+      navigate,
+    });
+
+    onSessionLost(true, true);
+
+    expect(navigate).not.toHaveBeenCalled();
+  });
+});

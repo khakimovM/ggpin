@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
 import { expect, test, type Page } from '@playwright/test';
+import { stubTelegramSdk } from './fixtures/telegram';
 
 // Records console errors and uncaught exceptions while a page loads.
 function watchPage(page: Page) {
@@ -21,6 +22,8 @@ async function cspViolations(page: Page): Promise<string[]> {
 }
 
 test.beforeEach(async ({ page }) => {
+  // /tg loads Telegram's SDK; no test goes to the network for it.
+  await stubTelegramSdk(page);
   await page.addInitScript(() => {
     const store = window as unknown as { __csp?: string[] };
     store.__csp = [];
@@ -33,7 +36,8 @@ test.beforeEach(async ({ page }) => {
 const PAGES = [
   { path: '/', lang: 'uz', text: uz.common.comingSoon },
   { path: '/ru', lang: 'ru', text: ru.common.comingSoon },
-  { path: '/tg', lang: 'uz', text: uz.common.comingSoon },
+  // Opened outside Telegram, the Mini App shows its first gate screen.
+  { path: '/tg', lang: 'uz', text: uz.tg.gate.bot.title },
 ];
 
 test.describe('pages open without console or CSP errors', () => {

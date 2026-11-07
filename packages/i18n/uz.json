@@ -3,6 +3,11 @@
     "loading": "Yuklanmoqda…",
     "retry": "Qayta urinish",
     "comingSoon": "Tez orada",
+    "notFound": {
+      "title": "Sahifa topilmadi",
+      "body": "Havola eskirgan yoki manzilda xato bor. Bosh sahifadan davom eting.",
+      "cta": "Bosh sahifaga"
+    },
     "today": "Bugun",
     "yesterday": "Kecha",
     "currency": {
@@ -96,6 +101,40 @@
     },
     "profile": {
       "title": "Profil"
+    }
+  },
+  "tg": {
+    "splash": {
+      "label": "Yuklanmoqda",
+      "signingIn": "Telegram orqali kirilmoqda…"
+    },
+    "gate": {
+      "bot": {
+        "title": "Ilovani bot orqali oching",
+        "body": "Iltimos, ilovani botdagi “Xaridni boshlash” tugmasi orqali oching.",
+        "cta": "Botga qaytish"
+      },
+      "blocked": {
+        "title": "Hisobingiz bloklangan",
+        "body": "Savollar bo‘lsa, yordam xizmatiga yozing.",
+        "cta": "Yordam"
+      },
+      "offline": {
+        "title": "Ulanib bo‘lmadi",
+        "body": "Internet aloqasini tekshirib, qayta urinib ko‘ring."
+      },
+      "reopen": {
+        "title": "Ilovani qayta oching",
+        "body": "Kirish muddati tugagan yoki tasdiqlanmadi. Ilovani bot orqali qaytadan oching.",
+        "cta": "Yopish"
+      },
+      "error": {
+        "title": "Xatolik yuz berdi"
+      }
+    },
+    "home": {
+      "welcome": "Xush kelibsiz, {name}!",
+      "welcomeAnon": "Xush kelibsiz!"
     }
   },
   "admin": {

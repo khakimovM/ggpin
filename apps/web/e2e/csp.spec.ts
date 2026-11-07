@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { stubTelegramSdk } from './fixtures/telegram';
 import { watchPage } from './support/gallery';
 
 // Browser side of the nonce CSP (phase 7 X4): pages run without violations, injected code does
@@ -9,8 +10,10 @@ interface Probe {
   theme: (string | undefined)[];
 }
 
-// Records CSP violations and every value data-theme takes, from the very first one.
+// Records CSP violations and every value data-theme takes, from the very first one. (Also keeps
+// Telegram's SDK script, which /tg loads, off the network.)
 async function installProbe(page: Page) {
+  await stubTelegramSdk(page);
   await page.addInitScript(() => {
     const probe: Probe = { violations: [], theme: [] };
     (window as unknown as { __probe: Probe }).__probe = probe;
@@ -47,11 +50,9 @@ test.describe('pages run under the nonce CSP', () => {
       const problems = watchPage(page);
       await installProbe(page);
       await page.goto(path);
-      // Hydration finished: the theme provider has written data-theme. (The default 404 page
-      // has no theme provider; it is only checked for violations.)
-      if (path !== '/nonexistent') {
-        await expect(page.locator('html')).toHaveAttribute('data-theme', /^(light|dark)$/);
-      }
+      // Hydration finished: the theme provider has written data-theme (the 404 page too: it is
+      // rendered inside the locale layout).
+      await expect(page.locator('html')).toHaveAttribute('data-theme', /^(light|dark)$/);
       await page.waitForLoadState('networkidle');
       expect((await probeOf(page)).violations).toEqual([]);
       // A 404 page logs the failed document load itself; that is not a script problem.

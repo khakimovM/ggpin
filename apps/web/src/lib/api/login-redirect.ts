@@ -2,13 +2,17 @@ import { DEFAULT_LOCALE, LOCALES } from '@repo/shared';
 
 /**
  * Where to send a visitor whose session is gone: `/[locale]/login?next=<current path>`.
- * Returns null when the visitor already is on the login page (no redirect loop).
+ * Returns null when the visitor already is on the login page (no redirect loop), and for the
+ * Mini App (`/tg`), which never leaves its own channel.
  *
  * Only path and query go into `next`, never the hash: a pay link keeps its capability token
  * there. The login page reads `next` back through `safeNextPath`.
  */
 export function loginRedirectTarget(pathname: string, search: string): string | null {
   const first = pathname.split('/')[1];
+  // The Mini App has no web login page: a lost session there is answered by its own gate screen,
+  // and sending the visitor to the cookie-based login would leave the Telegram channel.
+  if (first === 'tg') return null;
   // The default locale has no URL prefix (`localePrefix: 'as-needed'`).
   const prefixed = LOCALES.find((locale) => locale !== DEFAULT_LOCALE && locale === first);
   const loginPath = prefixed === undefined ? '/login' : `/${prefixed}/login`;

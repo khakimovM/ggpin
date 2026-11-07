@@ -30,14 +30,32 @@ jobs:
       - run: npx turbo run test:e2e --concurrency=1 --filter="!web"
   e2e-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    # Journey 4 runs against the real API: it needs Postgres and Redis. The e2e database is
+    # created and migrated by the Playwright setup project (it is not ggpin_test, which the backend
+    # suites clear); Redis DB 13 is used by the test API.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: ggpin, POSTGRES_PASSWORD: ggpin, POSTGRES_DB: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ggpin" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgresql://ggpin:ggpin@localhost:5432/ggpin_web_e2e_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
       # apps/web imports @repo/shared from dist; Playwright builds and starts apps/web itself.
-      - run: npm run build -w @repo/shared
+      # The API (and what it is built from: shared, db) is built for the real-API journey.
+      - run: npx turbo run build --filter=api...
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v4

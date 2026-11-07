@@ -17,6 +17,13 @@ describe('loginRedirectTarget', () => {
     expect(loginRedirectTarget('/ru/login', '')).toBeNull();
   });
 
+  it('never leaves the Mini App for the web login (the tg channel has its own gate)', () => {
+    expect(loginRedirectTarget('/tg', '')).toBeNull();
+    expect(loginRedirectTarget('/tg/orders/42', '?x=1')).toBeNull();
+    // A page that merely starts with "tg" is an ordinary page.
+    expect(loginRedirectTarget('/tgx', '')).toBe('/login?next=%2Ftgx');
+  });
+
   it('encodes a hostile next so it stays one query value', () => {
     const target = loginRedirectTarget('/store', '?a=b&next=//evil.example');
     expect(target).toBe('/login?next=%2Fstore%3Fa%3Db%26next%3D%2F%2Fevil.example');

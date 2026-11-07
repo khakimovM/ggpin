@@ -108,14 +108,50 @@ describe('telegram theme script', () => {
     expect(root.dataset.theme).toBe('dark');
   });
 
-  it('is light for no parameters, and for garbage', () => {
+  it('Telegram wins over the OS setting, in both directions', () => {
+    mockScheme(true);
+    window.location.hash = `tgWebAppThemeParams=${params('#ffffff')}`;
     run(TG_THEME_SCRIPT);
     expect(root.dataset.theme).toBe('light');
-    window.location.hash = 'tgWebAppThemeParams=%7Bnot-json';
-    expect(() => run(TG_THEME_SCRIPT)).not.toThrow();
-    expect(root.dataset.theme).toBe('light');
-    window.location.hash = `tgWebAppThemeParams=${params('red')}`;
+    mockScheme(false);
+    window.location.hash = `tgWebAppThemeParams=${params('#17212b')}`;
+    run(TG_THEME_SCRIPT);
+    expect(root.dataset.theme).toBe('dark');
+    mockScheme(true);
+    run("window.Telegram={WebApp:{colorScheme:'light'}}");
     run(TG_THEME_SCRIPT);
     expect(root.dataset.theme).toBe('light');
+  });
+
+  it('outside Telegram (no SDK, no parameters) it follows the OS setting', () => {
+    mockScheme(true);
+    run(TG_THEME_SCRIPT);
+    expect(root.dataset.theme).toBe('dark');
+    mockScheme(false);
+    delete root.dataset.theme;
+    run(TG_THEME_SCRIPT);
+    expect(root.dataset.theme).toBe('light');
+  });
+
+  it('garbage parameters count as none: the OS setting decides, nothing throws', () => {
+    mockScheme(true);
+    const errors: string[] = [];
+    const listener = (event: ErrorEvent) => errors.push(event.message);
+    window.addEventListener('error', listener);
+    try {
+      for (const hash of [
+        'tgWebAppThemeParams=%7Bnot-json',
+        `tgWebAppThemeParams=${params('red')}`,
+        'tgWebAppThemeParams=%E0%A4%A',
+      ]) {
+        delete root.dataset.theme;
+        window.location.hash = hash;
+        run(TG_THEME_SCRIPT);
+        expect(root.dataset.theme, hash).toBe('dark');
+      }
+      expect(errors).toEqual([]);
+    } finally {
+      window.removeEventListener('error', listener);
+    }
   });
 });
