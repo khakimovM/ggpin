@@ -1,35 +1,3 @@
-import type { TopupCardStatus } from '@repo/shared';
-
-// The receiving-card status graph (docs/05 §2). The database guard knows only that RETIRED is
-// final (GG001); everything else is decided here, so every status write goes through
-// `assertCardTransition`.
-//   VERIFYING -> ACTIVE   the test transfer arrived (worker, S6)
-//   ACTIVE    -> FULL     limit reached (worker)        FULL -> ACTIVE  limit raised (setLimit)
-//   ACTIVE|FULL -> DRAINING  ordinary retire: no new requests, issued ones stay payable
-//   DRAINING  -> RETIRED  its reservations ended (worker sweep, S9)
-//   any but RETIRED -> RETIRED  emergency retire; VERIFYING has no requests, so it retires at once
-const GRAPH: Readonly<Record<TopupCardStatus, readonly TopupCardStatus[]>> = Object.freeze({
-  VERIFYING: Object.freeze<TopupCardStatus[]>(['ACTIVE', 'RETIRED']),
-  ACTIVE: Object.freeze<TopupCardStatus[]>(['FULL', 'DRAINING', 'RETIRED']),
-  FULL: Object.freeze<TopupCardStatus[]>(['ACTIVE', 'DRAINING', 'RETIRED']),
-  DRAINING: Object.freeze<TopupCardStatus[]>(['RETIRED']),
-  RETIRED: Object.freeze<TopupCardStatus[]>([]),
-});
-
-export class CardTransitionError extends Error {
-  constructor(
-    readonly from: TopupCardStatus,
-    readonly to: TopupCardStatus,
-  ) {
-    super(`Illegal card transition ${from} -> ${to}`);
-    this.name = 'CardTransitionError';
-  }
-}
-
-export function canTransitionCard(from: TopupCardStatus, to: TopupCardStatus): boolean {
-  return GRAPH[from].includes(to);
-}
-
-export function assertCardTransition(from: TopupCardStatus, to: TopupCardStatus): void {
-  if (!canTransitionCard(from, to)) throw new CardTransitionError(from, to);
-}
+// The card status graph lives in @repo/shared (the worker changes card status too); re-exported
+// here so the card services keep one local import.
+export { CardTransitionError, assertCardTransition, canTransitionCard } from '@repo/shared';

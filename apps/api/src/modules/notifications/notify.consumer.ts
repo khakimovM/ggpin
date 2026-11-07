@@ -1,0 +1,106 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { notifyJobId, notifyJobSchema, type NotifyJob } from '@repo/shared';
+import { UnrecoverableError, type Job } from 'bullmq';
+import { translate } from '../../common/i18n/translate';
+import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import { NotifySourcesRepository } from './notify-sources.repository';
+import { AlertSourceMissingError, OwnerAlertRenderer, moneyText } from './owner-alert.renderer';
+import { TgOutboxEnqueuer } from './tg-outbox.enqueuer';
+
+export type NotifyOutcome = 'queued' | 'skipped-blocked' | 'skipped-reversed';
+
+/**
+ * No OWNER_ALERT_CHAT_ID configured (dev/test only; production refuses to boot without it). The
+ * alert job FAILS and stays in the failed set (retried, then kept 7 days) instead of completing
+ * silently: an owner alert is never dropped as "done".
+ */
+export class OwnerChatMissingError extends Error {
+  constructor() {
+    super('OWNER_ALERT_CHAT_ID is not configured');
+    this.name = 'OwnerChatMissingError';
+  }
+}
+
+type TopupJob = Extract<NotifyJob, { kind: 'TOPUP_CREDITED' | 'TOPUP_LATE_CREDITED' }>;
+
+/**
+ * Consumer of `notify` (worker -> API, notify.ts in shared). The job names WHAT happened; this
+ * reads the rows, renders the text in the addressee's language (HTML-escaped by `translate`)
+ * and hands it to `tg-outbox`, which sends it. The outbox job id is the notify job id
+ * (`topup-<paymentId>`, `alert-<kind>-<refId>`), so a repeated notify job queues ONE message.
+ *
+ * - TOPUP_CREDITED / TOPUP_LATE_CREDITED: the Payment row decides the user (never the job), the
+ *   balance is the current SUM(ledger); nobody is written to who blocked the bot.
+ * - OWNER_ALERT: Uzbek, to OWNER_ALERT_CHAT_ID; without one configured the job fails
+ *   (OwnerChatMissingError), it is never completed unsent.
+ * Logs carry the job id and outcome, never text, amounts or chat ids.
+ */
+@Injectable()
+export class NotifyConsumer {
+  private readonly logger = new Logger('Notify');
+
+  constructor(
+    private readonly sources: NotifySourcesRepository,
+    private readonly alerts: OwnerAlertRenderer,
+    private readonly outbox: TgOutboxEnqueuer,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
+
+  async handle(job: Pick<Job, 'id' | 'data'>): Promise<NotifyOutcome> {
+    const parsed = notifyJobSchema.safeParse(job.data);
+    if (!parsed.success) {
+      this.log(job, 'invalid-payload');
+      throw new UnrecoverableError('invalid notify payload');
+    }
+    const data = parsed.data;
+    try {
+      const outcome =
+        data.kind === 'OWNER_ALERT' ? await this.ownerAlert(data) : await this.topup(data);
+      this.log(job, outcome);
+      return outcome;
+    } catch (error) {
+      if (error instanceof AlertSourceMissingError || error instanceof UnrecoverableError) {
+        this.log(job, 'source-missing');
+        throw new UnrecoverableError('notify source missing');
+      }
+      throw error;
+    }
+  }
+
+  private async topup(job: TopupJob): Promise<NotifyOutcome> {
+    const payment = await this.sources.payment(job.refId);
+    if (payment === null) throw new UnrecoverableError('payment missing');
+    // Reversed before we got here: "your wallet was topped up" would now be false.
+    if (payment.status !== 'CONFIRMED') return 'skipped-reversed';
+    const user = payment.user;
+    if (user.botBlockedAt !== null) return 'skipped-blocked';
+    const balance = await this.sources.balance(payment.userId);
+    const key =
+      job.kind === 'TOPUP_LATE_CREDITED'
+        ? 'bot.wallet.topupLateCredited'
+        : 'bot.wallet.topupCredited';
+    const text = translate(user.locale, key, {
+      amount: moneyText(payment.amountTiyin, user.locale),
+      balance: moneyText(balance, user.locale),
+    });
+    await this.outbox.enqueue(notifyJobId(job), { chatId: user.telegramId.toString(), text });
+    return 'queued';
+  }
+
+  private async ownerAlert(
+    job: Extract<NotifyJob, { kind: 'OWNER_ALERT' }>,
+  ): Promise<NotifyOutcome> {
+    const chatId = this.config.OWNER_ALERT_CHAT_ID;
+    if (chatId === undefined) {
+      this.logger.error('owner alert not sent: OWNER_ALERT_CHAT_ID is not configured');
+      throw new OwnerChatMissingError();
+    }
+    const text = await this.alerts.render(job.alert, job.refId);
+    await this.outbox.enqueue(notifyJobId(job), { chatId, text });
+    return 'queued';
+  }
+
+  private log(job: Pick<Job, 'id'>, outcome: string): void {
+    this.logger.log(`job=${job.id ?? '?'} outcome=${outcome}`);
+  }
+}

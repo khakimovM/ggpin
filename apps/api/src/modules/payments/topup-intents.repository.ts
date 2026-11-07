@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { IntentStatus, Locale, PaymentIntent, TopupCard } from '@repo/db';
+import {
+  usedTopupBaseSince,
+  type IntentStatus,
+  type Locale,
+  type PaymentIntent,
+  type TopupCard,
+} from '@repo/db';
 import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
@@ -165,19 +171,9 @@ export class TopupIntentsRepository {
   }
 
   /** Base amounts counted by the daily caps (topup-limits.ts in shared): PAID by paidAt, PENDING by createdAt. */
-  async usedBaseSince(userId: string, since: Date): Promise<bigint> {
-    const { _sum } = await this.prisma.client.paymentIntent.aggregate({
-      where: {
-        userId,
-        provider: P2P,
-        OR: [
-          { status: 'PAID', paidAt: { gte: since } },
-          { status: 'PENDING', createdAt: { gte: since } },
-        ],
-      },
-      _sum: { baseAmountTiyin: true },
-    });
-    return _sum.baseAmountTiyin ?? 0n;
+  // The query is shared with the worker's credit-time re-check (@repo/db `usedTopupBaseSince`).
+  usedBaseSince(userId: string, since: Date): Promise<bigint> {
+    return usedTopupBaseSince(this.prisma.client, userId, since);
   }
 
   /**

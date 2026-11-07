@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import type { TopupCard } from '@repo/db';
 import { TopupIntentCreatedSchema, notifyJobId } from '@repo/shared';
 import { AppError } from '../../../common/exceptions/app-error';
@@ -181,17 +182,66 @@ describe('retireCard', () => {
   });
 });
 
+/**
+ * Money that arrived on `card`: one PARSED CREDIT as the worker stores it (synthetic, E-29),
+ * settled the way the matcher settles unmatched money (NO_MATCH review + REVIEW outcome), so no
+ * processed-looking message without an outcome is left in the shared test database
+ * (BankMessage is append-only and cannot be deleted in afterAll).
+ */
+async function receive(card: TopupCard, amountTiyin: bigint): Promise<void> {
+  const now = new Date();
+  const message = await e2e.db().bankMessage.create({
+    data: {
+      source: card.bank === 'HUMO' ? 'HUMO_BOT' : 'UZCARD_BOT',
+      senderId: 920_000_000_000n + BigInt(randomBytes(3).readUIntBE(0, 3)),
+      tgMessageId: BigInt(now.getTime()) * 1_000n + BigInt(randomBytes(1).readUInt8()),
+      tgDate: now,
+      textSha256: randomBytes(32).toString('hex'),
+      parseStatus: 'PARSED',
+      parserVersion: 1,
+      direction: 'CREDIT',
+      amountTiyin,
+      balanceAfterTiyin: amountTiyin,
+      last4: card.last4,
+      bankTxnAt: now,
+      cardId: card.id,
+    },
+    select: { id: true },
+  });
+  const review = await e2e.db().paymentReview.create({
+    data: { bankMessageId: message.id, kind: 'NO_MATCH', cardId: card.id },
+    select: { id: true },
+  });
+  await e2e.db().bankMessageOutcome.create({
+    data: {
+      bankMessageId: message.id,
+      chainStatus: 'FIRST',
+      outcome: 'REVIEW',
+      reviewId: review.id,
+    },
+  });
+}
+
 describe('setLimit and pause/resume', () => {
-  it('FULL -> ACTIVE when the new limit leaves room; ACTIVE -> FULL when it leaves none', async () => {
+  it('D-45: FULL <-> ACTIVE follows RECEIVED money; a held request never makes a card FULL', async () => {
     const card = await e2e.card({ status: 'FULL', limitTiyin: 1_000n });
-    const up = await admin().setLimit(card.id, { limitTiyin: 10_000_000_000n }, 'raise', ACTOR);
-    track('adminAction', up.auditId);
-    expect(up.status).toBe('ACTIVE');
+    const limit = async (limits: { limitTiyin: bigint; monthlyLimitTiyin?: bigint | null }) => {
+      const change = await admin().setLimit(card.id, limits, 'limit change', ACTOR);
+      track('adminAction', change.auditId);
+      return change.status;
+    };
+    expect(await limit({ limitTiyin: 10_000_000_000n })).toBe('ACTIVE');
     expect((await e2e.create(await e2e.newUser())).status).toBe(201);
-    // The pending request (base + suffix) uses up more than 1 000 tiyin.
-    const down = await admin().setLimit(card.id, { limitTiyin: 1_000n }, 'lower', ACTOR);
-    track('adminAction', down.auditId);
-    expect(down.status).toBe('FULL');
+    // The pending request (base + suffix) is far above 1 000 tiyin, but it is only held: the card
+    // gets no new request (no room), yet it stays ACTIVE.
+    expect(await limit({ limitTiyin: 1_000n })).toBe('ACTIVE');
+    // Money that arrived is what fills a card: lifetime, then monthly.
+    await receive(card, 1_000n);
+    expect(await limit({ limitTiyin: 1_000n })).toBe('FULL');
+    expect(await limit({ limitTiyin: 10_000_000_000n, monthlyLimitTiyin: 1_000n })).toBe('FULL');
+    expect(await limit({ limitTiyin: 10_000_000_000n, monthlyLimitTiyin: 1_001n })).toBe('ACTIVE');
+    expect(await limit({ limitTiyin: 10_000_000_000n, monthlyLimitTiyin: 1_000n })).toBe('FULL');
+    expect(await limit({ limitTiyin: 10_000_000_000n, monthlyLimitTiyin: null })).toBe('ACTIVE');
   });
 
   it('a paused card gets no requests; resumed, it does; repeating either is a no-op', async () => {

@@ -1,3 +1,4 @@
+import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
 import { randomBytes } from 'node:crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
@@ -142,8 +143,8 @@ export function useQuotesE2e<F>(
   const csrfHeaders = { 'x-csrf-token': 'e2e', origin: env.WEB_URL };
 
   const newUser = async (): Promise<TestUser> => {
-    // Under 2^53 and random enough that other suites on the shared database never collide.
-    const telegramId = Date.now() * 4000 + (randomBytes(2).readUInt16BE() % 4000);
+    // Unique across files, runs and jest workers (test-telegram-id.ts), under 2^53.
+    const telegramId = nextTestTelegramId();
     const { user } = await app
       .get(UsersService)
       .ensureTelegramUser({ telegramId: BigInt(telegramId), firstName: 'Quote' }, { now });

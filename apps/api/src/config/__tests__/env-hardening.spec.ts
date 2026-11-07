@@ -36,6 +36,7 @@ describe('NODE_ENV=development with a webhook', () => {
     TELEGRAM_BOT_MODE: 'webhook',
     TELEGRAM_WEBHOOK_URL: 'https://dev.example.test/api/v1/telegram/webhook',
     TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+    OWNER_ALERT_CHAT_ID: '555000',
   };
 
   it('refuses to boot', () => {
@@ -100,6 +101,7 @@ describe('production extras', () => {
     TELEGRAM_BOT_MODE: 'webhook',
     TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
     TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+    OWNER_ALERT_CHAT_ID: '555000',
   };
 
   it('requires a non-empty TRUST_PROXY', () => {
@@ -195,6 +197,7 @@ describe('PRICING_ALLOW_SIMULATED', () => {
     TELEGRAM_BOT_MODE: 'webhook',
     TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
     TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+    OWNER_ALERT_CHAT_ID: '555000',
   };
 
   it('is off by default, also when the line is empty', () => {

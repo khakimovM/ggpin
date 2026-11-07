@@ -117,7 +117,7 @@ const EnvSchema = z
 
     // ---- Optional now; the named phase makes them required (and checks them at boot). ----
     // Chat that receives operational alerts (low TON balance, NEEDS_REVIEW orders, bank-feed
-    // events). Alerts travel through tg-outbox, which writes to user chats only (positive ids), so
+    // events); required in production since phase 4 (checked below). Alerts travel through tg-outbox, which writes to user chats only (positive ids), so
     // a group or channel id (negative) is refused here instead of failing silently when it matters.
     OWNER_ALERT_CHAT_ID: z
       .string()
@@ -264,6 +264,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
     // The Mini App button and bot links cannot work without it; dev may leave it empty.
     if (clean.MINI_APP_URL === undefined) problems.push('MINI_APP_URL: is required in production');
+    // Bank-feed alerts (reviews, DEBITs, chain breaks) are the owner's only signal that money
+    // waits for a decision: without the chat the notify jobs fail instead of vanishing (M2).
+    if (clean.OWNER_ALERT_CHAT_ID === undefined) {
+      problems.push('OWNER_ALERT_CHAT_ID: is required in production');
+    }
   }
 
   // The production check above already names a placeholder; do not report it twice.

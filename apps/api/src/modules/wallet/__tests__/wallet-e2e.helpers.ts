@@ -1,3 +1,4 @@
+import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
 import { randomBytes } from 'node:crypto';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -117,8 +118,8 @@ export function useWalletE2e(): WalletE2e {
 
   const newUser = async (): Promise<TestUser> => {
     const now = new Date();
-    // Under 2^53 and random enough that other suites on the shared database never collide.
-    const telegramId = Date.now() * 4000 + (randomBytes(2).readUInt16BE() % 4000);
+    // Unique across files, runs and jest workers (test-telegram-id.ts), under 2^53.
+    const telegramId = nextTestTelegramId();
     const { user } = await app
       .get(UsersService)
       .ensureTelegramUser({ telegramId: BigInt(telegramId), firstName: 'Wallet' }, { now });

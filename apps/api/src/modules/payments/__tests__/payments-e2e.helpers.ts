@@ -1,3 +1,4 @@
+import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
 import { randomBytes } from 'node:crypto';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -161,7 +162,7 @@ export function usePaymentsE2e(options: PaymentsE2eOptions = {}) {
 
   const newUser = async (opts: UserOptions = {}): Promise<TestUser> => {
     const now = new Date();
-    const telegramId = Date.now() * 4000 + (randomBytes(2).readUInt16BE() % 4000);
+    const telegramId = nextTestTelegramId();
     const { user } = await app.get(UsersService).ensureTelegramUser(
       {
         telegramId: BigInt(telegramId),

@@ -17,7 +17,7 @@ import {
   type CardAdminActor,
 } from './card-admin.input';
 import { CardAdminRepository } from './card-admin.repository';
-import { freeCapacity, tashkentMonthStart } from './card-capacity';
+import { CARD_FULL_PERCENT, receivedUsagePercent, tashkentMonthStart } from './card-capacity';
 import { CardPoolRepository } from './card-pool.repository';
 import { assertCardTransition } from './card-state';
 import { isUniqueViolation } from './db-errors';
@@ -168,7 +168,11 @@ export class CardAdminService {
     });
   }
 
-  /** New limits; FULL <-> ACTIVE follows the new room (FULL -> ACTIVE only this way, E-9). */
+  /**
+   * New limits; FULL <-> ACTIVE follows the money RECEIVED against them (D-45: held UNPAID amounts
+   * never change the state, they only leave no room for new requests). FULL -> ACTIVE only this
+   * way (E-9).
+   */
   async setLimit(
     cardId: string,
     limits: { readonly limitTiyin: bigint; readonly monthlyLimitTiyin?: bigint | null },
@@ -195,11 +199,11 @@ export class CardAdminService {
         autoCreditOnly: false,
         cardId: card.id,
       });
-      const free = totals === undefined ? 0n : freeCapacity(totals);
+      const full = totals === undefined || receivedUsagePercent(totals) >= CARD_FULL_PERCENT;
       const next =
-        updated.status === 'FULL' && free > 0n
+        updated.status === 'FULL' && !full
           ? 'ACTIVE'
-          : updated.status === 'ACTIVE' && free <= 0n
+          : updated.status === 'ACTIVE' && full
             ? 'FULL'
             : null;
       if (next !== null) {

@@ -13,6 +13,7 @@ import { RedisModule } from '../../../infra/redis/redis.module';
 import { UsersService } from '../../users/users.service';
 import { NotificationsModule } from '../notifications.module';
 import { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
+import { NOTIFY_QUEUE_NAME } from '../notify.worker';
 import { TG_OUTBOX_SENDER } from '../tg-outbox.sender';
 import { FakeSender, telegramError, wait, waitFor } from './tg-outbox.e2e-helpers';
 import {
@@ -33,6 +34,7 @@ import {
 describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
   const env = { ...buildE2eEnv(), TELEGRAM_BOT_MODE: 'polling' as const };
   const queueName = `tg-outbox-e2e-${randomUUID()}`;
+  const notifyQueueName = `notify-e2e-${randomUUID()}`;
   const createdTelegramIds: bigint[] = [];
   let seq = 0;
 
@@ -58,6 +60,9 @@ describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
       .useValue(sender)
       .overrideProvider(TG_OUTBOX_QUEUE_NAME)
       .useValue(queueName)
+      // NotificationsModule also starts the notify consumer: never on the shared queue here.
+      .overrideProvider(NOTIFY_QUEUE_NAME)
+      .useValue(notifyQueueName)
       .compile();
     moduleRef.useLogger(false);
     await moduleRef.init();
@@ -245,6 +250,9 @@ describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
   afterAll(async () => {
     await queue.obliterate({ force: true });
     await queue.close();
+    const notifyQueue = new Queue(notifyQueueName, { connection: { url: env.REDIS_URL } });
+    await notifyQueue.obliterate({ force: true });
+    await notifyQueue.close();
     const app = await Test.createTestingModule({
       imports: [AppConfigModule.forRoot(env), PrismaModule],
     }).compile();
