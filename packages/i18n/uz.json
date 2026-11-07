@@ -18,6 +18,86 @@
       "stars": "{amount} Stars"
     }
   },
+  "web": {
+    "login": {
+      "back": "Bosh sahifaga",
+      "homeLabel": "{brand} — bosh sahifa",
+      "title": "{brand}ʼga kirish",
+      "subtitle": "Parol kerak emas: kirish kodi Telegramʼdagi botimizga keladi. Birinchi marta kirsangiz, hisob avtomatik yaratiladi.",
+      "start": "Telegram orqali kirish",
+      "starting": "Telegram ochilmoqda…",
+      "steps": {
+        "open": "Telegramʼda botimiz ochiladi.",
+        "start": "Start tugmasini bosing.",
+        "enter": "Bot yuborgan 6 xonali kodni shu yerga kiriting."
+      },
+      "openTelegram": "Telegramʼni ochish",
+      "waiting": "Telegramʼdan javob kutilmoqda…",
+      "cancel": "Bekor qilish",
+      "codeSent": "Kod Telegramʼga yuborildi",
+      "codeLabel": "{bot} yuborgan 6 xonali kod",
+      "codeGroup": "Tasdiqlash kodi",
+      "codeBox": "Kod, {position}-raqam",
+      "attemptsLeft": "{count, plural, one {Kod noto‘g‘ri. Yana # ta urinish qoldi} other {Kod noto‘g‘ri. Yana # ta urinish qoldi}}",
+      "expired": "Kod muddati tugadi",
+      "timer": "Kod {time} amal qiladi",
+      "verify": "Tasdiqlash",
+      "verifying": "Tekshirilmoqda…",
+      "newCode": "Yangi kod olish",
+      "rejected": {
+        "title": "So‘rov Telegramʼda rad etildi.",
+        "hint": "Bu siz bo‘lsangiz, qaytadan boshlang."
+      },
+      "restart": "Qaytadan boshlash",
+      "success": {
+        "title": "Xush kelibsiz, {name}!",
+        "anon": "Xush kelibsiz!",
+        "redirecting": "Do‘konga o‘tilmoqda…"
+      },
+      "security": "Kodni hech kimga bermang — xodimlarimiz uni hech qachon so‘ramaydi.",
+      "error": {
+        "title": "Telegram orqali kirish vaqtincha ishlamayapti",
+        "hint": "Bir necha daqiqadan so‘ng qayta urinib ko‘ring.",
+        "rateLimited": "Urinishlar juda ko‘p. Qayta urinish uchun kuting: {time}",
+        "verifyFailed": "Kodni tekshirib bo‘lmadi. Qayta urinib ko‘ring."
+      }
+    },
+    "auth": {
+      "signIn": "Kirish",
+      "checking": "Sessiya tekshirilmoqda…",
+      "ended": {
+        "title": "Sessiya yakunlangan",
+        "hint": "Davom etish uchun qayta kiring."
+      }
+    },
+    "logout": {
+      "action": "Chiqish",
+      "pending": "Chiqilmoqda…",
+      "failedTitle": "Chiqish amalga oshmadi",
+      "failedHint": "Internet aloqasini tekshirib, qayta urinib ko‘ring. Hisobingiz hozircha ochiq qolgan bo‘lishi mumkin."
+    },
+    "sessions": {
+      "title": "Faol sessiyalar",
+      "current": "Bu qurilma",
+      "end": "Yakunlash",
+      "endAll": "Boshqa barcha sessiyalarni yakunlash",
+      "endAllError": "Baʼzi sessiyalarni yakunlab bo‘lmadi. Qayta urinib ko‘ring.",
+      "endLabel": "{device} sessiyasini yakunlash",
+      "unknownDevice": "Nomaʼlum qurilma",
+      "activeNow": "hozir faol",
+      "loadError": "Sessiyalarni yuklab bo‘lmadi",
+      "empty": "Faol sessiyalar yo‘q",
+      "revokeError": "Sessiyani yakunlab bo‘lmadi. Qayta urinib ko‘ring."
+    },
+    "store": {
+      "welcome": "Xush kelibsiz, {name}!",
+      "welcomeAnon": "Xush kelibsiz!",
+      "profile": "Profil"
+    },
+    "profile": {
+      "title": "Profil"
+    }
+  },
   "admin": {
     "shell": {
       "title": "Admin panel"

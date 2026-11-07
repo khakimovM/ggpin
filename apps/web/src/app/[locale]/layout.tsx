@@ -1,10 +1,12 @@
 import { BRAND } from '@repo/shared';
+import { ThemeProvider } from '@repo/ui';
 import type { Metadata } from 'next';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { env } from '../../env';
+import { AuthSync } from '../../features/auth/AuthSync';
 import { MESSAGES } from '../../i18n/messages';
 import { routing } from '../../i18n/routing';
 import { FONT_CLASSES } from '../fonts';
@@ -32,13 +34,19 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   // Only the namespaces client components read are serialised into the page (not bot.* etc.).
-  const { common, errors } = MESSAGES[locale];
+  const { common, errors, web } = MESSAGES[locale];
 
   return (
-    <html lang={locale} className={FONT_CLASSES}>
+    // ThemeProvider writes data-theme / data-reduced on <html> after hydration.
+    <html lang={locale} className={FONT_CLASSES} suppressHydrationWarning>
       <body>
-        <NextIntlClientProvider locale={locale} messages={{ common, errors }}>
-          <Providers>{children}</Providers>
+        <NextIntlClientProvider locale={locale} messages={{ common, errors, web }}>
+          <ThemeProvider variant="web">
+            <Providers>
+              <AuthSync />
+              {children}
+            </Providers>
+          </ThemeProvider>
         </NextIntlClientProvider>
       </body>
     </html>
