@@ -25,9 +25,10 @@ const TELEGRAM_SDK = 'https://telegram.org/js/telegram-web-app.js';
 
 // Only the namespaces the Mini App screens read travel to the client, in both languages: the
 // language is chosen on the client (Telegram's language_code, then the profile's locale).
-const pick = ({ common, errors, tg, store, wallet }: Messages): TgMessages => ({
+const pick = ({ common, errors, fields, tg, store, wallet }: Messages): TgMessages => ({
   common,
   errors,
+  fields,
   tg,
   store,
   wallet,

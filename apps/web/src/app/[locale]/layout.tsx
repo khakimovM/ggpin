@@ -31,7 +31,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   // Only the namespaces client components read are serialised into the page (not bot.* etc.).
-  const { common, errors, web, store, wallet } = MESSAGES[locale];
+  const { common, errors, fields, web, store, wallet } = MESSAGES[locale];
 
   return (
     // ThemeProvider writes data-theme / data-reduced on <html> after hydration.
@@ -40,7 +40,10 @@ export default async function LocaleLayout({
         <ThemeScript variant="web" />
       </head>
       <body>
-        <NextIntlClientProvider locale={locale} messages={{ common, errors, web, store, wallet }}>
+        <NextIntlClientProvider
+          locale={locale}
+          messages={{ common, errors, fields, web, store, wallet }}
+        >
           <ThemeProvider variant="web">
             <Providers>
               <AuthSync />

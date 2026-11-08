@@ -4,6 +4,8 @@
 // Content-Security-Policy, which the middleware builds per request because script-src carries the
 // request's nonce.
 
+import { TELEGRAM_IMAGE_CSP_SOURCES } from './telegram-image-hosts';
+
 export interface HeaderRule {
   source: string;
   headers: { key: string; value: string }[];
@@ -61,7 +63,7 @@ export function buildCsp(kind: CspKind, nonce: string, { apiOrigin, isDev }: Opt
     // script half of the card-swap threat, and the other half is that no user-controlled HTML is
     // ever rendered unescaped.
     ['style-src', ["'self'", "'unsafe-inline'"]],
-    ['img-src', ["'self'", 'data:', 'blob:', apiOrigin, 'https://t.me', 'https://*.telegram.org']],
+    ['img-src', ["'self'", 'data:', 'blob:', apiOrigin, ...TELEGRAM_IMAGE_CSP_SOURCES]],
     ['font-src', ["'self'"]],
     ['connect-src', ["'self'", apiOrigin, ...(isDev ? ['ws:'] : [])]],
     ['frame-ancestors', kind === 'tg' ? [TELEGRAM_FRAME_ANCESTOR] : ["'none'"]],

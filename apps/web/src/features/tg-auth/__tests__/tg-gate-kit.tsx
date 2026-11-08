@@ -24,8 +24,22 @@ export const ME: Me = {
   phoneLinked: false,
 };
 export const CATALOGS = {
-  uz: { common: uz.common, errors: uz.errors, tg: uz.tg, store: uz.store, wallet: uz.wallet },
-  ru: { common: ru.common, errors: ru.errors, tg: ru.tg, store: ru.store, wallet: ru.wallet },
+  uz: {
+    common: uz.common,
+    errors: uz.errors,
+    fields: uz.fields,
+    tg: uz.tg,
+    store: uz.store,
+    wallet: uz.wallet,
+  },
+  ru: {
+    common: ru.common,
+    errors: ru.errors,
+    fields: ru.fields,
+    tg: ru.tg,
+    store: ru.store,
+    wallet: ru.wallet,
+  },
 };
 
 export type ErrorCode = ConstructorParameters<typeof ApiError>[0]['code'];

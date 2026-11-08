@@ -68,6 +68,89 @@
         "title": "Internet aloqasi yo‘q",
         "body": "Narxlar va balans eskirgan bo‘lishi mumkin"
       }
+    },
+    "product": {
+      "breadcrumb": "Sahifa yo‘li",
+      "catalog": "Katalog",
+      "loading": "Mahsulot yuklanmoqda",
+      "error": {
+        "title": "Maʼlumotni yuklab bo‘lmadi",
+        "body": "Internet aloqasini tekshirib, qayta urinib ko‘ring."
+      },
+      "unavailable": {
+        "title": "Mahsulot vaqtincha mavjud emas",
+        "body": "Odatda tez tiklanadi. Hozircha boshqa mahsulotlarni ko‘rib chiqing.",
+        "cta": "Katalogga qaytish"
+      },
+      "delivery": {
+        "label": "Yetkazish",
+        "auto": "⚡ 1–2 daqiqa, avtomatik",
+        "manual": "Operator tasdiqlaydi"
+      },
+      "recipient": {
+        "title": "Kimga yuboramiz?",
+        "hint": "O‘zingizga yoki do‘stingizga",
+        "self": "O‘zim",
+        "check": "Tekshirish",
+        "checking": "Tekshirilmoqda",
+        "invalid": "Username 5–32 ta lotin harf, raqam yoki _ dan iborat bo‘ladi",
+        "notFound": "Bunday foydalanuvchi topilmadi. Usernameni tekshiring.",
+        "down": "Tekshirib bo‘lmadi. Birozdan so‘ng qayta urinib ko‘ring.",
+        "prompt": "To‘g‘ri odammi? Tasdiqlang",
+        "confirm": "Ha, shu",
+        "change": "O‘zgartirish",
+        "confirmed": "Tasdiqlandi",
+        "summary": "Kimga",
+        "unconfirmed": "Tasdiqlanmagan",
+        "blocked": {
+          "title": "Bu foydalanuvchiga hozir Premium sovg‘a qilib bo‘lmaydi",
+          "body": "Boshqa username kiriting yoki keyinroq urinib ko‘ring."
+        },
+        "expired": "Tasdiq muddati tugadi. Qabul qiluvchini qayta tekshiring."
+      },
+      "help": {
+        "open": "Qanday topaman?",
+        "title": "Qanday topaman?",
+        "close": "Tushunarli"
+      },
+      "qty": {
+        "title": "Miqdor",
+        "label": "Stars miqdori",
+        "decrement": "Kamaytirish",
+        "increment": "Ko‘paytirish",
+        "presets": "Tez tanlash",
+        "range": "{min, number} dan {max, number} gacha ⭐ tanlang",
+        "unitPrice": "Taxminan: 1 ⭐ ≈ {price}"
+      },
+      "sku": {
+        "title": "Paketni tanlang",
+        "plans": "Muddat",
+        "tabs": "Paket guruhlari"
+      },
+      "summary": {
+        "label": "Buyurtma xulosasi",
+        "product": "Mahsulot",
+        "stars": "{count, number} ⭐",
+        "total": "Jami",
+        "wallet": "Hamyonda: {amount}"
+      },
+      "quote": {
+        "pending": "Narx hisoblanmoqda",
+        "valid": "Narx {time} davomida kafolatlangan",
+        "expired": "Narx eskirdi",
+        "refresh": "Narxni yangilash",
+        "unavailable": "Narx hozircha mavjud emas",
+        "failed": "Narxni olib bo‘lmadi",
+        "rateLimited": "So‘rovlar ko‘p. {seconds} soniyadan keyin qayta uriniladi.",
+        "changed": "Mahsulot maʼlumoti yangilandi. Miqdor yoki paketni tekshirib, narxni yangilang."
+      },
+      "buy": {
+        "label": "Sotib olish",
+        "withPrice": "Sotib olish · {price}",
+        "needRecipient": "Avval qabul qiluvchini tasdiqlang",
+        "needPackage": "Paketni tanlang",
+        "needPrice": "Narx tayyor bo‘lishini kuting"
+      }
     }
   },
   "wallet": {
@@ -280,7 +363,8 @@
     }
   },
   "fields": {
-    "tgUsername": "Telegram username"
+    "tgUsername": "Telegram username",
+    "tgUsernamePlaceholder": "username"
   },
   "errors": {
     "VALIDATION_ERROR": "Kiritilgan maʼlumotlarda xatolik bor. Tekshirib, qayta urinib ko‘ring.",
