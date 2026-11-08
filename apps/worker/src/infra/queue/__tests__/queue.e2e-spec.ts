@@ -10,6 +10,7 @@ import {
   cleanUpPriceSync,
   cleanupSince,
 } from '../../../pricing-sync/__tests__/price-sync-e2e-cleanup';
+import { withoutPaymentCrons } from '../../../__tests__/payment-cron-isolation';
 import { WorkerModule } from '../../../worker.module';
 import { workerBullOptions } from '../queue.module';
 
@@ -46,10 +47,12 @@ describe('BullMQ wiring (real Redis)', () => {
     redis = new Redis(env.REDIS_URL);
     queueEvents = new QueueEvents(TEST_QUEUE, { connection });
     await queueEvents.waitUntilReady();
-    moduleRef = await Test.createTestingModule({
-      imports: [WorkerModule.register(env), BullModule.registerQueue({ name: TEST_QUEUE })],
-      providers: [createTestProcessor(TEST_QUEUE)],
-    }).compile();
+    moduleRef = await withoutPaymentCrons(
+      Test.createTestingModule({
+        imports: [WorkerModule.register(env), BullModule.registerQueue({ name: TEST_QUEUE })],
+        providers: [createTestProcessor(TEST_QUEUE)],
+      }),
+    ).compile();
     moduleRef.useLogger(false);
     await moduleRef.init();
   });
@@ -102,9 +105,9 @@ describe('heartbeat on shutdown (real Redis)', () => {
   it('removes its key when the worker closes', async () => {
     const env = buildE2eEnv();
     const redis = new Redis(env.REDIS_URL);
-    const moduleRef = await Test.createTestingModule({
-      imports: [WorkerModule.register(env)],
-    }).compile();
+    const moduleRef = await withoutPaymentCrons(
+      Test.createTestingModule({ imports: [WorkerModule.register(env)] }),
+    ).compile();
     moduleRef.useLogger(false);
     await moduleRef.init();
     let closed = false;

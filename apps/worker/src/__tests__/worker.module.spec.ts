@@ -11,6 +11,8 @@ import type { RegisterQueueOptions } from '@nestjs/bullmq';
 import { buildTestEnv } from '../config/__tests__/test-env';
 import { HeartbeatService } from '../heartbeat/heartbeat.service';
 import { PriceSyncScheduler } from '../pricing-sync/price-sync.scheduler';
+import { TopupExpireScheduler } from '../bank-feed/topup-expire.scheduler';
+import { PaymentReconcileScheduler } from '../reconcile/payment-reconcile.scheduler';
 import { WorkerModule } from '../worker.module';
 import { fakeRedisClient, withFakeInfra, type FakeQueue, type FakeRedisClient } from './fake-infra';
 
@@ -76,5 +78,21 @@ describe('WorkerModule', () => {
     ]);
     // New schedulers run at once (delay 0), so no extra immediate job is added.
     expect(queue?.add).not.toHaveBeenCalled();
+  });
+
+  it('schedules the every-minute topup-expire sweep and the 03:00 Tashkent reconciliation', async () => {
+    await moduleRef.init();
+    await moduleRef.get(TopupExpireScheduler).whenScheduled();
+    await moduleRef.get(PaymentReconcileScheduler).whenScheduled();
+    expect(queues.get(QUEUES.TOPUP_EXPIRE)?.upsertJobScheduler.mock.calls).toEqual([
+      ['topup-expire:sweep', { every: 60_000 }, { name: 'sweep', data: {} }],
+    ]);
+    expect(queues.get(QUEUES.PAYMENT_RECONCILE)?.upsertJobScheduler.mock.calls).toEqual([
+      [
+        'payment-reconcile:daily',
+        { pattern: '0 3 * * *', tz: 'Asia/Tashkent' },
+        { name: 'daily', data: {} },
+      ],
+    ]);
   });
 });
