@@ -118,8 +118,15 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 - **Lider.** Redis `lock:bank-feed` (TTL 30 s, har 10 s yangilanadi): bitta auth key bilan ikki ulanish (`AUTH_KEY_DUPLICATED`) bo‘lmasin.
 - **Qabul filtri (parserdan oldin).** Faqat sozlangan **raqamli bot id** dan, botning shaxsiy chatida, `isBot`, **kiruvchi** (chiquvchi `out` xabar rad
   etiladi), forward emas, tahrirlanmagan (`editDate` bo‘sh), `viaBot` yo‘q xabar. Boshqa chatlar so‘ralmaydi, ularning matni o‘qilmaydi va logga
-  tushmaydi. Rad etilgani — `BankMessage(REJECTED)` + review + alert; tahrir update’i — alert `edited`, avvalgi qator o‘zgarmaydi. Bot id’lari env’da
-  qotirilgan; boot’da `getUsers(id)` bilan kutilgan username solishtiriladi, runtime’da username qidirilmaydi.
+  tushmaydi. Tekshiruv tartibi (`ingestRejectReason`): `FOREIGN_CHAT` (chat qotirilgan bot chati emas) **birinchi**, keyin `OUTGOING`, `FORWARDED`,
+  `EDITED`, `VIA_BOT`, `FOREIGN_SENDER`, `NOT_BOT` (jo‘natuvchi bot emas). **Boshqa chat xabari umuman saqlanmaydi** va kursorni siljitmaydi
+  (S9 B2): uning id’si boshqa chat raqamlanishiga tegishli — kursorni haqiqiy xabarlardan oshirib yuborishi yoki botning o‘z chatidagi keyingi
+  haqiqiy xabarga kerak bo‘ladigan `(senderId, tgMessageId)` kalitini egallab qo‘yishi mumkin edi; o‘rniga log (faqat manba va kod) va xavfsizlik
+  alerti `foreignChat` (manba bo‘yicha soatiga bitta). Qolgan rad etilganlar — `BankMessage(REJECTED)` (`rejectReason` = `INGEST_REJECT_REASONS`),
+  review va alert; `FOREIGN_SENDER` / `NOT_BOT` xabarning matni saqlanmaydi (begona so‘zlar), faqat `textSha256`. Takror kelgan xabar faqat
+  `(senderId, tgMessageId)` unique buzilishi bilan «allaqachon saqlangan» deb tan olinadi (`stored: false`, `DUPLICATE`); boshqa unique xatosi —
+  haqiqiy xato. Tahrir update’i — alert `edited`, avvalgi qator o‘zgarmaydi. Bot id’lari env’da qotirilgan; boot’da `getUsers(id)` bilan kutilgan
+  username solishtiriladi, runtime’da username qidirilmaydi.
 - **Kuzatuv.** Redis `bankfeed:heartbeat` (har poll’da). **`account.getAuthorizations` har poll’da** tekshiriladi: ishchi akkauntda noma’lum yangi avtorizatsiya
   chiqsa **BARCHA kartalarda avtomatik yozish to‘xtaydi** (fail-closed; kirimlar review `AUTO_CREDIT_PAUSED`) va alert `newAuthorization` yuboriladi;
   ega sessiyalarni tekshirib `card:resume` qiladi. `AUTH_KEY_UNREGISTERED` / `SESSION_REVOKED` = alert + tinglovchi to‘xtaydi. (Bu S7 dizayni.)
@@ -139,11 +146,24 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
    tiklangandan keyin 48 soatlik qayta skan bilan topiladi (10-band). Telegram support orqali tiklanadi yoki yangi akkaunt.
 5. _Karta bloklansa:_ `card:retire <id> --emergency` (PENDING so‘rovlar bekor, tokenlar o‘ladi), kartaga kelgan pulni bank orqali aniqlash, ko‘rib
    chiqishlarni (`review:list`) yopish; foydalanuvchilarga yangi so‘rov boshqa kartaga beriladi.
-6. _Kalit saqlash:_ `BANK_FEED_ENC_KEY` productionda Docker secret faylida turadi, env o‘zgaruvchisida emas (11-bosqich); worker konteynerida core dump
+6. _Ledger’dan tashqari pul:_ foydalanuvchiga naqd yoki boshqa kanal orqali berilgan pul tizimga ko‘rinmaydi: matcher ham, `wallet:adjust` to‘sig‘i
+   ham uni bilmaydi. Shunday pul berilsa, avval `wallet:adjust` bilan (sabab bilan) ledger’ga yozing, aks holda kech kelgan o‘tkazma avtomatik yoziladi.
+7. _Kalit saqlash:_ `BANK_FEED_ENC_KEY` productionda Docker secret faylida turadi, env o‘zgaruvchisida emas (11-bosqich); worker konteynerida core dump
    o‘chiriladi (`ulimit -c 0`, `/proc/sys/kernel/core_pattern`), chunki xotirada ochiq sessiya bor.
-7. _Pepper almashtirish:_ `PAY_TOKEN_PEPPER` almashsa barcha havola tokenlari o‘ladi (xesh mos kelmaydi); kutilayotgan foydalanuvchilar yangi havola oladi
+8. _Pepper almashtirish:_ `PAY_TOKEN_PEPPER` almashsa barcha havola tokenlari o‘ladi (xesh mos kelmaydi); kutilayotgan foydalanuvchilar yangi havola oladi
    (`POST /payments/intents/:id/pay-link`). Rejali almashtirish — kam yuklangan vaqtda.
-8. _Reverse proxy:_ access log formatida `t` query parametri va `X-Pay-Token` sarlavhasi yashiriladi (devops, 11-bosqich).
+9. _Reverse proxy:_ access log formatida `t` query parametri va `X-Pay-Token` sarlavhasi yashiriladi (devops, 11-bosqich).
+10. _`wallet:adjust` `RECENT_AUTO_TOPUP` bilan rad etsa (S9F-L1):_ chiqqan `recentAutoTopup=` to‘lovlarini (eng yangi 20 tasi, qolgani
+    `recentAutoTopupMore`) bank va `review:list` bilan solishtiring. Berilayotgan pul ulardan boshqa bo‘lsa, buyruqni **aynan chiqqan**
+    `--confirm-override=<recentAutoTopupSet>` (12 ta kichik hex belgi) bilan qayta yurgizing. Oraliqda yangi avtomatik to‘lov kelsa, qiymat
+    eskiradi: buyruq yana rad etadi va yangi ro‘yxat bilan yangi `recentAutoTopupSet` ni chiqaradi — avval o‘sha yangi to‘lovni tekshiring.
+    Qayta yurgizishda **xuddi shu `--key`** ni bering: oldingi ishga tushirish yozib ulgurgan bo‘lsa, buyruq `applied=false` bilan tugaydi.
+11. _`effectsFailed` alerti (S9F-I1):_ xabarning qarori saqlangan, faqat undan keyingi amallar (foydalanuvchi bildirishnomasi, egaga
+    ogohlantirishlar, karta limiti job’i) bajarilmagan; bu xabar avtomatik qayta ishlanmaydi. `review:list` va foydalanuvchining oxirgi
+    to‘ldirishini tekshiring, kerak bo‘lsa foydalanuvchiga o‘zingiz xabar bering. Pulni qo‘lda **qayta bermang**: qaror (kirim bo‘lsa `TOPUP` ham) yozilgan.
+12. _7 kundan eski o‘tkazma bo‘yicha shikoyat (S9 m1):_ `wallet:adjust` to‘sig‘i faqat oxirgi 7 kunda **tasdiqlangan** avtomatik to‘lovlarni ko‘radi
+    (oyna hozirdan sanaladi, o‘tkazma vaqtidan emas). Shuning uchun bunday shikoyatda pul berishdan oldin foydalanuvchining to‘lovlar tarixini
+    qo‘lda tekshiring (to‘siq uni ko‘rmaydi): o‘sha o‘tkazma allaqachon avtomatik yozilgan bo‘lishi mumkin.
 
 ## 5. Parser
 
@@ -192,8 +212,15 @@ to‘qnashuvi (P2002) va outcome mavjudligi «boshqa ishlovchi yozib bo‘lgan»
 odam hal qiladi» ma’nosida — aniqlanmagan sababni `CHAIN_BREAK` yoki `AMBIGUOUS` deb ko‘rsatmaslik uchun) va outcome `REVIEW` yozadi, karta
 `autoCreditPaused`, alert `processingFailed` (kartasiz xabarda `unrecognized`). Job’ni kechiktirishning o‘zi (Redis) xato bersa ham oxirgi urinishda
 shu yo‘l ishlaydi. Yozuv bir necha marta uriniladi (3 urinish, har birida `lock_timeout` 10 s, oraliq 1 s: asl xato ko‘pincha band karta). Baribir yozib
-bo‘lmasa — egaga alert `messageStuck` (faqat `BankMessage.id`, bazaga hech narsa yozilmaydi) va job failed bo‘lib qoladi; qaror saqlangan-u, commit’dan
-keyingi effektlar xato bergan bo‘lsa ham `messageStuck`. Kelgan pul hech qachon jimgina ishlanmay qolmaydi. Tartib:
+bo‘lmasa — egaga alert `messageStuck` (faqat `BankMessage.id`, bazaga hech narsa yozilmaydi) va job failed bo‘lib qoladi. Uning matni egaga xabar
+30 daqiqadan keyin avtomatik qayta ishlanishini (yetim qayta navbat, §8) va pul allaqachon yozilgan bo‘lishi mumkinligini aytadi: qo‘lda berishdan oldin
+foydalanuvchining oxirgi to‘ldirishini tekshirish kerak. Qayta ishlashdan **oldin** qo‘lda berilgan pul `MANUAL_CREDIT_SEEN` review’ini ochadi (7-qadam);
+qayta ishlash **keyin** bo‘lsa, `wallet:adjust` to‘sig‘i ushlaydi (§7, S9 F-L1; uning oynasi yetim qayta navbatning 7 kunlik ufqi bilan bir xil —
+`AUTO_CREDIT_HORIZON_MS`, `packages/db`, S9F-L2). Oyna **hozirdan** orqaga sanaladi (`Payment.confirmedAt` bo‘yicha), o‘tkazma vaqtidan emas: qayta
+navbat kech yozgan to‘lov hozir tasdiqlanadi va doim oyna ichida, lekin 7 kundan oldin yozilgan to‘lovni to‘siq ko‘rmaydi (runbook 12-band). **Qaror saqlangan-u, faqat commit’dan keyingi effektlar xato bergan bo‘lsa** (matcher’da yoki
+fail-closed review’ni yozgandan keyin) alert boshqa — `effectsFailed` (S9F-I1): yetim qayta navbat faqat qarorsiz xabarlarni oladi, shuning uchun bu xabar
+hech qachon qayta ishlanmaydi va matn «avtomatik qayta ishlanadi» demaydi; u `review:list` va oxirgi to‘ldirishni tekshirishni, foydalanuvchiga
+bildirishnoma bormagan bo‘lishi mumkinligini aytadi (runbook 11-band). Kelgan pul hech qachon jimgina ishlanmay qolmaydi. Tartib:
 
 1. `BankMessageOutcome` bor bo‘lsa — hech narsa qilinmaydi (idempotent).
 2. `parseStatus ≠ PARSED` → review `UNRECOGNIZED` / `REJECTED` + alert.
@@ -210,7 +237,8 @@ keyingi effektlar xato bergan bo‘lsa ham `messageStuck`. Kelgan pul hech qacho
    kirimlar review `AUTO_CREDIT_PAUSED`. Ega `card:resume` yoki `review:accept-chain` qiladi.
    **Chiqim (DEBIT)** hisobga tegmaydi (`DEBIT_RECORDED`), lekin **har DEBIT haqida egaga alert** (`debit`: last4 va summa); yaqinda (7 kun) yozilgan to‘lov
    summasiga teng DEBIT — review `POSSIBLE_REVERSAL` (bank pulni qaytarib olgan bo‘lishi mumkin).
-5. `VERIFYING` karta va kirim = `verifyAmountTiyin` → karta `ACTIVE`, outcome `CARD_VERIFIED`, ledger yo‘q, alert `cardVerified`.
+5. `VERIFYING` karta va kirim = `verifyAmountTiyin`, xabar sanasi karta qo‘shilgandan keyin (`tgDate >= card.createdAt`: skan topgan eski bir xil
+   summali o‘tkazma kartani tasdiqlamaydi, S9-L1) → karta `ACTIVE`, outcome `CARD_VERIFIED`, ledger yo‘q, alert `cardVerified`.
 6. Kirim nomzodlari: `P2P_CARD`, shu karta, holati **`PENDING` / `EXPIRED` / `CANCELLED`**, summasi **aynan teng**, `reservedUntil ≥ xabar vaqti`, so‘rov yaratilishidan 120 s dan oldingi emas
    (`createdAt − 120 s ≤ tgDate`). Bank vaqti va Telegram vaqti farqi `BANK_TIME_SKEW_SEC` (600 s) dan oshsa — review `TIME_SKEW`.
 
@@ -230,6 +258,9 @@ o‘sha so‘rovga yoziladi; bunga qarshi — uzun grace va ishlatilmagan qo‘s
 7. **Hisobga yozishdan oldingi qo‘shimcha tekshiruvlar** (nomzod aniq bitta bo‘lganda, intent qatori `FOR UPDATE` bilan qulflanib nomzodlar qayta tekshirilgach):
    avval `Wallet` qulfi; **summa qayta berilmaganmi**: kech to‘lov `reservedUntil` ni `paidAt + grace` gacha uzaytiradi, shu oraliqda o‘sha kartada shu summa
    boshqa so‘rovga berilgan bo‘lsa (rezervlar ustma-ust tushardi, 23P01) — review `AMBIGUOUS`, `note = AMOUNT_REALLOCATED`, ledger yo‘q, alert `amountReallocated` («summa allaqachon boshqa so‘rovga berilgan»).
+   **Kech saqlangan** (D-47, `createdAt − tgDate > 10 daqiqa`) xabar va so‘rov xabar saqlangan paytda ochiq emas edi (`PENDING` emas — masalan grace
+   ichidagi `EXPIRED` — yoki `PENDING`, lekin `expiresAt <= createdAt`: sweep hali ishlamagan) — review `AMBIGUOUS`, `note = LATE_STORED`, ledger yo‘q,
+   alert `lateStored` (7-band). Bu tekshiruv sarlavha tekshiruvidan **keyin**: `TITLE_UNKNOWN` / `REPARSE_MISMATCH` / `TEXT_MISSING` o‘z izohini saqlaydi.
    **Sarlavha** (D-43 (1)): matcher `BankMessageText` ni qayta tahlil qiladi; ma’lum sarlavha MATNI bo‘lmasa (rangli doira sarlavha emas, u faqat yo‘nalishni
    bildiradi; **aniq moslik, prefiks emas**: kanonik qator kalitga teng bo‘lishi shart, faqat oxiridagi tinish belgisi yoki emoji va boshidagi rangli doira
    e’tiborga olinmaydi, «To'ldirish TEST» kabi qo‘shimchali sarlavha tanilmagan; prefiks qoidasi faqat qarama-qarshi yo‘nalishni rad etish uchun qoladi) yoki sarlavha yo‘q bo‘lsa — review `UNRECOGNIZED`, `note = TITLE_UNKNOWN`, alohida alert `titleUnknown`; qayta tahlil saqlangan maydonlarga mos
@@ -239,6 +270,14 @@ o‘sha so‘rovga yoziladi; bunga qarshi — uzun grace va ishlatilmagan qo‘s
    `createdAt` bo‘yicha), ASOS summalar, shu so‘rovning o‘zi hisobda ikki marta emas. Oshsa — review `DAILY_LIMIT` (bitta tur); review ma’lumotida qaysi chek oshgani
    yoziladi (`DAILY_LIMIT` yoki `NEW_ACCOUNT_DAILY_LIMIT`); alert `dailyLimit` kodni emas, egaga tushunarli matnni ko‘rsatadi: «barcha akkaunt: kuniga 5 000 000 so‘m» yoki
    «yangi akkaunt: kuniga 500 000 so‘m» (`alerts.limitReason.*`, uz va ru).
+   **Qo‘lda berilgan pul** (D-47 R1) — yozishdan oldingi **oxirgi** to‘siq (yuqoridagi barcha sabablar o‘z o‘rnida, ular ustun), **har bir** avtomatik
+   TOPUP’da: jonli, skan, qayta navbat; `PENDING` ham, grace ichidagi `EXPIRED` ham; kech yoki o‘z vaqtida saqlangan bo‘lishidan qat’i nazar. So‘rov
+   yaratilgandan (`intent.createdAt`) keyin ega foydalanuvchiga qo‘lda pul bergan bo‘lsa — musbat `ADJUSTMENT` (`wallet:adjust`, `ADMIN_ACTION/<AuditLog.id>`)
+   yoki `review:credit` ning `TOPUP` i (`PAYMENT/<Payment.id>`, `Payment.reviewId` to‘ldirilgan; avtomatik kreditda u yo‘q) — review `AMBIGUOUS`,
+   `note = MANUAL_CREDIT_SEEN`, so‘rov id’si bilan, ledger yo‘q, alert `manualCreditSeen`. Manfiy adjustment va avtomatik `TOPUP` hisobga olinmaydi.
+   Predikat bitta: `manualCreditsSince` (`packages/db/src/payments/manual-credits.ts`), `review:credit` preview’i ham shuni ishlatadi.
+   O‘qish `Wallet` qulfi ostida; `wallet:adjust` va `review:credit` ham yozishdan oldin xuddi shu `lockWallet` ni oladi (`packages/db/src/ledger/ledger.ts`),
+   demak qo‘lda to‘lov yo oldin commit bo‘lib bu yerda ko‘rinadi, yo matcher tranzaksiyasi tugashini kutadi. Qulf tartibi o‘zgarmaydi: karta → intent → hamyon.
 8. **Hisobga yozish — BITTA `$transaction`:** intent `FOR UPDATE` → holat `assertIntentTransition` bilan qayta tekshiriladi → `lockWallet` →
    `Payment(P2P_CARD, providerTxnId = "<senderId>:<tgMessageId>", bankMessageId, userId, intentId, CONFIRMED)` → intent `PAID` →
    `LedgerEntry(TOPUP, +summa, PAYMENT/<paymentId>)` → `BankMessageOutcome(CREDITED)`. Har qanday unique to‘qnashuvi — rollback va «allaqachon
@@ -278,6 +317,40 @@ yopish (`CANCELLED → PAID`) faqat shu yo‘l bilan (`actor: admin`) va faqat *
 (`EXPIRED`/`CANCELLED` → `PAID` yo‘q): pul faqat review orqali, so‘rovsiz yoziladi (`Payment` + `reviewId`, `intentId` yo‘q), `reservedUntil` esa uzaytirilmaydi. **Xavfsizlik (S8 dizayni):** `ADMIN_CONFIRM_THRESHOLD_TIYIN` dan katta pul amalida
 (`review:credit`, `wallet:adjust`, `payment:reverse`) summa qayta kiritiladi **va** ega botdan OTP oladi (`rules/60-security.md`: yangi OTP tasdig‘i); **har
 pul yoki karta amali haqida egaga alert** (`adminAction`: amal va `AuditLog` havolasi, summasiz). Noto‘g‘ri/ortiqcha pul qaytarish — bot tashqarisida (D-37 (5)).
+
+**Kech saqlangan xabar (D-47).** `BankMessage.createdAt − tgDate > 10 daqiqa` (`LATE_STORED_AFTER_MS`) bo‘lgan CREDIT — kunlik skan topgani yoki
+listener uzilishdan keyin olgani — xabar saqlangan paytda **ochiq bo‘lmagan** so‘rovga hech qachon avtomatik yozilmaydi: review `AMBIGUOUS`
+(note `LATE_STORED`, so‘rov id’si bilan) va alert `lateStored`. «Ochiq» = muddati o‘tmagan `PENDING` (xabar saqlangan paytda, `createdAt < expiresAt`);
+grace ichidagi `EXPIRED` ham, muddati o‘tgan, lekin sweep hali `EXPIRED` qilmagan `PENDING` ham ochiq emas (sweep ham worker’da: worker to‘xtasa u
+ham to‘xtaydi, S9 B1). Sabab: uzilish paytida ega pulni `wallet:adjust` bilan qo‘lda bergan bo‘lishi mumkin. Kechikish qatorning o‘zidan o‘qiladi,
+shuning uchun qayta navbatga qo‘yilgan job ham shunday qaror qiladi. Kech, lekin saqlangan paytda hali ochiq so‘rovga kelgan xabar avvalgidek yoziladi
+(foydalanuvchi uni kutmoqda, ochiq so‘rovni hech kim qo‘lda yozmaydi); o‘z vaqtida saqlangan xabar o‘zgarmaydi. `review:credit` oldindan
+`manualCreditsSinceRequest=adjust=<soni> (+<yig‘indi>), reviewCredit=<soni> (+<yig‘indi>) since <vaqt>` ni ko‘rsatadi: qo‘lda berilgan pul —
+musbat `ADJUSTMENT` lar va `review:credit` `TOPUP` lari alohida — so‘rov yaratilgan paytdan (so‘rovsiz — o‘tkazma Telegram vaqtidan), lekin kamida
+oxirgi 48 soat (S9 R2) — ikki marta bermaslik uchun. Bu matcher’ning `MANUAL_CREDIT_SEEN` predikatining o‘zi (`manualCreditsSince`, S9 F-L2).
+
+**Qo‘lda berilgan pul (D-47 R1, 2026-11-08).** Kech-kechmasligidan qat’i nazar, so‘rovdan keyin qo‘lda pul olgan foydalanuvchining mos o‘tkazmasi
+avtomatik yozilmaydi: review `AMBIGUOUS` (note `MANUAL_CREDIT_SEEN`, so‘rov id’si bilan) va alert `manualCreditSeen` (6-bo‘lim, 7-qadam). Bu review’ning
+`review:credit` preview’ida ham `manualCreditsSinceRequest` qatori bor (so‘rov yaratilgan paytdan). **Qoida:** qo‘lda pul berishning har
+**yangi** yo‘li (yangi CLI buyrug‘i, admin panel amali) `manualCreditsSince` predikatiga qo‘shiladi — aks holda matcher uni ko‘rmaydi va pul ikki
+marta beriladi.
+
+**Teskari tartib (S9 F-L1).** Matcher pulni avval yozib commit qilsa, keyin kelgan `wallet:adjust` hamyon qulfini kutadi. Musbat summada u
+qulf ostida foydalanuvchining **avtomatik** P2P to‘lovlarini o‘qiydi (`Payment` `CONFIRMED`, `reviewId` yo‘q) — oxirgi 7 kun (`RECENT_AUTO_TOPUP_WINDOW_MS`
+= `AUTO_CREDIT_HORIZON_MS`, worker’ning yetim qayta navbat ufqi `ORPHAN_LOOKBACK_MS` bilan bitta konstanta, S9F-L2: worker hali avtomatik yozishi mumkin
+bo‘lgan har bir to‘lov oyna ichida). CLI ularni kodni so‘rashdan oldin ko‘rsatadi (`recentAutoTopup=<id> +<summa> at <vaqt>`, eng yangi 20 tasi;
+ko‘prog‘i bo‘lsa `recentAutoTopupMore=<n>`) va **to‘plam id’sini** chiqaradi: `recentAutoTopupSet=<12 belgi>` — **barcha** to‘lov id’larining saralangan
+sha256 hash’i (20 ta bilan cheklanmaydi). To‘plam bo‘sh bo‘lmasa, `--confirm-override=<recentAutoTopupSet>` siz yoki **boshqa** qiymat bilan hech narsa
+yozilmaydi (`RECENT_AUTO_TOPUP`, har qanday summada, S9F-L1): servis tranzaksiya ichida, qulf ostida joriy to‘plam hash’ini berilgan qiymat bilan
+solishtiradi. Rad etish va qayta yurgizish orasida yangi avtomatik to‘lov kelsa, eski qiymat endi mos emas: buyruq rad etadi va yangi ro‘yxat hamda
+yangi to‘plam id’sini ko‘rsatadi; kod chegaradan yuqorida to‘plam o‘zgarganidan oldin yuborilgan bo‘lsa (`OTP_MISMATCH`), CLI ham yangi ro‘yxatni
+va «kod eski to‘plamga bog‘langan» sababini chiqaradi (S9 n1). Rad etish matni «bu ishga tushirish hech narsa yozmadi; shu `--key` bilan oldingi
+ishga tushirish yozgan bo‘lishi mumkin — yangi set va xuddi shu `--key` bilan qayta yurgizing» ma’nosida (S9 I-3: servis avval kalit takrorini
+tekshiradi, shuning uchun oldingi yozuv `applied=false` bo‘lib chiqadi). **Diqqat (S9 m2):** `wallet:adjust` da `--confirm-override` **qiymat oladi**
+(`--confirm-override=<set>`), `review:credit` va `card:resume` da esa qiymatsiz flag; nom bir xil qoldi. Qiymatsiz flag (oxirida yoki boshqa
+option oldida) yoki 12 ta kichik hex belgi bo‘lmagan qiymat — foydalanish xatosi (kod 2), matnda shu farq aytiladi.
+Override `AuditLog.after` ga yoziladi (`override`, `recentAutoTopups` — to‘lov id’lari) va chegaradan yuqorida D-46 bo‘yicha OTP ham unga bog‘lanadi
+(`override: <n> recent auto top-up(s), set <12 belgi>`; kod berilgandan keyin to‘plam o‘zgarsa — soni bir xil bo‘lsa ham — `OTP_MISMATCH`). Manfiy summa tekshirilmaydi.
 
 `review:credit --intent` faqat xabar kartasi va summasi so‘rovniki bilan **aynan** mos bo‘lsa ishlaydi (DB `Payment` triggeri boshqasini rad etadi); mos kelmasa — `--user` (so‘rovsiz, `reviewId` bilan). `UNRECOGNIZED` va `REJECTED` xabar `review:credit` bilan pulga aylanmaydi (DB faqat `PARSED` kirim xabarini qabul qiladi): bunday pulni ega faqat `wallet:adjust` orqali, sabab va `AuditLog` bilan yozadi.
 
@@ -319,6 +392,8 @@ boshqa qiymatlarda yangi qator ham `\u{A}` bo‘lib chiqadi. Natija: 0 — bajar
   kartani yoqmaydi. Pauzadagi kartaga `card:pause` ham `CARD_PAUSE` auditini yozadi (`after.alreadyPaused = true`). Sabab bo‘lsa review yopiladi, lekin
   avtomatik yozish yoqilmaydi (`autoCreditResumed = false`, qolgan sabablar va `card:resume` maslahati chiqadi); bo‘lmasa `autoCreditPaused = false`.
   `card:resume` ham ochiq pauza review’larini ko‘rsatadi va ular bor bo‘lsa `--confirm-override` talab qiladi (`after.openPauseReviews`, `after.override`).
+- `wallet:adjust` musbat summada oxirgi 7 kundagi avtomatik P2P to‘lovlarni va ularning `recentAutoTopupSet` id’sini ko‘rsatadi; ular bo‘lsa aynan shu
+  id bilan `--confirm-override=<recentAutoTopupSet>` talab qiladi, to‘plam o‘zgarsa rad etadi (§7, S9 F-L1, S9F-L1/L2; runbook 10-band).
 - `wallet:adjust` da `--key <id>` majburiy (AuditLog id): kalitsiz buyruq hech narsa yozmaydi va yangi kalit chiqaradi; xuddi shu kalit + xuddi shu so‘rov →
   `applied=false`, boshqa summa yoki sabab → `IDEMPOTENCY_CONFLICT`. `payment:reverse` va `review:credit` ning tabiiy kalitlari bor.
 - `wallet:adjust`, `payment:reverse`, `user:unfreeze` va har review/karta amalidan keyin egaga `adminAction` alerti.
@@ -359,13 +434,61 @@ Faqat ega CLI’si, `--reason` majburiy (1–500 belgi), `AuditLog` bilan bir tr
 
 ## 10. Solishtirish (`payment-reconcile`, worker)
 
-Har kuni 03:00 (Asia/Tashkent) — tarixni qayta skan qilish MTProto talab qilgani uchun u **worker**da ishlaydi. Oxirgi 48 soatlik tarix qayta o‘qiladi
-(yo‘q id oddiy ingest’dan o‘tadi); tekshiriladi: har PARSED kirimda outcome bor; har `P2P_CARD` Payment’da `BankMessage` bor; karta bo‘yicha kirim
-summasi = CREDITED + CARD_VERIFIED + review summalari; zanjir uzluksiz; OPEN review soni; grace o‘tgan so‘rovlar; **chiqimlar xulosasi** (karta bo‘yicha
-DEBIT soni va summasi, yaqinda yozilgan to‘lovga teng chiqimlar). Natija `AuditLog(PAYMENT_RECONCILE)` va alert (`reconcileOk` / `reconcileMismatch`, ikkalasida
-chiqimlar soni). Alert manbasi (S6 da API tomoni shunga tayanadi, S9 aynan shunday yozadi): `AuditLog.action = PAYMENT_RECONCILE`,
-`targetType = PaymentReconcileDay`, `targetId = <yyyymmdd>` (Asia/Tashkent, alert `refId`), `after = { count, debits }` (butun sonlar). Solishtirish o‘zi **pul yozmaydi**. Yana: `topup-expire` har daqiqada `PENDING` va `expiresAt` o‘tganini `EXPIRED` qiladi, karta limitlarini va
-jimlikni (2-band) tekshiradi.
+Har kuni 03:00 (Asia/Tashkent) — tarixni qayta skan qilish MTProto talab qilgani uchun u **worker**da ishlaydi (BullMQ job scheduler
+`payment-reconcile:daily`, `pattern '0 3 * * *'`, `tz 'Asia/Tashkent'` = 22:00 UTC; attempts 3, eksponensial 60 s; oxirgi urinish ham xato bo‘lsa
+egaga `reconcileFailed` (`refId = <yyyymmdd>`, render bazani o‘qimaydi) ketadi, job xato bilan tugaydi; keyingi kun yana shu 48 soatni qamraydi).
+
+1. **Tarixni qayta skan.** Har manba uchun oyna boshidan oldingi oxirgi saqlangan xabar id’sidan `BankFeedClient.fetchSince(source, minId, 100)`
+   bilan sahifalab o‘qiladi (ko‘pi bilan 50 sahifa). Saqlanmagan id **oddiy ingest yo‘lidan** o‘tadi (`IngestService`: qabul filtri, parser,
+   `BankMessage` + xom matn + kursor bitta tranzaksiyada, commit’dan keyin `bank-message` job), id tartibida — matcher uni jonli kelgandagidek hal
+   qiladi. Holat (`historyScan`): `ok` (ikkala manba oxirigacha o‘qildi) | `unavailable` (mijoz sozlanmagan — S7 gacha har doim — yoki bot id
+   qotirilmagan) | `failed` (mijoz xatosi, oldinga siljimaydigan javob, 50 sahifadan uzun tarix yoki sahifada boshqa chat xabari — S9F-I2: mijoz
+   shartnomani buzgan, o‘sha sahifadan hech narsa ingest qilinmaydi va kursor undan o‘tmaydi; log’da faqat manba va `FOREIGN_CHAT`; egaga listener’niki
+   bilan bir xil soatlik `foreignChat` alerti ketadi — `alertRef.foreignChat(source, now)`, shuning uchun ikkalasi bitta alertga birlashadi, S9 L-1).
+   Har manbaning **sabab kodi** (`RECONCILE_HISTORY_REASONS`): `unavailable` — `NO_CLIENT` / `NOT_PINNED`; `failed` — `CLIENT_ERROR` / `NO_PROGRESS` /
+   `TOO_LONG` / `FOREIGN_CHAT`. U `after.history.<source>.reason` ga yoziladi va `reconcileMismatch` alertining `details` ida `<source>=<sabab>`
+   bo‘lib chiqadi (masalan `HUMO_BOT=FOREIGN_CHAT`), shuning uchun ega umumiy «xato bilan tugadi» o‘rniga aniq sababni ko‘radi. `unavailable` va `failed` hech qachon
+   «farq yo‘q» deb ko‘rsatilmaydi. Mijoz shartnomasi (`fetchSince`): eng eskisi birinchi, ko‘pi bilan `limit` ta, faqat shu manba chati; tarix
+   oxiri faqat **bo‘sh sahifa** (qisqa sahifa oxir emas). Manbaning birinchi skanida (oynadan oldin saqlangan xabar yo‘q) oyna boshidan eski
+   xabarlar olinmaydi. **10 daqiqadan yosh xabar o‘tkazib yuboriladi** (`LATE_STORED_AFTER_MS`: uni listener yoki ertangi skan oladi), shuning
+   uchun skan saqlagan har xabar «kech saqlangan» (D-47, 7-band): u saqlangan paytda ochiq bo‘lmagan so‘rovga tushsa avtomatik yozilmaydi, review
+   bo‘ladi. Boshlanish nuqtasi va «ma’lum id» lar `rejectReason = FOREIGN_CHAT` qatorlarni hisobga olmaydi (B2 dan oldin saqlangan bo‘lsa ham).
+2. **Tekshiruvlar** (`RECONCILE_MISMATCH_CODES`, har biri to‘liq son + 10 tagacha misol id): `recovered` — skan topgan va hozir saqlangan xabarlar
+   (tinglovchi o‘tkazib yuborgan); `missingOutcome` — 15 daqiqadan oldin saqlangan, qarori (`BankMessageOutcome`) yo‘q xabar, **butun tarix bo‘yicha**
+   (48 soatlik oyna bilan cheklanmaydi: tiqilib qolgan xabar qaror olmaguncha har kungi hisobotda turadi; BullMQ stalled limiti bilan o‘lgan job ham shu
+   yerda chiqadi); `creditUnaccounted` — karta bo‘yicha PARSED CREDIT summasi ≠ CREDITED (shu summadagi to‘lov) + CARD_VERIFIED + REVIEW (karta
+   id’lari; 15 daqiqadan yosh, hali qarorsiz xabar hisobga olinmaydi — job’i hozir ishlayotgan bo‘lishi mumkin); `paymentWithoutMessage` — `BankMessage`siz
+   `P2P_CARD` Payment (DB CHECK buni rad etadi, bu himoya qatlami); `chainBreak` — oynada qayta hisoblangan balans zanjiridagi uzilish (`CHAIN_BREAK`
+   review’i `RESOLVED` bo‘lgani — ega qanday yopgan bo‘lmasin — farq emas, ma’lumot sifatida `chainBreaksReviewed` da sanaladi); `pendingPastGrace` — `reservedUntil` o‘tgan
+   PENDING so‘rov; `lateOverLimit` — D-42 qoldiq xavfi: `paidAt > expiresAt + TOPUP_CAPACITY_HOLD_SEC` bo‘lgan avtomatik to‘lov, kartasi hozir
+   limitdan oshgan (to‘lov id’lari); `reviewOpenOver24h` — 24 soatdan oldin ochilgan va hali `OPEN` review (S9 I-1: egasini kutayotgan pul hech qachon
+   «farq yo‘q» kun emas; misollar eng eskisidan). Ma’lumot uchun (farq emas): OPEN review’larning umumiy soni, **chiqimlar xulosasi** (karta bo‘yicha DEBIT soni va summasi,
+   tiyin satr; yaqinda yozilgan to‘lovga teng chiqimlar — oynadagi `POSSIBLE_REVERSAL` review’lar soni), grace’i oynada tugagan to‘lanmagan so‘rovlar.
+3. **Natija.** `AuditLog` (`RECONCILE_AUDIT`: `actorType = SYSTEM`, `action = PAYMENT_RECONCILE`, `targetType = PaymentReconcileDay`,
+   `targetId = <yyyymmdd>` Asia/Tashkent = alert `refId`, `actorId` bo‘sh), `after = { count, debits, openReviews, historyScan, history, window,
+checkedMessages, mismatches, examples, debitsByCard, possibleReversals, graceEnded, chainBreaksReviewed }` — faqat id, son va DEBIT summalari; karta raqami, balans va
+   bank matni yo‘q. Alert `reconcileOk` faqat farq 0 **va** `historyScan = ok` bo‘lsa, aks holda `reconcileMismatch` (`count` = tekshirilgan
+   xabarlar yoki farqlar jami). API kunning **eng oxirgi** qatoridan render qiladi.
+4. **Idempotentlik.** Bir kunda ikkinchi yugurish yana audit qatori yozadi, alert job id’si esa bir xil (`alert-<kind>-<yyyymmdd>`, notify dedupe) —
+   bir xil xulosa kuniga bitta alert. Xulosa o‘zgarsa (ok, keyin farq) ikkinchi tur yuboriladi — ataylab: yangi narsa topildi.
+
+Solishtirish o‘zi **pul yozmaydi** va holat o‘zgartirmaydi (faqat skan topgan xabarlar oddiy ingest’dan o‘tadi).
+
+**`topup-expire`** (har daqiqada, `topup-expire:sweep`): `assertIntentTransition('PENDING', 'EXPIRED')` dan keyin `expireOverdueTopups`
+(@repo/db) — API’ning `expireOverdue` bilan **bitta predikat** (`P2P_CARD`, `PENDING`, `expiresAt <= now`); PAID/CANCELLED/EXPIRED tegilmaydi,
+`reservedUntil` o‘zgarmaydi. Keyin ACTIVE kartalar limiti (D-45, faqat qabul qilingan pul): 80–99 % → `cardNearLimit`; 100 % → karta qulfi ostida
+qayta o‘qib ACTIVE → FULL + `cardFull`; alert id’lari card-limit job’iniki bilan bir xil (`cardLimitAlertRef`), shuning uchun karta va limit to‘plami
+uchun bitta alert (30 kunlik dedupe’dan keyin eslatma takrorlanadi). Kartaning jimligi (`cardSilent`, 2-band) hali yo‘q — alohida qadam.
+Muddat UPDATE’i karta qulfini olmaydi va allocator/matcher bilan deadlock qilmasligi kerak; baribir `40P01` (deadlock) bo‘lsa PostgreSQL bitta
+tranzaksiyani bekor qiladi: sweep job’i xato bilan tugaydi va keyingi daqiqada butunlay qayta ishlaydi (UPDATE idempotent, yarim yozuv yo‘q).
+**Yetim xabarlar (S9 m1):** sweep oxirida oxirgi 7 kun ichida 15 daqiqadan oldin saqlangan, qarorsiz xabarlar (eng yangisi birinchi, 100 tagacha)
+`bm-<id>` job’ini qaytadan oladi: job yo‘q bo‘lsa qo‘shiladi (ingest commit bo‘ldi, `add` bo‘lmadi), `failed` bo‘lsa va 30 daqiqadan oldin tushgan bo‘lsa
+yangi urinishlar va toza job ma’lumoti bilan (`updateData({ bankMessageId })`: tugab qolgan `predecessorWaits` / `dbOutageWaits` tashlanadi, B4) `retry`; kutayotgan/kechiktirilgan/ishlayotgan job’ga tegilmaydi. Pulni baribir faqat matcher yozadi (qaror bor bo‘lsa job
+hech narsa qilmaydi). 7 kundan eskilari `missingOutcome` da ko‘rinadi. Log’da faqat sonlar.
+
+**DB uzilishi (S6 N5).** `bank-message` job’i DB ulanish xatosida (Prisma P1001/P1002/P1008/P1017/P2024, adapter `DatabaseNotReachable`,
+`ConnectionClosed`, `SocketTimeout`, `TooManyConnections`, SQLSTATE 08xxx/57P01-3) attempt sarflamay 30 s ga kechiktiriladi, ko‘pi bilan 20 marta
+(~10 daqiqa, `dbOutageWaits`); undan keyin oddiy attempt’lar va oxirida fail-closed. Ma’lumot xatosi (constraint, lock timeout, trigger) kutmaydi.
 
 ### Ogohlantirishlar jadvali (`notify` → `OWNER_ALERT`)
 
@@ -374,34 +497,37 @@ Job faqat `{ alert, refId }` olib yuradi; API `refId` bo‘yicha ma’lumotni ba
 kerak bo‘lgan alertlarda vaqt bo‘lagi qo‘shiladi). `refId` faqat `[A-Za-z0-9_]`, ko‘pi bilan 64 belgi. `OWNER_ALERT_CHAT_ID` production’da majburiy (API boot tekshiruvi); dev’da yo‘q bo‘lsa alert job’i
 xato bilan tugaydi va failed to‘plamida qoladi — hech qachon «bajarildi» deb yopilmaydi.
 
-| Alert                                                               | `refId`                                                        | Parametrlar manbasi                                                                                                                   |
-| ------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `unrecognized`, `cardUnknown`, `timeSkew`                           | `PaymentReview.id`                                             | `reviewId` = refId                                                                                                                    |
-| `titleUnknown`                                                      | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan; `amount` = xabar summasi (`formatMoney`)                                             |
-| `integrityAnomaly`                                                  | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan; `reason` = `PaymentReview.note` (`SENDER_MISMATCH` / `TEXT_HASH_MISMATCH`)           |
-| `processingFailed`                                                  | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan                                                                                       |
-| `amountReallocated`                                                 | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan; `amount` = xabar summasi                                                             |
-| `rejected`                                                          | `PaymentReview.id`                                             | `reviewId`; `reason` = `BankMessage.rejectReason` (kod, matn emas)                                                                    |
-| `cardRetired`, `chainBreak`, `autoCreditPaused`                     | `PaymentReview.id`                                             | `reviewId`; `last4` = kartadan                                                                                                        |
-| `noMatch`, `ambiguous`, `duplicate`, `cancelledLate`, `userBlocked` | `PaymentReview.id`                                             | `reviewId`; `amount` = xabar summasi (`formatMoney`)                                                                                  |
-| `dailyLimit`                                                        | `PaymentReview.id`                                             | `reviewId`; `amount`; `limit` = oshgan chekning o‘qiladigan matni (`alerts.limitReason.<kod>`, `{cap}` = chek summasi, `formatMoney`) |
-| `possibleReversal`                                                  | `PaymentReview.id`                                             | `reviewId`; `last4`; `amount`                                                                                                         |
-| `edited`                                                            | `BankMessage.id`                                               | `messageId` = refId                                                                                                                   |
-| `messageStuck`                                                      | `BankMessage.id`                                               | `messageId` = refId (bazadan hech narsa o‘qilmaydi: yozuvning o‘zi xato bergan bo‘lishi mumkin)                                       |
-| `limitCheckFailed`                                                  | `BankMessage.id`                                               | `messageId` = refId; `bank`, `last4` = xabar kartasidan                                                                               |
-| `debit`                                                             | `BankMessage.id`                                               | `last4`; `amount` (xabardan, har chiqim uchun)                                                                                        |
-| `cardVerified`, `cardDraining`                                      | `TopupCard.id`                                                 | `bank`; `last4`                                                                                                                       |
-| `cardFull`                                                          | `<cardId>_<limit>[_<oylik limit>]` (`cardLimitAlertRef`)       | `bank`; `last4`                                                                                                                       |
-| `cardNearLimit`                                                     | `<cardId>_80_<limit>[_<oylik limit>]` (`cardLimitAlertRef`)    | `bank`; `last4`; `percent` = tushgan pul ulushi, bazadan qayta hisoblanadi (`receivedUsagePercent`)                                   |
-| `cardReservedHigh`                                                  | `<cardId>_<epoch soat>` (soatiga bitta; `cardReservedHighRef`) | `bank`; `last4`; `percent` = to‘lanmagan band ulushi, bazadan qayta hisoblanadi (`reservedSharePercent`)                              |
-| `lateOverLimit`                                                     | `Payment.id`                                                   | `bank`; `last4` = to‘lov xabarining kartasidan; `amount` = `Payment.amountTiyin` (`formatMoney`)                                      |
-| `cardSilent`                                                        | `<cardId>_<oxirgi kirim, epoch soniya>`                        | `bank`; `last4`; `hours` = kunduzgi jimlik soatlari                                                                                   |
-| `listenerDown`                                                      | `<epoch soat>` (soat bo‘lagi)                                  | `minutes` = heartbeat yoshi                                                                                                           |
-| `sessionRevoked`                                                    | `<epoch soat>`                                                 | —                                                                                                                                     |
-| `newAuthorization`                                                  | `<Telegram avtorizatsiya id>`                                  | —                                                                                                                                     |
-| `reconcileOk`, `reconcileMismatch`                                  | `<yyyymmdd>` (Asia/Tashkent)                                   | `count` = tekshirilgan xabarlar yoki farqlar; `debits` = chiqimlar soni                                                               |
-| `walletFrozen`                                                      | `<userId>_<ledgerEntryId>`                                     | `userId` (refId ning birinchi qismi)                                                                                                  |
-| `adminAction`                                                       | `AuditLog.id`                                                  | `action` = `AuditLog.action`; `ref` = `AuditLog.id` (summasiz)                                                                        |
+| Alert                                                               | `refId`                                                        | Parametrlar manbasi                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unrecognized`, `cardUnknown`, `timeSkew`                           | `PaymentReview.id`                                             | `reviewId` = refId                                                                                                                                                                                                                                                                 |
+| `titleUnknown`                                                      | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan; `amount` = xabar summasi (`formatMoney`)                                                                                                                                                                                          |
+| `integrityAnomaly`                                                  | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan; `reason` = `PaymentReview.note` (`SENDER_MISMATCH` / `TEXT_HASH_MISMATCH`)                                                                                                                                                        |
+| `processingFailed`                                                  | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan                                                                                                                                                                                                                                    |
+| `amountReallocated`, `lateStored`, `manualCreditSeen`               | `PaymentReview.id`                                             | `reviewId`; `bank`, `last4` = review kartasidan; `amount` = xabar summasi                                                                                                                                                                                                          |
+| `rejected`                                                          | `PaymentReview.id`                                             | `reviewId`; `reason` = `BankMessage.rejectReason` (kod, matn emas)                                                                                                                                                                                                                 |
+| `cardRetired`, `chainBreak`, `autoCreditPaused`                     | `PaymentReview.id`                                             | `reviewId`; `last4` = kartadan                                                                                                                                                                                                                                                     |
+| `noMatch`, `ambiguous`, `duplicate`, `cancelledLate`, `userBlocked` | `PaymentReview.id`                                             | `reviewId`; `amount` = xabar summasi (`formatMoney`)                                                                                                                                                                                                                               |
+| `dailyLimit`                                                        | `PaymentReview.id`                                             | `reviewId`; `amount`; `limit` = oshgan chekning o‘qiladigan matni (`alerts.limitReason.<kod>`, `{cap}` = chek summasi, `formatMoney`)                                                                                                                                              |
+| `possibleReversal`                                                  | `PaymentReview.id`                                             | `reviewId`; `last4`; `amount`                                                                                                                                                                                                                                                      |
+| `edited`                                                            | `BankMessage.id`                                               | `messageId` = refId                                                                                                                                                                                                                                                                |
+| `foreignChat`                                                       | `<source>_<epoch soat>` (`alertRef.foreignChat`)               | `bank` = manbaning banki (bazadan hech narsa o‘qilmaydi; xabar saqlanmagan)                                                                                                                                                                                                        |
+| `messageStuck`                                                      | `BankMessage.id`                                               | `messageId` = refId (bazadan hech narsa o‘qilmaydi: yozuvning o‘zi xato bergan bo‘lishi mumkin)                                                                                                                                                                                    |
+| `effectsFailed`                                                     | `BankMessage.id`                                               | `messageId` = refId (bazadan hech narsa o‘qilmaydi); qaror saqlangan, commit’dan keyingi effektlar xato bergan, qayta ishlanmaydi (S9F-I1)                                                                                                                                         |
+| `limitCheckFailed`                                                  | `BankMessage.id`                                               | `messageId` = refId; `bank`, `last4` = xabar kartasidan                                                                                                                                                                                                                            |
+| `debit`                                                             | `BankMessage.id`                                               | `last4`; `amount` (xabardan, har chiqim uchun)                                                                                                                                                                                                                                     |
+| `cardVerified`, `cardDraining`                                      | `TopupCard.id`                                                 | `bank`; `last4`                                                                                                                                                                                                                                                                    |
+| `cardFull`                                                          | `<cardId>_<limit>[_<oylik limit>]` (`cardLimitAlertRef`)       | `bank`; `last4`                                                                                                                                                                                                                                                                    |
+| `cardNearLimit`                                                     | `<cardId>_80_<limit>[_<oylik limit>]` (`cardLimitAlertRef`)    | `bank`; `last4`; `percent` = tushgan pul ulushi, bazadan qayta hisoblanadi (`receivedUsagePercent`)                                                                                                                                                                                |
+| `cardReservedHigh`                                                  | `<cardId>_<epoch soat>` (soatiga bitta; `cardReservedHighRef`) | `bank`; `last4`; `percent` = to‘lanmagan band ulushi, bazadan qayta hisoblanadi (`reservedSharePercent`)                                                                                                                                                                           |
+| `lateOverLimit`                                                     | `Payment.id`                                                   | `bank`; `last4` = to‘lov xabarining kartasidan; `amount` = `Payment.amountTiyin` (`formatMoney`)                                                                                                                                                                                   |
+| `cardSilent`                                                        | `<cardId>_<oxirgi kirim, epoch soniya>`                        | `bank`; `last4`; `hours` = kunduzgi jimlik soatlari                                                                                                                                                                                                                                |
+| `listenerDown`                                                      | `<epoch soat>` (soat bo‘lagi)                                  | `minutes` = heartbeat yoshi                                                                                                                                                                                                                                                        |
+| `sessionRevoked`                                                    | `<epoch soat>`                                                 | —                                                                                                                                                                                                                                                                                  |
+| `newAuthorization`                                                  | `<Telegram avtorizatsiya id>`                                  | —                                                                                                                                                                                                                                                                                  |
+| `reconcileOk`, `reconcileMismatch`                                  | `<yyyymmdd>` (Asia/Tashkent)                                   | `count`; `debits` = chiqimlar soni; `openReviews`; `history` = `alerts.reconcileHistory.<historyScan>`; Mismatch’da `details` = noldan farqli kodlar `code=n` + har manba sababi `<source>=<sabab>` (noma’lum kod — `<source>=?`) (`-` agar yo‘q) — kunning oxirgi audit qatoridan |
+| `reconcileFailed`                                                   | `<yyyymmdd>` (Asia/Tashkent)                                   | `day` = refId (bazadan hech narsa o‘qilmaydi)                                                                                                                                                                                                                                      |
+| `walletFrozen`                                                      | `<userId>_<ledgerEntryId>`                                     | `userId` (refId ning birinchi qismi)                                                                                                                                                                                                                                               |
+| `adminAction`                                                       | `AuditLog.id`                                                  | `action` = `AuditLog.action`; `ref` = `AuditLog.id` (summasiz)                                                                                                                                                                                                                     |
 
 `refId` ni yasash: `alertRef.walletFrozen`, `alertRef.cardSilent` (`packages/shared/src/notify.ts`); `cardFull` va `cardNearLimit` uchun
 `cardLimitAlertRef` / `parseCardLimitAlertRef` (`packages/shared/src/payments/card-limit-ref.ts`, D-45): limitlar tiyinda, **base36** (kichik harf, boshida nolsiz)

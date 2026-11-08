@@ -84,19 +84,19 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 
 ## Navbatlar (BullMQ)
 
-| Navbat               | jobId                                       | Ishlovchi | Qayta urinish                                                                |
-| -------------------- | ------------------------------------------- | --------- | ---------------------------------------------------------------------------- |
-| `fulfill-order`      | `orderId`                                   | worker    | 5 marta, eksponensial; noma'lum natija → NEEDS_REVIEW                        |
-| `validate-recipient` | `hash(product+input)`                       | worker    | 2 marta, 10 s timeout                                                        |
-| `price-sync`         | cron                                        | worker    | —                                                                            |
-| `fragment-keepalive` | cron 20 daq                                 | worker    | —                                                                            |
-| `reconcile`          | cron 10 daq                                 | worker    | —                                                                            |
-| `bank-message`       | `bm-<BankMessage.id>`                       | worker    | 5 marta, eksponensial 2 s; concurrency 1 (zanjir tartibi)                    |
-| `card-limit`         | `cl-<BankMessage.id>`                       | worker    | 8 marta, eksponensial 2 s; tugasa alert `limitCheckFailed`                   |
-| `topup-expire`       | cron har 1 daq                              | worker    | —                                                                            |
-| `notify`             | `topup-<paymentId>`, `alert-<kind>-<refId>` | api       | 5 marta, eksponensial 2 s; payload faqat id'lar, matnni API render qiladi    |
-| `tg-outbox`          | `messageId`                                 | api       | 429 → `retry_after`                                                          |
-| `payment-reconcile`  | cron 03:00 Asia/Tashkent                    | worker    | —; tarixni qayta skan qilish MTProto talab qiladi, shuning uchun api'da emas |
+| Navbat               | jobId                                       | Ishlovchi | Qayta urinish                                                                    |
+| -------------------- | ------------------------------------------- | --------- | -------------------------------------------------------------------------------- |
+| `fulfill-order`      | `orderId`                                   | worker    | 5 marta, eksponensial; noma'lum natija → NEEDS_REVIEW                            |
+| `validate-recipient` | `hash(product+input)`                       | worker    | 2 marta, 10 s timeout                                                            |
+| `price-sync`         | cron                                        | worker    | —                                                                                |
+| `fragment-keepalive` | cron 20 daq                                 | worker    | —                                                                                |
+| `reconcile`          | cron 10 daq                                 | worker    | —                                                                                |
+| `bank-message`       | `bm-<BankMessage.id>`                       | worker    | 5 marta, eksponensial 2 s; concurrency 1 (zanjir tartibi)                        |
+| `card-limit`         | `cl-<BankMessage.id>`                       | worker    | 8 marta, eksponensial 2 s; tugasa alert `limitCheckFailed`                       |
+| `topup-expire`       | cron har 1 daq                              | worker    | —                                                                                |
+| `notify`             | `topup-<paymentId>`, `alert-<kind>-<refId>` | api       | 5 marta, eksponensial 2 s; payload faqat id'lar, matnni API render qiladi        |
+| `tg-outbox`          | `messageId`                                 | api       | 429 → `retry_after`                                                              |
+| `payment-reconcile`  | cron 03:00 Asia/Tashkent                    | worker    | 3 marta, eksponensial 60 s, keyin alert `reconcileFailed`; MTProto → api'da emas |
 
 ## Asosiy oqim: Stars xaridi
 
