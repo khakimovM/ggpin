@@ -1,0 +1,18 @@
+{
+  "name": "@repo/flow-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest-e2e.json --runInBand"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.2.8",
+    "@repo/db": "^0.0.0",
+    "@repo/shared": "^0.0.0",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15"
+  }
+}
