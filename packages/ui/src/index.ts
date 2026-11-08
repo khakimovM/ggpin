@@ -55,6 +55,7 @@ export { ErrorState, type ErrorStateProps } from './components/ErrorState';
 export {
   Timeline,
   type TimelineItem,
+  type TimelineTone,
   type TimelineProps,
   type TimelineState,
 } from './components/Timeline';

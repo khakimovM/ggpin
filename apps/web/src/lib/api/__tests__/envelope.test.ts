@@ -76,6 +76,31 @@ describe('response envelope', () => {
     });
   });
 
+  it('only an answer in OUR envelope is marked fromServer (a proxy page, a missing body, a network failure are not)', async () => {
+    const wallet = { path: '/me/wallet' };
+    const ours = client(() => failure(404, 'NOT_FOUND')).api;
+    await expect(ours.fetch(wallet, WalletResponseSchema)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      fromServer: true,
+    });
+    const html = client(() => ({ status: 404, retryAfter: null, body: undefined })).api;
+    await expect(html.fetch(wallet, WalletResponseSchema)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      fromServer: false,
+    });
+    const brokenBody = client(() => ({ status: 200, retryAfter: null, body: { data: 1 } })).api;
+    await expect(brokenBody.fetch(wallet, WalletResponseSchema)).rejects.toMatchObject({
+      fromServer: false,
+    });
+    const offline = client(() => {
+      throw new TypeError('Failed to fetch');
+    }).api;
+    await expect(offline.fetch(wallet, WalletResponseSchema)).rejects.toMatchObject({
+      code: 'NETWORK',
+      fromServer: false,
+    });
+  });
+
   it('a 200 without an envelope is INTERNAL_ERROR', async () => {
     const { api } = client(() => ({ status: 200, retryAfter: null, body: { data: WALLET } }));
     await expect(api.fetch({ path: '/me/wallet' }, WalletResponseSchema)).rejects.toMatchObject({

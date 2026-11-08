@@ -38,7 +38,8 @@ export const qk = {
   orders: {
     all: ['orders'] as const,
     list: (filters: OrderListParams) => ['orders', 'list', filters] as const,
-    detail: (id: string) => ['orders', 'detail', id] as const,
+    // The locale is part of the key: the order carries the product name in the page language.
+    detail: (id: string, locale?: Locale) => ['orders', 'detail', id, locale] as const,
   },
 
   payments: {

@@ -6,7 +6,7 @@ describe('query keys', () => {
     expect(qk.me()).toEqual(['me']);
     expect(qk.sessions()).toEqual(['sessions']);
     expect(qk.wallet.balance()).toEqual(['wallet', 'balance']);
-    expect(qk.orders.detail('o1')).toEqual(['orders', 'detail', 'o1']);
+    expect(qk.orders.detail('o1', 'uz')).toEqual(['orders', 'detail', 'o1', 'uz']);
     expect(qk.catalog.product('telegram-stars', 'ru')).toEqual([
       'catalog',
       'product',

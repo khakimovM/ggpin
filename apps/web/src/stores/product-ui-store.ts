@@ -3,7 +3,7 @@ import { create } from 'zustand';
 // UI-only state of the product page: what is highlighted and which sheet is open. Nothing here
 // is a price or a balance, and nothing is persisted; the server data (product, quote) lives in
 // TanStack Query. The page resets it when the visitor opens another product.
-export type ProductSheet = 'help';
+export type ProductSheet = 'help' | 'checkout';
 
 interface ProductUiState {
   selectedSku: string | null;

@@ -7,6 +7,7 @@
 // docs/04 ("5-bosqich shakllari: tavsiyalar").
 import { z } from 'zod';
 import { DEFAULT_LOCALE, LOCALES } from '../auth/locale';
+import { SlugSchema } from '../catalog/catalog-schemas';
 import { NO_CONTROL_CHARS, ResourceIdSchema, pageQueryShape } from '../common-schemas';
 import { TiyinStringSchema } from '../money-schemas';
 import { ORDER_STATUSES, orderStatusSchema } from '../order-state';
@@ -78,7 +79,7 @@ export const OrderSchema = z.strictObject({
   number: z.number().int().positive(),
   status: orderStatusSchema,
   productId: ResourceIdSchema,
-  productSlug: z.string().min(1),
+  productSlug: SlugSchema,
   /** Localised like the catalog (recommendation Q-B: `?locale=uz|ru`, default uz). */
   productName: z.string().min(1),
   skuId: ResourceIdSchema.nullable(),
@@ -131,3 +132,16 @@ export const OrderDetailSchema = OrderSchema.extend({
   voucher: z.strictObject({ code: z.string().min(1).max(512) }).nullable(),
 });
 export type OrderDetail = z.infer<typeof OrderDetailSchema>;
+
+// ---- POST /orders: the answers that carry `details` ------------------------------------------
+/** `422 INSUFFICIENT_BALANCE`: the SERVER's numbers; the client never works out a shortfall. */
+export const InsufficientBalanceDetailsSchema = z.strictObject({
+  balance: TiyinStringSchema,
+  required: TiyinStringSchema,
+  shortfall: TiyinStringSchema,
+});
+export type InsufficientBalanceDetails = z.infer<typeof InsufficientBalanceDetailsSchema>;
+
+/** `409 QUOTE_ALREADY_USED` (docs/04, Q-D): the caller's OWN order that this quote became. */
+export const QuoteAlreadyUsedDetailsSchema = z.strictObject({ orderId: ResourceIdSchema });
+export type QuoteAlreadyUsedDetails = z.infer<typeof QuoteAlreadyUsedDetailsSchema>;

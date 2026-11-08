@@ -3,6 +3,8 @@ import { IDEMPOTENCY_KEY_PATTERN, IdempotencyKeySchema } from '../common-schemas
 import {
   CreateOrderBodySchema,
   CreateOrderResponseSchema,
+  InsufficientBalanceDetailsSchema,
+  QuoteAlreadyUsedDetailsSchema,
   OrderDetailSchema,
   OrderDetailQuerySchema,
   OrderListQuerySchema,
@@ -186,5 +188,28 @@ describe('IdempotencyKeySchema', () => {
     for (const bad of ['short', 'a'.repeat(129), 'has space1', 'new\nline1', 'ключ-ключ-ключ']) {
       expect(IdempotencyKeySchema.safeParse(bad).success).toBe(false);
     }
+  });
+});
+
+describe('POST /orders answers with details', () => {
+  it('productSlug is a catalog slug, not any string', () => {
+    expect(OrderSchema.safeParse({ ...order, productSlug: 'Telegram Stars' }).success).toBe(false);
+    expect(OrderSchema.safeParse({ ...order, productSlug: '../x' }).success).toBe(false);
+  });
+
+  it('INSUFFICIENT_BALANCE details: three tiyin strings and nothing else', () => {
+    const ok = { balance: '100', required: '550000', shortfall: '549900' };
+    expect(InsufficientBalanceDetailsSchema.safeParse(ok).success).toBe(true);
+    expect(InsufficientBalanceDetailsSchema.safeParse({ ...ok, balance: 100 }).success).toBe(false);
+    expect(InsufficientBalanceDetailsSchema.safeParse({ ...ok, extra: '1' }).success).toBe(false);
+    expect(InsufficientBalanceDetailsSchema.safeParse({ balance: '1' }).success).toBe(false);
+  });
+
+  it('QUOTE_ALREADY_USED details: only the order id', () => {
+    expect(QuoteAlreadyUsedDetailsSchema.safeParse({ orderId: 'cm0order1' }).success).toBe(true);
+    expect(QuoteAlreadyUsedDetailsSchema.safeParse({}).success).toBe(false);
+    expect(
+      QuoteAlreadyUsedDetailsSchema.safeParse({ orderId: 'cm0order1', userId: 'u' }).success,
+    ).toBe(false);
   });
 });

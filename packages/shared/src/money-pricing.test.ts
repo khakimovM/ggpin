@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MoneyError } from './money';
 import {
+  balanceAfterPurchase,
   COST_CURRENCIES,
   COST_FX_PAIR,
   costForQuantity,
@@ -240,5 +241,25 @@ describe('totalAfterDiscount (step 5)', () => {
     expect(() => totalAfterDiscount(100n, -1n)).toThrow(MoneyError);
     expect(() => totalAfterDiscount(-1n, 0n)).toThrow(MoneyError);
     expect(() => totalAfterDiscount(notABigInt(100), 0n)).toThrow(MoneyError);
+  });
+});
+
+describe('balanceAfterPurchase (display only)', () => {
+  it('subtracts exactly, beyond 2^53, with no float', () => {
+    expect(balanceAfterPurchase('8540000', '550000')).toBe('7990000');
+    expect(balanceAfterPurchase('9007199254740993', '1')).toBe('9007199254740992');
+    expect(balanceAfterPurchase('550000', '550000')).toBe('0');
+  });
+
+  it('is null when the balance does not cover the total', () => {
+    expect(balanceAfterPurchase('549999', '550000')).toBeNull();
+    expect(balanceAfterPurchase('0', '1')).toBeNull();
+  });
+
+  it('is null for anything that is not a tiyin string', () => {
+    for (const bad of ['', '-1', '1.5', '01', '1e3', ' 1', 'abc', '1'.repeat(20)]) {
+      expect(balanceAfterPurchase(bad, '1')).toBeNull();
+      expect(balanceAfterPurchase('1000', bad)).toBeNull();
+    }
   });
 });

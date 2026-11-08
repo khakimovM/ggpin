@@ -58,6 +58,7 @@ export function errorFromResponse(response: TransportResponse, nowMs: number): A
     code,
     details: failure.success ? failure.data.error.details : undefined,
     retryAfterSec: parseRetryAfter(response.retryAfter, nowMs),
+    fromServer: failure.success,
   });
 }
 

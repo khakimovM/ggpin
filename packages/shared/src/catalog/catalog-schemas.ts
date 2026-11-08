@@ -22,7 +22,7 @@ export const DELIVERY_TYPES = [
 export const DeliveryTypeSchema = z.enum(DELIVERY_TYPES);
 export type DeliveryTypeName = z.infer<typeof DeliveryTypeSchema>;
 
-const SlugSchema = z
+export const SlugSchema = z
   .string()
   .max(64)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);

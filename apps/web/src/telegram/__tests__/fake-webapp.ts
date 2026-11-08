@@ -45,6 +45,8 @@ export function createFakeWebApp(
     }),
     openLink: vi.fn(),
     openTelegramLink: vi.fn(),
+    enableClosingConfirmation: vi.fn(),
+    disableClosingConfirmation: vi.fn(),
     BackButton: {
       show: vi.fn(),
       hide: vi.fn(),

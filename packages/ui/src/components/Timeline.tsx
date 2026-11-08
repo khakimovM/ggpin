@@ -1,6 +1,6 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Ban, Check, ScanSearch, Undo2, X, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, type ReactNode } from 'react';
 import { cn } from '../lib/cn';
@@ -10,9 +10,17 @@ import { Spinner } from './Spinner';
 
 export type TimelineState = 'done' | 'active' | 'pending';
 
+/**
+ * How a step that is not the plain happy path looks (Checkout.dc.html `order`): `warning` is a step
+ * under review, `danger` a failure, `muted` a cancellation, `refund` money returned. Colour never
+ * travels alone: each has its own icon, and the title says what it is.
+ */
+export type TimelineTone = 'warning' | 'danger' | 'muted' | 'refund';
+
 export interface TimelineItem {
   id: string;
   state: TimelineState;
+  tone?: TimelineTone;
   title: string;
   /** Time or hint under the title, e.g. "Bugun, 14:02". */
   description?: ReactNode;
@@ -31,6 +39,13 @@ export interface TimelineProps {
   currentLabel: string;
   className?: string;
 }
+
+const TONE_LOOK: Record<TimelineTone, { icon: LucideIcon; dot: string; title: string }> = {
+  warning: { icon: ScanSearch, dot: 'bg-warning text-card', title: 'text-warning-text' },
+  danger: { icon: X, dot: 'bg-danger text-card', title: 'text-danger-text' },
+  muted: { icon: Ban, dot: 'bg-foreground-muted text-card', title: 'text-foreground-secondary' },
+  refund: { icon: Undo2, dot: 'bg-success text-card', title: 'text-success-text' },
+};
 
 function Connector({ kind, grow }: { kind: 'done' | 'toActive' | 'pending'; grow: boolean }) {
   const reduced = useReducedMotion();
@@ -103,7 +118,16 @@ export function Timeline({
               className="grid grid-cols-[24px_minmax(0,1fr)] gap-3"
             >
               <span className="flex flex-col items-center">
-                {item.state === 'done' ? (
+                {item.tone ? (
+                  <span
+                    className={cn(
+                      'grid size-6 place-items-center rounded-full transition-colors duration-base ease-standard',
+                      TONE_LOOK[item.tone].dot,
+                    )}
+                  >
+                    <Icon icon={TONE_LOOK[item.tone].icon} size={13} />
+                  </span>
+                ) : item.state === 'done' ? (
                   <span className="grid size-6 place-items-center rounded-full bg-success text-card transition-colors duration-base ease-standard">
                     <Icon icon={Check} size={13} />
                   </span>
@@ -141,6 +165,7 @@ export function Timeline({
                     item.state === 'active' && 'font-extrabold text-info-text',
                     item.state === 'done' && 'font-bold',
                     item.state === 'pending' && 'font-bold text-foreground-muted',
+                    item.tone && cn('font-extrabold', TONE_LOOK[item.tone].title),
                   )}
                 >
                   <span className="sr-only">{stateLabels[item.state]}: </span>

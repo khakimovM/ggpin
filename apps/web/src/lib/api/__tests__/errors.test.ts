@@ -24,6 +24,7 @@ describe('ApiError.details', () => {
   it('keeps the rest of the error visible to loggers', () => {
     expect(Object.keys(error).sort()).toEqual([
       'code',
+      'fromServer',
       'messageKey',
       'name',
       'retryAfterSec',

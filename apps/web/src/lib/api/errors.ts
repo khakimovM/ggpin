@@ -23,6 +23,11 @@ export interface ApiErrorInit {
   details?: unknown;
   /** Seconds from the `Retry-After` header, when the server sent a valid one. */
   retryAfterSec?: number;
+  /**
+   * True only when the answer came in OUR error envelope (`{success:false, error:{code}}`), i.e. the
+   * API itself said it. A proxy's HTML 404 or 502 is not: it says nothing about what the handler did.
+   */
+  fromServer?: boolean;
   cause?: unknown;
 }
 
@@ -38,6 +43,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode;
   readonly retryAfterSec: number | undefined;
+  readonly fromServer: boolean;
   readonly messageKey: ApiErrorMessageKey;
   readonly #details: unknown;
 
@@ -49,6 +55,7 @@ export class ApiError extends Error {
     this.code = init.code;
     this.#details = init.details;
     this.retryAfterSec = init.retryAfterSec;
+    this.fromServer = init.fromServer ?? false;
     this.messageKey = messageKey;
   }
 

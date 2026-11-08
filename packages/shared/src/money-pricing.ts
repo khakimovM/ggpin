@@ -154,3 +154,18 @@ export function totalAfterDiscount(priceTiyin: bigint, discountTiyin: bigint): b
   }
   return priceTiyin - discountTiyin;
 }
+
+const TIYIN_STRING = /^(0|[1-9]\d{0,18})$/;
+
+/**
+ * What is left in the wallet after paying `totalTiyin` out of `balanceTiyin`, for DISPLAY next to
+ * the buy button ("85 400 -> 74 350"). `null` when either is not a tiyin string or the balance
+ * does not cover the total: a screen then shows no "left" figure at all instead of a negative
+ * or invented one. It never decides whether a purchase may happen: the server locks the wallet
+ * and answers 422 INSUFFICIENT_BALANCE with its own numbers.
+ */
+export function balanceAfterPurchase(balanceTiyin: string, totalTiyin: string): string | null {
+  if (!TIYIN_STRING.test(balanceTiyin) || !TIYIN_STRING.test(totalTiyin)) return null;
+  const left = BigInt(balanceTiyin) - BigInt(totalTiyin);
+  return left < 0n ? null : left.toString();
+}

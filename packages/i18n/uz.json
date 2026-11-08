@@ -151,6 +151,156 @@
         "needPackage": "Paketni tanlang",
         "needPrice": "Narx tayyor bo‘lishini kuting"
       }
+    },
+    "checkout": {
+      "confirm": {
+        "title": "Buyurtmani tasdiqlang",
+        "close": "Yopish",
+        "price": "Narx",
+        "total": "Jami",
+        "balance": "Balans:",
+        "balanceAfter": "{balance} → {left}",
+        "ttl": "Narx {time} daqiqa amal qiladi",
+        "pay": "To‘lash · {total}",
+        "paying": "To‘lanmoqda…"
+      },
+      "expired": {
+        "title": "Narxning amal qilish muddati tugadi",
+        "body": "Yangi narxni olish uchun yangilang.",
+        "renew": "Narxni yangilash",
+        "renewing": "Narx yangilanmoqda…",
+        "renewedTitle": "Narx yangilandi: {total}",
+        "renewedBody": "Avvalgi narxning amal qilish muddati tugadi. Yangi narx 10 daqiqa amal qiladi.",
+        "continue": "Yangi narx bilan davom etish"
+      },
+      "insufficient": {
+        "title": "Mablag‘ yetarli emas",
+        "balance": "Balansingiz:",
+        "price": "Narx:",
+        "shortfall": "Yetishmaydi:",
+        "topup": "Hisobni to‘ldirish",
+        "soon": "Tez orada",
+        "close": "Yopish"
+      },
+      "frozen": {
+        "title": "Xaridlar vaqtincha cheklangan",
+        "body": "To‘lovingiz qaytarilgani uchun yangi xarid hozircha mumkin emas. Yordam xizmatiga yozing.",
+        "uncertain": "Avvalgi to‘lovingiz natijasi hali nomaʼlum. Yordam xizmatiga yozib, buyurtmangizni tekshirtiring.",
+        "support": "Yordamga yozish",
+        "close": "Yopish"
+      },
+      "uncertain": {
+        "title": "To‘lov natijasi nomaʼlum",
+        "item": "Xarid: {item}",
+        "body": "Aloqa uzilgani uchun to‘lov o‘tgan-o‘tmaganini bilmaymiz. Pul yechilgan bo‘lishi mumkin. “Qayta tekshirish” ni bosing — pul ikki marta yechilmaydi. To‘lov o‘tmagan bo‘lsa va narx hali amal qilsa, tekshiruv shu narxda bir marta rasmiylashtiradi.",
+        "retry": "Qayta tekshirish",
+        "checking": "Tekshirilmoqda…",
+        "wait": "{seconds} soniyadan keyin qayta tekshirish mumkin",
+        "support": "Yordamga yozish"
+      },
+      "failed": {
+        "title": "To‘lov amalga oshmadi",
+        "retry": "Qayta urinish",
+        "close": "Yopish"
+      },
+      "busy": "Boshqa oynada to‘lov ketmoqda. Biroz kutib, qayta urinib ko‘ring."
+    },
+    "order": {
+      "loading": "Buyurtma yuklanmoqda",
+      "number": "Buyurtma #{number}",
+      "error": {
+        "title": "Buyurtmani yuklab bo‘lmadi",
+        "body": "Internet aloqasini tekshirib, qayta urinib ko‘ring. Buyurtmangiz xavfsiz."
+      },
+      "notFound": {
+        "title": "Buyurtma topilmadi",
+        "body": "Havola eskirgan yoki buyurtma sizniki emas."
+      },
+      "status": {
+        "queued": "Navbatda",
+        "processing": "Bajarilmoqda",
+        "review": "Tekshirilmoqda",
+        "delivered": "Yetkazildi",
+        "refunded": "Bajarilmadi — pul qaytarildi",
+        "cancelled": "Bekor qilindi"
+      },
+      "item": {
+        "stars": "{count, number} ⭐",
+        "premium": "{count} oylik Premium"
+      },
+      "hero": {
+        "paid": {
+          "title": "To‘lov qabul qilindi",
+          "body": "Buyurtma navbatga qo‘yilmoqda…"
+        },
+        "queued": {
+          "title": "Navbatda",
+          "body": "Buyurtmangiz bir necha soniyada bajarila boshlaydi."
+        },
+        "processing": {
+          "title": "Bajarilmoqda",
+          "body": "@{username} hisobiga {item} yuborilmoqda. Odatda 1–2 daqiqa."
+        },
+        "review": {
+          "title": "Tekshirilmoqda",
+          "body": "Buyurtmangiz qo‘lda tekshirilmoqda. Odatda 15 daqiqagacha. Pulingiz xavfsiz."
+        },
+        "delivered": {
+          "title": "Yetkazildi! 🎉",
+          "body": "@{username} hisobiga {item} tushdi"
+        },
+        "voucher": {
+          "title": "Kod tayyor!",
+          "body": "{item} sovg‘a kartasi kodi pastda. Uni sotib olingan xizmat sahifasida faollashtiring."
+        },
+        "failed": {
+          "title": "Bajarilmadi",
+          "body": "{total} balansingizga qaytarildi"
+        },
+        "refunded": {
+          "title": "Pul qaytarildi",
+          "body": "Buyurtma bo‘yicha pul balansingizga qaytarildi."
+        },
+        "cancelled": {
+          "title": "Bekor qilindi",
+          "body": "Buyurtma bekor qilindi. {total} balansingizga qaytarildi."
+        }
+      },
+      "timeline": {
+        "label": "Buyurtma holati",
+        "current": "Joriy qadam",
+        "done": "Bajarildi",
+        "active": "Joriy qadam",
+        "pending": "Kutilmoqda",
+        "paid": "To‘landi",
+        "queued": "Navbatda",
+        "processing": "Bajarilmoqda",
+        "delivered": "Yetkazildi",
+        "review": "Tekshirilmoqda",
+        "failed": "Bajarilmadi",
+        "cancelled": "Bekor qilindi",
+        "refunded": "Pul qaytarildi"
+      },
+      "details": {
+        "order": "Buyurtma",
+        "payment": "To‘lov",
+        "wallet": "Hamyon",
+        "amount": "Summa",
+        "refunded": "Qaytarildi"
+      },
+      "voucher": {
+        "label": "Sovg‘a kartasi kodi",
+        "copy": "Nusxalash",
+        "copied": "Nusxalandi",
+        "hide": "Kodni hech kimga ko‘rsatmang"
+      },
+      "actions": {
+        "home": "Bosh sahifaga",
+        "again": "Yana xarid qilish",
+        "retry": "Qayta urinish",
+        "support": "Yordamga yozish"
+      },
+      "leaveNote": "Sahifani yopsangiz ham buyurtma davom etadi"
     }
   },
   "wallet": {
@@ -377,6 +527,7 @@
     "NOT_FOUND": "Topilmadi.",
     "IDEMPOTENCY_CONFLICT": "Bu so‘rov kaliti boshqa maʼlumot bilan allaqachon ishlatilgan.",
     "QUOTE_EXPIRED": "Narx muddati tugadi. Narxni yangilab, qayta urinib ko‘ring.",
+    "QUOTE_ALREADY_USED": "Bu narx bilan buyurtma allaqachon yaratilgan. Buyurtmalaringizni tekshiring.",
     "PAYLOAD_TOO_LARGE": "So‘rov hajmi juda katta.",
     "INSUFFICIENT_BALANCE": "Balansingizda mablag‘ yetarli emas.",
     "RECIPIENT_NOT_FOUND": "Qabul qiluvchi topilmadi. Kiritilgan maʼlumotni tekshiring.",

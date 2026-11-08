@@ -62,6 +62,9 @@ export interface TelegramWebApp {
   offEvent: (event: TelegramEvent, callback: () => void) => void;
   openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
   openTelegramLink: (url: string) => void;
+  /** Bot API 6.2+; older clients lack them (call through `callSdk`). */
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
   readonly BackButton: TelegramBackButton;
   readonly MainButton: TelegramMainButton;
   readonly HapticFeedback: TelegramHaptics;

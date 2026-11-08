@@ -12,6 +12,7 @@ import {
 } from '@repo/shared';
 import { apiFetch, apiFetchList } from './client';
 import { resourceId } from './path';
+import { anySignal, timeoutSignal } from './transport';
 
 // Phase 5 DRAFT schemas (docs/04 "Buyurtmalar"): the `orders` mock group stays on until final.
 
@@ -23,6 +24,12 @@ export interface OrderListParams {
 }
 
 /**
+ * How long `POST /orders` may take before the client gives up WAITING. The request may still have
+ * reached the server: the timeout is a lost answer (NETWORK), never "no order".
+ */
+export const CREATE_ORDER_TIMEOUT_MS = 30_000;
+
+/**
  * `idempotencyKey` is generated once per checkout attempt (see idempotency.ts) and reused on a
  * retry, so a double tap or a network retry can never pay twice.
  */
@@ -31,8 +38,16 @@ export function createOrder(
   idempotencyKey: string,
   signal?: AbortSignal,
 ): Promise<CreateOrderResponse> {
+  const timeout = timeoutSignal(CREATE_ORDER_TIMEOUT_MS);
   return apiFetch(
-    { method: 'POST', path: '/orders', body, idempotencyKey, group: 'orders', signal },
+    {
+      method: 'POST',
+      path: '/orders',
+      body,
+      idempotencyKey,
+      group: 'orders',
+      signal: signal === undefined ? timeout : anySignal([signal, timeout]),
+    },
     CreateOrderResponseSchema,
   );
 }
