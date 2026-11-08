@@ -117,10 +117,12 @@ describe('matcher: balance chain, outgoing money and card verification', () => {
 
   it('VERIFYING: the exact test amount activates the card (verifiedAt = arrival), no ledger', async () => {
     const c = await createCard(t.db, { status: 'VERIFYING', verifyAmountTiyin: 123_400n });
+    // The test transfer comes after the card was added (its createdAt).
     const message = await insertMessage(t.db, {
       card: c,
       amountTiyin: 123_400n,
       balanceAfterTiyin: 5_000_000n,
+      tgDate: new Date(c.createdAt.getTime() + 1_000),
     });
     await t.a.matcher.process(message.id, false);
     expect(await t.outcome(message.id)).toMatchObject({
@@ -145,5 +147,21 @@ describe('matcher: balance chain, outgoing money and card verification', () => {
     await t.a.matcher.process(message.id, false);
     expect((await t.outcome(message.id))?.review?.kind).toBe('NO_MATCH');
     expect((await card(c.id)).status).toBe('VERIFYING');
+  });
+
+  it('VERIFYING: the test amount sent BEFORE the card was added does not verify it (S9-L1)', async () => {
+    const c = await createCard(t.db, { status: 'VERIFYING', verifyAmountTiyin: 123_400n });
+    // E.g. an old transfer of the same amount that a first history re-scan found.
+    const message = await insertMessage(t.db, {
+      card: c,
+      amountTiyin: 123_400n,
+      balanceAfterTiyin: 5_000_000n,
+      tgDate: new Date(c.createdAt.getTime() - 60_000),
+    });
+    await t.a.matcher.process(message.id, false);
+    expect((await t.outcome(message.id))?.review?.kind).toBe('NO_MATCH');
+    const after = await card(c.id);
+    expect(after.status).toBe('VERIFYING');
+    expect(after.verifiedAt).toBeNull();
   });
 });

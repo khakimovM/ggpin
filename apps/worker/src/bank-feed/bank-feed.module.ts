@@ -7,6 +7,8 @@ import { CardLimitCheck } from './card-limit-check';
 import { CardLimitProcessor } from './card-limit.processor';
 import { CardLimitScheduler } from './card-limit-scheduler';
 import { CardLimitsService } from './card-limits.service';
+import { BANK_FEED_CLIENT } from './client/bank-feed-client';
+import { IngestService } from './client/ingest.service';
 import { CreditDecider } from './credit-decider';
 import {
   DEFAULT_FAIL_CLOSED_TIMING,
@@ -21,12 +23,15 @@ import { TopupCardsRepository } from './topup-cards.repository';
 import { WalletCacheInvalidator } from './wallet-cache-invalidator';
 
 // P2P top-ups, worker side (docs/05 §6): matching stored bank messages and crediting wallets.
-// The MTProto listener that stores the messages arrives in slice S7. Prisma, Redis, config and
-// the queues come from global modules.
+// The MTProto listener arrives in slice S7; until then BANK_FEED_CLIENT is null (no client) and
+// only the daily re-scan uses IngestService. Prisma, Redis, config and the queues come from
+// global modules.
 @Module({
   providers: [
     { provide: MATCHER_HOOKS, useValue: NO_MATCHER_HOOKS },
     { provide: FAIL_CLOSED_TIMING, useValue: DEFAULT_FAIL_CLOSED_TIMING },
+    { provide: BANK_FEED_CLIENT, useValue: null },
+    IngestService,
     BankMessageRepository,
     MatchWritesRepository,
     TopupCardsRepository,
@@ -43,6 +48,13 @@ import { WalletCacheInvalidator } from './wallet-cache-invalidator';
     BankMessageProcessor,
     CardLimitProcessor,
   ],
-  exports: [MatcherService],
+  exports: [
+    MatcherService,
+    TopupCardsRepository,
+    MatchWritesRepository,
+    BankFeedNotifier,
+    IngestService,
+    BANK_FEED_CLIENT,
+  ],
 })
 export class BankFeedModule {}

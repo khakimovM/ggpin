@@ -3,7 +3,12 @@ import type { BankMessage, TopupCard, Tx } from '@repo/db';
 import { checkDailyTopupLimit, dailyWindowStart, reservedUntilWhenPaid } from '@repo/shared';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { BankMessageRepository, type IntentWithUser } from './bank-message.repository';
-import { classifyCandidates, isTimeSkewed, type CandidateVerdict } from './match-rules';
+import {
+  classifyCandidates,
+  isLateForClosedRequest,
+  isTimeSkewed,
+  type CandidateVerdict,
+} from './match-rules';
 import { MATCHER_HOOKS, type MatcherHooks } from './matcher-hooks';
 import { MatchWritesRepository } from './match-writes.repository';
 import { checkCreditTitle } from './title-check';
@@ -67,9 +72,13 @@ export class CreditDecider {
     await this.creditOrReview(tx, message, locked, chain);
   }
 
-  /** VERIFYING card: its exact test amount activates it (no ledger); anything else is reviewed. */
+  /**
+   * VERIFYING card: its exact test amount, sent after the card was added, activates it (no
+   * ledger); anything else is reviewed. The date check keeps an older transfer of the same
+   * amount (found by a history re-scan) from verifying the card (S9-L1).
+   */
   private async verifyCard(tx: Tx, message: ParsedOnCard, card: TopupCard, chain: Chain) {
-    if (message.amountTiyin !== card.verifyAmountTiyin) {
+    if (message.amountTiyin !== card.verifyAmountTiyin || message.tgDate < card.createdAt) {
       await this.writes.review(
         tx,
         { bankMessageId: message.id, cardId: card.id, kind: 'NO_MATCH' },
@@ -159,6 +168,17 @@ export class CreditDecider {
       await this.writes.review(tx, { ...base, kind: 'UNRECOGNIZED', note: title.note }, chain);
       return;
     }
+    // D-47: stored late (re-scan or a listener catching up) for a request that was no longer
+    // open when the row was stored: the owner may already have credited it by hand during the
+    // outage, so the owner decides. "Open" is PENDING and not yet past `expiresAt` at storing
+    // time: the sweep runs in this worker too, so after an outage an overdue request may still
+    // say PENDING (B1). Late money for a request still open then is credited: the user was still
+    // waiting on it, and nobody credits an open request by hand. After the title check, so an
+    // anomaly note (TITLE_UNKNOWN, REPARSE_MISMATCH, TEXT_MISSING) is never hidden by this one.
+    if (isLateForClosedRequest(message, intent)) {
+      await this.writes.review(tx, { ...base, kind: 'AMBIGUOUS', note: 'LATE_STORED' }, chain);
+      return;
+    }
     if (intent.user.isBlocked) {
       await this.writes.review(tx, { ...base, kind: 'USER_BLOCKED' }, chain);
       return;
@@ -183,6 +203,16 @@ export class CreditDecider {
     });
     if (!limit.ok) {
       await this.writes.review(tx, { ...base, kind: 'DAILY_LIMIT', note: limit.reason }, chain);
+      return;
+    }
+    // D-47 R1, the last gate before money, for every automatic credit (live, re-scan, re-queued;
+    // PENDING or EXPIRED in grace): the owner gave this user money by hand after the request was
+    // made (e.g. after a messageStuck alert), so this transfer may already be paid. Read under
+    // the Wallet lock taken above, which wallet:adjust and review:credit take too: a hand credit
+    // either committed before (seen here) or waits until this transaction ends.
+    if (await this.reads.manualCreditSince(tx, intent.userId, intent.createdAt)) {
+      const review = { ...base, kind: 'AMBIGUOUS', note: 'MANUAL_CREDIT_SEEN' } as const;
+      await this.writes.review(tx, review, chain);
       return;
     }
     await this.writes.credit(tx, message, intent, chain, now);

@@ -133,6 +133,8 @@ export interface MessageOptions {
   /** Integrity tests: another sender than the pinned one, or a hash of another text. */
   readonly senderId?: bigint;
   readonly textSha256?: string;
+  /** When the row was stored (BankMessage.createdAt); default now. D-47 tests set it. */
+  readonly storedAt?: Date;
   /** The raw text is already past its retention (purgeAfter in the past), ready to purge. */
   readonly purgeable?: boolean;
 }
@@ -168,6 +170,7 @@ export async function insertMessage(db: PrismaClient, o: MessageOptions) {
       bankTxnAt: parsed.bankTxnAt,
       channel: parsed.channel,
       cardId: o.card?.id ?? null,
+      ...(o.storedAt === undefined ? {} : { createdAt: o.storedAt }),
       rawText: {
         create: {
           text,

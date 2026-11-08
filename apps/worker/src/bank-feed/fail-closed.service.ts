@@ -27,9 +27,11 @@ const TX_OPTIONS = { maxWait: 4_000, timeout: 15_000 } as const;
 /**
  * - FAILED_CLOSED: the review is written and its effects (alert, limit job) are queued;
  * - HAS_OUTCOME: the message already has its decision (the failure was after the commit);
+ * - EFFECTS_FAILED: the review is written now, but its effects failed (S9F-I1: the caller
+ *   alerts `effectsFailed`; a decided message is never re-queued, so not `messageStuck`);
  * - STUCK_ALERTED: no try could write the review; the owner got `messageStuck` (ids only).
  */
-export type FailClosedResult = 'FAILED_CLOSED' | 'HAS_OUTCOME' | 'STUCK_ALERTED';
+export type FailClosedResult = 'FAILED_CLOSED' | 'HAS_OUTCOME' | 'EFFECTS_FAILED' | 'STUCK_ALERTED';
 
 /**
  * The fail-closed end of a message whose every attempt failed unexpectedly (docs/05 §6): a short
@@ -68,7 +70,15 @@ export class FailClosedService {
       return 'STUCK_ALERTED';
     }
     if (!written) return 'HAS_OUTCOME';
-    await this.effects.run(bankMessageId);
+    try {
+      await this.effects.run(bankMessageId);
+    } catch (error) {
+      const name = error instanceof Error ? error.name : 'unknown';
+      this.logger.warn(
+        `fail-closed message=${bankMessageId} review written, effects failed: ${name}`,
+      );
+      return 'EFFECTS_FAILED';
+    }
     return 'FAILED_CLOSED';
   }
 

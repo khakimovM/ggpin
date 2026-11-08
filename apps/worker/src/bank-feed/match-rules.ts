@@ -43,6 +43,34 @@ export function isLatePayment(intent: { readonly expiresAt: Date }, paidAt: Date
 }
 
 /**
+ * D-47: a message stored more than this after Telegram's date was not caught live: the daily
+ * re-scan found it, or the listener caught up after an outage. 10 min, because the live path
+ * stores a message within one poll (POLL_SEC = 20 s) plus a short retry, and the predecessor waits
+ * of the `bank-message` job (30 s x 20) run AFTER the row is stored, so they never move
+ * `createdAt`. A gap this long is an outage the owner was told about (listenerDown fires after
+ * HEARTBEAT_MAX_AGE_SEC = 2 min), the time in which the owner may have credited the user by hand.
+ */
+export const LATE_STORED_AFTER_MS = 10 * 60 * 1000;
+
+/** Stored late (D-47). Read from the row itself, so a re-queued job sees the same answer. */
+export function isLateStored(message: { readonly createdAt: Date; readonly tgDate: Date }) {
+  return message.createdAt.getTime() - message.tgDate.getTime() > LATE_STORED_AFTER_MS;
+}
+
+/**
+ * D-47: stored late, and its request was not open when the row was stored: not PENDING, or
+ * PENDING but already at/after `expiresAt` (the sweep had not run yet, e.g. right after the
+ * worker restarts; `expiresAt <= at` is the one "overdue" bound, expireOverdueTopups).
+ */
+export function isLateForClosedRequest(
+  message: { readonly createdAt: Date; readonly tgDate: Date },
+  intent: { readonly status: string; readonly expiresAt: Date },
+): boolean {
+  if (!isLateStored(message)) return false;
+  return intent.status !== 'PENDING' || intent.expiresAt.getTime() <= message.createdAt.getTime();
+}
+
+/**
  * The money came after the request had stopped holding card capacity (D-42 (1)): its share may
  * already have been handed out again, so this payment can push the card over its limit.
  */

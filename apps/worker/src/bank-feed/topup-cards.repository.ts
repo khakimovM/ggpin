@@ -57,6 +57,17 @@ export class TopupCardsRepository {
     return totals;
   }
 
+  /** Capacity sums of every ACTIVE card (the sweep's 80 % / FULL backstop); an unlocked read. */
+  activeTotals(db: Tx, now: Date) {
+    return cardTotals(db, {
+      now,
+      monthStart: tashkentMonthStart(now),
+      statuses: ['ACTIVE'],
+      autoCreditOnly: false,
+      holdSec: this.config.TOPUP_CAPACITY_HOLD_SEC,
+    });
+  }
+
   /**
    * Money the card received BEFORE this message: PARSED CREDITs of the same card and bot with a
    * lower tgMessageId (the bot's own order), in the windows cardTotals uses (from verifiedAt;

@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { BankMessage, PaymentIntent, TopupCard, Tx } from '@repo/db';
+import {
+  hasManualCredit,
+  manualCreditsSince,
+  type BankMessage,
+  type PaymentIntent,
+  type TopupCard,
+  type Tx,
+} from '@repo/db';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { latestMatchableCreatedAt } from './match-rules';
 
@@ -213,5 +220,14 @@ export class BankMessageRepository {
       where: { id: intentId },
       include: { user: { select: { isBlocked: true, createdAt: true } } },
     });
+  }
+
+  /**
+   * D-47 R1: did the owner credit this user by hand since `since`? The shared predicate of
+   * @repo/db (`manualCreditsSince`, also the review:credit preview's). Read under the Wallet
+   * lock, which wallet:adjust and review:credit take before they write.
+   */
+  async manualCreditSince(tx: Tx, userId: string, since: Date): Promise<boolean> {
+    return hasManualCredit(await manualCreditsSince(tx, userId, since));
   }
 }

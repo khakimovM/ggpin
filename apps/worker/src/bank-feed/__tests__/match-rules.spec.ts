@@ -1,7 +1,10 @@
 import {
   chainVerdict,
   classifyCandidates,
+  LATE_STORED_AFTER_MS,
   isLatePayment,
+  isLateForClosedRequest,
+  isLateStored,
   isPastCapacityHold,
   isTimeSkewed,
   latestMatchableCreatedAt,
@@ -73,5 +76,43 @@ describe('classifyCandidates (docs/05 §6 step 6 table)', () => {
     expect(classifyCandidates(two)).toEqual({ kind: 'AMBIGUOUS' });
     expect(classifyCandidates([])).toEqual({ kind: 'NONE' });
     expect(classifyCandidates([{ id: 'p', status: 'PAID' }])).toEqual({ kind: 'NONE' });
+  });
+});
+
+describe('isLateStored (D-47)', () => {
+  const tgDate = new Date('2030-05-03T10:00:00.000Z');
+  const storedAfter = (ms: number) => ({ tgDate, createdAt: new Date(tgDate.getTime() + ms) });
+
+  it('is 10 minutes: more than the live poll and a short retry, far less than an outage', () => {
+    expect(LATE_STORED_AFTER_MS).toBe(600_000);
+  });
+
+  it('on time up to and at the bound, late one millisecond after it', () => {
+    expect(isLateStored(storedAfter(20_000))).toBe(false);
+    expect(isLateStored(storedAfter(LATE_STORED_AFTER_MS))).toBe(false);
+    expect(isLateStored(storedAfter(LATE_STORED_AFTER_MS + 1))).toBe(true);
+  });
+});
+
+describe('isLateForClosedRequest (D-47, B1)', () => {
+  const tgDate = new Date('2030-05-03T10:00:00.000Z');
+  const late = { tgDate, createdAt: new Date(tgDate.getTime() + LATE_STORED_AFTER_MS + 1) };
+  const onTime = { tgDate, createdAt: new Date(tgDate.getTime() + 20_000) };
+  const at = (ms: number) => new Date(late.createdAt.getTime() + ms);
+
+  it('late: an EXPIRED request, and a PENDING one already overdue when stored, are closed', () => {
+    expect(isLateForClosedRequest(late, { status: 'EXPIRED', expiresAt: at(-1) })).toBe(true);
+    expect(isLateForClosedRequest(late, { status: 'PENDING', expiresAt: at(-1) })).toBe(true);
+    expect(isLateForClosedRequest(late, { status: 'PENDING', expiresAt: at(0) })).toBe(true);
+  });
+
+  it('late but still open when stored: not closed (credited)', () => {
+    expect(isLateForClosedRequest(late, { status: 'PENDING', expiresAt: at(1) })).toBe(false);
+  });
+
+  it('stored on time: never this rule', () => {
+    expect(isLateForClosedRequest(onTime, { status: 'EXPIRED', expiresAt: at(-60_000) })).toBe(
+      false,
+    );
   });
 });
