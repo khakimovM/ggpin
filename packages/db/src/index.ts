@@ -6,6 +6,11 @@ export * from './ledger/index.js';
 export { lockTopupCard } from './payments/card-lock.js';
 export { cardTotals } from './payments/card-totals.js';
 export type { CardTotals, CardTotalsQuery } from './payments/card-totals.js';
+export { expireOverdueTopups } from './payments/topup-expire.js';
+export type { TopupExpireScope } from './payments/topup-expire.js';
+export { AUTO_CREDIT_HORIZON_MS } from './payments/auto-credit-horizon.js';
+export { hasManualCredit, manualCreditsSince } from './payments/manual-credits.js';
+export type { CreditSum, ManualCredits } from './payments/manual-credits.js';
 export { usedTopupBaseSince } from './payments/topup-usage.js';
 
 /** How long a query waits for a pooled connection before it fails. */

@@ -86,6 +86,12 @@ export type BankParseResult = ParsedBankMessage | UnrecognizedBankMessage;
  * - PROCESSING_FAILED (kind UNRECOGNIZED): every attempt of the job ended in an unexpected
  *   error; the matcher fails closed (review, card paused, alert) instead of leaving the money
  *   silently unprocessed.
+ * - LATE_STORED (kind AMBIGUOUS, D-47): the message was stored long after Telegram's date (the
+ *   daily re-scan found it, or the listener caught up after an outage) and its request is no
+ *   longer PENDING: the owner may have credited the user by hand meanwhile, so the owner decides.
+ * - MANUAL_CREDIT_SEEN (kind AMBIGUOUS, D-47 R1): every check passed, but the owner credited the
+ *   user by hand (a positive ADJUSTMENT, or a TOPUP of a review:credit) after the request was
+ *   created: the transfer may already be paid, so it is never credited a second time unasked.
  */
 export const REVIEW_NOTE_CODES = [
   'TITLE_UNKNOWN',
@@ -98,5 +104,37 @@ export const REVIEW_NOTE_CODES = [
   'SENDER_MISMATCH',
   'TEXT_HASH_MISMATCH',
   'PROCESSING_FAILED',
+  'LATE_STORED',
+  'MANUAL_CREDIT_SEEN',
 ] as const;
 export type ReviewNoteCode = (typeof REVIEW_NOTE_CODES)[number];
+
+/**
+ * Why the ingest step stored a message of a bank bot's chat as REJECTED before parsing it
+ * (docs/05 §4 acceptance filter; `BankMessage.rejectReason`, codes only). Such a row is never
+ * money: the matcher opens a REJECTED review and alerts the owner.
+ * - OUTGOING: written by the working account itself, not by the bot;
+ * - FORWARDED: a forward, whoever wrote the original;
+ * - EDITED: carries an edit date (an edit of a stored message changes nothing, it is alerted);
+ * - VIA_BOT: sent through an inline bot;
+ * - FOREIGN_CHAT: not the private chat with the source's bot (a client bug: never read others);
+ * - FOREIGN_SENDER: the sender is not the pinned numeric bot id of the source;
+ * - NOT_BOT: the sender is not a bot account.
+ * The last three are not the bank bot's words: only their hash is stored, never the text.
+ */
+export const INGEST_REJECT_REASONS = [
+  'OUTGOING',
+  'FORWARDED',
+  'EDITED',
+  'VIA_BOT',
+  'FOREIGN_CHAT',
+  'FOREIGN_SENDER',
+  'NOT_BOT',
+] as const;
+export type IngestRejectReason = (typeof INGEST_REJECT_REASONS)[number];
+/** Reject codes whose text is not stored at all (only `textSha256`): it is not the bot's. */
+export const FOREIGN_INGEST_REASONS: readonly IngestRejectReason[] = [
+  'FOREIGN_CHAT',
+  'FOREIGN_SENDER',
+  'NOT_BOT',
+];

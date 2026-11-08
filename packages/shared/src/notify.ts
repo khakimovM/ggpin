@@ -6,7 +6,7 @@
 // deduplication. The rendered text (with the amount and balance) exists only in the tg-outbox
 // job, which is kept one day.
 import { z } from 'zod';
-import { BankFeedAlertKindSchema } from './payments/bank-feed';
+import { BankFeedAlertKindSchema, type BankFeedSource } from './payments/bank-feed';
 import { tgOutboxJobId } from './tg-outbox';
 
 export const NOTIFY_KINDS = ['TOPUP_CREDITED', 'TOPUP_LATE_CREDITED', 'OWNER_ALERT'] as const;
@@ -42,7 +42,18 @@ export const alertRef = {
   walletFrozen: (userId: string, ledgerEntryId: string): string => `${userId}_${ledgerEntryId}`,
   cardSilent: (cardId: string, lastCreditAt: Date): string =>
     `${cardId}_${Math.floor(lastCreditAt.getTime() / 1000)}`,
+  // One per source per hour: a misbehaving client cannot flood the owner (B2).
+  foreignChat: (source: BankFeedSource, at: Date): string =>
+    `${source}_${String(Math.floor(at.getTime() / 3_600_000))}`,
 } as const;
+
+const FOREIGN_CHAT_REF = /^(HUMO_BOT|UZCARD_BOT)_\d+$/;
+
+/** The source of a `foreignChat` refId, or null for anything else. */
+export function parseForeignChatAlertRef(refId: string): BankFeedSource | null {
+  if (!FOREIGN_CHAT_REF.test(refId)) return null;
+  return refId.startsWith('HUMO_BOT_') ? 'HUMO_BOT' : 'UZCARD_BOT';
+}
 
 // Prisma cuid2 ids never contain '_', so the first '_' of a composite refId ends the id.
 const COMPOSITE_REF = /^([A-Za-z0-9]{1,40})_([A-Za-z0-9_]{1,40})$/;
@@ -67,3 +78,62 @@ export function notifyJobId(job: NotifyJob): string {
     ? tgOutboxJobId('alert', job.alert, job.refId)
     : tgOutboxJobId('topup', job.refId);
 }
+
+/**
+ * The daily reconciliation's audit row (docs/05 §10): the worker writes it, the API's notify
+ * renderer reads the latest one of the day for `reconcileOk` / `reconcileMismatch`.
+ * `targetId` = `tashkentDayKey(now)` (yyyymmdd), which is also the alert `refId`.
+ */
+export const RECONCILE_AUDIT = {
+  actorType: 'SYSTEM',
+  action: 'PAYMENT_RECONCILE',
+  targetType: 'PaymentReconcileDay',
+} as const;
+
+/** How the 48 h history re-scan went: only `ok` lets the day be reported as clean. */
+export const RECONCILE_HISTORY_STATES = ['ok', 'unavailable', 'failed'] as const;
+export type ReconcileHistoryState = (typeof RECONCILE_HISTORY_STATES)[number];
+
+/**
+ * Why a source's re-scan was not `ok` (`after.history.<source>.reason`; the mismatch alert
+ * lists them as `<source>=<reason>`): unavailable — NO_CLIENT (no client wired) or NOT_PINNED
+ * (no bot id); failed — CLIENT_ERROR (the client threw), NO_PROGRESS (a page that does not move
+ * the cursor), TOO_LONG (more than the page limit), FOREIGN_CHAT (a page carried another chat's
+ * message: the client broke its contract, a security event).
+ */
+export const RECONCILE_HISTORY_REASONS = [
+  'NO_CLIENT',
+  'NOT_PINNED',
+  'CLIENT_ERROR',
+  'NO_PROGRESS',
+  'TOO_LONG',
+  'FOREIGN_CHAT',
+] as const;
+export type ReconcileHistoryReason = (typeof RECONCILE_HISTORY_REASONS)[number];
+
+/**
+ * The mismatch kinds the reconciliation counts (`after.mismatches.<code>`, whole numbers; the
+ * alert lists the non-zero ones by these codes, in this order):
+ * - recovered: a message found only by the history re-scan (now stored and queued);
+ * - missingOutcome: a stored message still without a decision (a stalled or lost job);
+ * - creditUnaccounted: a card's received CREDIT sum differs from CREDITED + CARD_VERIFIED +
+ *   reviewed (counted per card);
+ * - paymentWithoutMessage: a P2P_CARD Payment with no bank message;
+ * - chainBreak: a recomputed balance-chain gap not accepted by the owner (CHAIN_ACCEPTED);
+ * - pendingPastGrace: a PENDING request whose reservation already ended (the sweep fell behind);
+ * - lateOverLimit: D-42 residual risk, a payment after `expiresAt + TOPUP_CAPACITY_HOLD_SEC`
+ *   on a card now over its receive limit;
+ * - reviewOpenOver24h: a payment review still OPEN a day after it was opened (S9 I-1: money
+ *   waiting for the owner is never reported as a clean day).
+ */
+export const RECONCILE_MISMATCH_CODES = [
+  'recovered',
+  'missingOutcome',
+  'creditUnaccounted',
+  'paymentWithoutMessage',
+  'chainBreak',
+  'pendingPastGrace',
+  'lateOverLimit',
+  'reviewOpenOver24h',
+] as const;
+export type ReconcileMismatchCode = (typeof RECONCILE_MISMATCH_CODES)[number];

@@ -54,6 +54,8 @@ describe('bank feed vocabulary', () => {
     expect(reviewAlertOf('UNRECOGNIZED', 'TEXT_HASH_MISMATCH', true)).toBe('integrityAnomaly');
     expect(reviewAlertOf('UNRECOGNIZED', 'PROCESSING_FAILED', true)).toBe('processingFailed');
     expect(reviewAlertOf('AMBIGUOUS', 'AMOUNT_REALLOCATED', true)).toBe('amountReallocated');
+    expect(reviewAlertOf('AMBIGUOUS', 'LATE_STORED', true)).toBe('lateStored');
+    expect(reviewAlertOf('AMBIGUOUS', 'MANUAL_CREDIT_SEEN', true)).toBe('manualCreditSeen');
     expect(reviewAlertOf('AMBIGUOUS', null, true)).toBe('ambiguous');
     // A note only counts with the kind it belongs to.
     expect(reviewAlertOf('UNRECOGNIZED', 'AMOUNT_REALLOCATED', true)).toBe('unrecognized');
@@ -71,9 +73,14 @@ describe('bank feed vocabulary', () => {
       'integrityAnomaly',
       'processingFailed',
       'amountReallocated',
+      'lateStored',
+      'manualCreditSeen',
+      // Ingest refused a message of another chat without storing it (no review possible).
+      'foreignChat',
       // Matcher failures that leave no review (limit check, a fail-closed write that failed).
       'limitCheckFailed',
       'messageStuck',
+      'effectsFailed',
       'edited',
       'cardVerified',
       'cardNearLimit',
@@ -85,6 +92,7 @@ describe('bank feed vocabulary', () => {
       'newAuthorization',
       'reconcileOk',
       'reconcileMismatch',
+      'reconcileFailed',
       'walletFrozen',
       'debit',
       'cardSilent',

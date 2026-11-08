@@ -13,3 +13,15 @@ export function tashkentMonthStart(now: Date): Date {
   const startLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1);
   return new Date(startLocal - OFFSET_MS);
 }
+
+/**
+ * The Asia/Tashkent calendar day of an instant as `yyyymmdd`: the daily reconciliation's key
+ * (its AuditLog `targetId` and its alert `refId`, docs/05 §10).
+ */
+export function tashkentDayKey(now: Date): string {
+  const local = new Date(now.getTime() + OFFSET_MS);
+  const y = String(local.getUTCFullYear()).padStart(4, '0');
+  const m = String(local.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(local.getUTCDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}

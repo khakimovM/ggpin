@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertRef, notifyJobId, notifyJobSchema } from './notify';
+import { alertRef, notifyJobId, notifyJobSchema, parseForeignChatAlertRef } from './notify';
 
 describe('notifyJobSchema', () => {
   it('accepts the three shapes', () => {
@@ -71,6 +71,23 @@ describe('notifyJobId', () => {
       expect(
         notifyJobSchema.safeParse({ kind: 'OWNER_ALERT', alert: 'noMatch', refId }).success,
       ).toBe(false);
+    }
+  });
+});
+
+describe('foreignChat alert ref (B2)', () => {
+  it('one ref per source per hour, read back to its source', () => {
+    const at = new Date('2030-05-03T10:59:59.999Z');
+    const ref = alertRef.foreignChat('HUMO_BOT', at);
+    expect(ref).toBe(`HUMO_BOT_${String(Math.floor(at.getTime() / 3_600_000))}`);
+    expect(alertRef.foreignChat('HUMO_BOT', new Date('2030-05-03T10:00:00.000Z'))).toBe(ref);
+    expect(parseForeignChatAlertRef(ref)).toBe('HUMO_BOT');
+    expect(parseForeignChatAlertRef(alertRef.foreignChat('UZCARD_BOT', at))).toBe('UZCARD_BOT');
+  });
+
+  it('anything else is not a foreignChat ref', () => {
+    for (const ref of ['HUMO_BOT_', 'OTHER_BOT_1', 'HUMO_BOT_1x', 'cm3abc']) {
+      expect(parseForeignChatAlertRef(ref)).toBeNull();
     }
   });
 });

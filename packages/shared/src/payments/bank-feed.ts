@@ -1,8 +1,5 @@
-// Vocabulary of the bank-feed pipeline (docs/05-PAYMENTS.md): the worker reads the bank bots'
-// notifications over a Telegram user session, parses them, matches them to top-up intents and
-// credits the wallet. These names are shared because the API reads what the worker writes
-// (heartbeat, review kinds, alerts) and the Prisma enums must stay in step with them (a DB
-// test compares both lists once the schema lands in phase 4, slice S2).
+// Vocabulary of the bank-feed pipeline (docs/05-PAYMENTS.md), shared because the API reads what
+// the worker writes (heartbeat, review kinds, alerts); a DB test keeps the Prisma enums in step.
 import { z } from 'zod';
 import { TASHKENT_UTC_OFFSET_MINUTES } from '../tashkent-time';
 import { tgOutboxJobId } from '../tg-outbox';
@@ -56,8 +53,7 @@ export const REVIEW_KINDS = [
   'TIME_SKEW',
   // Money for an intent the user cancelled: never credited automatically (D-37 (5)).
   'CANCELLED_LATE',
-  // Crediting would push the user over a daily cap (D-37 (7)): either cap, one review kind; the
-  // review records which one was exceeded.
+  // Crediting would push the user over a daily cap (D-37 (7)); the note says which one.
   'DAILY_LIMIT',
   // A DEBIT equal to a recently credited payment: the bank may have taken the money back.
   'POSSIBLE_REVERSAL',
@@ -88,8 +84,11 @@ export const ALERT_KINDS = [
   'unrecognized',
   'titleUnknown',
   'integrityAnomaly',
+  'foreignChat',
   'processingFailed',
   'amountReallocated',
+  'lateStored',
+  'manualCreditSeen',
   'rejected',
   'edited',
   'cardUnknown',
@@ -118,9 +117,11 @@ export const ALERT_KINDS = [
   'newAuthorization',
   'reconcileOk',
   'reconcileMismatch',
+  'reconcileFailed',
   'walletFrozen',
   'limitCheckFailed',
   'messageStuck',
+  'effectsFailed',
 ] as const;
 export const BankFeedAlertKindSchema = z.enum(ALERT_KINDS);
 export type BankFeedAlertKind = z.infer<typeof BankFeedAlertKindSchema>;
@@ -143,11 +144,7 @@ export const REVIEW_ALERT: Readonly<Record<PaymentReviewKind, BankFeedAlertKind>
   USER_BLOCKED: 'userBlocked',
 });
 
-/**
- * Reviews whose note says more than their kind: the owner sees the card (and, where it helps,
- * the amount) and, for the ones that pause the card, that auto-credit stopped. The integrity
- * anomalies (SENDER_MISMATCH, TEXT_HASH_MISMATCH) share one security alert that names the code.
- */
+// Reviews whose note says more than their kind: the alert names the card (and the amount or code).
 const NOTE_ALERT: Readonly<
   Record<string, { readonly kind: PaymentReviewKind; readonly alert: BankFeedAlertKind }>
 > = Object.freeze({
@@ -156,13 +153,13 @@ const NOTE_ALERT: Readonly<
   TEXT_HASH_MISMATCH: { kind: 'UNRECOGNIZED', alert: 'integrityAnomaly' },
   PROCESSING_FAILED: { kind: 'UNRECOGNIZED', alert: 'processingFailed' },
   AMOUNT_REALLOCATED: { kind: 'AMBIGUOUS', alert: 'amountReallocated' },
+  LATE_STORED: { kind: 'AMBIGUOUS', alert: 'lateStored' },
+  MANUAL_CREDIT_SEEN: { kind: 'AMBIGUOUS', alert: 'manualCreditSeen' },
 });
 
 /**
- * The alert of one review: by kind, except a review ON A CARD whose (kind, note) is listed in
- * NOTE_ALERT (D-43 (1) TITLE_UNKNOWN, the integrity anomalies, a message that failed every
- * attempt, an amount already given to another request). Those alerts name the card, so a
- * card-less review keeps the generic one.
+ * The alert of one review: by kind, except a review ON A CARD whose (kind, note) is in
+ * NOTE_ALERT. Those alerts name the card, so a card-less review keeps the generic one.
  */
 export function reviewAlertOf(
   kind: PaymentReviewKind,
@@ -173,66 +170,8 @@ export function reviewAlertOf(
   return onCard && byNote !== undefined && byNote.kind === kind ? byNote.alert : REVIEW_ALERT[kind];
 }
 
-/**
- * `{placeholders}` each alert text takes, in `alerts.bankFeed.<kind>`. Alerts carry ids and
- * reason codes only: never a full card number, balance, message text or phone
- * (rules/60-security.md). A test in packages/i18n holds both locales to these lists.
- */
-export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly string[]>> =
-  Object.freeze({
-    unrecognized: ['reviewId'],
-    // D-43 (1): an exact match without a known title, never credited automatically.
-    titleUnknown: ['reviewId', 'bank', 'last4', 'amount'],
-    // Both pause the card's auto-credit (docs/05 §6) and say so. integrityAnomaly is a security
-    // signal; reason = the note code (SENDER_MISMATCH may also be a misconfigured bot id).
-    integrityAnomaly: ['reviewId', 'bank', 'last4', 'reason'],
-    processingFailed: ['reviewId', 'bank', 'last4'],
-    // A late payment whose amount was meanwhile given to a newer request (docs/05 §6 step 7).
-    amountReallocated: ['reviewId', 'bank', 'last4', 'amount'],
-    rejected: ['reviewId', 'reason'],
-    edited: ['messageId'],
-    cardUnknown: ['reviewId'],
-    cardRetired: ['reviewId', 'last4'],
-    chainBreak: ['reviewId', 'last4'],
-    autoCreditPaused: ['reviewId', 'last4'],
-    noMatch: ['reviewId', 'amount'],
-    ambiguous: ['reviewId', 'amount'],
-    duplicate: ['reviewId', 'amount'],
-    timeSkew: ['reviewId'],
-    cancelledLate: ['reviewId', 'amount'],
-    dailyLimit: ['reviewId', 'amount', 'limit'],
-    possibleReversal: ['reviewId', 'last4', 'amount'],
-    userBlocked: ['reviewId', 'amount'],
-    // Every DEBIT on a receiving card is reported (D-37 (8)): money leaving it is never routine.
-    debit: ['last4', 'amount'],
-    // No CREDIT on an active card for `hours`: a silent listener or bot looks the same as no sales.
-    cardSilent: ['bank', 'last4', 'hours'],
-    cardDraining: ['bank', 'last4'],
-    // Every money or card operation by the owner CLI (D-37 (9)).
-    adminAction: ['action', 'ref'],
-    cardVerified: ['bank', 'last4'],
-    cardNearLimit: ['bank', 'last4', 'percent'],
-    cardFull: ['bank', 'last4'],
-    // Unpaid reservations hold over half of what the card may still receive (D-42 (1)): one per
-    // card per hour. `percent` is a whole number (reserved share of the remaining limit).
-    cardReservedHigh: ['bank', 'last4', 'percent'],
-    // D-42 residual risk: a payment that arrived after `expiresAt + TOPUP_CAPACITY_HOLD_SEC` (its
-    // share of the card had already been handed out again) left the card over its receive limit.
-    // One per payment (refId = Payment.id); `amount` is that payment's amount.
-    lateOverLimit: ['bank', 'last4', 'amount'],
-    listenerDown: ['minutes'],
-    sessionRevoked: [],
-    newAuthorization: [],
-    reconcileOk: ['count', 'debits'],
-    reconcileMismatch: ['count', 'debits'],
-    walletFrozen: ['userId'],
-    // The card-limit check of a received CREDIT failed every attempt (refId = BankMessage.id).
-    limitCheckFailed: ['messageId', 'bank', 'last4'],
-    // A message's last attempt failed and fail-closed did not complete (its review could not be
-    // written, or the post-commit effects failed): sent without any database write, ids only
-    // (refId = BankMessage.id).
-    messageStuck: ['messageId'],
-  });
+// Split out to keep this file small (S9 n2); re-exported so the barrel stays as it is.
+export { BANK_FEED_ALERT_PARAMS } from './bank-feed-alert-params';
 
 // ---- Tunables shared by the worker (writer) and the API (reader) ----------------------------
 export const BANK_FEED_DEFAULTS = {

@@ -79,7 +79,9 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
   [QUEUES.PRICE_SYNC]: CRON_DEFAULTS,
   [QUEUES.FRAGMENT_KEEPALIVE]: CRON_DEFAULTS,
   [QUEUES.RECONCILE]: CRON_DEFAULTS,
-  [QUEUES.PAYMENT_RECONCILE]: CRON_DEFAULTS,
+  // The daily reconciliation retries twice (a re-run only re-reads and writes another audit
+  // row); after the last failure the owner gets `reconcileFailed` (docs/05 §10).
+  [QUEUES.PAYMENT_RECONCILE]: { ...CRON_DEFAULTS, attempts: 3 },
   [QUEUES.TOPUP_EXPIRE]: CRON_DEFAULTS,
   // One job per stored bank message (jobId `bm-<id>`), consumed by the worker with
   // concurrency 1 so the balance chain is checked in message order. A retry is safe: the
