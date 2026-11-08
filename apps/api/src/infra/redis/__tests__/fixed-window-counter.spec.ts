@@ -31,6 +31,11 @@ describe('FixedWindowCounter', () => {
     await expect(counter.hit('rl:x', 60)).resolves.toEqual({ count: 11, ttlSec: 1 });
   });
 
+  it('never reports more than the window, even when Redis returns a longer TTL (clock jump)', async () => {
+    const { counter } = counterWith(Promise.resolve([2, 602]));
+    await expect(counter.hit('rl:x', 600)).resolves.toEqual({ count: 2, ttlSec: 600 });
+  });
+
   it('surfaces a command error so the caller decides what to do', async () => {
     const { counter } = counterWith(Promise.reject(new Error('boom')));
     await expect(counter.hit('rl:x', 60)).rejects.toThrow('boom');

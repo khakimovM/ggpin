@@ -1,10 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   BANK_FEED_ALERT_PARAMS,
+  BANK_OF_SOURCE,
   daytimeMinutesBetween,
   formatMoney,
   parseCardLimitAlertRef,
   parseCardReservedHighRef,
+  parseForeignChatAlertRef,
+  BANK_FEED_SOURCES,
+  RECONCILE_HISTORY_REASONS,
+  RECONCILE_HISTORY_STATES,
+  RECONCILE_MISMATCH_CODES,
   receivedUsagePercent,
   refIdSubject,
   reservedSharePercent,
@@ -68,6 +74,8 @@ export class OwnerAlertRenderer {
       case 'integrityAnomaly':
       case 'processingFailed':
       case 'amountReallocated':
+      case 'lateStored':
+      case 'manualCreditSeen':
       case 'cardUnknown':
       case 'timeSkew':
       case 'rejected':
@@ -84,6 +92,7 @@ export class OwnerAlertRenderer {
         return this.reviewParams(alert, refId);
       case 'edited':
       case 'messageStuck':
+      case 'effectsFailed':
         return { messageId: refId };
       case 'limitCheckFailed': {
         const message = await this.sources.message(refId);
@@ -117,6 +126,13 @@ export class OwnerAlertRenderer {
       case 'reconcileOk':
       case 'reconcileMismatch':
         return this.reconcileParams(refId);
+      case 'foreignChat': {
+        const source = parseForeignChatAlertRef(refId);
+        return source === null ? null : { bank: BANK_OF_SOURCE[source] };
+      }
+      // Sent when the run itself failed: nothing to read, the refId is the Tashkent day.
+      case 'reconcileFailed':
+        return /^\d{8}$/.test(refId) ? { day: refId } : null;
       case 'walletFrozen': {
         const userId = refIdSubject(refId);
         return userId === null ? null : { userId };
@@ -209,12 +225,53 @@ export class OwnerAlertRenderer {
     return { minutes };
   }
 
+  // The latest run of the day (docs/05 §10): whole numbers, a known history state and the
+  // non-zero mismatch codes, in RECONCILE_MISMATCH_CODES order. Anything else: not renderable.
   private async reconcileParams(day: string): Promise<Params | null> {
     const run = await this.sources.reconcileRun(day);
     const after: unknown = run?.after;
     if (typeof after !== 'object' || after === null) return null;
-    const count = 'count' in after ? String(after.count) : '';
-    const debits = 'debits' in after ? String(after.debits) : '';
-    return WHOLE.test(count) && WHOLE.test(debits) ? { count, debits } : null;
+    const field = (name: string): unknown => (name in after ? Reflect.get(after, name) : undefined);
+    const count = String(field('count'));
+    const debits = String(field('debits'));
+    const openReviews = String(field('openReviews'));
+    const history = field('historyScan');
+    const mismatches = field('mismatches');
+    if (![count, debits, openReviews].every((n) => WHOLE.test(n))) return null;
+    if (!RECONCILE_HISTORY_STATES.some((state) => state === history)) return null;
+    if (typeof mismatches !== 'object' || mismatches === null) return null;
+    const details: string[] = [];
+    for (const code of RECONCILE_MISMATCH_CODES) {
+      const n = String(Reflect.get(mismatches, code) ?? 0);
+      if (!WHOLE.test(n)) return null;
+      if (n !== '0') details.push(`${code}=${n}`);
+    }
+    // L-1: why each source's re-scan was not ok (older rows have none).
+    details.push(...historyReasons(field('history')));
+    return {
+      count,
+      debits,
+      openReviews,
+      history: translate(OWNER_LOCALE, `alerts.reconcileHistory.${String(history)}`),
+      details: details.length === 0 ? '-' : details.join(', '),
+    };
   }
+}
+
+/**
+ * `<source>=<reason>` per source whose re-scan has a reason. An unknown code (a worker deployed
+ * before this API) is `<source>=?`: never the raw value, and never a lost mismatch alert.
+ */
+function historyReasons(history: unknown): string[] {
+  if (typeof history !== 'object' || history === null) return [];
+  const out: string[] = [];
+  for (const source of BANK_FEED_SOURCES) {
+    const entry: unknown = Reflect.get(history, source);
+    const reason: unknown =
+      typeof entry === 'object' && entry !== null ? Reflect.get(entry, 'reason') : undefined;
+    if (reason === undefined || reason === null) continue;
+    const known = RECONCILE_HISTORY_REASONS.find((code) => code === reason);
+    out.push(`${source}=${known ?? '?'}`);
+  }
+  return out;
 }

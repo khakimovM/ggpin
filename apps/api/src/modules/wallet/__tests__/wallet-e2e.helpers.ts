@@ -6,6 +6,10 @@ import { Test } from '@nestjs/testing';
 import type { LedgerKind } from '@repo/db';
 import { QUEUES } from '@repo/shared';
 import type { Queue } from 'bullmq';
+import {
+  queueJobIds,
+  removeJobsAddedSince,
+} from '../../../infra/queue/__tests__/queue-jobs-cleanup';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
 import { createHttpAdapter } from '../../../common/http/create-http-adapter';
@@ -87,6 +91,7 @@ export function useWalletE2e(): WalletE2e {
   const runTag = randomBytes(5).toString('hex');
   const userIds: string[] = [];
   const jobIds = new Set<string>();
+  let notifyBefore = new Set<string>(); // B5: every notify job a file adds is removed after it
   const cardIds: string[] = [];
 
   const db = (): PrismaService['client'] => app.get(PrismaService).client;
@@ -105,6 +110,7 @@ export function useWalletE2e(): WalletE2e {
     await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+    notifyBefore = await queueJobIds(app.get<Queue>(getQueueToken(QUEUES.NOTIFY)));
   });
 
   afterAll(async () => {
@@ -112,6 +118,7 @@ export function useWalletE2e(): WalletE2e {
     await redis.del(...userIds.map((id) => `wallet:${id}`));
     const queue = app.get<Queue>(getQueueToken(QUEUES.NOTIFY));
     for (const id of jobIds) await queue.remove(id).catch(() => 0);
+    await removeJobsAddedSince(queue, notifyBefore);
     await retireCards(db(), cardIds);
     await app.close();
   });

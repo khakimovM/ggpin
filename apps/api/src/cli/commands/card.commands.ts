@@ -153,7 +153,8 @@ const resume: CliCommand = {
   summary: 'resume auto-credit on a card (lists the open pause reasons first)',
   usage:
     `card:resume <cardId> [--confirm-override] ${ACTOR_USAGE}` +
-    '   (--confirm-override: resume although a chain break, integrity or failure review is open)',
+    '   (--confirm-override: resume although a chain break, integrity or failure review is open; ' +
+    'a bare flag, no value; wallet:adjust takes --confirm-override=<set> instead)',
   async run(ctx, argv) {
     const p = parse(argv, { ...ACTOR_OPTIONS, 'confirm-override': { type: 'boolean' } }, 1);
     const { reason, actor } = actorOf(ctx, p);

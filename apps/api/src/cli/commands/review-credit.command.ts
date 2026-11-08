@@ -23,7 +23,8 @@ import {
 const USAGE =
   `review:credit <reviewId> (--user <userId> | --intent <intentId>) ${ACTOR_USAGE} ` +
   '[--confirm-override] [--bank-verified]\n' +
-  '   --confirm-override  credit a blocked user or one over the daily limit anyway\n' +
+  '   --confirm-override  credit a blocked user or one over the daily limit anyway (a bare\n' +
+  '                       flag, no value; wallet:adjust takes --confirm-override=<set>)\n' +
   '   --bank-verified     the message failed its integrity check (SENDER_MISMATCH or\n' +
   '                       TEXT_HASH_MISMATCH) and you confirmed the transfer in the bank app';
 
@@ -64,6 +65,9 @@ export const REVIEW_CREDIT_COMMAND: CliCommand = {
 
     const preview = await credits.preview(reviewId, target);
     const u = preview.user;
+    const hand = preview.manualCreditsSinceRequest;
+    const sum = (c: { count: number; sumTiyin: bigint }) =>
+      `${String(c.count)} (+${money(c.sumTiyin)})`;
     report(ctx, {
       amount: money(preview.amountTiyin),
       user: preview.userId,
@@ -72,6 +76,9 @@ export const REVIEW_CREDIT_COMMAND: CliCommand = {
       accountAgeDays: Math.floor(u.accountAgeSec / 86_400),
       todayBase: `${money(u.usedBaseTiyin)} + ${money(u.requestedBaseTiyin)} of ${money(u.limitTiyin)} (${u.limitReason})`,
       overLimit: u.overLimit,
+      // D-47: money already given by hand since the request began (never paid twice); the
+      // matcher's MANUAL_CREDIT_SEEN predicate, by kind.
+      manualCreditsSinceRequest: `adjust=${sum(hand.adjust)}, reviewCredit=${sum(hand.reviewCredit)} since ${hand.since.toISOString()}`,
     });
     // Refused before any code is sent; the service refuses the same under its locks.
     if (preview.overrideNeeded !== null && !override) {

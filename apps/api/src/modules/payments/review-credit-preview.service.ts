@@ -14,6 +14,7 @@ import {
   type CreditTarget,
   type UserCheck,
 } from './review-credit.checks';
+import type { ManualCredits } from '@repo/db';
 import { ReviewChecksRepository } from './review-checks.repository';
 import { ReviewRepository, type IntentForCredit } from './review.repository';
 
@@ -24,6 +25,24 @@ export interface CreditPreview {
   readonly needsBankVerification: boolean;
   readonly user: UserCheck;
   readonly overrideNeeded: string | null;
+  /**
+   * Money given by hand (positive ADJUSTMENTs, review:credit TOPUPs) since the request (or the
+   * transfer) began, and at least the last MANUAL_CREDITS_MIN_WINDOW_MS (D-47 R1/R2): the
+   * matcher's MANUAL_CREDIT_SEEN predicate, split by kind.
+   */
+  readonly manualCreditsSinceRequest: ManualCreditsSince;
+}
+
+/**
+ * D-47: a late transfer may already have been paid by hand while the listener was down. The
+ * count starts at the request's creation (or the transfer's Telegram date without a request),
+ * so a review opened days later still shows a hand payment made at any time since then; never
+ * less than 48 h, the reconciliation window.
+ */
+export const MANUAL_CREDITS_MIN_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+export interface ManualCreditsSince extends ManualCredits {
+  readonly since: Date;
 }
 
 /**
@@ -52,12 +71,17 @@ export class ReviewCreditPreviewService {
     if ('intentId' in target && intent === null) throw new AppError('NOT_FOUND');
     const userId = intent?.userId ?? ('userId' in target ? target.userId : '');
     const user = await this.userCheck(this.pool.client, userId, intent, amountTiyin);
+    const anchor = intent?.createdAt ?? review.bankMessage.tgDate;
+    const window = this.clock.now().getTime() - MANUAL_CREDITS_MIN_WINDOW_MS;
+    const since = new Date(Math.min(window, anchor.getTime()));
+    const manual = await this.checks.manualCreditsSince(this.pool.client, userId, since);
     return {
       amountTiyin,
       userId,
       needsBankVerification: needsBankVerification(review),
       user,
       overrideNeeded: overrideNeeded(user),
+      manualCreditsSinceRequest: { ...manual, since },
     };
   }
 

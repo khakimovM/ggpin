@@ -35,6 +35,20 @@ async function auditOf(out: readonly string[]) {
   return t.audit(id);
 }
 
+/** A hand-made ADJUSTMENT of the user, `hoursAgo` hours back (synthetic, D-47 preview). */
+function adjust(userId: string, amountTiyin: bigint, hoursAgo: number) {
+  return t.db().ledgerEntry.create({
+    data: {
+      userId,
+      kind: 'ADJUSTMENT',
+      amountTiyin,
+      refType: 'ADMIN_ACTION',
+      refId: randomUUID(),
+      createdAt: new Date(Date.now() - hoursAgo * 3_600_000),
+    },
+  });
+}
+
 describe('owner CLI commands (real Postgres, scripted terminal)', () => {
   it('review:list shows open reviews; review:show prints the raw text with hidden characters escaped', async () => {
     const card = await t.card();
@@ -73,13 +87,54 @@ describe('owner CLI commands (real Postgres, scripted terminal)', () => {
       (await t.run(['review:credit', reviewId, '--user', userId, '--intent', userId, ...WHO])).code,
     ).toBe(2);
     expect((await reviewRow(reviewId)).status).toBe('OPEN');
+    // D-47: hand-given money is shown first. Without a request the count starts at the transfer
+    // (a minute ago) but never covers less than 48 h. Counted: the positive one inside; not
+    // counted: a negative one, and a positive one 49 h old.
+    await adjust(userId, 1_500_000n, 2);
+    await adjust(userId, -200_000n, 1);
+    await adjust(userId, 900_000n, 49);
     const done = await t.run(['review:credit', reviewId, '--user', userId, ...WHO]);
     expect(done.code).toBe(0);
+    expect(fields(done.out)['manualCreditsSinceRequest']).toMatch(
+      /^adjust=1 \(\+15000 UZS\), reviewCredit=0 \(\+0 UZS\) since /,
+    );
     expect(fields(done.out)).toMatchObject({ resolution: 'CREDITED_USER', user: userId });
     expect((await auditOf(done.out)).actorType).toBe('CLI');
     const again = await t.run(['review:credit', reviewId, '--user', userId, ...WHO]);
     expect(again.code).toBe(1);
     expect(again.err[0]).toContain('refused: VALIDATION_ERROR');
+  });
+
+  it('review:credit --intent: hand payments since the request began show, even 49 h back (R2, R1 review)', async () => {
+    const userId = await t.user();
+    const card = await t.card();
+    const amountTiyin = 5_012_300n; // whole so‘m with a suffix (PaymentIntent_p2p_check)
+    const opened = new Date(Date.now() - 50 * 3_600_000);
+    const intentId = await t.intent(userId, {
+      cardId: card.id,
+      amountTiyin,
+      status: 'EXPIRED',
+      createdAt: opened,
+    });
+    // Paid 10 min after the request was opened, found and reviewed only now.
+    const message = await t.message({
+      card,
+      amountTiyin,
+      tgDate: new Date(opened.getTime() + 10 * 60_000),
+    });
+    // The matcher's R1 review: the same line shows the owner the hand credit it saw.
+    const r1 = { cardId: card.id, intentId, note: 'MANUAL_CREDIT_SEEN' };
+    const reviewId = await t.review(message.id, 'AMBIGUOUS', r1);
+    await adjust(userId, 5_000_000n, 49); // after the request opened, before the last 48 h
+    await adjust(userId, 700_000n, 51); // before the request: not counted
+    // Another transfer of the user, credited by hand from its review: the second kind (F-L2).
+    const other = await t.message({ card: await t.card(), amountTiyin: 3_000_000n });
+    const otherReview = await t.review(other.id, 'NO_MATCH', { cardId: other.cardId });
+    expect((await t.run(['review:credit', otherReview, '--user', userId, ...WHO])).code).toBe(0);
+    const done = await t.run(['review:credit', reviewId, '--intent', intentId, ...WHO]);
+    expect(fields(done.out)['manualCreditsSinceRequest']).toBe(
+      `adjust=1 (+50000 UZS), reviewCredit=1 (+30000 UZS) since ${opened.toISOString()}`,
+    );
   });
 
   it('review:ignore and review:returned-offline close a review once, with an AuditLog row', async () => {

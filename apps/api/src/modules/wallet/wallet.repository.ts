@@ -98,6 +98,25 @@ export class WalletRepository {
   }
 
   /** One entry by its idempotency key, scoped to the owner. */
+  /**
+   * The user's automatic P2P top-ups confirmed since `since` (Payment CONFIRMED without a
+   * review: the matcher's), newest first. Decides only when read under the Wallet lock.
+   */
+  recentAutoTopups(userId: string, since: Date, db: Db = this.prisma.client) {
+    return db.payment.findMany({
+      where: {
+        userId,
+        provider: 'P2P_CARD',
+        status: 'CONFIRMED',
+        reviewId: null,
+        confirmedAt: { gte: since },
+      },
+      // All of them (the owner's code is bound to the whole set); a few per day at most.
+      orderBy: [{ confirmedAt: 'desc' }, { id: 'asc' }],
+      select: { id: true, amountTiyin: true, confirmedAt: true },
+    });
+  }
+
   findEntry(tx: Db, key: EntryKey): Promise<LedgerEntry | null> {
     return tx.ledgerEntry.findFirst({
       where: { userId: key.userId, refType: key.refType, refId: key.refId, kind: key.kind },

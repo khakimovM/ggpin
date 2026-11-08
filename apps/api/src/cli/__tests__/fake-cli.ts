@@ -48,3 +48,6 @@ export const NOOP_CHANGE = {
   newlyFrozen: false,
   alertQueued: false,
 };
+
+/** WalletAdminService.recentFor with no recent automatic top-up (S9 F-L1). */
+export const NO_RECENT = (): Promise<readonly never[]> => Promise.resolve([]);

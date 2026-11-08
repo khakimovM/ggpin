@@ -1,18 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { cardTotals, sumBalance, type CardTotals } from '@repo/db';
-import { BANK_FEED_HEARTBEAT_KEY, tashkentMonthStart } from '@repo/shared';
+import { BANK_FEED_HEARTBEAT_KEY, RECONCILE_AUDIT, tashkentMonthStart } from '@repo/shared';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
-
-/**
- * The daily reconciliation's audit row (docs/05 §10), the source of the reconcile alerts:
- * `action` PAYMENT_RECONCILE, `targetType` PaymentReconcileDay, `targetId` = the Tashkent day
- * (yyyymmdd, the alert refId), `after` = { count, debits } as whole numbers. S9 writes it.
- */
-export const RECONCILE_AUDIT = {
-  action: 'PAYMENT_RECONCILE',
-  targetType: 'PaymentReconcileDay',
-} as const;
 
 const ALL_CARD_STATUSES = ['VERIFYING', 'ACTIVE', 'FULL', 'DRAINING', 'RETIRED'] as const;
 

@@ -1,6 +1,6 @@
 import { OPERATOR, adminProbes } from './wallet-admin-e2e.shared';
 import { ownerCode } from '../../../common/admin/owner-otp/__tests__/owner-otp.testing';
-import { reverseOtpTarget } from '../wallet-admin.input';
+import { recentSetHash, reverseOtpTarget } from '../wallet-admin.input';
 import { useWalletE2e } from './wallet-e2e.helpers';
 
 const e2e = useWalletE2e();
@@ -153,7 +153,15 @@ describe('WalletAdminService.reverseTopup (real P2P_CARD shape, real database)',
     const user = await e2e.newUser();
     const { paymentId } = await e2e.p2pPayment(user.id, { baseTiyin: 100_000n });
     const adjust = (amountTiyin: bigint): ReturnType<ReturnType<typeof e2e.admin>['adjust']> =>
-      e2e.admin().adjust({ userId: user.id, amountTiyin, reason: 'mix', ...OPERATOR });
+      // The owner knows of the top-up (S9F-L1: a positive one needs the id of its set; a reversal
+      // leaves the Payment CONFIRMED, so the set is the same before and after it).
+      e2e.admin().adjust({
+        userId: user.id,
+        amountTiyin,
+        reason: 'mix',
+        confirmOverrideSet: recentSetHash([{ id: paymentId, amountTiyin: 0n, confirmedAt: null }]),
+        ...OPERATOR,
+      });
 
     const results = await Promise.all([
       e2e.admin().reverseTopup({ paymentId, reason: 'mix', ...OPERATOR }),

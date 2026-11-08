@@ -6,6 +6,10 @@ import { Test } from '@nestjs/testing';
 import type { CardBank, IntentStatus, TopupCard, TopupCardStatus } from '@repo/db';
 import { BANK_FEED_HEARTBEAT_KEY, PAY_TOKEN_HEADER, QUEUES, notifyJobSchema } from '@repo/shared';
 import type { Queue } from 'bullmq';
+import {
+  queueJobIds,
+  removeJobsAddedSince,
+} from '../../../infra/queue/__tests__/queue-jobs-cleanup';
 import type { DestinationStream } from 'pino';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
@@ -100,6 +104,7 @@ export function usePaymentsE2e(options: PaymentsE2eOptions = {}) {
   const cardIds: string[] = [];
   const liveCards: string[] = [];
   const jobIds = new Set<string>();
+  let notifyBefore = new Set<string>(); // B5: every notify job a file adds is removed after it
 
   const db = (): PrismaService['client'] => app.get(PrismaService).client;
   const redis = (): RedisService['client'] => app.get(RedisService).client;
@@ -125,6 +130,7 @@ export function usePaymentsE2e(options: PaymentsE2eOptions = {}) {
     await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+    notifyBefore = await queueJobIds(app.get<Queue>(getQueueToken(QUEUES.NOTIFY)));
     await prepareCardPool(db());
   });
 
@@ -149,6 +155,7 @@ export function usePaymentsE2e(options: PaymentsE2eOptions = {}) {
     await redis().del(...keys);
     const queue = app.get<Queue>(getQueueToken(QUEUES.NOTIFY));
     for (const id of jobIds) await queue.remove(id).catch(() => 0);
+    await removeJobsAddedSince(queue, notifyBefore);
     // cardReservedHigh jobs of this file's cards (any request on a small-limit card may raise one).
     const ours = new Set(cardIds);
     for (const job of await queue.getJobs(['waiting', 'delayed', 'completed', 'failed'])) {

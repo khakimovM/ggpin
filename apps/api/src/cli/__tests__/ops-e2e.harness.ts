@@ -4,6 +4,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import type { PaymentReviewKind, TopupCard } from '@repo/db';
 import { QUEUES, walletCacheKey } from '@repo/shared';
 import type { Queue } from 'bullmq';
+import { queueJobIds, removeJobsAddedSince } from '../../infra/queue/__tests__/queue-jobs-cleanup';
 import { buildE2eEnv } from '../../config/__tests__/e2e-env';
 import { nextTestTelegramId } from '../../config/__tests__/test-telegram-id';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -54,6 +55,7 @@ export function useOpsE2e() {
   let moduleRef: TestingModule;
   const cardIds: string[] = [];
   const jobIds = new Set<string>();
+  let notifyBefore = new Set<string>(); // B5: every notify job a file adds is removed after it
   const db = (): PrismaService['client'] => moduleRef.get(PrismaService).client;
 
   beforeAll(async () => {
@@ -62,6 +64,7 @@ export function useOpsE2e() {
     }).compile();
     moduleRef.useLogger(false);
     await moduleRef.init();
+    notifyBefore = await queueJobIds(moduleRef.get<Queue>(getQueueToken(QUEUES.NOTIFY)));
   });
 
   afterAll(async () => {
@@ -71,6 +74,7 @@ export function useOpsE2e() {
     });
     const queue = moduleRef.get<Queue>(getQueueToken(QUEUES.NOTIFY));
     for (const id of jobIds) await queue.remove(id).catch(() => 0);
+    await removeJobsAddedSince(queue, notifyBefore);
     await moduleRef.close();
   });
 
@@ -150,7 +154,7 @@ export function useOpsE2e() {
   const review = async (
     messageId: string,
     kind: PaymentReviewKind,
-    extra: { cardId?: string | null; intentId?: string } = {},
+    extra: { cardId?: string | null; intentId?: string; note?: string } = {},
   ): Promise<string> => {
     const row = await db().paymentReview.create({
       data: {
@@ -158,6 +162,7 @@ export function useOpsE2e() {
         kind,
         cardId: extra.cardId ?? null,
         intentId: extra.intentId ?? null,
+        note: extra.note ?? null,
       },
       select: { id: true },
     });

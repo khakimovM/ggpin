@@ -1,3 +1,4 @@
+import type { BankFeedAlertKind } from '@repo/shared';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
 import type { NotifySourcesRepository } from '../notify-sources.repository';
 import { AlertSourceMissingError, OwnerAlertRenderer } from '../owner-alert.renderer';
@@ -9,6 +10,7 @@ interface Sources {
   payment: () => Promise<unknown>;
   message: () => Promise<unknown>;
   card: () => Promise<unknown>;
+  reconcileRun: (day: string) => Promise<unknown>;
 }
 
 const NOW = new Date('2030-01-01T09:00:00.000Z');
@@ -20,6 +22,7 @@ function renderer(sources: Partial<Sources>): OwnerAlertRenderer {
     payment: () => Promise.resolve(null),
     message: () => Promise.resolve(null),
     card: () => Promise.resolve(null),
+    reconcileRun: () => Promise.resolve(null),
     ...sources,
   };
   return new OwnerAlertRenderer(fake as unknown as NotifySourcesRepository, buildTestEnv(), {
@@ -110,8 +113,39 @@ describe('OwnerAlertRenderer', () => {
     expect(text).toContain('HUMO kartasi ***4321');
   });
 
+  it('lateStored (D-47) says the message was stored late and asks to check a hand credit', async () => {
+    const text = (await onCard('LATE_STORED').render('lateStored', 'rev1')).replace(
+      /[\u00a0\u202f]/g,
+      ' ',
+    );
+    expect(text).toContain('HUMO kartasi ***4321');
+    expect(text).toContain('50 001 so‘m');
+    expect(text).toContain('kech saqlandi');
+    expect(text).toContain('qo‘lda bermaganingizni');
+    expect(text).toContain('Ko‘rib chiqish: rev1');
+  });
+
+  it('manualCreditSeen (R1) says a hand credit came after the request, ids and amount only', async () => {
+    const text = (await onCard('MANUAL_CREDIT_SEEN').render('manualCreditSeen', 'rev1')).replace(
+      /[\u00a0\u202f]/g,
+      ' ',
+    );
+    expect(text).toContain('HUMO kartasi ***4321');
+    expect(text).toContain('50 001 so‘m');
+    expect(text).toContain('bu so‘rovdan keyin qo‘lda pul berilgan');
+    expect(text).toContain('Ikki marta yozmaslik uchun tekshiring');
+    expect(text).toContain('Ko‘rib chiqish: rev1');
+  });
+
   it('the card alerts of a review are never half-filled: no card, no text', async () => {
-    for (const alert of ['integrityAnomaly', 'processingFailed', 'amountReallocated'] as const) {
+    const cardAlerts: readonly BankFeedAlertKind[] = [
+      'integrityAnomaly',
+      'processingFailed',
+      'amountReallocated',
+      'lateStored',
+      'manualCreditSeen',
+    ];
+    for (const alert of cardAlerts) {
       await expect(
         renderer({ review: () => Promise.resolve(review(null, 'X')) }).render(alert, 'rev1'),
       ).rejects.toBeInstanceOf(AlertSourceMissingError);
@@ -135,6 +169,20 @@ describe('OwnerAlertRenderer', () => {
     await expect(renderer({}).render('messageStuck', 'msg1')).resolves.toContain(
       'Bank xabari msg1 barcha urinishlarda',
     );
+    // F-L1: the re-run may credit it first, so the owner checks the last top-up before paying.
+    await expect(renderer({}).render('messageStuck', 'msg1')).resolves.toContain(
+      'Qo‘lda berishdan oldin foydalanuvchining oxirgi to‘ldirishini tekshiring',
+    );
+  });
+
+  it('S9F-I1: effectsFailed (decision stored, effects failed) never promises an automatic re-run', async () => {
+    const text = await renderer({}).render('effectsFailed', 'msg2');
+    expect(text).toContain('Bank xabari msg2 bo‘yicha qaror saqlangan');
+    expect(text).toContain('avtomatik qayta ishlanmaydi');
+    expect(text).not.toContain('avtomatik qayta ishlanadi');
+    expect(text).toContain('review:list va foydalanuvchining oxirgi to‘ldirishini tekshiring');
+    expect(text).toContain('bildirishnoma');
+    expect(text).not.toMatch(/\d{4}\s?\d{4}|so‘m|UZS/); // ids only: no card number, no money
   });
 
   it('a missing source row is AlertSourceMissingError (never a half-filled text)', async () => {
@@ -161,5 +209,89 @@ describe('OwnerAlertRenderer', () => {
     await expect(renderer({}).render('walletFrozen', 'no-underscore')).rejects.toBeInstanceOf(
       AlertSourceMissingError,
     );
+  });
+
+  describe('reconcileOk / reconcileMismatch (the latest audit row of the day, docs/05 §10)', () => {
+    const run = (after: unknown) => renderer({ reconcileRun: () => Promise.resolve({ after }) });
+    const clean = {
+      count: 12,
+      debits: 3,
+      openReviews: 1,
+      historyScan: 'ok',
+      mismatches: { recovered: 0, chainBreak: 0 },
+    };
+
+    it('reconcileOk: counts and the history state, nothing else', async () => {
+      await expect(run(clean).render('reconcileOk', '20300504')).resolves.toBe(
+        '✅ Kunlik solishtirishda farq yo‘q. Tekshirilgan xabarlar: 12. Chiqimlar: 3. ' +
+          'Ochiq ko‘rib chiqishlar: 1. Tarix qayta skani: bajarildi.',
+      );
+    });
+
+    it('reconcileMismatch: the non-zero codes in their fixed order, and an unread history', async () => {
+      const after = {
+        ...clean,
+        count: 3,
+        historyScan: 'unavailable',
+        mismatches: { lateOverLimit: 1, recovered: 2, chainBreak: 0 },
+      };
+      const text = await run(after).render('reconcileMismatch', '20300504');
+      expect(text).toContain('Farqlar soni: 3 (recovered=2, lateOverLimit=1)');
+      expect(text).toContain('bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan');
+      const none = await run({ ...clean, historyScan: 'failed' }).render('reconcileMismatch', 'd');
+      expect(none).toContain('Farqlar soni: 12 (-)');
+      expect(none).toContain('xato bilan tugadi');
+    });
+
+    it('L-1 / I-1 / m1: source reasons and an old open review in the details; unknown code is ?', async () => {
+      const history = {
+        HUMO_BOT: { state: 'failed', reason: 'FOREIGN_CHAT' },
+        UZCARD_BOT: { state: 'failed', reason: 'x; DROP' }, // a newer worker: still sent
+      };
+      const after = {
+        ...clean,
+        historyScan: 'failed',
+        history,
+        mismatches: { reviewOpenOver24h: 1 },
+      };
+      const text = await run(after).render('reconcileMismatch', '20300504');
+      expect(text).toContain('(reviewOpenOver24h=1, HUMO_BOT=FOREIGN_CHAT, UZCARD_BOT=?)');
+      expect(text).not.toContain('DROP');
+    });
+
+    it.each([
+      ['no row', null],
+      ['a fractional count', { ...clean, count: 1.5 }],
+      ['an unknown history state', { ...clean, historyScan: 'maybe' }],
+      ['a non-numeric mismatch', { ...clean, mismatches: { recovered: '1; DROP' } }],
+      ['no mismatches object', { ...clean, mismatches: undefined }],
+    ])('%s is AlertSourceMissingError (never a half-filled text)', async (_name, after) => {
+      const r = after === null ? renderer({}) : run(after);
+      await expect(r.render('reconcileOk', '20300504')).rejects.toBeInstanceOf(
+        AlertSourceMissingError,
+      );
+    });
+
+    it('reconcileFailed names the day and reads nothing from the database', async () => {
+      const reconcileRun = jest.fn(() => Promise.resolve(null));
+      const r = renderer({ reconcileRun });
+      await expect(r.render('reconcileFailed', '20300504')).resolves.toBe(
+        '⛔ 20300504 kungi solishtirish barcha urinishlarda xato bilan tugadi: farqlar ' +
+          'tekshirilmadi. Worker loglarini ko‘ring; ertangi solishtirish yana oxirgi 48 soatni ' +
+          'qamraydi.',
+      );
+      expect(reconcileRun).not.toHaveBeenCalled();
+      await expect(r.render('reconcileFailed', '2030-05-04')).rejects.toBeInstanceOf(
+        AlertSourceMissingError,
+      );
+    });
+  });
+
+  it('foreignChat (B2) names the bank of the source and reads nothing', async () => {
+    const r = renderer({});
+    const text = await r.render('foreignChat', 'UZCARD_BOT_123456');
+    expect(text).toContain('XAVFSIZLIK');
+    expect(text).toContain('UZCARD bot manbasiga boshqa chatdagi xabar keldi');
+    await expect(r.render('foreignChat', 'cm3abc')).rejects.toBeInstanceOf(AlertSourceMissingError);
   });
 });

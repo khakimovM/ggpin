@@ -22,6 +22,13 @@ export interface AdjustWalletInput {
    * different user, amount or reason is a different request and is refused (IDEMPOTENCY_CONFLICT).
    */
   readonly auditId?: string;
+  /**
+   * Adjust although the user got automatic P2P top-ups recently (S9 F-L1): the owner checked it
+   * is not the same money. The value is the set id of exactly those payments (`recentSetHash`,
+   * 12 hex); a different or missing one is refused under the lock (S9F-L1). AuditLog.after keeps
+   * `override` and the payment ids.
+   */
+  readonly confirmOverrideSet?: string;
 }
 
 export interface ReverseTopupInput {

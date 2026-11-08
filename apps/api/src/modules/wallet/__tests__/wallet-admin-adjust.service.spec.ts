@@ -69,6 +69,7 @@ describe('WalletAdminService.adjust: input rules (nothing is written on a reject
       THRESHOLD + 1n,
       'wallet:adjust',
       'user u1 key -',
+      '', // no override: nothing else bound to the code
     );
 
     const debit = { ...adjustInput, amountTiyin: -(THRESHOLD + 1n) };
@@ -102,7 +103,14 @@ describe('WalletAdminService.adjust: the transaction', () => {
         targetType: 'User',
         targetId: 'u1',
         before: { balanceTiyin: '1000000' },
-        after: { balanceTiyin: '1500000', operator: 'aziz', osUser: null, otpVerified: false },
+        after: {
+          balanceTiyin: '1500000',
+          operator: 'aziz',
+          osUser: null,
+          otpVerified: false,
+          override: false,
+          recentAutoTopups: [],
+        },
         reason: 'support credit',
         ip: '203.0.113.7',
       }),

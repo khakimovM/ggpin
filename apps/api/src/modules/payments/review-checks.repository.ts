@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { usedTopupBaseSince } from '@repo/db';
+import { manualCreditsSince, usedTopupBaseSince, type ManualCredits } from '@repo/db';
 import type { Db } from '../../infra/prisma/db';
 
 export interface MessagePayment {
@@ -60,6 +60,14 @@ export class ReviewChecksRepository {
       select: { id: true },
     });
     return other !== null;
+  }
+
+  /**
+   * Money the owner gave the user by hand since `since` (D-47): the matcher's own predicate
+   * (@repo/db `manualCreditsSince`), shown before a transfer is credited so it is not paid twice.
+   */
+  manualCreditsSince(db: Db, userId: string, since: Date): Promise<ManualCredits> {
+    return manualCreditsSince(db, userId, since);
   }
 
   /** Read after the user's wallet lock; null when there is no such user. */

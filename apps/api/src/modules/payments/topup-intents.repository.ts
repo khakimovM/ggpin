@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
+  expireOverdueTopups,
   usedTopupBaseSince,
   type IntentStatus,
   type Locale,
   type PaymentIntent,
   type TopupCard,
+  type TopupExpireScope,
 } from '@repo/db';
 import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -131,14 +133,11 @@ export class TopupIntentsRepository {
    * definition of "overdue" (`expiresAt <= now`; a request is live while `now < expiresAt`, the
    * same half-open bound the pay view, the token rotation and cancel use). Every read and write
    * of the session routes runs it first, so none of them ever shows or acts on an overdue
-   * PENDING; the worker's sweep (S9) must use the same predicate. Returns how many it expired.
+   * PENDING; the worker's `topup-expire` sweep runs the very same @repo/db query. Returns how many
+   * it expired.
    */
-  async expireOverdue(now: Date, scope: { readonly userId?: string; readonly id?: string }) {
-    const { count } = await this.prisma.client.paymentIntent.updateMany({
-      where: { ...scope, provider: P2P, status: 'PENDING', expiresAt: { lte: now } },
-      data: { status: 'EXPIRED' },
-    });
-    return count;
+  expireOverdue(now: Date, scope: TopupExpireScope): Promise<number> {
+    return expireOverdueTopups(this.prisma.client, now, scope);
   }
 
   /** UNPAID reservations held now: PENDING, or EXPIRED/CANCELLED with reservedUntil > now. */

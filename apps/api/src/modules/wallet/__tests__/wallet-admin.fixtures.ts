@@ -39,6 +39,8 @@ export function setup(balance = 1_000_000n) {
     cancelConfirmedPayment: jest.fn().mockResolvedValue(true),
     freezePurchases: jest.fn().mockResolvedValue(true),
     isPurchaseFrozen: jest.fn().mockResolvedValue(false),
+    // No automatic P2P top-up in the last 48 h unless a test says so (S9 F-L1).
+    recentAutoTopups: jest.fn().mockResolvedValue([]),
   };
   const cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
   const alert = { raise: jest.fn().mockResolvedValue(undefined) };
