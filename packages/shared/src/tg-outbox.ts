@@ -13,6 +13,10 @@ const BUTTON_TEXT_MAX_LENGTH = 64;
 const KEYBOARD_MAX_ROWS = 8;
 const KEYBOARD_MAX_BUTTONS_PER_ROW = 8;
 
+// Buttons open only https pages (Telegram requires https for web_app; a plain http link in a
+// message to a user is never wanted). `web_app` launches the Mini App from the button.
+const httpsUrl = z.url({ protocol: /^https$/ });
+
 const inlineButtonSchema = z.union([
   z.strictObject({
     text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
@@ -20,7 +24,11 @@ const inlineButtonSchema = z.union([
   }),
   z.strictObject({
     text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
-    url: z.url({ protocol: /^https?$/ }),
+    url: httpsUrl,
+  }),
+  z.strictObject({
+    text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
+    web_app: z.strictObject({ url: httpsUrl }),
   }),
 ]);
 

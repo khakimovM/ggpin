@@ -34,7 +34,10 @@ import {
 const OWNER_CHAT = '7000000001';
 
 describe('notify consumer (real Postgres + Redis, private outbox queue)', () => {
-  const env = buildE2eEnv({ OWNER_ALERT_CHAT_ID: OWNER_CHAT });
+  const env = buildE2eEnv({
+    OWNER_ALERT_CHAT_ID: OWNER_CHAT,
+    MINI_APP_URL: 'https://app.ggpin.test/tg',
+  });
   const outboxName = `tg-outbox-notify-e2e-${randomUUID()}`;
   const outboxQueue = new Queue(outboxName, { connection: { url: env.REDIS_URL } });
   let moduleRef: TestingModule;
@@ -99,6 +102,9 @@ describe('notify consumer (real Postgres + Redis, private outbox queue)', () => 
       // formatMoney may use a narrow no-break space as the group separator.
       expect(sent?.text.replace(/[\u00a0\u202f]/g, ' ')).toBe(text);
       expect(sent?.chatId).toBe(user.telegramId.toString());
+      expect(sent?.replyMarkup?.inline_keyboard[0]?.[0]).toMatchObject({
+        web_app: { url: 'https://app.ggpin.test/tg/topup' },
+      });
     },
   );
 

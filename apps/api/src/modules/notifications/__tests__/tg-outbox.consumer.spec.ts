@@ -3,6 +3,7 @@ import type { TgOutboxJob } from '@repo/shared';
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq';
 import { GrammyError, HttpError } from 'grammy';
 import { TEST_BOT_TOKEN } from '../../../config/__tests__/test-env';
+import type { AppConfig } from '../../../config/config.module';
 import type { RedisService } from '../../../infra/redis/redis.service';
 import type { UsersService } from '../../users/users.service';
 import { maskChatId } from '../chat-id-mask';
@@ -35,7 +36,14 @@ function setup(gate: 'OK' | null = 'OK') {
   const redis = { client: { set: redisSet } } as unknown as RedisService;
   const markBotBlocked = jest.fn().mockResolvedValue(undefined);
   const users = { markBotBlocked } as unknown as UsersService;
-  const consumer = new TgOutboxConsumer(sender, { now: () => NOW }, redis, users);
+  const config = { MINI_APP_URL: 'https://shop.test/tg', WEB_URL: 'https://site.test' };
+  const consumer = new TgOutboxConsumer(
+    sender,
+    { now: () => NOW },
+    redis,
+    users,
+    config as unknown as AppConfig,
+  );
   const moveToDelayed = jest.fn().mockResolvedValue(undefined);
   const job = (data: unknown): Job =>
     ({ id: 'order-abc-delivered', data, attemptsMade: 0, moveToDelayed }) as unknown as Job;
@@ -75,6 +83,44 @@ describe('TgOutboxConsumer', () => {
     const t = setup();
     await expect(t.consumer.handle(t.job(data), 'tok')).rejects.toBeInstanceOf(UnrecoverableError);
     expect(t.send).not.toHaveBeenCalled();
+  });
+
+  const keyboard = (button: Record<string, unknown>): unknown => ({
+    ...payload,
+    replyMarkup: { inline_keyboard: [[{ text: 'Open', ...button }]] },
+  });
+
+  it.each([
+    ['a web_app button on our Mini App origin', { web_app: { url: 'https://shop.test/tg/topup' } }],
+    ['a url button on our Mini App origin', { url: 'https://shop.test/tg/orders/1' }],
+    ['a url button on our website origin', { url: 'https://site.test/store' }],
+  ])('sends %s', async (_name, button) => {
+    const t = setup();
+    await t.consumer.handle(t.job(keyboard(button)), 'tok');
+    expect(t.send).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a web_app button on a foreign host', { web_app: { url: 'https://evil.test/tg/topup' } }],
+    [
+      'a web_app button on our website (not the Mini App)',
+      { web_app: { url: 'https://site.test/' } },
+    ],
+    ['a web_app button on another port', { web_app: { url: 'https://shop.test:8443/tg' } }],
+    ['a url button on a foreign host', { url: 'https://evil.test/' }],
+    ['a look-alike subdomain', { url: 'https://shop.test.evil.test/' }],
+    // WHATWG reads `\` as `/` (host shop.test); an RFC 3986 client may read evil.test as the host.
+    ['a backslash before userinfo', { web_app: { url: 'https://shop.test\\@evil.test/tg' } }],
+    ['userinfo on our own host', { web_app: { url: 'https://x@shop.test/tg/topup' } }],
+    ['a non-canonical spelling of our host', { url: 'https://SHOP.test/tg' }],
+  ])('never sends %s (unrecoverable, logged)', async (_name, button) => {
+    const t = setup();
+    await expect(t.consumer.handle(t.job(keyboard(button)), 'tok')).rejects.toBeInstanceOf(
+      UnrecoverableError,
+    );
+    expect(t.send).not.toHaveBeenCalled();
+    expect(t.redisSet).not.toHaveBeenCalled();
+    expect(logged.some((line) => line.includes('outcome=foreign-button-origin'))).toBe(true);
   });
 
   it('delays a second message to the same chat by about 1 s and does not send it', async () => {

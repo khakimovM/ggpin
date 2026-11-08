@@ -1,0 +1,143 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`TOPUP_CREDITED / TOPUP_LATE_CREDITED messages ru TOPUP_CREDITED with the Mini App button 1`] = `
+{
+  "chatId": "777",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "➕ Пополнить счёт",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/topup",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "✅ Ваш счёт пополнен: 50 000 сум
+Баланс: 150 000 сум",
+}
+`;
+
+exports[`TOPUP_CREDITED / TOPUP_LATE_CREDITED messages ru TOPUP_LATE_CREDITED with the Mini App button 1`] = `
+{
+  "chatId": "777",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "➕ Пополнить счёт",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/topup",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "✅ Ваш запоздавший платёж зачислен: 50 000 сум
+Баланс: 150 000 сум",
+}
+`;
+
+exports[`TOPUP_CREDITED / TOPUP_LATE_CREDITED messages ru without MINI_APP_URL has no button 1`] = `
+{
+  "chatId": "777",
+  "text": "✅ Ваш счёт пополнен: 50 000 сум
+Баланс: 150 000 сум",
+}
+`;
+
+exports[`TOPUP_CREDITED / TOPUP_LATE_CREDITED messages uz TOPUP_CREDITED with the Mini App button 1`] = `
+{
+  "chatId": "777",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "➕ Hisobni to‘ldirish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/topup",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "✅ Hisobingiz to‘ldirildi: 50 000 so‘m
+Balans: 150 000 so‘m",
+}
+`;
+
+exports[`TOPUP_CREDITED / TOPUP_LATE_CREDITED messages uz TOPUP_LATE_CREDITED with the Mini App button 1`] = `
+{
+  "chatId": "777",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "➕ Hisobni to‘ldirish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/topup",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "✅ Kechikkan to‘lovingiz hisobga tushdi: 50 000 so‘m
+Balans: 150 000 so‘m",
+}
+`;
+
+exports[`TOPUP_CREDITED / TOPUP_LATE_CREDITED messages uz without MINI_APP_URL has no button 1`] = `
+{
+  "chatId": "777",
+  "text": "✅ Hisobingiz to‘ldirildi: 50 000 so‘m
+Balans: 150 000 so‘m",
+}
+`;
+
+exports[`owner alert templates (uz) with synthetic parameters renders every declared alert 1`] = `
+{
+  "adminAction": "🛠 Ega amali: REFUND (aud1).",
+  "ambiguous": "⚠️ 50 000 so‘m to‘lov bir nechta so‘rovga mos keldi. Ko‘rib chiqish: rev1",
+  "amountReallocated": "⚠️ HUMO kartasi ***1234 ga 50 000 so‘m kech keldi, lekin bu summa allaqachon boshqa so‘rovga berilgan: kimniki ekanini aniqlab, qo‘lda yozing. Ko‘rib chiqish: rev1",
+  "autoCreditPaused": "⏸ Karta ***1234 da avtomatik yozish to‘xtatilgan, to‘lov qo‘lda ko‘riladi: rev1",
+  "cancelledLate": "🚫 Bekor qilingan so‘rovga 50 000 so‘m tushdi, avtomatik yozilmadi. Ko‘rib chiqish: rev1",
+  "cardDraining": "🚰 HUMO kartasi ***1234 yopilmoqda: yangi so‘rovlar berilmaydi, mavjudlari muddatigacha yoziladi.",
+  "cardFull": "🈵 HUMO kartasi ***1234 limiti to‘ldi, unga yangi so‘rovlar berilmaydi.",
+  "cardNearLimit": "📈 HUMO kartasi ***1234: limit 85% to‘ldi.",
+  "cardReservedHigh": "⏳ HUMO kartasi ***1234: to‘lanmagan band so‘rovlar qolgan limitning 85% ini egallab turibdi. Sig‘imni card:limit buyrug‘i bilan oshiring yoki shubhali akkauntlarni tekshiring.",
+  "cardRetired": "📛 Faolsizlantirilgan karta ***1234 ga pul tushdi. Ko‘rib chiqish: rev1",
+  "cardSilent": "🔇 HUMO kartasi ***1234 ga uzoq vaqt pul tushmadi. Soatlar: 6. Tinglovchi va botni tekshiring.",
+  "cardUnknown": "❓ Nomaʼlum kartaga pul tushdi. Ko‘rib chiqish: rev1",
+  "cardVerified": "✅ HUMO kartasi ***1234 tasdiqlandi va faollashtirildi.",
+  "chainBreak": "⛓ Karta ***1234 balans zanjiri uzildi, avtomatik yozish to‘xtatildi. Ko‘rib chiqish: rev1",
+  "dailyLimit": "🛑 50 000 so‘m kunlik limitdan oshadi (kuniga 5 000 000 so‘m), avtomatik yozilmadi. Ko‘rib chiqish: rev1",
+  "debit": "➖ Karta ***1234 dan 50 000 so‘m yechildi.",
+  "duplicate": "♻️ 50 000 so‘m takroriy to‘lov: so‘rov allaqachon to‘langan. Ko‘rib chiqish: rev1",
+  "edited": "✏️ Bank xabari tahrirlandi: msg1. Avvalgi yozuv o‘zgarmadi.",
+  "effectsFailed": "⛔ Bank xabari msg1 bo‘yicha qaror saqlangan, lekin undan keyingi amallar xato bilan tugadi; bu xabar avtomatik qayta ishlanmaydi. Foydalanuvchiga bildirishnoma, ogohlantirishlar yoki karta limiti tekshiruvi bormagan bo‘lishi mumkin. review:list va foydalanuvchining oxirgi to‘ldirishini tekshiring.",
+  "foreignChat": "🚨 XAVFSIZLIK: HUMO bot manbasiga boshqa chatdagi xabar keldi. U saqlanmadi va pulga aylanmaydi. Listener chat filtrini va ishchi akkauntning chatlarini tekshiring.",
+  "integrityAnomaly": "🚨 XAVFSIZLIK (SENDER_MISMATCH): HUMO kartasi ***1234 uchun saqlangan bank xabari tekshiruvdan o‘tmadi — qotirilgan bank botidan emas yoki matni o‘zgargan. Kartada avtomatik yozish to‘xtatildi. Worker sozlamasidagi bot id (BANK_FEED_*_BOT_ID) va ishchi akkauntni tekshiring. Ko‘rib chiqish: rev1",
+  "lateOverLimit": "🚨 HUMO kartasi ***1234: kech kelgan 50 000 so‘m to‘lov kartani qabul limitidan oshirdi. Bank chegarasini tekshiring va card:limit ni ko‘rib chiqing.",
+  "lateStored": "⚠️ HUMO kartasi ***1234 ga kelgan 50 000 so‘m haqidagi bank xabari kech saqlandi (tarixdan topildi yoki listener uzilishdan keyin oldi), so‘rov esa endi kutilmayapti: avtomatik yozilmadi. Bu pulni qo‘lda bermaganingizni tekshirib, keyin hal qiling. Ko‘rib chiqish: rev1",
+  "limitCheckFailed": "⚠️ HUMO kartasi ***1234 limitini tekshirib bo‘lmadi (barcha urinishlar xato bilan tugadi). Karta holatini qo‘lda tekshiring. Xabar: msg1",
+  "listenerDown": "🔴 Bank xabarlari tinglovchisi 12 daqiqadan beri ishlamayapti. Yangi to‘ldirish so‘rovlari to‘xtatildi.",
+  "manualCreditSeen": "⚠️ HUMO kartasi ***1234 ga 50 000 so‘m keldi va so‘rovga mos tushdi, lekin foydalanuvchiga bu so‘rovdan keyin qo‘lda pul berilgan: avtomatik yozilmadi. Ikki marta yozmaslik uchun tekshiring, keyin hal qiling. Ko‘rib chiqish: rev1",
+  "messageStuck": "⛔ Bank xabari msg1 barcha urinishlarda xato bilan tugadi va oxirigacha ishlanmadi: ko‘rib chiqish yozuvi yoki ogohlantirishlar bo‘lmasligi mumkin. Qo‘lda tekshiring. Xabar 30 daqiqadan keyin avtomatik qayta ishlanadi va pul allaqachon yozilgan bo‘lishi mumkin. Qo‘lda berishdan oldin foydalanuvchining oxirgi to‘ldirishini tekshiring.",
+  "newAuthorization": "🚨 Ishchi akkauntga nomaʼlum yangi qurilma kirdi. Barcha kartalarda avtomatik yozish to‘xtatildi. Sessiyalarni tekshiring.",
+  "noMatch": "❓ 50 000 so‘m to‘lov hech bir so‘rovga mos kelmadi. Ko‘rib chiqish: rev1",
+  "possibleReversal": "↩️ Karta ***1234 dan 50 000 so‘m yechildi: yaqinda yozilgan to‘lov qaytarib olingan bo‘lishi mumkin. Ko‘rib chiqish: rev1",
+  "processingFailed": "⛔ HUMO kartasi ***1234: bank xabarini birorta urinishda ham ishlab bo‘lmadi. Kartada avtomatik yozish to‘xtatildi. Ko‘rib chiqish: rev1",
+  "reconcileFailed": "⛔ 20301231 kungi solishtirish barcha urinishlarda xato bilan tugadi: farqlar tekshirilmadi. Worker loglarini ko‘ring; ertangi solishtirish yana oxirgi 48 soatni qamraydi.",
+  "reconcileMismatch": "⚠️ Kunlik solishtirish: farq yoki tekshirilmagan qism bor. Farqlar soni: 3 (-). Chiqimlar: 1. Ochiq ko‘rib chiqishlar: 0. Tarix qayta skani: ok.",
+  "reconcileOk": "✅ Kunlik solishtirishda farq yo‘q. Tekshirilgan xabarlar: 3. Chiqimlar: 1. Ochiq ko‘rib chiqishlar: 0. Tarix qayta skani: ok.",
+  "rejected": "🚫 Bank xabari rad etildi (SENDER_MISMATCH). Ko‘rib chiqish: rev1",
+  "sessionRevoked": "🔴 Bank xabarlari sessiyasi bekor qilingan, tinglovchi to‘xtadi. Qayta kirish kerak.",
+  "timeSkew": "🕒 Bank xabaridagi vaqt Telegram vaqtidan juda farq qiladi. Ko‘rib chiqish: rev1",
+  "titleUnknown": "⚠️ HUMO kartasi ***1234 ga 50 000 so‘m tushdi va so‘rovga aynan mos keldi, lekin xabar sarlavhasi tanilmadi: avtomatik yozilmadi. Ko‘rib chiqish: rev1",
+  "unrecognized": "⚠️ Bank xabari tanilmadi. Ko‘rib chiqish: rev1",
+  "userBlocked": "⛔ 50 000 so‘m bloklangan foydalanuvchining so‘roviga tushdi, avtomatik yozilmadi. Ko‘rib chiqish: rev1",
+  "walletFrozen": "🧊 Foydalanuvchi usr1 hamyoni manfiy balans tufayli xaridlar uchun muzlatildi.",
+}
+`;

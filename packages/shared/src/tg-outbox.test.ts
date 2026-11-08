@@ -41,6 +41,15 @@ describe('tgOutboxJobSchema', () => {
       job({ inline_keyboard: [[{ text: 'a', callback_data: 'x'.repeat(65) }]] }),
     ],
     ['non-ASCII callback_data', job({ inline_keyboard: [[{ text: 'a', callback_data: 'ё' }]] })],
+    ['a plain http url', job({ inline_keyboard: [[{ text: 'a', url: 'http://a.test' }]] })],
+    [
+      'a web_app button with an http url',
+      job({ inline_keyboard: [[{ text: 'a', web_app: { url: 'http://a.test/tg' } }]] }),
+    ],
+    [
+      'a web_app button with an extra key',
+      job({ inline_keyboard: [[{ text: 'a', web_app: { url: 'https://a.test', x: 1 } }]] }),
+    ],
     ['a javascript: url', job({ inline_keyboard: [[{ text: 'a', url: 'javascript:alert(1)' }]] })],
     [
       'an unknown button key',
@@ -56,6 +65,7 @@ describe('tgOutboxJobSchema', () => {
       inline_keyboard: [
         [{ text: 'End', callback_data: 'x'.repeat(64) }],
         [{ text: 'Open', url: 'https://example.test/a' }],
+        [{ text: 'App', web_app: { url: 'https://example.test/tg/topup' } }],
       ],
     };
     expect(tgOutboxJobSchema.safeParse(job(markup)).success).toBe(true);

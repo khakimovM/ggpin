@@ -3,9 +3,15 @@ import { scrubSecretsInText, tgOutboxJobSchema } from '@repo/shared';
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq';
 import { GrammyError } from 'grammy';
 import { CLOCK, type Clock } from '../../common/clock/clock';
+import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { RedisService } from '../../infra/redis/redis.service';
 import { UsersService } from '../users/users.service';
 import { maskChatId } from './chat-id-mask';
+import {
+  hasOnlyOwnButtonLinks,
+  outboxButtonOrigins,
+  type OutboxButtonOrigins,
+} from './outbox-button-origins';
 import { TG_OUTBOX_SENDER, type TgOutboxSender } from './tg-outbox.sender';
 
 const CHAT_GAP_MS = 1_000;
@@ -22,6 +28,7 @@ export const chatGateKey = (chatId: string): string => `tg-outbox:chat:${chatId}
  *   attempt (BullMQ calls moveToDelayed with skipAttempt: true);
  * - 403 blocked/deactivated: flag the user, never retry; any other 400: never retry (deterministic);
  * - anything else (network, 5xx) is rethrown and retried with the queue backoff.
+ * A job whose button opens a foreign origin (outbox-button-origins.ts) is never sent.
  *
  * Logs carry job id, attempt, outcome and a masked chat id. Never message text, markup,
  * the token, or an unscrubbed error message (grammY HttpError text may quote the API URL).
@@ -29,13 +36,17 @@ export const chatGateKey = (chatId: string): string => `tg-outbox:chat:${chatId}
 @Injectable()
 export class TgOutboxConsumer {
   private readonly logger = new Logger('TgOutbox');
+  private readonly origins: OutboxButtonOrigins;
 
   constructor(
     @Inject(TG_OUTBOX_SENDER) private readonly sender: TgOutboxSender,
     @Inject(CLOCK) private readonly clock: Clock,
     private readonly redis: RedisService,
     private readonly users: UsersService,
-  ) {}
+    @Inject(APP_CONFIG) config: AppConfig,
+  ) {
+    this.origins = outboxButtonOrigins(config);
+  }
 
   async handle(job: Job, token: string | undefined): Promise<void> {
     const parsed = tgOutboxJobSchema.safeParse(job.data);
@@ -44,6 +55,10 @@ export class TgOutboxConsumer {
       throw new UnrecoverableError('invalid tg-outbox payload');
     }
     const data = parsed.data;
+    if (!hasOnlyOwnButtonLinks(data, this.origins)) {
+      this.log(job, 'foreign-button-origin');
+      throw new UnrecoverableError('invalid tg-outbox payload');
+    }
     if (token === undefined) throw new Error('worker token missing');
 
     const gate = await this.redis.client.set(

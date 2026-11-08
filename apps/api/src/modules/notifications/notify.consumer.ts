@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { notifyJobId, notifyJobSchema, type NotifyJob } from '@repo/shared';
+import { notifyJobId, notifyJobSchema, type NotifyJob, type TgInlineKeyboard } from '@repo/shared';
 import { UnrecoverableError, type Job } from 'bullmq';
 import { translate } from '../../common/i18n/translate';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import { miniAppUrl } from '../telegram/mini-app-url';
 import { NotifySourcesRepository } from './notify-sources.repository';
 import { AlertSourceMissingError, OwnerAlertRenderer, moneyText } from './owner-alert.renderer';
 import { TgOutboxEnqueuer } from './tg-outbox.enqueuer';
@@ -83,7 +84,21 @@ export class NotifyConsumer {
       amount: moneyText(payment.amountTiyin, user.locale),
       balance: moneyText(balance, user.locale),
     });
-    await this.outbox.enqueue(notifyJobId(job), { chatId: user.telegramId.toString(), text });
+    // Button to the Mini App top-up page; without MINI_APP_URL (dev) the message goes out bare.
+    const url = miniAppUrl(this.config, '/topup');
+    const replyMarkup: TgInlineKeyboard | undefined =
+      url === undefined
+        ? undefined
+        : {
+            inline_keyboard: [
+              [{ text: translate(user.locale, 'bot.wallet.topupButton'), web_app: { url } }],
+            ],
+          };
+    await this.outbox.enqueue(notifyJobId(job), {
+      chatId: user.telegramId.toString(),
+      text,
+      ...(replyMarkup === undefined ? {} : { replyMarkup }),
+    });
     return 'queued';
   }
 
