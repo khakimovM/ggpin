@@ -386,6 +386,9 @@ Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, fa
 - Javob har doim `Cache-Control: no-store` (muvaffaqiyatda ham, xatoda ham).
 - Kotirovka pul harakatlantirmaydi, shuning uchun `Idempotency-Key` yo‘q; bir kotirovka ikki
   marta sarflanmasligini 5-bosqichda `Order.quoteId` (unique) va `usedAt` kafolatlaydi.
+- Har `201` — YANGI kotirovka va to‘liq TTL (10 daqiqa): bir xil body bilan qayta so‘rov ham yangi
+  `quoteId` va yangi `expiresAt` beradi (mijoz “narxni yangilash”da shunga tayanadi; eski kotirovka
+  uzaytirilmaydi).
 
 Xatolar:
 
@@ -461,6 +464,25 @@ tannarx, kurs, ustama, urinishlar, ichki sabab matni va ichki id’lar **yo‘q*
 `201`: `data` — `{ "order": { … } }` (yuqoridagi shakl, `status: "PAID"`). Bitta tranzaksiyada hamyon qulflanadi, balans tekshiriladi,
 `Order(PAID)` va `LedgerEntry(PURCHASE)` yoziladi; commit’dan keyin yetkazish navbatga qo‘yiladi. Idempotent takror (bir xil kalit va
 body) — o‘sha buyurtma yana `201` bilan qaytadi, ikkinchi yechilish bo‘lmaydi.
+
+Mijoz javobi yo‘qolgan (tarmoq uzilishi, timeout, `5xx`) so‘rovni o‘sha kalit va o‘sha `quoteId` bilan qayta yuboradi,
+shuning uchun server tomonida (5-bosqich, D-49):
+
+1. Takror so‘rov (bir xil `userId`, `Idempotency-Key`, body) kotirovka muddati (`410`) va “ishlatilgan” (`409 QUOTE_ALREADY_USED`)
+   tekshiruvlaridan OLDIN hal qilinadi: saqlangan `201` qaytadi, kotirovka muddati o‘tgan bo‘lsa ham. `(userId, Idempotency-Key)`
+   bo‘yicha replay qidiruvi hamyon qulfi olingandan KEYIN (qayta) bajariladi; `404` (kotirovka topilmadi), `409`/`410`/`422` faqat
+   shundan keyin.
+2. O‘sha kalitli parallel so‘rov birinchisining `201` javobini yoki `5xx` oladi, hech qachon `404`/`410`/`422` emas.
+3. Replay yozuvi `Order` qatorining o‘zi (`@@unique([userId, idempotencyKey])`), muddatsiz.
+4. Kotirovka qatori kamida 24 soat saqlanadi (klient noaniq urinish yozuvining TTL i); tozalash faqat shundan keyin, aks holda
+   replay’dan keyingi `404` “kotirovka yo‘q” emas, “buyurtma yo‘q” deb o‘qiladi.
+
+Klient shunga tayanadi: noaniq urinishni hal qiluvchi javoblar — `201`; `409 QUOTE_ALREADY_USED` + `orderId`; `410 QUOTE_EXPIRED`;
+`422 INSUFFICIENT_BALANCE`; Mini App’da `404` — hammasi FAQAT bizning javob konvertida (`success:false`). Konvertsiz javob
+(proksining HTML sahifasi, `502`) hech narsani hal qilmaydi. Webda konvertli `404` CSRF qo‘riqchisi ham bo‘lishi mumkin (D-26),
+shuning uchun klient uni hal qiluvchi deb olmaydi. Kod va status juftligi ham tekshiriladi (`410`+`QUOTE_EXPIRED`, `422`+`INSUFFICIENT_BALANCE`,
+`409`+`QUOTE_ALREADY_USED`, `404`+`NOT_FOUND`); mos kelmasa javob hal qilmaydi. Proksi/WAF ning o‘z xato javoblari hech qachon bizning
+konvert shaklida (`success:false`) bo‘lmasin (devops). Javob shakli o‘zgarmaydi.
 
 | Status | Kod                                                       | Qachon                                                    |
 | ------ | --------------------------------------------------------- | --------------------------------------------------------- |
