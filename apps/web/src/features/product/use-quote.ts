@@ -1,6 +1,6 @@
 'use client';
 
-import type { CreateQuoteBody, QuoteResponse } from '@repo/shared';
+import { QUOTE_TTL_MS, type CreateQuoteBody, type QuoteResponse } from '@repo/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { isApiError } from '../../lib/api/errors';
@@ -14,6 +14,12 @@ import { retryDelaySec } from './retry-delay';
 export type Selection = { kind: 'sku'; skuId: string } | { kind: 'qty'; quantity: number };
 
 export const QUOTE_DEBOUNCE_MS = 500;
+
+/** What the query holds: the server's quote and when we sent the request that got it. */
+interface QuoteData {
+  quote: QuoteResponse;
+  sentAt: number;
+}
 
 export type QuoteView =
   /** Nothing to price yet (no confirmed recipient, no package). */
@@ -80,9 +86,13 @@ export function useQuote(
   );
   const query = useQuery({
     queryKey,
-    queryFn: ({ signal }) => {
+    queryFn: async ({ signal }): Promise<QuoteData> => {
       if (body === null) throw new Error('no quote request');
-      return createQuote(body, signal);
+      // Read before the request leaves: the server stamps the quote after this moment, so a
+      // deadline counted from here is never LATER than the server's own.
+      const sentAt = Date.now();
+      const quote = await createQuote(body, signal);
+      return { quote, sentAt };
     },
     enabled: body !== null && !settling,
     // 'static', not a long time: a FAILED refetch marks the query invalidated, and an invalidated
@@ -90,7 +100,9 @@ export function useQuote(
     // then this one) would ask the server at once. A cached answer is shown as it is: an old quote
     // stays old until the visitor renews it, and a 429 waits out its Retry-After.
     staleTime: 'static',
-    gcTime: 60_000,
+    // A quote older than its lifetime is of no use; one still inside it is kept for a visitor who
+    // goes to another package and back.
+    gcTime: QUOTE_TTL_MS,
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -120,10 +132,14 @@ export function useQuote(
   }, [errorAt, retryMs, refetch]);
   const retryLeftMs = useCountdown(retryMs === null ? null : errorAt + retryMs, errorAt);
 
-  const quote = query.data;
-  const deadline = quote ? Date.parse(quote.expiresAt) : null;
+  const quote = query.data?.quote;
+  // The deadline is OUR clock's send time plus the quote's documented lifetime (docs/04: 10 minutes,
+  // `QUOTE_TTL_MS`, the very constant the server adds to its own clock), not the server's
+  // `expiresAt` read against ours: a phone whose clock is off would show a live price as expired, or
+  // an expired one as live. The server has the last word either way (410 QUOTE_EXPIRED).
+  const deadline = query.data ? query.data.sentAt + QUOTE_TTL_MS : null;
   // The quote cannot have expired before it arrived: `dataUpdatedAt` keeps the first frame right.
-  const msLeft = useCountdown(Number.isNaN(deadline) ? null : deadline, query.dataUpdatedAt);
+  const msLeft = useCountdown(deadline, query.dataUpdatedAt);
 
   const view = deriveView({
     idle: body === null && !settling,

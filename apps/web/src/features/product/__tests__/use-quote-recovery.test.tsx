@@ -156,16 +156,17 @@ describe('coming back to a cached answer', () => {
   });
 
   it('coming back to a quote that expired meanwhile shows it expired, asks nothing, and refresh asks', async () => {
-    createQuote.mockResolvedValueOnce(quoteOf('700', 10_000));
+    createQuote.mockResolvedValueOnce(quoteOf('700'));
     const { result, rerender } = setup({ selection: A });
     await flush();
     const first = result.current.view;
     expect(first.status === 'ready' && first.expired).toBe(false);
+    await advance(TEN_MIN / 2);
 
-    // Away to B while A's quote runs out.
+    // Away to B while A's quote runs out (its lifetime is ten minutes from the send).
     createQuote.mockResolvedValueOnce(quoteOf('800'));
     rerender({ token: TOKEN, selection: B });
-    await advance(15_000);
+    await advance(TEN_MIN / 2 + 1000);
     expect(createQuote).toHaveBeenCalledTimes(2);
 
     rerender({ token: TOKEN, selection: A });

@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { MONEY_PLACEHOLDER, Money, useFormatMoney } from '../../lib/format/money';
 import { useWallet } from '../wallet/use-wallet';
+import { useSelectionLabel } from './use-selection-label';
 import type { Selection, QuoteView } from './use-quote';
 
 export interface OrderSummaryProps {
@@ -52,12 +53,7 @@ export function OrderSummary({
   const formatMoney = useFormatMoney();
   const wallet = useWallet();
 
-  const productLabel =
-    selection === null
-      ? MONEY_PLACEHOLDER
-      : selection.kind === 'qty'
-        ? t('summary.stars', { count: selection.quantity })
-        : (product.skus.find((sku) => sku.id === selection.skuId)?.label ?? MONEY_PLACEHOLDER);
+  const productLabel = useSelectionLabel()(product, selection);
 
   return (
     <section

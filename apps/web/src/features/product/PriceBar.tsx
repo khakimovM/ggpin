@@ -16,6 +16,8 @@ export interface PriceBarProps {
   /** Why the button is off (a translated sentence), or undefined when it is on. */
   reason: string | undefined;
   onBuy: () => void;
+  /** The checkout sheet is open: in the Mini App the native button is the sheet's now. */
+  suspended?: boolean;
 }
 
 /**
@@ -24,14 +26,21 @@ export interface PriceBarProps {
  * and a block at the end of the sticky panel from 1024 px. It is on only with a confirmed
  * recipient and a live quote, and the amount on it is the quote's, as the server wrote it.
  */
-export function PriceBar({ variant, totalTiyin, pending, reason, onBuy }: PriceBarProps) {
+export function PriceBar({
+  variant,
+  totalTiyin,
+  pending,
+  reason,
+  onBuy,
+  suspended = false,
+}: PriceBarProps) {
   const t = useTranslations('store.product.buy');
   const formatMoney = useFormatMoney();
   const { webApp } = useTelegram();
   const enabled = reason === undefined && totalTiyin !== null && !pending;
   const price = totalTiyin === null ? null : formatMoney(totalTiyin);
 
-  useMainButton(variant === 'tg' ? webApp : null, {
+  useMainButton(variant === 'tg' && !suspended ? webApp : null, {
     text: enabled && price !== null ? t('withPrice', { price }) : t('label'),
     enabled,
     loading: pending,

@@ -5,12 +5,14 @@ import { useCallback, useEffect } from 'react';
 import { useProductUiStore } from '../../stores/product-ui-store';
 import { useBackInterceptor } from '../../telegram/use-back-button';
 import { useMe } from '../auth/use-me';
+import { CheckoutFlow } from '../checkout/CheckoutFlow';
 import { HowToFindSheet } from './HowToFindSheet';
 import { OrderSummary } from './OrderSummary';
 import { PackageSection } from './PackageSection';
 import { PriceBar } from './PriceBar';
 import { RecipientForm } from './RecipientForm';
 import { usePurchase } from './use-purchase';
+import { useSelectionLabel } from './use-selection-label';
 
 export interface PurchaseViewProps {
   variant: 'tg' | 'web';
@@ -41,6 +43,8 @@ export function PurchaseView({ variant, product, field }: PurchaseViewProps) {
   const { recipient, selection, quote, totalTiyin, reason } = purchase;
   const confirmedName = recipient.confirmedToken === null ? null : `@${recipient.state.username}`;
   const qtyValue = customQty ?? String(product.minQty ?? '');
+  const selectionLabel = useSelectionLabel();
+  const found = recipient.state.found;
 
   return (
     <>
@@ -70,9 +74,20 @@ export function PurchaseView({ variant, product, field }: PurchaseViewProps) {
         totalTiyin={totalTiyin}
         pending={quote.view.status === 'pending'}
         reason={reason}
-        // S7 opens the checkout sheet here with the live quote; until then there is nothing to open.
-        onBuy={() => undefined}
+        onBuy={() => setSheet('checkout')}
+        suspended={openSheet === 'checkout'}
       />
+      {found !== null && recipient.confirmedToken !== null ? (
+        <CheckoutFlow
+          variant={variant}
+          open={openSheet === 'checkout'}
+          onOpenChange={(open) => setSheet(open ? 'checkout' : null)}
+          product={product}
+          item={`${product.name} · ${selectionLabel(product, selection)}`}
+          recipient={{ username: recipient.state.username, displayName: found.displayName }}
+          quote={quote}
+        />
+      ) : null}
       {help !== null ? (
         <HowToFindSheet
           open={openSheet === 'help'}

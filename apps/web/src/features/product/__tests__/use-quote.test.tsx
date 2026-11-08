@@ -186,20 +186,25 @@ describe('errors', () => {
 });
 
 describe('expiry', () => {
-  it('counts down from expiresAt, becomes expired, and does NOT renew by itself', async () => {
-    createQuote.mockResolvedValueOnce(quoteOf('700', 10_000));
+  it('counts down from the send time plus the quote lifetime, whatever the server clock says', async () => {
+    // The server's expiresAt is an hour BEHIND this clock (a phone whose clock runs ahead): reading
+    // it against our clock would call a live price expired. The lifetime is what counts.
+    createQuote.mockResolvedValueOnce(quoteOf('700', -3_600_000));
     const { result } = setup({ selection: { kind: 'sku', skuId: 's1' } });
     await flush();
     let view = result.current.view;
     expect(view.status === 'ready' && view.expired).toBe(false);
+    expect(view.status === 'ready' && view.msLeft).toBeGreaterThan(TEN_MIN - 1000);
 
-    await advance(4000);
+    await advance(TEN_MIN - 4000);
     view = result.current.view;
-    expect(view.status === 'ready' && view.msLeft).toBeLessThanOrEqual(6000);
+    expect(view.status === 'ready' && view.expired).toBe(false);
+    expect(view.status === 'ready' && view.msLeft).toBeLessThanOrEqual(4000);
 
-    await advance(7000);
+    await advance(5000);
     view = result.current.view;
     expect(view.status === 'ready' && view.expired).toBe(true);
+    // and it does NOT renew by itself
     await advance(60_000);
     expect(createQuote).toHaveBeenCalledTimes(1);
 
@@ -212,27 +217,44 @@ describe('expiry', () => {
     if (view.status === 'ready') expect(view.quote.totalTiyin).toBe('710');
   });
 
-  it('a quote that arrives already expired is never shown as live, not even for a frame', async () => {
-    createQuote.mockResolvedValueOnce(quoteOf('700', -1000));
+  it('a slow answer is counted from the moment the request left, not from its arrival', async () => {
+    createQuote.mockImplementationOnce(
+      () =>
+        new Promise<QuoteResponse>((resolve) => {
+          setTimeout(() => resolve(quoteOf('700')), 30_000);
+        }),
+    );
+    const { result } = setup({ selection: { kind: 'sku', skuId: 's1' } });
+    await advance(30_100);
+    const view = result.current.view;
+    expect(view.status).toBe('ready');
+    // Never more than what is left of the lifetime counted from the send: 570 s, not 600 s.
+    expect(view.status === 'ready' && view.msLeft).toBeLessThanOrEqual(TEN_MIN - 30_000);
+    expect(view.status === 'ready' && view.msLeft).toBeGreaterThan(TEN_MIN - 31_000);
+  });
+
+  it('an expired quote is never shown live for a frame when the page sat idle first', async () => {
+    createQuote.mockResolvedValueOnce(quoteOf('700'));
     const seen: QuoteView[] = [];
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
-    // The page sat for a while before the quote was asked for.
-    vi.setSystemTime(Date.now() + 10 * 60_000);
-    renderHook(
-      () => {
-        const controls = useQuote('p1', TOKEN, { kind: 'sku', skuId: 's1' });
+    const { rerender } = renderHook(
+      (props: { selection: Selection | null }) => {
+        const controls = useQuote('p1', TOKEN, props.selection);
         seen.push(controls.view);
         return controls;
       },
-      { wrapper },
+      { wrapper, initialProps: { selection: null as Selection | null } },
     );
+    // Idle for a long while (no ticking clock: nothing is being counted down yet).
+    vi.setSystemTime(Date.now() + 2 * TEN_MIN);
+    rerender({ selection: { kind: 'sku', skuId: 's1' } });
     await flush();
     await advance(50);
     const ready = seen.filter((view) => view.status === 'ready');
     expect(ready.length).toBeGreaterThan(0);
-    expect(ready.every((view) => view.status === 'ready' && view.expired)).toBe(true);
+    expect(ready.every((view) => view.status === 'ready' && !view.expired)).toBe(true);
   });
 });

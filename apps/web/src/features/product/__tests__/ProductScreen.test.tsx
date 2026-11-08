@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   getMe: vi.fn(),
   getWallet: vi.fn(),
 }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('../../../lib/api/catalog', () => ({ getProduct: api.getProduct }));
 vi.mock('../../../lib/api/recipients', () => ({ validateRecipient: api.validateRecipient }));
 vi.mock('../../../lib/api/quotes', () => ({ createQuote: api.createQuote }));

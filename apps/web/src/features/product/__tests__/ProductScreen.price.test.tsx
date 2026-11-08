@@ -10,7 +10,6 @@ import {
   confirmRecipient,
   expectBuy,
   open,
-  quote,
   resetApi,
 } from './product-test-kit';
 
@@ -21,13 +20,24 @@ const api = vi.hoisted(() => ({
   getMe: vi.fn(),
   getWallet: vi.fn(),
 }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('../../../lib/api/catalog', () => ({ getProduct: api.getProduct }));
 vi.mock('../../../lib/api/recipients', () => ({ validateRecipient: api.validateRecipient }));
 vi.mock('../../../lib/api/quotes', () => ({ createQuote: api.createQuote }));
+// The quote's lifetime is a constant of the shared package; a test shortens it by setting `ttl.ms`.
+const ttl = vi.hoisted(() => ({ ms: 600_000 }));
+vi.mock('@repo/shared', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@repo/shared')>();
+  return Object.defineProperty({ ...original }, 'QUOTE_TTL_MS', {
+    get: () => ttl.ms,
+    enumerable: true,
+  });
+});
 vi.mock('../../../lib/api/me', () => ({ getMe: api.getMe, getWallet: api.getWallet }));
 
 beforeEach(() => {
   resetApi(api);
+  ttl.ms = 600_000;
 });
 
 describe('the price', () => {
@@ -47,10 +57,7 @@ describe('the price', () => {
   });
 
   it('an expired quote turns the button off and offers "Narxni yangilash"', async () => {
-    api.createQuote.mockResolvedValueOnce({
-      ...quote('550000'),
-      expiresAt: new Date(Date.now() + 1200).toISOString(),
-    });
+    ttl.ms = 1200;
     const user = userEvent.setup();
     open();
     await screen.findByRole('heading', { level: 1, name: 'Telegram Stars' });
@@ -140,10 +147,7 @@ describe('answers that say the page is out of date', () => {
   const EXPIRED_NOTE = 'Tasdiq muddati tugadi. Qabul qiluvchini qayta tekshiring.';
 
   it('a stale price refreshed with a dead recipient token sends the visitor back to confirm again', async () => {
-    api.createQuote.mockResolvedValueOnce({
-      ...quote('550000'),
-      expiresAt: new Date(Date.now() + 1200).toISOString(),
-    });
+    ttl.ms = 1200;
     const user = userEvent.setup();
     open();
     await screen.findByRole('heading', { level: 1, name: 'Telegram Stars' });
@@ -215,5 +219,28 @@ describe('answers that say the page is out of date', () => {
     expect(retry).toBeDisabled();
     expect(retry).toHaveTextContent(/\(\d+\)/);
     expect(api.validateRecipient).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the way to checkout', () => {
+  it('"Sotib olish" opens the confirmation of the live quote, with the item and the person', async () => {
+    const user = userEvent.setup();
+    open();
+    await screen.findByRole('heading', { level: 1, name: 'Telegram Stars' });
+    await confirmRecipient(user);
+    await waitFor(() => expectBuy(true));
+    await user.click(buyButtons()[0] as HTMLElement);
+    const dialog = await screen.findByRole('dialog', { name: 'Buyurtmani tasdiqlang' });
+    expect(dialog).toHaveTextContent('Telegram Stars · 50 ⭐');
+    expect(dialog).toHaveTextContent('@aziz_k · Aziz');
+    expect(dialog).toHaveTextContent(/Jami\s*5.500\s*so‘m/);
+  });
+
+  it('a button that is off opens nothing', async () => {
+    const user = userEvent.setup();
+    open();
+    await screen.findByRole('heading', { level: 1, name: 'Telegram Stars' });
+    await user.click(buyButtons()[0] as HTMLElement);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
