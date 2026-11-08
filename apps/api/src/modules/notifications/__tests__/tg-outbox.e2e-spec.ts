@@ -32,7 +32,12 @@ import {
 // processor. No FLUSHDB; the private queue is obliterated at the end. Chat ids and message ids
 // are built at runtime and unique per run.
 describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
-  const env = { ...buildE2eEnv(), TELEGRAM_BOT_MODE: 'polling' as const };
+  // MINI_APP_URL: buttons may open only our own origins (outbox-button-origins.ts).
+  const env = {
+    ...buildE2eEnv(),
+    TELEGRAM_BOT_MODE: 'polling' as const,
+    MINI_APP_URL: 'https://app.ggpin.test/tg',
+  };
   const queueName = `tg-outbox-e2e-${randomUUID()}`;
   const notifyQueueName = `notify-e2e-${randomUUID()}`;
   const createdTelegramIds: bigint[] = [];
@@ -109,12 +114,32 @@ describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
         chatId,
         text: '<b>Order delivered</b>',
         disableNotification: true,
-        replyMarkup: { inline_keyboard: [[{ text: 'Open', url: 'https://example.test' }]] },
+        replyMarkup: {
+          inline_keyboard: [
+            [{ text: 'Open', web_app: { url: 'https://app.ggpin.test/tg/orders/1' } }],
+          ],
+        },
       };
       const id = tgOutboxJobId('e2e', randomUUID().replaceAll('-', '_'));
       await enqueuer.enqueue(id, payload);
       await waitFor(async () => (await jobOf(id)).isCompleted());
       expect(sender.deliveriesTo(chatId).map((s) => s.job)).toEqual([payload]);
+    });
+
+    it('never sends a job whose button opens a foreign origin (fails, no retry)', async () => {
+      const chatId = newTelegramId().toString();
+      const id = tgOutboxJobId('e2e', randomUUID().replaceAll('-', '_'));
+      await enqueuer.enqueue(id, {
+        chatId,
+        text: 'hello',
+        replyMarkup: {
+          inline_keyboard: [[{ text: 'Open', web_app: { url: 'https://evil.test/' } }]],
+        },
+      });
+      await waitFor(async () => (await jobOf(id)).isFailed());
+      const job = await jobOf(id);
+      expect(job.attemptsMade).toBe(1);
+      expect(sender.deliveriesTo(chatId)).toHaveLength(0);
     });
 
     it('sends once when the same messageId is enqueued twice', async () => {
