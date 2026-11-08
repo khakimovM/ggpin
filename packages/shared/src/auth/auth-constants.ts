@@ -36,11 +36,48 @@ export const OTP_LENGTH = 6;
  */
 export const BOT_CODE_ISSUE_LIMIT = { max: 5, windowSec: 600 } as const;
 
+/**
+ * Cookie names outside production. Runtime code must not use these directly: ask
+ * `authCookieNames(nodeEnv)`, which prefixes them in production.
+ */
 export const ACCESS_COOKIE_NAME = 'access_token';
 export const REFRESH_COOKIE_NAME = 'refresh_token';
 
-/** The refresh cookie is only sent to the auth routes, never to the rest of the API. */
-export const REFRESH_COOKIE_PATH = '/api/v1/auth';
+/**
+ * Path=/ so the production refresh cookie can be `__Host-` (owner decision 2026-11-08, replaces
+ * the Q13 `__Secure-` name on `/api/v1/auth`). The cookie belongs to the API host only, so it
+ * still never reaches the web server; the rest of the API ignores it.
+ */
+export const REFRESH_COOKIE_PATH = '/';
+
+export interface AuthCookieNames {
+  readonly access: string;
+  readonly refresh: string;
+}
+
+/** The API's NODE_ENV values (apps/api/src/config/env.ts). */
+export type AuthNodeEnv = 'development' | 'test' | 'production';
+
+/**
+ * The single source of the session cookie names (Q13, refresh name changed 2026-11-08). Both are
+ * `__Host-`: the browser accepts them only with Secure, Path=/ and no Domain, so a sibling
+ * subdomain cannot plant its own session cookie next to ours (with `__Secure-` it could, and
+ * clearing on a repeated name then removed the visitor's cookie and kept the planted one). The
+ * API still rejects a repeated name (apps/api cookie-header.ts), as a second line.
+ *
+ * Fail-closed: only development and test keep the plain names (Safari rejects Secure cookies on
+ * http://localhost, so dev cannot carry prefixes); any other value, a future `staging` included,
+ * gets the prefixed names. There is no fallback to the old names: nothing was issued under them.
+ */
+export function authCookieNames(nodeEnv: AuthNodeEnv): AuthCookieNames {
+  if (nodeEnv === 'development' || nodeEnv === 'test') {
+    return { access: ACCESS_COOKIE_NAME, refresh: REFRESH_COOKIE_NAME };
+  }
+  return {
+    access: `__Host-${ACCESS_COOKIE_NAME}`,
+    refresh: `__Host-${REFRESH_COOKIE_NAME}`,
+  };
+}
 
 /** Custom header required on cookie-authenticated writes: a cross-site form cannot set it. */
 export const CSRF_HEADER = 'x-csrf-token';

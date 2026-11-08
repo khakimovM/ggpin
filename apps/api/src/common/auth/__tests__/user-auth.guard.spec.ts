@@ -1,5 +1,5 @@
 import type { User } from '@repo/db';
-import { ACCESS_COOKIE_NAME } from '@repo/shared';
+import { ACCESS_COOKIE_NAME, authCookieNames } from '@repo/shared';
 import { TokenCodec, type TokenPayload } from '../../../modules/auth/token-codec';
 import type { WebSessionService } from '../../../modules/auth/web-session.service';
 import type { UsersService } from '../../../modules/users/users.service';
@@ -24,7 +24,9 @@ const webToken = (over: Partial<TokenPayload> = {}): string =>
 const userRow = (over: Partial<User> = {}): User =>
   ({ id: 'u1', telegramId: 555n, isBlocked: false, ...over }) as User;
 
-function setup(opts: { user?: User | null; familyActive?: boolean } = {}) {
+function setup(
+  opts: { user?: User | null; familyActive?: boolean; nodeEnv?: 'production' | 'test' } = {},
+) {
   const findById = jest.fn().mockResolvedValue(opts.user === undefined ? userRow() : opts.user);
   const isFamilyActive = jest.fn().mockResolvedValue(opts.familyActive ?? true);
   const run = (init: FakeRequestInit, metadata: Record<string, unknown> = {}) => {
@@ -36,6 +38,7 @@ function setup(opts: { user?: User | null; familyActive?: boolean } = {}) {
       { findById } as unknown as UsersService,
       { isFamilyActive } as unknown as WebSessionService,
       { now: () => now },
+      { NODE_ENV: opts.nodeEnv ?? 'test' },
     );
     return { request, result: guard.canActivate(context) };
   };
@@ -80,6 +83,54 @@ describe('UserAuthGuard', () => {
       sessionFamilyId: 'fam1',
     });
     expect(isFamilyActive).toHaveBeenCalledWith({ familyId: 'fam1', userId: 'u1' }, now);
+  });
+
+  it('production reads only the __Host- cookie; the plain name is not accepted', async () => {
+    const { run } = setup({ nodeEnv: 'production' });
+    const prefixed = authCookieNames('production').access;
+    expect(prefixed).toBe('__Host-access_token');
+    const ok = run({ cookies: { [prefixed]: webToken() } });
+    await expect(ok.result).resolves.toBe(true);
+    expect(ok.request.authUser?.channel).toBe('web');
+
+    const legacy = run({ cookies: { [ACCESS_COOKIE_NAME]: webToken() } });
+    await expect(codeOf(legacy.result)).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it('a repeated access cookie name -> UNAUTHORIZED even if both values are valid', async () => {
+    const { run, findById } = setup({ nodeEnv: 'production' });
+    const name = '__Host-access_token';
+    const token = webToken();
+    const { result } = run({
+      headers: { cookie: `${name}=${token}; ${name}=${token}` },
+      cookies: { [name]: token },
+    });
+    await expect(codeOf(result)).resolves.toBe('UNAUTHORIZED');
+    expect(findById).not.toHaveBeenCalled();
+  });
+
+  it('one access cookie in the raw header is accepted; a Bearer token ignores the cookie check', async () => {
+    const { run } = setup();
+    const token = webToken();
+    const one = run({
+      headers: { cookie: `${ACCESS_COOKIE_NAME}=${token}` },
+      cookies: { [ACCESS_COOKIE_NAME]: token },
+    });
+    await expect(one.result).resolves.toBe(true);
+
+    const bearer = run({
+      headers: {
+        authorization: `Bearer ${tgToken()}`,
+        cookie: `${ACCESS_COOKIE_NAME}=a; ${ACCESS_COOKIE_NAME}=b`,
+      },
+    });
+    await expect(bearer.result).resolves.toBe(true);
+  });
+
+  it('outside production the __Host- cookie is ignored', async () => {
+    const { run } = setup();
+    const { result } = run({ cookies: { '__Host-access_token': webToken() } });
+    await expect(codeOf(result)).resolves.toBe('UNAUTHORIZED');
   });
 
   it('web token whose family is revoked/expired -> UNAUTHORIZED, user never loaded', async () => {

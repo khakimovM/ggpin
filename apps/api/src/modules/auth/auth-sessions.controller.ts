@@ -1,5 +1,6 @@
 import {
   Controller,
+  Logger,
   Delete,
   Get,
   Headers,
@@ -13,7 +14,7 @@ import {
   Res,
 } from '@nestjs/common';
 import {
-  REFRESH_COOKIE_NAME,
+  authCookieNames,
   type LogoutResponse,
   type SessionItem,
   type SessionUserResponse,
@@ -25,13 +26,21 @@ import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { clearSessionCookies, setSessionCookies, type CookieReply } from './auth-cookies';
+import { cookieValues } from './cookie-header';
 import { WebSessionService } from './web-session.service';
 
 const MAX_SESSION_ID_LENGTH = 64;
+// Logout is @Public and every well-shaped value costs a lookup; a real browser sends one.
+export const MAX_LOGOUT_REFRESH_TOKENS = 5;
 
-function refreshCookie(request: AuthRequest): string | undefined {
-  const value = request.cookies?.[REFRESH_COOKIE_NAME];
-  return typeof value === 'string' && value !== '' ? value : undefined;
+// Every refresh value the browser sent, empty ones included. More than one means a twin cookie
+// (see cookie-header.ts; `__Host-` should make it impossible): the request cannot be attributed.
+function refreshCookies(request: AuthRequest, nodeEnv: AppConfig['NODE_ENV']): string[] {
+  const name = authCookieNames(nodeEnv).refresh;
+  const raw = cookieValues(request.headers['cookie'], name);
+  if (raw.length > 0) return raw;
+  const parsed = request.cookies?.[name];
+  return typeof parsed === 'string' && parsed !== '' ? [parsed] : [];
 }
 
 // Refresh, logout and the "my sessions" list. Refresh and logout are @Public because the access
@@ -40,11 +49,17 @@ function refreshCookie(request: AuthRequest): string | undefined {
 // session only.
 @Controller('auth')
 export class AuthSessionsController {
+  private readonly logger = new Logger('Security');
+
   constructor(
     private readonly sessions: WebSessionService,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(APP_CONFIG) private readonly config: Pick<AppConfig, 'NODE_ENV'>,
   ) {}
+
+  private warnDuplicate(endpoint: string): void {
+    this.logger.warn(`security event=DUPLICATE_AUTH_COOKIE cookie=refresh endpoint=${endpoint}`);
+  }
 
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -55,9 +70,12 @@ export class AuthSessionsController {
     @Headers('user-agent') userAgent: string | undefined,
     @Res({ passthrough: true }) reply: CookieReply,
   ): Promise<SessionUserResponse> {
-    const token = refreshCookie(request);
+    const tokens = refreshCookies(request, this.config.NODE_ENV);
     try {
-      if (token === undefined) throw new AppError('UNAUTHORIZED');
+      // Rotating or reuse-revoking would act on a token that may not be the victim's own.
+      if (tokens.length > 1) this.warnDuplicate('refresh');
+      const token = tokens.length === 1 ? tokens[0] : undefined;
+      if (token === undefined || token === '') throw new AppError('UNAUTHORIZED');
       const login = await this.sessions.refresh(token, { userAgent, ip }, this.clock.now());
       setSessionCookies(reply, login, this.config.NODE_ENV);
       return { user: login.user };
@@ -78,8 +96,18 @@ export class AuthSessionsController {
     @Req() request: AuthRequest,
     @Res({ passthrough: true }) reply: CookieReply,
   ): Promise<LogoutResponse> {
-    const token = refreshCookie(request);
-    if (token !== undefined) await this.sessions.revokeByRefreshToken(token, this.clock.now());
+    const tokens = refreshCookies(request, this.config.NODE_ENV);
+    if (tokens.length > 1) this.warnDuplicate('logout');
+    // All of them came from this browser, so ending every live one is what the user asked for,
+    // but the work is bounded: distinct non-empty values, at most MAX_LOGOUT_REFRESH_TOKENS.
+    const distinct = [...new Set(tokens.filter((token) => token !== ''))];
+    const dropped = distinct.length - MAX_LOGOUT_REFRESH_TOKENS;
+    if (dropped > 0) {
+      this.logger.warn(`security event=LOGOUT_COOKIE_VALUES_DROPPED dropped=${String(dropped)}`);
+    }
+    for (const token of distinct.slice(0, MAX_LOGOUT_REFRESH_TOKENS)) {
+      await this.sessions.revokeByRefreshToken(token, this.clock.now());
+    }
     clearSessionCookies(reply, this.config.NODE_ENV);
     return {};
   }

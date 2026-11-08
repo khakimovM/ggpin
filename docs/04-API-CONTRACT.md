@@ -57,8 +57,17 @@ Faqat `@PublicCache(N)` bilan belgilangan yo‘l — hozir uchta `GET /catalog/*
 (200) javobda `public, max-age=60` beradi; shu yo‘llarning 400/404/5xx javoblari ham
 `no-store`. IP limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
-- **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh
-  (`path=/api/v1/auth`, 30 kun), ikkalasi host-only, `HttpOnly`, `SameSite=Lax`, `Secure`.
+- **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh (`path=/`, 30 kun),
+  ikkalasi API hostining o‘ziga (host-only), `HttpOnly`, `SameSite=Lax`, `Secure`. Production’da
+  nomlari `__Host-access_token` va `__Host-refresh_token`: brauzer bunday cookie’ni faqat
+  `Secure`, `Path=/` va `Domain`siz qabul qiladi, shuning uchun qo‘shni subdomen o‘z sessiya
+  cookie’sini qo‘ya olmaydi (egasi qarori 2026-11-08; Q13 dagi `__Secure-refresh_token` o‘rniga).
+  Boshqa muhitlarda (development, test) `access_token` va `refresh_token` (`Secure` development’da
+  yo‘q). Eski nomlar production’da qabul qilinmaydi. Klient nomlarni bilmaydi (`HttpOnly`).
+  Bir nom so‘rovda bir necha marta kelsa, so‘rov foydalanuvchiga bog‘lanmaydi: access takrorlansa
+  `401 UNAUTHORIZED`; `POST /auth/refresh` da refresh takrorlansa `401 UNAUTHORIZED`, cookie’lar
+  tozalanadi, hech bir sessiya aylantirilmaydi va bekor qilinmaydi; `POST /auth/logout` esa `200`
+  qaytaradi va kelgan turli refresh qiymatlarining ko‘pi bilan 5 tasini bekor qiladi.
   Mini App — `Authorization: Bearer <token>` (cookie’siz).
 - **CSRF.** Har bir yozuv so‘rovida (POST/PUT/PATCH/DELETE) `X-CSRF-Token` sarlavhasi va
   ruxsat etilgan `Origin` talab qilinadi, ochiq login yo‘llarida ham. Bearer token qabul
