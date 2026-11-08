@@ -1,0 +1,42 @@
+'use client';
+
+import type { OrderDetail } from '@repo/shared';
+import { useTranslations } from 'next-intl';
+import { Money } from '../../lib/format/money';
+import { isRefundedOrder } from './order-status';
+
+/** Order number, payment method, the amount (the server's `totalTiyin`) and, when refunded, the refund. */
+export function OrderDetailsCard({ order }: { order: OrderDetail }) {
+  const t = useTranslations('store.order');
+  return (
+    <section className="flex flex-col gap-2.5 rounded-[24px] border border-border bg-card p-4 text-sm leading-5 font-semibold tabular-nums">
+      <div className="flex justify-between gap-3">
+        <span className="text-foreground-muted">{t('details.order')}</span>
+        <span>#{order.number}</span>
+      </div>
+      <div className="flex justify-between gap-3">
+        <span className="text-foreground-muted">{t('details.payment')}</span>
+        <span>{t('details.wallet')}</span>
+      </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-foreground-muted">{t('details.amount')}</span>
+        <Money tiyin={order.totalTiyin} size="md" />
+      </div>
+      {isRefundedOrder(order.status) ? (
+        <div className="flex items-baseline justify-between gap-3 text-success-text">
+          <span>{t('details.refunded')}</span>
+          <span className="font-extrabold">
+            +<Money tiyin={order.totalTiyin} size="md" className="text-success-text" />
+          </span>
+        </div>
+      ) : null}
+      {order.status === 'REFUNDED' ? (
+        // An admin refund may be partial and the DTO carries no refunded amount yet: no figure here.
+        <div className="flex items-baseline justify-between gap-3 text-success-text">
+          <span>{t('details.refunded')}</span>
+          <span className="font-extrabold">{t('details.wallet')}</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
