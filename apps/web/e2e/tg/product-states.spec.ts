@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { tokenN } from '../fixtures/product';
 import { tgCallNames, tgPressBack } from '../fixtures/telegram';
 import {
+  TEN_MINUTES_MS,
   TEXT,
   attachShot,
   confirmRecipient,
@@ -189,16 +190,16 @@ test.describe('the price', () => {
   test('an expired quote switches the button off and is NOT renewed by itself', async ({
     page,
   }, testInfo) => {
-    const api = await openProduct(page, STARS, { product: { quoteTtlSec: 3 } });
+    const api = await openProduct(page, STARS, { clock: true });
     await confirmRecipient(page);
     await expect.poll(() => mainButton(page)).toMatchObject({ enabled: true });
+    // The quote lives ten minutes from the moment it was asked for, on THIS page's clock.
+    await page.clock.fastForward(TEN_MINUTES_MS + 30_000);
     await expect(
       page
         .getByRole('region', { name: t('uz').summary.label })
         .getByText(t('uz').quote.expired, { exact: true }),
-    ).toBeVisible({
-      timeout: 8000,
-    });
+    ).toBeVisible();
     await expect.poll(() => mainButton(page)).toMatchObject({ enabled: false });
     await page.waitForTimeout(1500);
     expect(api.quoteBodies).toHaveLength(1);
@@ -212,15 +213,19 @@ test.describe('the price', () => {
   test('a refreshed price after the recipient token died: back to confirm again, then a new token works', async ({
     page,
   }, testInfo) => {
-    // The token lives as long as the quote here, as in life (10 minutes each, the token older).
-    const api = await openProduct(page, STARS, { product: { quoteTtlSec: 3, tokenTtlSec: 3 } });
+    const api = await openProduct(page, STARS, { clock: true });
     await confirmRecipient(page);
     await expect.poll(() => mainButton(page)).toMatchObject({ enabled: true });
+    // The token lives ten minutes too, and is older than the quote: when the quote is stale the
+    // server has forgotten the token.
+    // The quote lives ten minutes from the moment it was asked for, on THIS page's clock.
+    await page.clock.fastForward(TEN_MINUTES_MS + 30_000);
+    api.killTokens();
     await expect(
       page.getByRole('region', { name: t('uz').summary.label }).getByText(t('uz').quote.expired, {
         exact: true,
       }),
-    ).toBeVisible({ timeout: 8000 });
+    ).toBeVisible();
 
     await page.getByRole('button', { name: t('uz').quote.refresh }).click();
     // The server: RECIPIENT_INVALID. The page: not "Tasdiqlandi", the username still there, and

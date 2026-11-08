@@ -35,13 +35,28 @@ export interface ProductApiOptions {
   /** Reply per username (default: found). */
   recipients?: Record<string, RecipientReply>;
   quote?: QuoteMode;
-  /** Seconds a quote lives (default 600). */
-  quoteTtlSec?: number;
-  /** Seconds a recipient token lives (default 600, like the contract); then a quote says RECIPIENT_INVALID. */
-  tokenTtlSec?: number;
+}
+
+/** A quote the fake server handed out; the orders fake reads it to price and to expire. */
+export interface IssuedQuote {
+  id: string;
+  totalTiyin: string;
+  productSlug: 'telegram-stars' | 'telegram-premium';
+  productName: string;
+  skuId: string | null;
+  quantity: number;
+  username: string;
+  displayName: string;
 }
 
 export interface ProductApi {
+  /** Every quote handed out, in order; `dead` ones are answered 410 QUOTE_EXPIRED by the orders fake. */
+  quotes: Map<string, IssuedQuote>;
+  deadQuotes: Set<string>;
+  /** The server forgets every recipient token (they live 10 minutes): a quote says RECIPIENT_INVALID. */
+  killTokens: () => void;
+  /** Every quote handed out so far is expired for the server (the page's clock is moved separately). */
+  expireQuotes: () => void;
   recipientBodies: Array<Record<string, unknown>>;
   quoteBodies: Array<Record<string, unknown>>;
   setQuote: (mode: QuoteMode) => void;
@@ -138,10 +153,19 @@ export async function installProductApi(
 ): Promise<ProductApi> {
   let quoteMode: QuoteMode = options.quote ?? 'ok';
   const issued = new Map<string, number>();
+  const deadTokens = new Set<string>();
   let productMode: ProductMode = options.product ?? 'ok';
   let gate: Promise<void> | null = null;
   let open: () => void = () => undefined;
   const api: ProductApi = {
+    quotes: new Map(),
+    deadQuotes: new Set(),
+    killTokens: () => {
+      for (const token of issued.keys()) deadTokens.add(token);
+    },
+    expireQuotes: () => {
+      for (const id of api.quotes.keys()) api.deadQuotes.add(id);
+    },
     recipientBodies: [],
     quoteBodies: [],
     setQuote: (mode) => {
@@ -237,14 +261,13 @@ export async function installProductApi(
     const request = route.request();
     if (request.method() === 'OPTIONS') return route.fallback();
     const body = request.postDataJSON() as {
+      productId?: string;
       skuId?: string;
       quantity?: number;
       recipientToken: string;
     };
     api.quoteBodies.push(body);
-    const issuedAt = issued.get(body.recipientToken);
-    const tokenDead =
-      issuedAt === undefined || Date.now() - issuedAt > (options.tokenTtlSec ?? 600) * 1000;
+    const tokenDead = !issued.has(body.recipientToken) || deadTokens.has(body.recipientToken);
     if (quoteMode === 'recipientInvalid' || tokenDead) {
       return reply(route, 422, failure('RECIPIENT_INVALID'));
     }
@@ -257,15 +280,28 @@ export async function installProductApi(
       body.quantity !== undefined
         ? String(BigInt(body.quantity) * STAR_TIYIN)
         : (PREMIUM_PRICE[body.skuId ?? ''] ?? '0');
+    const quoteId = `quote_${api.quoteBodies.length}`;
+    const premium = body.productId === 'id_telegram_premium';
+    const sku = premium ? MONTHS.uz.find(([id]) => id === body.skuId) : undefined;
+    api.quotes.set(quoteId, {
+      id: quoteId,
+      totalTiyin: total,
+      productSlug: premium ? 'telegram-premium' : 'telegram-stars',
+      productName: premium ? 'Telegram Premium' : 'Telegram Stars',
+      skuId: body.skuId ?? null,
+      quantity: body.quantity ?? sku?.[1] ?? 1,
+      username: 'aziz_k',
+      displayName: 'Aziz',
+    });
     return reply(
       route,
       201,
       envelope({
-        quoteId: `quote_${api.quoteBodies.length}`,
+        quoteId,
         priceTiyin: total,
         discountTiyin: '0',
         totalTiyin: total,
-        expiresAt: new Date(Date.now() + (options.quoteTtlSec ?? 600) * 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
         recipient: { username: 'aziz_k', displayName: 'Aziz' },
         currency: 'UZS',
       }),

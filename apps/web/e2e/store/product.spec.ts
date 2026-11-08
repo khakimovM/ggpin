@@ -6,6 +6,7 @@ import { axeViolations, overflow } from '../tg/support';
 import { openStore } from './catalog-support';
 import {
   SCHEMES,
+  TEN_MINUTES_MS,
   TEXT,
   buyButton,
   confirmRecipient,
@@ -248,7 +249,8 @@ test.describe('states', () => {
   }) => {
     const t = TEXT.uz.store.product;
     const api = await openProductPage(page, STARS, {
-      product: { quote: 'priceUnavailable', quoteTtlSec: 3 },
+      product: { quote: 'priceUnavailable' },
+      clock: true,
     });
     await confirmRecipient(page);
     await expect(page.getByText(t.quote.unavailable)).toBeVisible();
@@ -257,9 +259,8 @@ test.describe('states', () => {
     api.setQuote('ok');
     await page.getByRole('alert').getByRole('button', { name: TEXT.uz.common.retry }).click();
     await expect(buyButton(page, 'uz')).toBeEnabled();
-    await expect(page.getByText(t.quote.expired, { exact: true }).first()).toBeVisible({
-      timeout: 8000,
-    });
+    await page.clock.fastForward(TEN_MINUTES_MS + 30_000);
+    await expect(page.getByText(t.quote.expired, { exact: true }).first()).toBeVisible();
     await expect(buyButton(page, 'uz')).toBeDisabled();
     await page.getByRole('button', { name: t.quote.refresh }).click();
     await expect.poll(() => api.quoteBodies.length).toBe(3);

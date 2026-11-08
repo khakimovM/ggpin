@@ -19,18 +19,24 @@ export interface Open {
   catalog?: CatalogApiOptions;
   product?: ProductApiOptions;
   hold?: boolean;
+  /** Fake clock on the page (time still flows); move it with `page.clock.fastForward`. */
+  clock?: boolean;
 }
+
+/** A quote and a recipient token live ten minutes (docs/04). */
+export const TEN_MINUTES_MS = 600_000;
 
 export async function openProductPage(
   page: Page,
   slug: string,
-  { lang = 'uz', scheme = 'light', catalog, product, hold }: Open = {},
+  { lang = 'uz', scheme = 'light', catalog, product, hold, clock }: Open = {},
 ) {
   await page.addInitScript((stored) => window.localStorage.setItem('ggpin-theme', stored), scheme);
   await installFakeApi(page, { signedIn: true });
   await installCatalogApi(page, catalog);
   const api = await installProductApi(page, product);
   if (hold) api.hold();
+  if (clock) await page.clock.install();
   await page.goto(`${prefix(lang)}/store/products/${slug}`);
   return api;
 }

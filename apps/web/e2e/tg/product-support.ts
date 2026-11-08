@@ -21,18 +21,24 @@ export interface Open {
   product?: ProductApiOptions;
   /** Hold the slow answers until `release()`. */
   hold?: boolean;
+  /** Fake clock on the page (time still flows); move it with `page.clock.fastForward`. */
+  clock?: boolean;
 }
+
+/** A quote and a recipient token live ten minutes (docs/04). */
+export const TEN_MINUTES_MS = 600_000;
 
 export async function openProduct(
   page: Page,
   slug: string,
-  { lang = 'uz', scheme = 'light', catalog, product, hold }: Open = {},
+  { lang = 'uz', scheme = 'light', catalog, product, hold, clock }: Open = {},
 ) {
   await installFakeWebApp(page, { initData: INIT_DATA, colorScheme: scheme, languageCode: lang });
   await installTgApi(page, [{ kind: 'ok', user: { locale: lang } }]);
   await installCatalogApi(page, catalog);
   const api = await installProductApi(page, product);
   if (hold) api.hold();
+  if (clock) await page.clock.install();
   await page.goto(`/tg/products/${slug}`);
   return api;
 }

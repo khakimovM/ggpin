@@ -116,9 +116,11 @@ test.describe('buying', () => {
     await expect(page.getByText(/kafolatlangan/)).toBeVisible();
     await expect(page.getByRole('region', { name: t.summary.label })).toContainText('@aziz_k');
 
-    // A press reaches the page's handler (the order sheet is S7): nothing breaks.
+    // Since S7 the press opens the confirmation of THIS server price; nothing is paid yet.
     await tgPressMain(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Telegram Stars' })).toBeVisible();
+    const sheet = page.getByRole('dialog', { name: TEXT.uz.store.checkout.confirm.title });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText(new RegExp(`${ELEVEN_THOUSAND}\\s*so‘m`));
   });
 
   test('a changed username takes the confirmation, the price and the button away', async ({

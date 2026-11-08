@@ -118,6 +118,8 @@ export async function installFakeWebApp(page: Page, options: FakeWebAppOptions =
       setBottomBarColor: record('setBottomBarColor'),
       openLink: record('openLink'),
       openTelegramLink: record('openTelegramLink'),
+      enableClosingConfirmation: record('enableClosingConfirmation'),
+      disableClosingConfirmation: record('disableClosingConfirmation'),
       onEvent: (event: string, callback: () => void) => {
         (listeners[event] ??= []).push(callback);
       },
