@@ -9,7 +9,7 @@
 > `20261103170006_catalog_pricing` ("Migratsiya 7"), `20261104120000_cost_snapshot_window_index` ("Migratsiya 8") va
 > `20261104130000_p4_wallet_p2p` + `20261104130100_p4_wallet_p2p_checks` + `20261104130200_p4_review_kind_daily_limit` +
 > `20261105090000_p4_wallet_p2p_hardening` + `20261105160000_p4_wallet_p2p_guards` +
-> `20261105200000_p4_wallet_p2p_immutables` ("Migratsiya 9"). Bu hujjat sxemani tushuntiradi, nusxasini
+> `20261105200000_p4_wallet_p2p_immutables` + `20261107090000_p4_bank_message_card_date_index` ("Migratsiya 9"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -17,6 +17,7 @@
 
 - Pul: `BigInt`, birligi ustun nomida (`Tiyin`, `MicroUsdt`, `NanoTon`, `Minor`). `Decimal`/`Float` yo‘q.
 - Balans saqlanmaydi: `LedgerEntry` yig‘indisi. `Wallet` jadvali faqat **qulf** (row lock) uchun.
+  Qabul kartasi (`TopupCard`) uchun alohida qator emas, tranzaksiya advisory qulfi (`lockTopupCard`, Migratsiya 9).
 - Idempotentlik — unique indekslar orqali (quyidagi jadval).
 - `Order.status` faqat `order-state.ts` orqali o‘zgaradi; `OrderStatus` enum `ORDER_STATUSES` bilan
   bir xil (DB testi tekshiradi).
@@ -68,7 +69,9 @@
    `CoinEntry`, `AuditLog`, `OrderEvent`; o‘zgarmas snapshot'lar: `FxRate`, `CostSnapshot`, `WalletSnapshot`,
    `BonusRedemption`, `Wallet`. Qo‘shildi (qatorlari o‘zgaradi): `Category`, `Sku`, `ProductRoute`,
    `Voucher`, `Quote`, `PaymentIntent`, `Payment`, `BonusCode`, `DiscountTier`, `DiscountCode`,
-   `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `Broadcast`.
+   `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `Broadcast`. 4-fazada (Migratsiya 9) `updatedAt`siz
+   qo‘shilganlar: `BankMessage`, `BankMessageText`, `BankMessageOutcome`; `updatedAt` bilan: `TopupCard`,
+   `PaymentReview`, `BankFeedCursor`.
 3. **Idempotentlik:** `Order.requestHash` va `PaymentIntent.idempotencyKey` + `requestHash`
    (`@@unique([userId, idempotencyKey])`) qo‘shildi: bir xil kalit + boshqa body → `409 IDEMPOTENCY_CONFLICT`.
 4. **`Voucher` ↔ `Order` bog‘lanishi bitta:** faqat `Voucher.orderId` (`@unique`). `Order.voucherId`
@@ -280,189 +283,363 @@ Faqat indeks qo‘shadi; ma’lumot va mavjud ustunlar o‘zgarmaydi (destruktiv
   yopildi. Qolgan cheklov: Stars'da SKU qatori eskirib mahsulot darajasiga qaytilganda ham indeks mahsulot qatorlarini orqaga
   qarab o‘qiydi (topiladi, tarix bilan o‘sadi); kerak bo‘lsa keyin qisman indeks qo‘shiladi.
 
-## Migratsiya 9: `20261104130000_p4_wallet_p2p`, `…130100_p4_wallet_p2p_checks`, `…130200_p4_review_kind_daily_limit`, `20261105090000_p4_wallet_p2p_hardening`, `20261105160000_p4_wallet_p2p_guards`, `20261105200000_p4_wallet_p2p_immutables`
+## Migratsiya 9: 4-faza — hamyon va P2P karta orqali to‘ldirish (D-31, D-37)
 
-4-faza (hamyon va P2P karta orqali to‘ldirish, D-37). Dastlab ikki fayl (uchinchisi — enum qiymatini qayta nomlash, to‘rtinchisi — S2 code-review tuzatishlari, pastda «Review tuzatishlari»): PostgreSQL `ALTER TYPE … ADD VALUE` bilan qo‘shilgan
-qiymatni o‘sha tranzaksiyada ishlata olmaydi, shuning uchun enum/jadval/ustunlar birinchi, `P2P_CARD` ni ishlatadigan CHECK,
-partial unique, EXCLUDE va triggerlar ikkinchi migratsiyada. Faqat qo‘shimcha; ikki yumshatish: `Payment.intentId` endi
-nullable, `Payment.userId` yangi va NOT NULL. Birinchi migratsiya boshidagi `DO` qo‘riqchisi `Payment` bo‘sh bo‘lmasa
-`RAISE EXCEPTION` (SQLSTATE `GG002`) bilan to‘xtaydi (egasini taxmin qilmaydi). Dev va test bazada `Payment` 0 qator edi.
+Yetti fayl. Qo‘llangan migratsiya tahrirlanmaydi, shuning uchun har review tuzatishi yangi faylda. Quyidagi tavsif —
+**yettitasi qo‘llangandan keyingi holat**, jadval bo‘yicha. Qavsdagi belgilar (H1, M1…, m1…, N1…, Y1…) review
+topilmalari; ular kod izohlari va testlarda ham shu nom bilan uchraydi.
 
-**Yangi enum'lar (10):** `CardBank`, `TopupCardStatus` (`VERIFYING ACTIVE DRAINING FULL RETIRED`), `BankFeedSource`,
-`BankParseStatus`, `BankDirection`, `ChainStatus`, `BankOutcome`, `PaymentReviewKind` (10 asosiy tur + `CANCELLED_LATE`,
-`DAILY_LIMIT`, `POSSIBLE_REVERSAL`, `USER_BLOCKED`), `PaymentReviewStatus`, `PaymentReviewResolution`;
-`DAILY_LIMIT` bitta tur bilan ikkala kunlik chekni qamraydi (yangi akkaunt va barcha akkauntlar), qaysi chek oshgani
-review'ning `note` maydonida yoziladi. Qiymat birinchi migratsiyada `NEW_ACCOUNT_LIMIT` deb yaratilgan edi; u qo‘llanib
-bo‘lgani uchun tahrirlanmadi, uchinchi migratsiya (`ALTER TYPE … RENAME VALUE`) uni qayta nomladi;
-`PaymentProviderCode` ga `P2P_CARD`. Hammasi `packages/shared/src/payments/bank-feed.ts` ro‘yxatlari bilan bir xil;
-`packages/db/src/payments-enums.test.ts` to‘plam tengligini tekshiradi (tartib ahamiyatsiz).
+| #   | Migratsiya                                       | Nima qiladi                                                                                                                                                                                                  |
+| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `20261104130000_p4_wallet_p2p`                   | `GG002` qo‘riqchisi (`Payment` bo‘sh bo‘lmasa to‘xtaydi: `userId` ni taxmin qilmaydi); 10 enum, `PaymentProviderCode.P2P_CARD`; 6 jadval; `PaymentIntent` va `Payment` ustunlari; FK'lar va oddiy indekslar  |
+| 2   | `20261104130100_p4_wallet_p2p_checks`            | CHECK'lar, partial unique'lar, `btree_gist` + EXCLUDE, append-only va karta identifikatori triggerlari. Alohida fayl: `ALTER TYPE … ADD VALUE` bilan qo‘shilgan `P2P_CARD` o‘sha tranzaksiyada ishlatilmaydi |
+| 3   | `20261104130200_p4_review_kind_daily_limit`      | `PaymentReviewKind.NEW_ACCOUNT_LIMIT` → `DAILY_LIMIT` (`ALTER TYPE … RENAME VALUE`; 1-fayl qo‘llangan edi)                                                                                                   |
+| 4   | `20261105090000_p4_wallet_p2p_hardening`         | S2 code-review: `PaymentReview.bankMessageId NOT NULL` (`GG002` qo‘riqchisi bilan), yangi FK'lar va CHECK'lar, `BankMessage_card_guard`, `PaymentIntent_p2p_guard`, `Payment_consistency_guard`              |
+| 5   | `20261105160000_p4_wallet_p2p_guards`            | Ikkinchi review: to‘rt trigger funksiyasi `CREATE OR REPLACE` (triggerlar o‘sha funksiyalarga qarab turaveradi), yangi `BankMessageOutcome_links_guard`, ikki FK indeksi                                     |
+| 6   | `20261105200000_p4_wallet_p2p_immutables`        | Uchinchi review: yangi `Payment_immutable_guard`, `PaymentReview_immutable_guard`; ikki funksiya `CREATE OR REPLACE`. Jadval, ustun, indeks o‘zgarishi yo‘q                                                  |
+| 7   | `20261107090000_p4_bank_message_card_date_index` | S6 (D-43 (2)): `BankMessage(cardId, tgDate)` indeksi                                                                                                                                                         |
 
-**Yangi modellar (6):**
+Faqat qo‘shimcha. Ikki yumshatish: `Payment.intentId` nullable bo‘ldi (review'dan yozilgan to‘lovda so‘rov yo‘q),
+`Payment.userId` yangi va NOT NULL (dev va test bazada `Payment` 0 qator edi). Yangi kengaytma: `btree_gist` (trusted).
+NULL-xavfsizlik: har nullable ustun CHECK ichida aniq `IS NOT NULL` bilan tekshiriladi, shuning uchun hech bir CHECK
+NULL natija berib o‘tib ketmaydi. Partial indeks predikatlari enum literalini ishlatadi (`"provider" = 'P2P_CARD'`),
+`::text` emas: cast `STABLE`, indeks predikati esa `IMMUTABLE` bo‘lishi shart.
 
-- `TopupCard` — o‘zgaruvchan (`updatedAt` bor). `bank`, `pan`, `last4`, `holderName` INSERT'dan keyin o‘zgarmaydi
-  (`BEFORE UPDATE` trigger, `GG001`; L6): xabar kartaga moslangan, ochiq so‘rov va pay sahifasi shularga tayanadi; karta
-  almashsa eskisi `RETIRED` qilinib yangisi qo‘shiladi. Holat, limitlar, pauza o‘zgara oladi. `DRAINING` — yangi so‘rov
-  berilmaydi, mavjudlari `reservedUntil` gacha avtomatik yoziladi (oddiy `card:retire` shu holatdan o‘tadi).
-- `BankMessage` — append-only (`ggpin_forbid_mutation()`, `GG001`), `updatedAt` yo‘q. **Xom matn bu yerda yo‘q:** faqat
-  `textSha256` qoladi (L9).
-- `BankMessageText` — xom matn alohida (`bankMessageId` PK+FK, `text` nullable, `purgeAfter`, `createdAt`; `updatedAt` yo‘q).
-  E-25: matn 1 yil saqlanadi, `BankMessage` esa append-only, shuning uchun matn alohida jadvalda. Trigger faqat bitta
-  o‘zgarishga ruxsat beradi: `timezone('UTC', now()) >= purgeAfter` bo‘lganda `text` ni NULL qilish (qolgan ustunlar o‘zgarmagan holda;
-  `purgeAfter` Prisma'ning UTC `timestamp`'i, shuning uchun `now()` avval UTC'ga o‘tkaziladi).
-  Boshqa har qanday UPDATE (matnni qayta yozish, NULL'dan tiklash, `purgeAfter` ni surish) va har qanday DELETE → `GG001`.
-  Tozalovchi (worker sweep): `UPDATE "BankMessageText" SET "text" = NULL WHERE "purgeAfter" <= timezone('UTC', now()) AND "text" IS NOT NULL`;
-  `purgeAfter` indeksli. `now()` ni UTC'ga o‘tkazmasdan solishtirish seans vaqt mintaqasiga bog‘liq bo‘lib qoladi.
-- `BankMessageOutcome` — bir marta yoziladi (`UPDATE`/`DELETE` → `GG001`), `bankMessageId` va `paymentId` unique.
-  `paymentId` → `Payment` va `reviewId` → `PaymentReview` FK (Restrict); `CREDITED` ⇔ `paymentId` bor, `REVIEW` ⇒ `reviewId` bor (CHECK).
-- `PaymentReview` — tekshiruv navbati; `bankMessageId` **NOT NULL** (har tur bank xabarini qayta ishlashdan chiqadi, `docs/05` §6; shuning
-  uchun `(bankMessageId, kind)` unique to‘liq idempotentlik kaliti), `PaymentReview_resolved_check`: `RESOLVED` ⇔ `resolution` **va** `resolvedAt`
-  bor (OPEN'da ikkalasi yo‘q); `PaymentReview_audit_check`: `RESOLVED` ⇔ `resolvedAuditLogId` bor (FK → `AuditLog`, Restrict).
-- `BankFeedCursor` — har manba uchun oxirgi saqlangan xabar id (`source` PK).
+### SQLSTATE kodlari
 
-**Mavjud jadvallarga qo‘shimchalar:**
+| Kod     | Maʼnosi                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------ |
+| `GG001` | o‘zgarmas / append-only qator yoki taqiqlangan holat o‘zgarishi (2-migratsiyadan beri)           |
+| `GG002` | migratsiya qo‘riqchisi: jadvalda migratsiya xavfsiz qayta talqin qila olmaydigan maʼlumot bor    |
+| `GG003` | `BankMessage.cardId` xabarga mos emas                                                            |
+| `GG004` | `Payment` o‘z intenti yoki bank xabari bilan ziddiyatli                                          |
+| `GG005` | `BankMessageOutcome` boshqa bank xabariga tegishli to‘lov yoki review'ni nomlaydi (5-migratsiya) |
 
-- `PaymentIntent`: `cardId` (FK Restrict), `baseAmountTiyin`, `paidAt`, `reservedUntil`, `payTokenHash` (unique, HMAC xeshi).
-- `Payment`: `userId` (FK Restrict, NOT NULL, indeksli `(userId, createdAt)`), `intentId` nullable, `bankMessageId` (unique, FK),
-  `reviewId` (unique, FK). `providerTxnId` P2P'da `"<senderId>:<tgMessageId>"`.
-- `User.payments`. `AuditLog.actorType` matn ustun: yangi qiymat `CLI` (ega CLI'si) — DDL yo‘q.
+### Enum'lar (10 yangi + 1 qiymat)
 
-**Band summa — `reservedUntil` (H1, security-auditor topilmasi).** Muammo: dastlabki reja faqat `PENDING` ni
-unique qilgan edi. Lekin to‘langan (`PAID`) yoki muddati o‘tgan (`EXPIRED`/`CANCELLED`) so‘rovning summasi grace davomida
-(`TOPUP_LATE_GRACE_SEC`, 24 soat) shu kartada band turishi kerak: aks holda foydalanuvchining takroriy yoki kech to‘lovi
-xuddi shu summani olgan boshqa foydalanuvchiga yozilib ketadi. Yechim — bandlik muddati ustunda, hisob bir joyda:
+| Enum                      | Qiymatlar                                                                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CardBank`                | `HUMO`, `UZCARD`                                                                                                                                                                                                         |
+| `TopupCardStatus`         | `VERIFYING`, `ACTIVE`, `DRAINING`, `FULL`, `RETIRED`                                                                                                                                                                     |
+| `BankFeedSource`          | `HUMO_BOT`, `UZCARD_BOT`                                                                                                                                                                                                 |
+| `BankParseStatus`         | `PARSED`, `UNRECOGNIZED`, `REJECTED`                                                                                                                                                                                     |
+| `BankDirection`           | `CREDIT`, `DEBIT`                                                                                                                                                                                                        |
+| `ChainStatus`             | `FIRST`, `OK`, `BREAK`, `NOT_APPLICABLE`                                                                                                                                                                                 |
+| `BankOutcome`             | `CREDITED`, `CARD_VERIFIED`, `DEBIT_RECORDED`, `REVIEW`                                                                                                                                                                  |
+| `PaymentReviewKind`       | `UNRECOGNIZED`, `REJECTED`, `CARD_UNKNOWN`, `CARD_RETIRED`, `CHAIN_BREAK`, `AUTO_CREDIT_PAUSED`, `NO_MATCH`, `AMBIGUOUS`, `DUPLICATE`, `TIME_SKEW`, `CANCELLED_LATE`, `DAILY_LIMIT`, `POSSIBLE_REVERSAL`, `USER_BLOCKED` |
+| `PaymentReviewStatus`     | `OPEN`, `RESOLVED`                                                                                                                                                                                                       |
+| `PaymentReviewResolution` | `CREDITED_USER`, `IGNORED`, `RETURNED_OFFLINE`, `CHAIN_ACCEPTED`                                                                                                                                                         |
+| `PaymentProviderCode`     | mavjud enum'ga `P2P_CARD` qo‘shildi                                                                                                                                                                                      |
 
-| Holat                   | `reservedUntil`                                                          |
-| ----------------------- | ------------------------------------------------------------------------ |
-| yaratilganda            | `expiresAt + grace`                                                      |
-| `PAID` bo‘lganda        | aynan `GREATEST(eski, paidAt + (eski − expiresAt))` (trigger tekshiradi) |
-| `CANCELLED` / `EXPIRED` | o‘zgarmaydi                                                              |
+- `DAILY_LIMIT` bitta tur bilan ikkala kunlik chekni qamraydi (yangi akkaunt va barcha akkauntlar); qaysi biri oshgani
+  `PaymentReview.note` da kod bilan yoziladi (`DAILY_LIMIT` yoki `NEW_ACCOUNT_DAILY_LIMIT`).
+- Ro‘yxatlar `packages/shared/src/payments/bank-feed.ts` (`CARD_BANKS`, `TOPUP_CARD_STATUSES`, `BANK_FEED_SOURCES`,
+  `BANK_PARSE_STATUSES`, `BANK_DIRECTIONS`, `CHAIN_STATUSES`, `BANK_OUTCOMES`, `REVIEW_KINDS`, `PAYMENT_REVIEW_STATUSES`,
+  `PAYMENT_REVIEW_RESOLUTIONS`) va `intent-state.ts` (`INTENT_STATUSES`) bilan bir xil; `packages/db/src/payments-enums.test.ts`
+  to‘plam tengligini tekshiradi (tartib ahamiyatsiz).
 
+### `TopupCard` — qabul qiluvchi kartalarimiz
+
+O‘zgaruvchan (`updatedAt` bor). `pan` — **o‘zimizning** qabul kartamiz raqami (E-13), faqat kutilayotgan so‘rov egasiga
+ko‘rsatiladi; mijoz kartasining maʼlumoti hech qayerda saqlanmaydi.
+
+| Ustun               | Tur               | Qoida                                                                       |
+| ------------------- | ----------------- | --------------------------------------------------------------------------- |
+| `bank`              | `CardBank`        | o‘zgarmas                                                                   |
+| `pan`               | `String`          | 16 raqam; o‘zgarmas                                                         |
+| `last4`             | `String`          | `= right(pan, 4)`; bank bot kartani faqat shu bilan bildiradi; o‘zgarmas    |
+| `holderName`        | `String`          | bo‘sh emas (`btrim`); o‘zgarmas                                             |
+| `status`            | `TopupCardStatus` | standart `VERIFYING`                                                        |
+| `receiveLimitTiyin` | `BigInt`          | > 0; `card:add` da majburiy, umumiy standart yo‘q (E-9)                     |
+| `monthlyLimitTiyin` | `BigInt?`         | NULL yoki > 0                                                               |
+| `verifyAmountTiyin` | `BigInt`          | > 0; shu test o‘tkazmasi kelsa `VERIFYING → ACTIVE` (`verifiedAt` yoziladi) |
+| `verifiedAt`        | `DateTime?`       | `VERIFYING` va `RETIRED` dan boshqa holatda majburiy                        |
+| `retiredAt`         | `DateTime?`       | `RETIRED` ⇔ bor; o‘rnatilgach o‘zgarmaydi                                   |
+| `autoCreditPaused`  | `Boolean`         | standart `false`                                                            |
+
+- **CHECK:** `TopupCard_values_check` (pan `^[0-9]{16}$`, `last4 = right(pan,4)`, `receiveLimitTiyin` > 0,
+  `monthlyLimitTiyin` NULL yoki > 0, `verifyAmountTiyin` > 0, ism bo‘sh emas); `TopupCard_retired_check`
+  (`RETIRED` ⇔ `retiredAt`); `TopupCard_verified_check` (n1: `status IN ('VERIFYING','RETIRED') OR verifiedAt IS NOT NULL` —
+  tasdiqlanmasdan `RETIRED` qilingan karta ham mumkin).
+- **Unique:** `TopupCard_bank_last4_active_key` — `(bank, last4) WHERE status <> 'RETIRED'`: ikki tirik karta bir juftlikka
+  ega bo‘lmaydi; `RETIRED` juftlikni bo‘shatadi (karta qayta chiqariladi). Ikki parallel `card:add` dan bittasi o‘tadi.
+- **Indeks:** `(status, bank)`.
+- **Trigger `TopupCard_identity_immutable`** (`ggpin_topup_card_identity_guard()`, `BEFORE UPDATE`, `GG001`): `bank, pan,
+last4, holderName` o‘zgarmaydi (L6) — xabar kartaga moslangan, ochiq so‘rov va pay sahifasi shularga tayanadi; karta
+  almashsa eskisi `RETIRED`, yangisi qo‘shiladi. `RETIRED` yakuniy va `retiredAt` o‘rnatilgach o‘zgarmaydi (N6: aks holda
+  «eng oxirgi `RETIRED`» qoidasi ostidagi xabarlar jimgina boshqa kartaga o‘tib qolardi). Holat, limitlar va pauza
+  (`RETIRED` kartada ham) o‘zgara oladi.
+- **Qolgan holat grafi faqat TS'da** (`packages/shared/src/payments/card-state.ts`, `assertCardTransition`):
+  `VERIFYING → ACTIVE | RETIRED`, `ACTIVE → FULL | DRAINING | RETIRED`, `FULL → ACTIVE | DRAINING | RETIRED`,
+  `DRAINING → RETIRED`. `DRAINING` — yangi so‘rov berilmaydi, berilganlari `reservedUntil` gacha to‘lanadi. Oddiy
+  `card:retire`: `ACTIVE`/`FULL` → `DRAINING`, `VERIFYING` → darhol `RETIRED`; favqulodda retire — darhol `RETIRED`,
+  karta `PENDING` so‘rovlari `CANCELLED`. `FULL ↔ ACTIVE` olingan pulga qarab (D-45).
+- **Qulf:** kartani o‘zgartiradigan yoki unda summa ajratadigan kod `lockTopupCard(tx, cardId)` ni oladi
+  (`pg_advisory_xact_lock(hashtext(topupCardLockKey(id)))`, tranzaksiya oxirigacha; bir tranzaksiyada ikki karta qulfi
+  olinmaydi).
+
+### `PaymentIntent` — P2P to‘ldirish so‘rovi
+
+1-migratsiyadagi ustunlar (`provider`, `amountTiyin`, `status`, `purpose`, `quoteId`, `idempotencyKey`, `requestHash`,
+`expiresAt`) o‘zgarmagan. P2P so‘rovda: `provider = P2P_CARD`, `purpose = 'TOPUP'`, `amountTiyin` = asosiy summa + noyob
+qo‘shimcha (foydalanuvchi aynan shu summani o‘tkazadi), `expiresAt` — `TOPUP_INTENT_TTL_SEC` bo‘yicha (standart 30 daqiqa).
+
+| Yangi ustun       | Tur                                   | Qoida                                                                            |
+| ----------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
+| `cardId`          | `String?` → `TopupCard` (FK Restrict) | P2P'da majburiy                                                                  |
+| `baseAmountTiyin` | `BigInt?`                             | so‘ralgan summa, qo‘shimchasiz; P2P'da majburiy; NULL yoki > 0                   |
+| `paidAt`          | `DateTime?`                           | `PAID` ⇔ bor (hamma provayder)                                                   |
+| `reservedUntil`   | `DateTime?`                           | summa kartada shu paytgacha band; P2P'da majburiy; grace yagona saqlanadigan joy |
+| `payTokenHash`    | `String?` `@unique`                   | pay-link tokenining HMAC-SHA256 xeshi (D-39); `POST /pay-link` uni almashtiradi  |
+
+**CHECK'lar:**
+
+- `PaymentIntent_amount_check` (2-migratsiya): `amountTiyin` > 0.
+- `PaymentIntent_p2p_check`: P2P'da `cardId`, `baseAmountTiyin`, `reservedUntil` NOT NULL; `amountTiyin % 100 = 0` (butun
+  so‘m); `baseAmountTiyin % 100000 = 0` (1 000 so‘m karrali); `amountTiyin − baseAmountTiyin` ∈ [100; 99 900] tiyin
+  (1..999 so‘m qo‘shimcha); `expiresAt > createdAt`; `reservedUntil >= expiresAt` — EXCLUDE oralig‘i doim to‘g‘ri (teskari
+  oraliq PostgreSQL'da xato, bo‘sh oraliq emas).
+- `PaymentIntent_base_positive_check` (m1): `baseAmountTiyin` NULL yoki > 0 (`% 100000 = 0` ni 0 ham qanoatlantirardi).
+- `PaymentIntent_paid_check`: `PAID` ⇔ `paidAt`.
+- `PaymentIntent_p2p_paid_check`: to‘langan P2P'da `reservedUntil >= paidAt`.
+
+**Unique va EXCLUDE:**
+
+- `PaymentIntent_card_amount_pending_key`: `UNIQUE (cardId, amountTiyin) WHERE status = 'PENDING'` (provayder filtri yo‘q;
+  P2P bo‘lmagan so‘rovda `cardId` NULL, NULL'lar to‘qnashmaydi).
+- `PaymentIntent_user_pending_p2p_key`: `UNIQUE (userId) WHERE status = 'PENDING' AND provider = 'P2P_CARD'` — foydalanuvchida
+  bitta kutilayotgan P2P so‘rov.
 - `PaymentIntent_card_amount_reserved_excl`: `EXCLUDE USING gist ("cardId" WITH =, "amountTiyin" WITH =,
-tsrange("createdAt","reservedUntil") WITH &&) WHERE ("provider" = 'P2P_CARD')` (`btree_gist` kengaytmasi, trusted).
-  Oraliq yarim ochiq `[)`: eskisi tugagan paytning o‘zida yaratilgan so‘rov ruxsat etiladi, 1 ms oldin — yo‘q.
-  Holatdan qat'i nazar ishlaydi, shuning uchun ajratuvchi (S4) ham, mos qiluvchi (S6) ham bandlikni `reservedUntil > now()`
-  (yoki `>= tgDate`) bilan o‘qiydi — grace hisobi boshqa joyda takrorlanmaydi.
-- **Tip:** `reservedUntil` boshqa hamma vaqt ustunlari kabi `timestamp(3)` (UTC, Prisma standarti), `timestamptz` emas; shuning
-  uchun `tstzrange` emas `tsrange`. Bitta sxemada ikki xil vaqt turi aralashtirilmaydi (`createdAt` ham `timestamp(3)`).
-- **Partial unique (`PENDING`) saqlandi** — ortiqcha ko‘rinsa ham, chunki poygani oddiy unique xatosi (`23505`, Prisma
-  `P2002`) sifatida qaytaradi; EXCLUDE esa `23P01` beradi. S4 ajratuvchisi ikkalasini ham "poyga" deb qabul qilib boshqa
-  qo‘shimchani sinaydi. Foydalanuvchi uchun `UNIQUE ("userId") WHERE status='PENDING' AND provider='P2P_CARD'` o‘z kuchida.
-- **Muhim oqibat (S6 uchun):** kech to‘lov `PAID` ga o‘tkazilib `reservedUntil` uzaytirilganda, agar o‘sha oralig‘ida boshqa so‘rov
-  allaqachon shu summani olgan bo‘lsa (ishchi kechikib, eski oyna tugagan), UPDATE EXCLUDE bilan rad etiladi (`23P01`).
-  Moslovchi buni tutib review'ga o‘tkazadi, pul yozilmaydi.
-- CHECK'lar: `PaymentIntent_p2p_check` (P2P'da `cardId`, `baseAmountTiyin`, `reservedUntil` majburiy; `amountTiyin % 100 = 0`,
-  `baseAmountTiyin % 100000 = 0`, qo‘shimcha 100..99 900 tiyin; `expiresAt > createdAt`, `reservedUntil >= expiresAt` — EXCLUDE
-  oralig‘i har doim to‘g‘ri), `PaymentIntent_paid_check` (`PAID` ⇔ `paidAt`), `PaymentIntent_p2p_paid_check` (to‘langan P2P'da
-  `reservedUntil >= paidAt`).
+tsrange("createdAt", "reservedUntil") WITH &&) WHERE ("provider" = 'P2P_CARD')`.
+- `payTokenHash` unique; `(userId, idempotencyKey)` unique (oldindan).
 
-**Indekslar (`PaymentIntent`).** `(cardId, reservedUntil, amountTiyin)`: ajratuvchi "kartaning band summalari" so‘rovini
-(`cardId = ? AND reservedUntil > now()`, natija `amountTiyin`) faqat indeksdan o‘qiydi, va oyna bilan cheklangani uchun
-tarix o‘sganda ham kichik qoladi; mos qiluvchi shu prefiksni (`reservedUntil >= tgDate`) ishlatadi, aniq summa bo‘yicha
-qidiruvni esa EXCLUDE'ning GiST indeksi ham qoplaydi. `(userId, reservedUntil)`: S4 da foydalanuvchining hali band
-so‘rovlarini (kutilayotgan + grace ichidagi tugaganlar) sanash; kunlik so‘rovlar soni mavjud `(userId, createdAt)` bilan.
-Reja bo‘yicha dastlabki `(cardId, status, amountTiyin)` va `(cardId, status, paidAt)` indekslari `reservedUntil` kelgach
-keraksiz bo‘ldi va qo‘shilmadi: holatga qarab emas, muddatga qarab o‘qiladi.
+**Band summa — `reservedUntil` (H1, security-auditor topilmasi).** Faqat `PENDING` ni unique qilish yetmaydi: to‘langan
+(`PAID`) yoki muddati o‘tgan (`EXPIRED`/`CANCELLED`) so‘rovning summasi grace davomida (`TOPUP_LATE_GRACE_SEC`, standart
+24 soat; productionda kamida 1 kun) shu kartada band turishi kerak, aks holda takroriy yoki kech to‘lov shu summani olgan
+boshqa foydalanuvchiga yozilib ketadi. Bandlik muddati ustunda, hisob bir joyda:
 
-**Boshqa CHECK va unique'lar** (hammasi NULL-xavfsiz): `TopupCard_values_check` (pan 16 raqam, `last4 = right(pan,4)`,
-limitlar > 0, ism bo‘sh emas), `TopupCard_retired_check` (`RETIRED` ⇔ `retiredAt`), `TopupCard_bank_last4_active_key`,
-`Payment_source_check` (intent yoki review kerak), `Payment_p2p_check` (P2P'da `bankMessageId`), `BankMessage_parsed_check`
-(`PARSED` da yo‘nalish, summa > 0, balans, `last4` 4 raqam, bank vaqti), `BankMessage_reason_check` (`PARSED` bo‘lmasa sabab,
-bo‘sh emas), `PaymentReview_resolved_check`.
+| Holat                   | `reservedUntil`                                                               |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| yaratilganda            | `expiresAt + grace` (`reservedUntilAtCreation`)                               |
+| `PAID` bo‘lganda        | aynan `GREATEST(eski, paidAt + (eski − expiresAt))` (`reservedUntilWhenPaid`) |
+| `CANCELLED` / `EXPIRED` | o‘zgarmaydi                                                                   |
 
-**Ledger yordamchisi:** `packages/db/src/ledger/` — `lockWallet(tx, userId)` (`SELECT … FOR UPDATE` `Wallet` qatorida;
-qator yo‘q bo‘lsa `WalletNotFoundError`), `appendLedgerEntry(tx, entry)` (takror `(refType, refId, kind)` → Prisma `P2002`,
-noto‘g‘ri ishora → `LedgerEntry_amount_sign_check`), `sumBalance(tx, userId)` (`0n` agar yozuv yo‘q). `@repo/db` dan eksport.
-Faqat tranzaksiya klienti qabul qilinadi: pul harakati va uni keltirgan holat o‘zgarishi bir `$transaction` da bo‘lishi shart.
+- EXCLUDE holatdan qatʼi nazar ishlaydi; ajratuvchi (API) ham, moslovchi (worker) ham bandlikni `reservedUntil > now()`
+  (yoki `>= tgDate`) bilan o‘qiydi — grace hisobi boshqa joyda takrorlanmaydi. Oraliq yarim ochiq `[)`: eskisi tugagan
+  paytning o‘zida yaratilgan so‘rov ruxsat etiladi, 1 ms oldin — yo‘q.
+- **Tip:** `reservedUntil` boshqa vaqt ustunlari kabi `timestamp(3)` (UTC, Prisma standarti), shuning uchun `tstzrange`
+  emas `tsrange`. Bitta sxemada ikki xil vaqt turi aralashtirilmaydi.
+- **Partial unique (`PENDING`) EXCLUDE bilan birga saqlandi:** poygani oddiy unique xatosi (`23505`, Prisma `P2002`) bilan
+  qaytaradi, EXCLUDE esa `23P01` beradi. Ajratuvchi ikkalasini ham «poyga» deb qabul qilib boshqa qo‘shimchani sinaydi.
+- **Kech to‘lov:** `PAID` ga o‘tganda `reservedUntil` uzayadi. Agar summa shu orada shu kartada yangi so‘rovga berilgan
+  bo‘lsa, uzaytirish EXCLUDE bilan to‘qnashardi (`23P01`). Moslovchi buni yozishdan **oldin** tekshiradi va pul yozmay
+  `AMBIGUOUS` review ochadi (`note = AMOUNT_REALLOCATED`); kutilmagan `23P01` xato sifatida ishlanadi.
 
-**Review tuzatishlari: 4-migratsiya `20261105090000_p4_wallet_p2p_hardening`** (S2 code-review; avvalgi uchta migratsiya qo‘llangani
-uchun tahrirlanmadi). Maxsus SQLSTATE'lar: `GG001` — o‘zgarmas/append-only qator yoki taqiqlangan holat o‘zgarishi; `GG002` — migratsiya
-qo‘riqchisi (`Payment`/`PaymentReview` da qayta talqin qilib bo‘lmaydigan ma’lumot); `GG003` — `BankMessage` kartasi xabarga mos emas;
-`GG004` — `Payment` o‘z intenti yoki bank xabari bilan ziddiyatli.
+**Indekslar.** `(cardId, reservedUntil, amountTiyin)`: ajratuvchining «kartaning band summalari» so‘rovi
+(`cardId = ? AND reservedUntil > now()`, natija `amountTiyin`) faqat indeksdan o‘qiladi va oyna bilan cheklangani uchun
+tarix o‘sganda ham kichik qoladi; moslovchi shu prefiksni (`reservedUntil >= tgDate`) ishlatadi, aniq summa qidiruvini
+EXCLUDE'ning GiST indeksi ham qoplaydi. `(userId, reservedUntil)`: foydalanuvchining hali band so‘rovlarini sanash
+(suiisteʼmolga qarshi limitlar). Kunlik so‘rovlar soni oldindan bor `(userId, createdAt)` bilan. Rejadagi
+`(cardId, status, amountTiyin)` va `(cardId, status, paidAt)` indekslari qo‘shilmadi: holatga emas, muddatga qarab o‘qiladi.
 
-- **M1. Ledger yordamchilari faqat tranzaksiyada.** `Prisma.TransactionClient` tipi ildiz klientga ham mos keladi, shuning uchun
-  `lockWallet(prisma, id)` kompilyatsiya bo‘ladi, lekin qulf darhol bo‘shaydi. `lockWallet` va `appendLedgerEntry` ildiz klient kelsa
-  `NotInTransactionError` tashlaydi. **Farqlovchi belgi — `'$connect' in tx`**: Prisma 7.10.1 ish vaqtida tranzaksiya klienti
-  `$connect, $disconnect, $on, $use, $extends` ni yashiradi. `'$transaction' in tx` ishlatib bo‘lmaydi: tranzaksiya klientida u ish
-  vaqtida mavjud (faqat tipda yo‘q). Ikkala fakt testda qayd etilgan (`ledger.e2e.test.ts`), Prisma yangilansa test yiqiladi. `sumBalance`
-  oddiy o‘qish, ildiz klientni ham qabul qiladi.
-- **M2. Karta qabul paytida.** Listener `BankMessage` ni INSERT qiladigan tranzaksiyada `cardId` ni yozadi (`docs/05` §6.3). `BEFORE INSERT`
-  trigger `BankMessage_card_guard` (`GG003`): karta banki xabar manbasiga mos (`HUMO_BOT`→`HUMO`, `UZCARD_BOT`→`UZCARD`), `card.last4 = last4`
-  (`last4` yo‘q xabarga karta yozilmaydi), `RETIRED` karta faqat shu `(bank, last4)` da faol karta bo‘lmasa qabul qilinadi. `cardId = NULL`
-  doim mumkin (`CARD_UNKNOWN`); mavjud bo‘lmagan karta FK xatosini beradi. Sabab: `BankMessage` append-only, noto‘g‘ri `cardId`
-  tuzatilmaydi va boshqa kartaning balans zanjirini buzardi.
-- **M5. `PaymentIntent` ga `BEFORE UPDATE` qo‘riqchi** (`PaymentIntent_p2p_guard`, `GG001`, faqat P2P). `id, userId, provider, cardId, amountTiyin,
-baseAmountTiyin, createdAt, expiresAt` o‘zgarmaydi. Holat grafi `intent-state.ts` bilan bir xil: `PENDING→PAID|EXPIRED|CANCELLED`,
-  `EXPIRED→PAID`, `CANCELLED→PAID`, `PAID` yakuniy (test har juftni `intentTransitionRefusal` bilan solishtiradi). `reservedUntil` va `paidAt`
-  faqat `PAID` ga o‘tishda o‘zgaradi, `reservedUntil` faqat oshadi (**m8: `GREATEST(eski, paidAt + grace)`**; qisqarsa EXCLUDE hali qarz
-  bo‘lgan summani bo‘shatib yuborardi). 4-migratsiyada bu «kamaymasin» edi; 5-migratsiyada aniq tenglikka keltirildi (pastda N1). `payTokenHash` va `updatedAt` o‘zgaruvchan (`POST /pay-link` tokenni almashtiradi). Trigger bilmaydigan
-  ikki qoida `assertIntentTransition` da qoladi: grace (voqea vaqti kerak) va `CANCELLED→PAID` faqat ega (aktor kerak).
-- **m1.** `PaymentIntent_base_positive_check`: `baseAmountTiyin IS NULL OR > 0` (`% 100000 = 0` ni 0 ham qanoatlantirardi).
-- **m2.** `BankMessageOutcome`: `CREDITED` ⇔ `paymentId`; `REVIEW` ⇒ `reviewId`; ikkala havola FK (Restrict).
-- **m3.** `RESOLVED` review'da `resolvedAuditLogId` majburiy va FK → `AuditLog`.
-- **m4.** `docs/05` §6 va `REVIEW_KINDS` bo‘yicha hamma review turi bank xabarini qayta ishlashdan chiqadi (kunlik solishtirish alert beradi,
-  review emas) → `PaymentReview.bankMessageId NOT NULL`; xabarsiz tur yo‘q, shuning uchun boshqa idempotentlik kaliti kerak emas.
-- **m5.** `Payment_consistency_guard` (`BEFORE INSERT OR UPDATE OF intentId, userId, provider, bankMessageId, amountTiyin`, `GG004`): intent
-  to‘lovi intent egasiniki; `P2P_CARD` to‘lovi — `PARSED` `CREDIT` xabar va summasi xabar summasiga aynan teng. **Og‘ish:** kompozit FK
-  `(intentId, userId)` o‘rniga trigger: Prisma qisman nullable kompozit relation'ni modellay olmaydi, xom FK esa har `migrate dev` da drift
-  bo‘lib ko‘rinardi.
-- **n1.** `TopupCard_verified_check`: `status IN ('VERIFYING','RETIRED') OR verifiedAt IS NOT NULL`.
+**Trigger `PaymentIntent_p2p_guard`** (`ggpin_payment_intent_guard()`, `BEFORE UPDATE`, `GG001`; faqat eski yoki yangi
+`provider = P2P_CARD` qatorlar, M5 → N1/N5 → Y5):
 
-**Ikkinchi review tuzatishlari: 5-migratsiya `20261105160000_p4_wallet_p2p_guards`** (4-migratsiya qo‘llangani uchun tahrirlanmadi: to‘rt trigger
-funksiyasi `CREATE OR REPLACE` bilan almashtirildi, triggerlar o‘sha funksiyalarga qarab turaveradi; bitta yangi trigger; ikkita indeks). Yangi
-SQLSTATE: **`GG005`** — `BankMessageOutcome` boshqa bank xabariga tegishli to‘lov yoki review'ni nomlaydi.
+1. O‘zgarmas: `id, userId, provider, cardId, amountTiyin, baseAmountTiyin, createdAt, expiresAt`.
+2. Holat grafi `intent-state.ts` bilan bir xil: `PENDING → PAID | EXPIRED | CANCELLED`, `EXPIRED → PAID`,
+   `CANCELLED → PAID`, `PAID` yakuniy (test har juftni `intentTransitionRefusal` bilan solishtiradi). Trigger bilmaydigan
+   ikki qoida `assertIntentTransition` da: grace (voqea vaqti kerak) va `CANCELLED → PAID` faqat audit qilingan admin
+   (aktor kerak).
+3. `PAID` ga o‘tishda: `paidAt` va `reservedUntil` NOT NULL; `paidAt` ∈ [`createdAt − 5 daqiqa`; UTC `now() + 5 daqiqa`];
+   `reservedUntil` chekli va **aynan** `GREATEST(OLD.reservedUntil, NEW.paidAt + (OLD.reservedUntil − OLD.expiresAt))`.
+   Trigger qiymatni yozmaydi, faqat boshqasini rad etadi: kalta qiymat hali qarz bo‘lgan summani bo‘shatadi, uzun yoki
+   `infinity` summani kartada abadiy band qiladi. TS formulasi (`reservedUntilWhenPaid`) shu bilan bir xil (Y1;
+   `payment-intent-guard.e2e.test.ts` triggerni shu funksiya natijasi bilan sinaydi).
+4. Boshqa har UPDATE'da `reservedUntil` va `paidAt` o‘zgarmaydi (masalan `EXPIRED`/`CANCELLED` ga o‘tishda).
+5. Trigger tekshirmaydigan ustunlar: `payTokenHash` (token almashadi), `updatedAt`, shuningdek `purpose`, `quoteId`,
+   `idempotencyKey`, `requestHash`.
 
-- **N1 + N5. `PaymentIntent_p2p_guard`: `PAID` ga o‘tishda band muddati aniq formula bilan.** Trigger qiymatni **yozmaydi**, faqat boshqa qiymatni
-  rad etadi (`GG001`): `reservedUntil = GREATEST(OLD.reservedUntil, NEW.paidAt + (OLD.reservedUntil − OLD.expiresAt))`; `grace` — yaratilishda
-  qo‘yilgan `reservedUntil − expiresAt` farqi (S6 shu formulani o‘zi hisoblaydi). Sabab: kalta qiymat hali qarz bo‘lgan summani bo‘shatib yuboradi;
-  uzun yoki `infinity` qiymat summani kartada abadiy band qiladi. Qo‘shimcha: `paidAt` `createdAt − 5 daqiqa … now() + 5 daqiqa` oralig‘ida
-  (`2000-01-01` ham, uzoq kelajak ham rad), `reservedUntil` chekli, `paidAt` va `reservedUntil` ikkalasi ham bir UPDATE'da beriladi. **`paidAt` nima?**
-  `docs/05` buni aniq aytmaydi (bank vaqti yoki yozish vaqti), shuning uchun oraliq ikkalasini ham qabul qiladi: bank vaqti daqiqagacha kesiladi va
-  bank soati bizdan farq qiladi (`createdAt − 120 s` qoidasi ham shu oraliqqa sig‘adi), yozish vaqti esa `now()` dan oshmaydi.
-- **N2. `Payment_consistency_guard`: so‘rovli P2P to‘lov — shu so‘rovning kartasi va summasi** (`GG004`). `intentId` bor `P2P_CARD` to‘lovda:
-  `intent.provider = 'P2P_CARD'`, `intent.cardId` = xabar `cardId` (xabarda karta `NULL` bo‘lsa mos kelmaydi), `intent.amountTiyin` = xabar summasi.
-  Aks holda to‘lov boshqa kartaga yoki boshqa summaga kelgan pulni A foydalanuvchining so‘rovi deb yozardi. Natija: `review:credit --intent` faqat
-  karta va summa aynan mos bo‘lsa ishlaydi; qolgan hamma holatda `--user` (so‘rovsiz, `reviewId` bilan).
-- **N3. `BankMessage_card_guard`: «eng oxirgi RETIRED».** Bir `(bank, last4)` da bir nechta `RETIRED` karta bo‘lsa, xabar `retiredAt` eng
-  kattasiga yozilishi shart (`GG003`); eskisiga yozish rad etiladi.
-- **N4. `BankMessageOutcome_links_guard` (`BEFORE INSERT`, `GG005`):** `paymentId` ko‘rsatgan `Payment.bankMessageId` va `reviewId` ko‘rsatgan
-  `PaymentReview.bankMessageId` outcome'ning o‘z `bankMessageId` siga teng bo‘lsin. Outcome bir marta yoziladi, noto‘g‘ri havolani keyin
-  tuzatib bo‘lmaydi. Mavjud bo‘lmagan qator FK'ga qoldiriladi.
-- **N6. `RETIRED` — yakuniy holat.** `TopupCard` triggeri (`GG001`): `RETIRED` dan boshqa holatga o‘tish yo‘q, `retiredAt` o‘rnatilgach o‘zgarmaydi
-  (aks holda «eng oxirgi RETIRED» qoidasi ostidagi xabarlar jimgina boshqa kartaga o‘tib qolardi). Qolgan holatlarning to‘liq grafi karta puli
-  (S4) ishi; `RETIRED` kartada limit va pauza belgisi o‘zgara oladi.
-- **N7.** Indekslar: `BankMessageOutcome(reviewId)`, `PaymentReview(resolvedAuditLogId)` (FK'lar indekssiz edi).
-- **N9.** Karta triggerida bank enum tipida solishtiriladi (`t.bank = card.bank`, `::text` emas), shuning uchun `(bank, last4)` indekslaridan foydalaniladi.
-- **N8** (`docs/05` §7): `UNRECOGNIZED`/`REJECTED` xabar `review:credit` bilan pulga aylanmaydi (u `PARSED CREDIT` xabar talab qiladi, `GG004`);
-  bunday pul faqat `wallet:adjust` orqali.
-- **Qoldirildi (keyingi provayder):** `PaymentIntent` triggeri faqat P2P qatorlarni qo‘riqlaydi; P2P bo‘lmagan so‘rovda `userId` o‘zgarishi hozircha
-  to‘silmagan (Click/Payme qo‘shilganda o‘sha provayderning qoidalari bilan birga).
+- **`paidAt` nima?** `docs/05` aniq aytmaydi (bank vaqti yoki yozish vaqti), shuning uchun oraliq ikkalasini qabul qiladi:
+  bank vaqti daqiqagacha kesiladi va bank soati bizdan farq qiladi, yozish vaqti esa `now()` dan oshmaydi.
+- **Muddati o‘tgani:** `expireOverdueTopups` (`@repo/db`) — `PENDING → EXPIRED`, sharti `expiresAt <= now`; `reservedUntil` ga
+  tegmaydi va karta qulfini olmaydi. API har o‘qish/yozishdan oldin, worker `topup-expire` sweep'i har daqiqada chaqiradi.
+- **Qoldirildi (keyingi provayder):** trigger faqat P2P qatorlarni qo‘riqlaydi; P2P bo‘lmagan so‘rovda `userId` o‘zgarishi
+  hozircha to‘silmagan (Click/Payme qo‘shilganda o‘sha provayder qoidalari bilan birga).
 
-**Uchinchi review tuzatishlari: 6-migratsiya `20261105200000_p4_wallet_p2p_immutables`** (5-migratsiya qo‘llangani uchun tahrirlanmadi; ikki trigger
-funksiyasi `CREATE OR REPLACE`, ikki yangi trigger; jadval va ustun o‘zgarishi yo‘q).
+### `Payment` — tasdiqlangan to‘lov
 
-- **Y1. Band muddati formulasi TS bilan bir xil.** `packages/shared/src/payments/intent-state.ts` da `intentReservedUntil` (PAID uchun `paidAt + grace` bergan,
-  DB esa buni rad etardi: 30 daqiqa ichida to‘langan oddiy `PENDING` ham `GG001` olardi) o‘chirildi; o‘rniga `reservedUntilAtCreation(expiresAt, graceSec)`
-  (`expiresAt + grace`) va `reservedUntilWhenPaid({ expiresAt, reservedUntil }, paidAt)` (`GREATEST(reservedUntil, paidAt + (reservedUntil − expiresAt))`).
-  `payment-intent-guard.e2e.test.ts` triggerni shu funksiya natijasi bilan sinaydi (oyna ichida, chegarada, 1 ms keyin, kech to‘lov).
-- **Y2. `Payment` va `PaymentReview` o‘zgarmas ustunlari** (`GG001`). `Payment`: `intentId, userId, provider, providerTxnId, amountTiyin, bankMessageId,
-reviewId` INSERT'dan keyin o‘zgarmaydi (aks holda TOPUP yozuvi `PAYMENT/<id>` uni asoslovchi qatordan ajralib qolardi); `status`, `cancelledAt`,
-  `confirmedAt`, `raw` o‘zgaruvchan (`CONFIRMED → CANCELLED` reversali). `PaymentReview`: `bankMessageId` va `kind` o‘zgarmas (ular idempotentlik kaliti);
-  holat, hal qilish maydonlari, `cardId`/`intentId`, `note` o‘zgaruvchan. Hozirgi yozuvchilar tekshirildi: faqat `cancelConfirmedPayment` (`status`, `cancelledAt`)
-  INSERT'dan keyin yozadi; `review:credit` `reviewId` ni INSERT'da beradi.
-- **Y3.** Intent'i bor har qanday `Payment` shu intent'ning `provider` iga ega bo‘lishi shart (`GG004`; Click to‘lovi `P2P_CARD` so‘roviga yoki aksincha — yo‘q).
-- **Y4.** «Eng oxirgi `RETIRED`» tenglikda `(retiredAt, id)` bo‘yicha: bir millisekundda ikki karta `RETIRED` bo‘lsa, id kattasi tanlanadi.
-- **Y5.** Intent triggerida `intent_found := FOUND` darhol `SELECT … INTO` dan keyin (avval `INTO` qator topilmasa NULL yozishiga tayanardi).
+| O‘zgarish       | Qoida                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `intentId`      | endi nullable: review'dan (so‘rovsiz) yozilgan to‘lovda yo‘q                                            |
+| `userId`        | yangi, NOT NULL, FK → `User` (Restrict), indeks `(userId, createdAt)`; `User.payments` — teskari tomoni |
+| `bankMessageId` | yangi, `@unique`, FK → `BankMessage`: P2P to‘lov qaysi bank xabaridan (P2P idempotentlik kaliti)        |
+| `reviewId`      | yangi, `@unique`, FK → `PaymentReview`: egasi review'dan yozgan to‘lov                                  |
+| `providerTxnId` | P2P'da `"<senderId>:<tgMessageId>"` (moslovchi ham, `review:credit` ham shu formatda)                   |
 
-**Isbot** (`packages/db/test/*.e2e.test.ts`): `check-constraints-topup-card`, `check-constraints-intent` (CHECK matritsalari, partial unique'lar;
-m9: `PENDING` unique yolg‘iz o‘zi `P2002` beradi), `payment-intent-guard` (M5, har ruxsat va rad), `payment-reservation` (H1, parallel INSERT'lar),
-`bank-message` (BankMessage, matn tozalash, M2), `payment-review` (review va outcome), `payment-consistency` (Payment, m5, N2, bir xabarga parallel
-to‘lov, `GG002` qo‘riqchisi), `ledger` (qulf, M1, 2^53 dan katta summa), `schema` (haqiqiy `pg_enum`); unit: `src/payments-enums.test.ts`,
-`src/schema.test.ts`.
+P2P to‘lovi darhol `CONFIRMED` (`confirmedAt` bilan) yoziladi; reversal (`payment:reverse`) `CONFIRMED → CANCELLED` va
+`cancelledAt` ni yozadi.
 
-**7-migratsiya `20261107090000_p4_bank_message_card_date_index`** (S6, D-43 (2); faqat qo‘shimcha, qo‘llangan migratsiyalar tahrirlanmadi):
-`BankMessage(cardId, tgDate)` indeksi. Karta sig‘imi so‘rovi (`cardTotals`, `packages/db/src/payments/card-totals.ts`) PARSED kirimlarni karta va
-`tgDate >= verifiedAt` / oy boshi bo‘yicha yig‘adi; API (taqsimlovchi, karta buyruqlari, notify renderer) va worker (80% alert, `ACTIVE → FULL`,
-`lateOverLimit`) shu bitta so‘rovni ishlatadi. Zanjir so‘rovi avvalgidek `(cardId, tgMessageId)` indeksida.
+- **CHECK:** `Payment_amount_check` (2-migratsiya, > 0); `Payment_source_check` (`intentId` yoki `reviewId` bor);
+  `Payment_p2p_check` (P2P'da `bankMessageId` majburiy).
+- **Unique:** `(provider, providerTxnId)`, `bankMessageId`, `reviewId`.
+- **Trigger `Payment_consistency_guard`** (`ggpin_payment_consistency_guard()`, `BEFORE INSERT OR UPDATE OF intentId, userId,
+provider, bankMessageId, amountTiyin`, `GG004`; m5 → N2 → Y3/Y5):
+  - intent to‘lovi intent egasiniki (`intent.userId = userId`) va intent provayderiga ega (`intent.provider = provider`;
+    Click to‘lovi `P2P_CARD` so‘roviga yoki aksincha — yo‘q);
+  - `P2P_CARD` to‘lovi — `PARSED` `CREDIT` bank xabari, summasi xabar summasiga aynan teng (N8: `UNRECOGNIZED`/`REJECTED`
+    xabar `review:credit` bilan pulga aylanmaydi, bunday pul faqat `wallet:adjust` orqali);
+  - so‘rovli P2P to‘lov — so‘rovning kartasi va summasi: `intent.cardId = xabar.cardId` (xabarda karta NULL bo‘lsa mos
+    kelmaydi) va `intent.amountTiyin = xabar summasi`. Shuning uchun `review:credit --intent` faqat aynan moslikda ishlaydi,
+    qolgan hamma holatda `--user` (so‘rovsiz, `reviewId` bilan).
+  - **Og‘ish:** kompozit FK `(intentId, userId)` o‘rniga trigger — Prisma qisman nullable kompozit relation'ni modellay
+    olmaydi, xom FK esa har `migrate dev` da drift bo‘lib ko‘rinardi.
+- **Trigger `Payment_immutable_guard`** (`ggpin_payment_immutable_guard()`, `BEFORE UPDATE`, `GG001`, Y2): `intentId, userId,
+provider, providerTxnId, amountTiyin, bankMessageId, reviewId` INSERT'dan keyin o‘zgarmaydi (aks holda
+  `TOPUP PAYMENT/<id>` yozuvi uni asoslovchi qatordan ajralib qolardi). O‘zgaruvchan: `status`, `confirmedAt`,
+  `cancelledAt`, `raw`, `updatedAt`.
+
+### `BankMessage` — bank bot xabari
+
+Append-only (`updatedAt` yo‘q). **Xom matn bu yerda yo‘q** — faqat `textSha256` (L9); matn `BankMessageText` da.
+
+| Ustun                     | Tur                     | Izoh                                                                                                                                                          |
+| ------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source`                  | `BankFeedSource`        | qaysi bank boti                                                                                                                                               |
+| `senderId`, `tgMessageId` | `BigInt`                | Telegram jo‘natuvchi va xabar id; juftligi unique                                                                                                             |
+| `tgDate`                  | `DateTime`              | Telegram'dagi xabar vaqti                                                                                                                                     |
+| `textSha256`              | `String`                | xom matn xeshi                                                                                                                                                |
+| `parseStatus`             | `BankParseStatus`       |                                                                                                                                                               |
+| `rejectReason`            | `String?`               | faqat kod: `PARSE_FAILURE_REASONS` yoki `INGEST_REJECT_REASONS` (`packages/shared/src/payments/bank-parse.ts`); matn bo‘lagi, summa, karta raqami hech qachon |
+| `parserVersion`           | `Int`                   |                                                                                                                                                               |
+| `direction`               | `BankDirection?`        |                                                                                                                                                               |
+| `amountTiyin`             | `BigInt?`               | `PARSED` da > 0                                                                                                                                               |
+| `balanceAfterTiyin`       | `BigInt?`               | balans zanjiri uchun                                                                                                                                          |
+| `last4`                   | `String?`               | `PARSED` da 4 raqam                                                                                                                                           |
+| `cardId`                  | `String?` → `TopupCard` | qabul paytida yoziladi; NULL — karta nomaʼlum (`CARD_UNKNOWN`)                                                                                                |
+| `bankTxnAt`               | `DateTime?`             | bank chop etgan amal vaqti                                                                                                                                    |
+| `channel`                 | `String?`               | to‘lov kanali satri                                                                                                                                           |
+
+- **CHECK:** `BankMessage_parsed_check` (`PARSED` da `direction`, `amountTiyin` > 0, `balanceAfterTiyin`, `last4 ~ '^[0-9]{4}$'`,
+  `bankTxnAt` majburiy); `BankMessage_reason_check` (`PARSED` bo‘lmasa `rejectReason` bo‘sh emas, `UNRECOGNIZED` ham).
+- **Unique:** `(senderId, tgMessageId)` — qayta o‘qilgan xabar ikki marta saqlanmaydi.
+- **Indekslar:** `(cardId, tgMessageId)` — balans zanjiri; `(cardId, tgDate)` — karta sig‘imi (`cardTotals`: karta bo‘yicha
+  `PARSED CREDIT` yig‘indisi `verifiedAt` dan va oy boshidan; API taqsimlovchisi, karta buyruqlari, notify renderer va
+  worker — 80% alert, `ACTIVE → FULL`, kech limit oshishi — shu bitta so‘rovni ishlatadi; 7-migratsiya, D-42, D-43);
+  `(createdAt)`.
+- **Trigger `BankMessage_append_only`** (`ggpin_forbid_mutation()`, `BEFORE UPDATE OR DELETE`, `GG001`).
+- **Trigger `BankMessage_card_guard`** (`ggpin_bank_message_card_guard()`, `BEFORE INSERT`, `GG003`; M2 → N3/N9 → Y4).
+  Listener `cardId` ni xabarni INSERT qiladigan tranzaksiyada yozadi (`docs/05` §6.3); `BankMessage` append-only, noto‘g‘ri
+  `cardId` tuzatilmaydi va boshqa kartaning balans zanjirini buzardi. Qoidalar: `cardId = NULL` doim mumkin; karta banki
+  manbaga mos (`HUMO_BOT → HUMO`, `UZCARD_BOT → UZCARD`); `card.last4 = last4` (`last4` siz xabarga karta yozilmaydi);
+  `RETIRED` karta faqat shu `(bank, last4)` da tirik karta bo‘lmasa va u `(retiredAt, id)` bo‘yicha eng oxirgi `RETIRED`
+  bo‘lsa. Bank `CardBank` enum tipida solishtiriladi (`::text` emas), shuning uchun `(bank, last4)` indekslari ishlaydi.
+  Mavjud bo‘lmagan karta — FK xatosi.
+
+### `BankMessageText` — xom matn (E-25: 1 yil)
+
+`bankMessageId` (PK + FK → `BankMessage`), `text String?`, `purgeAfter`, `createdAt`; `updatedAt` yo‘q; indeks `purgeAfter`.
+`BankMessage` append-only bo‘lgani uchun matn alohida jadvalda — muddati o‘tgach o‘chiriladi. Listener
+`purgeAfter = qabul vaqti + 365 kun` yozadi. Bank botining so‘zi bo‘lmagan xabar (`FOREIGN_CHAT`, `FOREIGN_SENDER`,
+`NOT_BOT`) uchun qator umuman yaratilmaydi — faqat `textSha256` qoladi.
+
+- **Trigger `BankMessageText_guard`** (`ggpin_bank_message_text_guard()`, `BEFORE UPDATE OR DELETE`, `GG001`): yagona ruxsat —
+  `text` NULL bo‘lmagan qatorda uni NULL qilish, `timezone('UTC', now()) >= purgeAfter` bo‘lganda va qolgan ustunlar
+  o‘zgarmagan holda. `purgeAfter` UTC `timestamp` (Prisma), shuning uchun `now()` avval UTC'ga o‘tkaziladi; aks holda
+  solishtirish seans vaqt mintaqasiga bog‘liq bo‘lardi. Boshqa har UPDATE (matnni qayta yozish, NULL'dan tiklash,
+  `purgeAfter` ni surish) va har DELETE rad etiladi.
+- Tozalash so‘rovi trigger ruxsat beradigan shaklda bo‘lishi kerak:
+  `UPDATE "BankMessageText" SET "text" = NULL WHERE "purgeAfter" <= timezone('UTC', now()) AND "text" IS NOT NULL`.
+  Bunday worker sweep hozirgi kodda **hali yo‘q** (birinchi qatorlar `purgeAfter` iga 1 yildan keyin yetadi).
+
+### `BankMessageOutcome` — xabarni qayta ishlash natijasi
+
+`bankMessageId` (`@unique`, FK), `chainStatus ChainStatus`, `outcome BankOutcome`, `paymentId` (`@unique`, FK → `Payment`),
+`reviewId` (FK → `PaymentReview`, indeks N7, unique emas), `createdAt`. Bir xabar — bitta natija; bir to‘lov — bitta natija.
+
+- **CHECK:** `BankMessageOutcome_payment_check` (`CREDITED` ⇔ `paymentId`); `BankMessageOutcome_review_check`
+  (`REVIEW` ⇒ `reviewId`) (m2).
+- **Trigger `BankMessageOutcome_append_only`** (`ggpin_forbid_mutation()`, `GG001`): bir marta yoziladi.
+- **Trigger `BankMessageOutcome_links_guard`** (`BEFORE INSERT`, `GG005`, N4): `paymentId` nomlagan `Payment.bankMessageId` va
+  `reviewId` nomlagan `PaymentReview.bankMessageId` outcome'ning o‘z `bankMessageId` siga teng. Mavjud bo‘lmagan qator FK'ga
+  qoldiriladi.
+
+### `PaymentReview` — egasi tekshiradigan navbat
+
+| Ustun                | Tur                        | Qoida                                                                                      |
+| -------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
+| `kind`               | `PaymentReviewKind`        | o‘zgarmas                                                                                  |
+| `status`             | `PaymentReviewStatus`      | standart `OPEN`                                                                            |
+| `bankMessageId`      | `String` → `BankMessage`   | **NOT NULL** (m4: har tur bank xabarini qayta ishlashdan chiqadi, `docs/05` §6); o‘zgarmas |
+| `cardId`, `intentId` | `String?` (FK)             | ko‘rsatma; o‘zgaruvchan                                                                    |
+| `resolution`         | `PaymentReviewResolution?` | `RESOLVED` ⇔ bor                                                                           |
+| `resolvedAt`         | `DateTime?`                | `RESOLVED` ⇔ bor                                                                           |
+| `resolvedAuditLogId` | `String?` → `AuditLog`     | `RESOLVED` ⇔ bor (m3): egasi qarorining audit qatori                                       |
+| `note`               | `String?`                  | kod, `REVIEW_NOTE_CODES` (`bank-parse.ts`) dan                                             |
+
+- **Unique:** `(bankMessageId, kind)` — to‘liq idempotentlik kaliti (xabarsiz review turi yo‘q).
+- **Indekslar:** `(status, createdAt)`, `cardId`, `intentId`, `resolvedAuditLogId` (N7).
+- **CHECK:** `PaymentReview_resolved_check` (`RESOLVED` ⇔ `resolution` **va** `resolvedAt`; `OPEN` da ikkalasi yo‘q);
+  `PaymentReview_audit_check` (`RESOLVED` ⇔ `resolvedAuditLogId`).
+- **Trigger `PaymentReview_immutable_guard`** (`BEFORE UPDATE`, `GG001`, Y2): `bankMessageId` va `kind` o‘zgarmaydi.
+  Holat, hal qilish maydonlari, `cardId`/`intentId`, `note` o‘zgaruvchan.
+- `note` kodlari: `TITLE_UNKNOWN`, `REPARSE_MISMATCH`, `TEXT_MISSING`, `PREDECESSOR_PENDING`, `DAILY_LIMIT`,
+  `NEW_ACCOUNT_DAILY_LIMIT`, `AMOUNT_REALLOCATED`, `SENDER_MISMATCH`, `TEXT_HASH_MISMATCH`, `PROCESSING_FAILED`, `LATE_STORED`,
+  `MANUAL_CREDIT_SEEN` (oxirgi ikkisi `AMBIGUOUS` turi bilan, D-47).
+- Yechim va audit amali: `CREDITED_USER` ← `REVIEW_CREDIT`, `IGNORED` ← `REVIEW_IGNORE`, `RETURNED_OFFLINE` ←
+  `REVIEW_RETURNED_OFFLINE`, `CHAIN_ACCEPTED` ← `REVIEW_ACCEPT_CHAIN`.
+
+### `BankFeedCursor`
+
+`source BankFeedSource` (PK), `lastMessageId BigInt`, `createdAt`, `updatedAt`. Har manba uchun oxirgi saqlangan xabar id;
+listener so‘rovi shu yerdan davom etadi. Xabar bilan bitta tranzaksiyada `INSERT … ON CONFLICT DO UPDATE SET lastMessageId =
+GREATEST(eski, yangi)` bilan yoziladi: tarixni qayta ko‘rish kursorni orqaga surmaydi (DB'da trigger emas, yozuvchida).
+
+### Hamyon: `User`, `Wallet`, `LedgerEntry`, `AuditLog` (DDL o‘zgarmagan)
+
+4-faza bu jadvallarga ustun qo‘shmadi; quyidagilar 1–2-migratsiyalardan bor va endi ishlatiladi:
+
+- **`LedgerEntry`:** `TOPUP` (+) — `PAYMENT/<Payment.id>`; `TOPUP_REVERSAL` (−) — `PAYMENT/<Payment.id>` (reversal ham shu
+  to‘lovga, shuning uchun bir to‘lovga bitta reversal); `ADJUSTMENT` (±) — `ADMIN_ACTION/<AuditLog.id>`. `refType` ga DB
+  CHECK yo‘q: qiymatlar `LEDGER_REF_TYPES` (`@repo/db`) bilan TS'da cheklanadi.
+- **`User.purchaseFrozen`:** reversaldan keyin balans manfiy bo‘lsa `true` qilinadi (`false → true` o‘tishi alert beradi);
+  faqat egasi `user:unfreeze` bilan tushiradi (D-41).
+- **`Wallet`:** qator foydalanuvchi yaratilganda (`createMany … skipDuplicates`) qo‘shiladi; har pul harakati
+  `lockWallet` (`SELECT … FOR UPDATE`) ostida.
+- **`AuditLog`** (append-only). `actorType` matn ustun (sxema izohida `ADMIN | SYSTEM`), 4-fazada yangi qiymat — `CLI`
+  (ega CLI'si) — DDL yo‘q. CLI qatori: `actorType = 'CLI'`, `actorId = NULL`, operator `after.operator` da (OS login —
+  `after.osUser`), `reason` majburiy.
+
+  | `action`                                                                                      | `targetType`          | Kim               |
+  | --------------------------------------------------------------------------------------------- | --------------------- | ----------------- |
+  | `CARD_ADD`, `CARD_LIMIT`, `CARD_PAUSE`, `CARD_RESUME`, `CARD_RETIRE`, `CARD_RETIRE_EMERGENCY` | `TopupCard`           | CLI               |
+  | `REVIEW_CREDIT`, `REVIEW_IGNORE`, `REVIEW_RETURNED_OFFLINE`, `REVIEW_ACCEPT_CHAIN`            | `PaymentReview`       | CLI               |
+  | `WALLET_ADJUST`, `USER_UNFREEZE`                                                              | `User`                | CLI               |
+  | `PAYMENT_REVERSE`                                                                             | `Payment`             | CLI               |
+  | `PAYMENT_RECONCILE` (`targetId` = Toshkent kuni `yyyymmdd`)                                   | `PaymentReconcileDay` | `SYSTEM` (worker) |
+
+### `@repo/db` yordamchilari
+
+Pul va karta qoidalari bitta joyda — API va worker bir xil so‘rovni ishlatadi:
+
+- `packages/db/src/ledger/`: `lockWallet(tx, userId)` (`Wallet` qatorida `FOR UPDATE`; qator yo‘q — `WalletNotFoundError`),
+  `appendLedgerEntry(tx, entry)` (takror `(refType, refId, kind)` → `P2002`, noto‘g‘ri ishora → `LedgerEntry_amount_sign_check`),
+  `sumBalance(tx, userId)` (`0n` agar yozuv yo‘q). **M1:** `lockWallet` va `appendLedgerEntry` ildiz klient kelsa
+  `NotInTransactionError` tashlaydi. Farqlovchi belgi — `'$connect' in tx` (Prisma 7.10.1 tranzaksiya klientida
+  `$connect, $disconnect, $on, $use, $extends` yo‘q; `$transaction` esa ish vaqtida bor, shuning uchun u yaramaydi). Ikkala
+  fakt `ledger.e2e.test.ts` da; Prisma yangilansa test yiqiladi. `sumBalance` ildiz klientni ham qabul qiladi.
+- `packages/db/src/payments/`: `lockTopupCard` (karta advisory qulfi, faqat tranzaksiyada), `cardTotals` (karta sig‘imi,
+  D-42 (1)), `expireOverdueTopups`, `usedTopupBaseSince` (kunlik limit uchun asosiy summalar: `PAID` — `paidAt` bo‘yicha,
+  `PENDING` — `createdAt` bo‘yicha), `manualCreditsSince` / `hasManualCredit` (D-47 R1: musbat `ADJUSTMENT` va `reviewId` li
+  to‘lovlarning `TOPUP` yozuvlari), `AUTO_CREDIT_HORIZON_MS` (7 kun).
+
+### Isbot
+
+`packages/db/test/*.e2e.test.ts`: `check-constraints-topup-card`, `check-constraints-intent` (CHECK matritsalari, partial
+unique'lar; m9: `PENDING` unique yolg‘iz o‘zi `P2002` beradi), `payment-intent-guard` (har ruxsat va rad, Y1 formulasi),
+`payment-reservation` (H1, parallel INSERT'lar), `bank-message` (`BankMessage`, matn tozalash, karta qo‘riqchisi), `payment-review`
+(review va outcome), `payment-consistency` (m5, N2, Y3, bir xabarga parallel to‘lov, `GG002` qo‘riqchisi),
+`payment-immutables` (Y2), `ledger` (qulf, M1, 2^53 dan katta summa), `schema` (haqiqiy `pg_enum`); unit:
+`src/payments-enums.test.ts`, `src/schema.test.ts`, `src/payments/card-lock.test.ts`.
 
 ## Seed (boshlang‘ich ma’lumotlar)
 
@@ -483,10 +660,13 @@ to‘lov, `GG002` qo‘riqchisi), `ledger` (qulf, M1, 2^53 dan katta summa), `sc
 
 ## Nima qayerda hisoblanadi
 
-| Ko‘rsatkich              | Qayerda                                                                     |
-| ------------------------ | --------------------------------------------------------------------------- |
-| Balans                   | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh                    |
-| Keshbek tangalari        | `SUM(CoinEntry.coins)`                                                      |
-| Referal daromadi         | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)`                                |
-| Buyurtma foydasi (admin) | `priceTiyin − discountTiyin − costMinor × fx` (buyurtmadagi snapshot bilan) |
-| Hot wallet balansi       | worker, zanjirdan + `WalletSnapshot`                                        |
+| Ko‘rsatkich              | Qayerda                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| Balans                   | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh                         |
+| Keshbek tangalari        | `SUM(CoinEntry.coins)`                                                           |
+| Referal daromadi         | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)`                                     |
+| Buyurtma foydasi (admin) | `priceTiyin − discountTiyin − costMinor × fx` (buyurtmadagi snapshot bilan)      |
+| Hot wallet balansi       | worker, zanjirdan + `WalletSnapshot`                                             |
+| Karta sig‘imi (P2P)      | `cardTotals` (`@repo/db`): `PARSED CREDIT` xabarlar + band to‘lanmagan so‘rovlar |
+| Kunlik to‘ldirish limiti | `usedTopupBaseSince` (`@repo/db`): `baseAmountTiyin` yig‘indisi                  |
+| Qo‘lda berilgan pul      | `manualCreditsSince` (`@repo/db`): musbat `ADJUSTMENT` + review `TOPUP`          |

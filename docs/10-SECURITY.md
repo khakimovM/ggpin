@@ -55,6 +55,36 @@
 | Bog‘liqlik zaifliklari                                                           | `npm audit`, Dependabot, versiyalarni qotirish                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Fragment/TON ichki API o‘zgarishi                                                | Zod bilan javob tekshiruvi, adapter DOWN → zaxira, ogohlantirish                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
+## 4-bosqich: P2P to‘ldirish qoidalari (qisqa, batafsil — `docs/05`)
+
+- **Bank-feed sessiyasi faqat worker’da.** Ishchi Telegram akkauntining MTProto sessiyasi (`BANK_FEED_SESSION_ENC`) AES-256-GCM bilan shifrlangan
+  holda saqlanadi (kalit `BANK_FEED_ENC_KEY`, production’da Docker secret fayli), faqat worker xotirasida ochiladi, diskka va log’ga yozilmaydi.
+  `BANK_FEED_*` sirlaridan biri API muhitida bo‘lsa API ishga tushmaydi (`packages/shared/src/env-secrets.ts`). API faqat sir bo‘lmagan
+  `BANK_FEED_HEARTBEAT_MAX_AGE_SEC` ni ko‘radi. Log’da bank matni, balans, karta raqami va havola tokeni bo‘lmaydi (docs/05 §4).
+- **Faqat qotirilgan bot chati (FOREIGN_CHAT).** Xabar faqat qotirilgan raqamli bot id’dan, uning shaxsiy chatidan qabul qilinadi. Boshqa chat
+  xabari **umuman saqlanmaydi**, kursorni siljitmaydi va `(senderId, tgMessageId)` kalitini egallamaydi. Bu xavfsizlik hodisasi: log (faqat manba,
+  kod va soatlik son) va manba bo‘yicha soatiga bitta `foreignChat` alerti. Kunlik tarix qayta skanida sahifada boshqa chat xabari chiqsa, manba
+  `failed` (`FOREIGN_CHAT`) bo‘ladi, o‘sha sahifadan hech narsa olinmaydi va o‘sha `foreignChat` alerti ketadi (docs/05 §4, §10).
+- **Havola tokeni (D-39).** 256 bit, DB’da faqat HMAC xeshi (`PAY_TOKEN_PEPPER`), bitta so‘rovga bog‘langan, faqat o‘qish, `expiresAt` gacha;
+  havolada URL **fragmentida** (`/pay/<id>?locale=<uz|ru>#t=<token>`), API’ga `X-Pay-Token` sarlavhasida. Har qanday xato (noto‘g‘ri id ham) bir xil
+  `404`. Token hech qachon log’ga yozilmaydi.
+- **Fail-closed.** Tushunilmagan, rad etilgan, mos kelmagan, noaniq, takroriy, zanjiri uzilgan, kech saqlangan (D-47) xabar, qo‘lda pul berilgandan
+  keyingi xabar (`MANUAL_CREDIT_SEEN`), bloklangan yoki limitdan oshgan foydalanuvchi — hech qachon avtomatik yozilmaydi: review + alert. Xabarning
+  oxirgi urinishi kutilmagan xato bilan tugasa — review `PROCESSING_FAILED`, karta `autoCreditPaused`; review yozib bo‘lmasa `messageStuck`;
+  qaror saqlangan-u, effektlar xato bergan bo‘lsa `effectsFailed`. Ishchi akkauntda noma’lum yangi qurilma = BARCHA kartalarda avtomatik yozish
+  to‘xtaydi. Tarix qayta skani `unavailable` yoki `failed` bo‘lsa, kun hech qachon «farq yo‘q» deb ko‘rsatilmaydi (docs/05 §6, §10).
+- **Ega CLI’si faqat SSH orqali.** Pul va karta amallari faqat VPS’dagi ega CLI’sidan (`apps/api/src/cli/ops-cli.ts`, HTTP yo‘q); admin panelda
+  pul amali hali yo‘q. Har o‘zgartiruvchi buyruqda `--reason` va `--operator` majburiy, `AuditLog` bir tranzaksiyada (`actorType = CLI`,
+  `ip` = SSH mijoz manzili, `after.osUser`), har amaldan keyin `adminAction` alerti. Asosiy nazorat — SSH huquqi faqat egada (D-46).
+- **Owner OTP (D-46).** `ADMIN_CONFIRM_THRESHOLD_TIYIN` dan katta `review:credit`, `wallet:adjust`, `payment:reverse` da summa qayta kiritiladi va
+  ega Telegram’iga (`OWNER_ALERT_CHAT_ID`) bir martalik kod boradi: 3 daqiqa, 5 urinish, amal + summa + target + flag’larga bog‘langan; kod ekranda
+  ko‘rinmaydi, servis uni tranzaksiyadan oldin tekshiradi (`after.otpVerified`). Kod, challenge va binding log’ga yozilmaydi.
+- **`wallet:adjust --confirm-override=<set>` (S9F-L1).** Musbat qo‘lda pul berishdan oldin servis hamyon qulfi ostida oxirgi 7 kundagi avtomatik
+  to‘ldirishlarni o‘qiydi (`AUTO_CREDIT_HORIZON_MS`). Ular bo‘lsa, faqat aynan shu to‘plamning id’si (`recentAutoTopupSet`: barcha to‘lov id’larining
+  sha256 hash’idan 12 belgi) bilan yoziladi: oraliqda yangi to‘lov kelsa eski id yaroqsiz bo‘ladi. Shu bilan bitta pul ikki marta berilmaydi.
+  `review:credit` va `card:resume` dagi `--confirm-override` — qiymatsiz flag. Ledger’dan tashqari (naqd) berilgan pulni tizim ko‘rmaydi:
+  runbook bo‘yicha avval `wallet:adjust` bilan yoziladi (docs/05 §4, §7).
+
 ## Claude Code darajasidagi himoya (ishlab chiqish paytida)
 
 - `.claude/hooks/guard-bash.mjs` — xavfli buyruqlar, sirlarni chiqarish, dry-run'ni o‘chirish,

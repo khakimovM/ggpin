@@ -110,6 +110,11 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 
 ## 4. Xabar manbasi
 
+> **Holat (4-bosqich S11):** qabul filtri va `IngestService` (saqlash, kursor, `bank-message` job), matcher, tarix qayta skani (`BankFeedClient`
+> shartnomasi, hozircha faqat `FakeBankFeedClient`) va kunlik solishtirish **tayyor** (S6, S9). Haqiqiy MTProto tinglovchi (`@mtcute/node`), login
+> CLI, `BANK_FEED_MODE`, sessiya shifri, lider lock, heartbeat yozuvi va `getAuthorizations` kuzatuvi — **S7, hali yo‘q** (ega ruxsati bilan S0 dan
+> keyin). Quyidagi S7 qismlari dizayn; ularning env’lari `apps/worker/.env.example` da izoh sifatida turibdi va kod hali ularni o‘qimaydi.
+
 - **Manba.** Ikki bot: @HUMOcardbot (Humo) va @CardXabarBot (Uzcard). Ularning xabarlarini **bitta alohida ishchi Telegram akkaunti**
   (alohida SIM, 2FA, faqat shu ikki bot, D-37 (1)) oladi; worker shu akkauntning MTProto foydalanuvchi sessiyasi bilan (`@mtcute/node`, D-37 (13))
   botlarning shaxsiy chatini o‘qiydi. Telegram akkauntni cheklash xavfi qabul qilingan; shuning uchun faqat o‘qiladi, chastota past.
@@ -562,7 +567,10 @@ bloklangan foydalanuvchi, kunlik limit (`DAILY_LIMIT`), yaqinda yozilgan to‘lo
 bitta kartada 50 parallel so‘rov → 50 xil summa; band oraliq ustma-ust tushmaydi · ikkinchi kutilayotgan so‘rov rad; 4-so‘rov 3 ta to‘lanmagan bandda rad (PAID sanalmaydi) · kunlik chek chegarasi: aynan 500 000 so‘m ruxsat, 501 000 so‘m `422`, `max` = qolgan limit · pul yozilayotganda ikkala chek qayta tekshiriladi → `DAILY_LIMIT` ·
 FULL/VERIFYING/DRAINING kartaga yo‘naltirilmaydi, FULL/DRAINING kartaga yo‘ldagi to‘lov yoziladi · havola tokeni: begona / eski / rotatsiya qilingan /
 muddati o‘tgan / noto‘g‘ri `intentId` → bir xil 404 · tranzaksiya o‘rtasida xato → hech narsa yozilmaydi · reversal va ADJUSTMENT idempotentligi,
-manfiy balans → `purchaseFrozen` · sessiya satri, matn, karta raqami va token logda yo‘q · worker sirlari API’da bo‘lsa boot rad. Haqiqiy akkaunt va test
+manfiy balans → `purchaseFrozen` · sessiya satri, matn, karta raqami va token logda yo‘q · worker sirlari API’da bo‘lsa boot rad · S9: kech saqlangan
+xabar (`LATE_STORED`), qo‘lda pul berilgandan keyingi xabar (`MANUAL_CREDIT_SEEN`, ikkala poyga tartibi), `wallet:adjust` to‘plam id’si bilan override
+(to‘plam o‘zgarsa rad, chegaradan past ham), yetim qayta navbat, boshqa chat xabari (saqlanmaydi; skan `FOREIGN_CHAT` bilan `failed`), kunlik solishtirish
+(har tekshiruv kodi, `reviewOpenOver24h`, manba sababi), `effectsFailed` / `messageStuck`. Haqiqiy akkaunt va test
 karta bilan sinov — faqat ega ruxsati va ishtirokida (4-bosqich yakunida); shunda Telegram `openLink` fragmentni (`#t=`) Android, iOS va Desktop’da saqlashi ham
 tekshiriladi.
 
