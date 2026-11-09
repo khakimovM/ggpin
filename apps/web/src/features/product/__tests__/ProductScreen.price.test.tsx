@@ -75,7 +75,10 @@ describe('the price', () => {
 });
 
 describe('buying Premium', () => {
-  beforeEach(() => api.getProduct.mockResolvedValue(PREMIUM));
+  // Braces: vitest runs a function returned by beforeEach as a teardown (it would call getProduct).
+  beforeEach(() => {
+    api.getProduct.mockResolvedValue(PREMIUM);
+  });
 
   it('lists the terms as the catalog labels them and quotes the chosen package', async () => {
     const user = userEvent.setup();
