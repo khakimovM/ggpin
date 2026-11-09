@@ -5,12 +5,32 @@ import {
   appendLedgerEntry,
   lockWallet,
   sumBalance,
+  type Tx,
 } from '../src/index';
 import { expectCheck, expectPrismaCode } from './check-helpers';
 import { db } from './client';
 import { createUser } from './factories';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Waits, inside the lock holder's transaction, until another session is blocked on it (a row
+ * lock wait is a not-granted lock on the holder's transaction id). Reading pg_locks instead of
+ * sleeping keeps the order fixed on a loaded machine, where a fixed sleep can end before the
+ * other transaction has even started. E2E runs are serialised, so no foreign session waits here.
+ */
+async function waitUntilBlockedOnMe(tx: Tx, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const rows = await tx.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM pg_locks
+      WHERE locktype = 'transactionid' AND NOT granted
+        AND transactionid = pg_current_xact_id()::xid`;
+    if ((rows[0]?.n ?? 0) > 0) return;
+    if (Date.now() > deadline) throw new Error('no session blocked on this transaction');
+    await sleep(25);
+  }
+}
 
 async function userWithWallet(): Promise<string> {
   const user = await createUser();
@@ -216,20 +236,23 @@ describe('lockWallet', () => {
       firstHoldsLock = resolve;
     });
 
-    const first = db.$transaction(async (tx) => {
-      await lockWallet(tx, userId);
-      events.push('first locked');
-      firstHoldsLock();
-      await sleep(400);
-      await appendLedgerEntry(tx, {
-        userId,
-        kind: 'TOPUP',
-        amountTiyin: 500n,
-        refType: 'PAYMENT',
-        refId: 'p-first',
-      });
-      events.push('first done');
-    });
+    const first = db.$transaction(
+      async (tx) => {
+        await lockWallet(tx, userId);
+        events.push('first locked');
+        firstHoldsLock();
+        await waitUntilBlockedOnMe(tx);
+        await appendLedgerEntry(tx, {
+          userId,
+          kind: 'TOPUP',
+          amountTiyin: 500n,
+          refType: 'PAYMENT',
+          refId: 'p-first',
+        });
+        events.push('first done');
+      },
+      { timeout: 15_000 },
+    );
     await firstLocked;
     const second = db.$transaction(async (tx) => {
       events.push('second asks');
