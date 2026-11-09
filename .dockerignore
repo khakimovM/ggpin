@@ -1,0 +1,25 @@
+# Spike build context hygiene: no secrets, env files, local builds or VCS data in the image.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/secrets
+**/*.session
+**/*.sqlite*
+**/mtcute-test.json
+packages/db/src/generated
+.git
+.claude
+.husky
+design
+docs
+e2e/__screens__
+playwright-report
+test-results
