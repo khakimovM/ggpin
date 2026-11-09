@@ -80,7 +80,7 @@ describe('WorkerModule', () => {
     expect(queue?.add).not.toHaveBeenCalled();
   });
 
-  it('schedules the every-minute topup-expire sweep and the 03:00 Tashkent reconciliation', async () => {
+  it('schedules the every-minute topup-expire sweep, the 03:00 Tashkent reconciliation and the 03:30 text purge', async () => {
     await moduleRef.init();
     await moduleRef.get(TopupExpireScheduler).whenScheduled();
     await moduleRef.get(PaymentReconcileScheduler).whenScheduled();
@@ -92,6 +92,11 @@ describe('WorkerModule', () => {
         'payment-reconcile:daily',
         { pattern: '0 3 * * *', tz: 'Asia/Tashkent' },
         { name: 'daily', data: {} },
+      ],
+      [
+        'payment-reconcile:bank-text-purge',
+        { pattern: '30 3 * * *', tz: 'Asia/Tashkent' },
+        { name: 'bank-text-purge', data: {} },
       ],
     ]);
   });

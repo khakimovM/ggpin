@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { cardTotals, type Prisma } from '@repo/db';
-import { RECONCILE_AUDIT, tashkentMonthStart, type BankFeedSource } from '@repo/shared';
+import {
+  RECONCILE_AUDIT,
+  PURGE_OVERDUE_DAYS,
+  tashkentMonthStart,
+  type BankFeedSource,
+} from '@repo/shared';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { PrismaService } from '../infra/prisma/prisma.service';
 
@@ -180,6 +185,26 @@ export class ReconcileRepository {
         take: EXAMPLE_IDS,
       }),
     );
+  }
+
+  /**
+   * Raw texts kept PURGE_OVERDUE_DAYS past their `purgeAfter` (the purge is failing or
+   * behind); examples are BankMessage ids, the oldest first. The cut-off is the database clock in
+   * UTC, as the purge and its trigger use it. Reads ids and a count only, never the text.
+   */
+  async purgeOverdue(): Promise<Finding> {
+    const days = PURGE_OVERDUE_DAYS;
+    const [counted] = await this.prisma.client.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "BankMessageText"
+      WHERE "text" IS NOT NULL
+        AND "purgeAfter" < timezone('UTC', now()) - make_interval(days => ${days}::int)`;
+    const rows = await this.prisma.client.$queryRaw<{ id: string }[]>`
+      SELECT "bankMessageId" AS id FROM "BankMessageText"
+      WHERE "text" IS NOT NULL
+        AND "purgeAfter" < timezone('UTC', now()) - make_interval(days => ${days}::int)
+      ORDER BY "purgeAfter", "bankMessageId"
+      LIMIT ${EXAMPLE_IDS}::int`;
+    return finding(counted?.n ?? 0, rows);
   }
 
   possibleReversalsSince(since: Date): Promise<number> {

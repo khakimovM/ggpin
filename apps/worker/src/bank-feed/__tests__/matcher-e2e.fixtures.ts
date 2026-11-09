@@ -137,6 +137,8 @@ export interface MessageOptions {
   readonly storedAt?: Date;
   /** The raw text is already past its retention (purgeAfter in the past), ready to purge. */
   readonly purgeable?: boolean;
+  /** An exact purgeAfter (wins over `purgeable`), e.g. days in the past for an overdue purge. */
+  readonly purgeAfter?: Date;
 }
 
 /** Stores one parsed message the way the listener (S7) will: row + raw text, card at ingestion. */
@@ -174,7 +176,9 @@ export async function insertMessage(db: PrismaClient, o: MessageOptions) {
       rawText: {
         create: {
           text,
-          purgeAfter: new Date(Date.now() + (o.purgeable === true ? -MINUTE : 365 * 24 * HOUR)),
+          purgeAfter:
+            o.purgeAfter ??
+            new Date(Date.now() + (o.purgeable === true ? -MINUTE : 365 * 24 * HOUR)),
         },
       },
     },

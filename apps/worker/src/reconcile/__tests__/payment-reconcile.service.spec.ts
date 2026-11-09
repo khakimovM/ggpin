@@ -30,6 +30,7 @@ function setup(
     totals?: (CardTotals | undefined)[];
     stuck?: { count: number; ids: string[] };
     staleReviews?: { count: number; ids: string[] };
+    overdueTexts?: { count: number; ids: string[] };
   } = {},
 ) {
   const audits: { day: string; after: Prisma.InputJsonObject }[] = [];
@@ -49,6 +50,7 @@ function setup(
       cutoffs.push(before);
       return Promise.resolve(o.staleReviews ?? { count: 0, ids: [] });
     },
+    purgeOverdue: () => Promise.resolve(o.overdueTexts ?? { count: 0, ids: [] }),
     possibleReversalsSince: () => Promise.resolve(1),
     writeAudit: (day, after) => {
       audits.push({ day, after });
@@ -165,6 +167,20 @@ describe('PaymentReconcileService', () => {
       count: 2,
       mismatches: { reviewOpenOver24h: 2 },
       examples: { reviewOpenOver24h: ['cm3rev1', 'cm3rev2'] },
+    });
+  });
+
+  it('L2: a raw text kept past its purge date makes the day a mismatch (purgeOverdue)', async () => {
+    const overdueTexts = { count: 4, ids: ['cm3msg1'] };
+    const { service, audits, alerts } = setup({ overdueTexts });
+    const report = await service.run(NOW);
+    expect(report.ok).toBe(false);
+    expect(report.mismatches.purgeOverdue).toEqual(overdueTexts);
+    expect(alerts).toEqual([['reconcileMismatch', '20300504']]);
+    expect(audits[0]?.after).toMatchObject({
+      count: 4,
+      mismatches: { purgeOverdue: 4 },
+      examples: { purgeOverdue: ['cm3msg1'] },
     });
   });
 

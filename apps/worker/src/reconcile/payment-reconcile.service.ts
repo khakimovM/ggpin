@@ -45,7 +45,8 @@ export interface ReconcileReport {
  * received CREDIT sum is accounted for, the balance chain is whole, no PENDING request outlived
  * its grace, no late payment pushed its card over the limit (D-42 residual risk); plus the DEBIT
  * summary, the open reviews (one OPEN for more than 24 h is a mismatch: money waiting for the
- * owner is never a clean day, S9 I-1) and the requests whose grace ended. One AuditLog row
+ * owner is never a clean day, S9 I-1), raw texts kept past their purge date (purgeOverdue)
+ * and the requests whose grace ended. One AuditLog row
  * (RECONCILE_AUDIT, targetId = the Tashkent day) and one alert: `reconcileOk` only when nothing
  * was found AND the history was read (`historyScan: ok`), `reconcileMismatch` otherwise.
  *
@@ -84,6 +85,8 @@ export class PaymentReconcileService {
       reviewOpenOver24h: await this.repo.openReviewsOpenedBefore(
         new Date(now.getTime() - REVIEW_OPEN_MAX_MS),
       ),
+      // The purge job itself is silent (logs only): a kept text past its date surfaces here.
+      purgeOverdue: await this.repo.purgeOverdue(),
     };
     const total = RECONCILE_MISMATCH_CODES.reduce((n, code) => n + mismatches[code].count, 0);
     const ok = total === 0 && history.state === 'ok';

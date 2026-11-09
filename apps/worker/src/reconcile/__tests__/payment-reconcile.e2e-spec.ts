@@ -216,6 +216,7 @@ describe('payment-reconcile (real Postgres + Redis, fake bank-feed client)', () 
       pendingPastGrace: 1,
       lateOverLimit: 1,
       reviewOpenOver24h: 0, // every review this file opens is younger than 24 h
+      purgeOverdue: 0, // every text this file stores is still within its retention
     });
     expect(after.ok).toBe(false);
 

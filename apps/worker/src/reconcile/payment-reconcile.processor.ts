@@ -1,8 +1,13 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { QUEUES, tashkentDayKey } from '@repo/shared';
-import type { Job } from 'bullmq';
+import { UnrecoverableError, type Job } from 'bullmq';
 import { BankFeedNotifier } from '../bank-feed/bank-feed-notifier';
+import { BankTextPurgeService, type BankTextPurgeResult } from './bank-text-purge.service';
+import {
+  BANK_TEXT_PURGE_JOB_NAME,
+  PAYMENT_RECONCILE_JOB_NAME,
+} from './payment-reconcile.scheduler';
 import { PaymentReconcileService } from './payment-reconcile.service';
 
 export interface PaymentReconcileJobResult {
@@ -11,14 +16,17 @@ export interface PaymentReconcileJobResult {
   readonly ok: boolean;
 }
 
-type JobLike = Pick<Job, 'id' | 'attemptsMade' | 'opts'>;
+type JobLike = Pick<Job, 'id' | 'name' | 'attemptsMade' | 'opts'>;
 
 /**
- * Consumer of `payment-reconcile` (daily; 3 attempts, 60 s exponential: queues.ts). A retry only
- * re-reads and writes another audit row. When the LAST attempt fails the owner gets
- * `reconcileFailed` (refId = the Tashkent day of the run), sent without any database read or
- * write, so a broken reconciliation is never silent (S9 M2). Logs: the verdict and counts, an
- * error NAME only.
+ * Consumer of `payment-reconcile` (daily; 3 attempts, 60 s exponential: queues.ts), dispatching
+ * on the job name:
+ * - `daily`: the reconciliation. A retry only re-reads and writes another audit row. When the
+ *   LAST attempt fails the owner gets `reconcileFailed` (refId = the Tashkent day of the run),
+ *   sent without any database read or write, so a broken reconciliation is never silent (S9 M2).
+ * - `bank-text-purge`: the raw-text retention purge (BankTextPurgeService), idempotent, so a
+ *   retry or the next day finishes what a failed run left; a failure is logged, no alert.
+ * Logs: the verdict and counts, an error NAME only (never a text, card digit or amount).
  */
 @Processor(QUEUES.PAYMENT_RECONCILE, { concurrency: 1 })
 export class PaymentReconcileProcessor extends WorkerHost {
@@ -27,11 +35,38 @@ export class PaymentReconcileProcessor extends WorkerHost {
   constructor(
     private readonly reconcile: PaymentReconcileService,
     private readonly notifier: BankFeedNotifier,
+    private readonly purge: BankTextPurgeService,
   ) {
     super();
   }
 
-  async process(job: JobLike): Promise<PaymentReconcileJobResult> {
+  async process(job: JobLike): Promise<PaymentReconcileJobResult | BankTextPurgeResult> {
+    switch (job.name) {
+      case PAYMENT_RECONCILE_JOB_NAME:
+        return this.reconcileJob(job);
+      case BANK_TEXT_PURGE_JOB_NAME:
+        return this.purgeJob();
+      default:
+        // A wrong name never becomes right on a retry: fail at once, no attempts spent.
+        throw new UnrecoverableError(`unknown payment-reconcile job "${job.name}"`);
+    }
+  }
+
+  private async purgeJob(): Promise<BankTextPurgeResult> {
+    try {
+      const result = await this.purge.run();
+      this.logger.log(
+        `bank-text-purge purged=${String(result.purged)} batches=${String(result.batches)} ` +
+          `more=${String(result.more)}`,
+      );
+      return result;
+    } catch (error) {
+      this.logger.warn(`bank-text-purge failed: ${nameOf(error)}`);
+      throw error;
+    }
+  }
+
+  private async reconcileJob(job: JobLike): Promise<PaymentReconcileJobResult> {
     try {
       return await this.runOnce();
     } catch (error) {
