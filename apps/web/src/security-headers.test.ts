@@ -42,6 +42,20 @@ describe('buildHeaderRules', () => {
     expect(headerOf(REST, 'Referrer-Policy')).toBe('strict-origin-when-cross-origin');
   });
 
+  it('never caches and never indexes /pay (a card number and an exact amount)', () => {
+    expect(headerOf(PAY, 'Cache-Control')).toBe('no-store');
+    expect(headerOf(PAY, 'X-Robots-Tag')).toContain('noindex');
+    expect(headerOf(TG, 'X-Robots-Tag')).toBe('');
+    expect(headerOf(REST, 'X-Robots-Tag')).toBe('');
+  });
+
+  it('isolates /pay: no opener handle, no framing, in old browsers too', () => {
+    expect(headerOf(PAY, 'Cross-Origin-Opener-Policy')).toBe('same-origin');
+    expect(headerOf(PAY, 'X-Frame-Options')).toBe('DENY');
+    expect(headerOf(TG, 'Cross-Origin-Opener-Policy')).toBe('');
+    expect(headerOf(REST, 'X-Frame-Options')).toBe('');
+  });
+
   it('sets nosniff and a restrictive Permissions-Policy everywhere', () => {
     for (const r of rules) {
       expect(r.headers.find((h) => h.key === 'X-Content-Type-Options')?.value).toBe('nosniff');
@@ -75,7 +89,41 @@ describe('cspKindFor', () => {
     expect(cspKindFor('/tgx')).toBe('default');
     expect(cspKindFor('/ru/tg')).toBe('default');
     expect(cspKindFor('/')).toBe('default');
-    expect(cspKindFor('/pay/abc')).toBe('default');
+    expect(cspKindFor('/pay/abc')).toBe('pay');
+    expect(cspKindFor('/pay')).toBe('pay');
+    expect(cspKindFor('/payx')).toBe('default');
+    expect(cspKindFor('/ru/pay/abc')).toBe('default');
+  });
+});
+
+describe('buildCsp for /pay', () => {
+  const pay = buildCsp('pay', NONCE, OPTIONS);
+
+  it('allows images only from itself (no Telegram hosts, no API origin, no blob)', () => {
+    expect(directive(pay, 'img-src')).toBe("img-src 'self' data:");
+  });
+
+  it('keeps the strict script policy, and no frame may embed it', () => {
+    const script = directive(pay, 'script-src');
+    expect(script).toContain(`'nonce-${NONCE}'`);
+    expect(script).not.toContain('telegram.org');
+    expect(script).not.toContain("'unsafe-inline'");
+    expect(directive(pay, 'frame-ancestors')).toBe("frame-ancestors 'none'");
+    expect(directive(pay, 'connect-src')).toContain(API_ORIGIN);
+  });
+
+  it('has no <base> at all', () => {
+    expect(directive(pay, 'base-uri')).toBe("base-uri 'none'");
+    expect(directive(buildCsp('default', NONCE, OPTIONS), 'base-uri')).toBe("base-uri 'self'");
+  });
+
+  it('differs from the default policy only in what images may load and the base URI', () => {
+    const normal = buildCsp('default', NONCE, OPTIONS).split('; ');
+    const strict = pay.split('; ');
+    expect(strict.filter((part) => !normal.includes(part))).toEqual([
+      directive(pay, 'img-src'),
+      directive(pay, 'base-uri'),
+    ]);
   });
 });
 

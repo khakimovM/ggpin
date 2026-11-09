@@ -152,6 +152,73 @@
         "needPrice": "Narx tayyor bo‘lishini kuting"
       }
     },
+    "topup": {
+      "title": "Hisobni to‘ldirish",
+      "close": "Yopish",
+      "steps": {
+        "label": "Qadamlar",
+        "amount": "Summa",
+        "pay": "To‘lov"
+      },
+      "amount": {
+        "label": "Summa",
+        "help": "{min}dan {max}gacha, {step}ga karrali"
+      },
+      "errors": {
+        "min": "Minimal summa {min}",
+        "max": "Maksimal summa {max}",
+        "step": "Summa {step}ga karrali bo‘lsin",
+        "range": "Summa {min}dan {max}gacha, {step}ga karrali bo‘lishi kerak",
+        "dailyDone": "Bugungi to‘ldirish limiti tugadi. Ertaga yana urinib ko‘ring.",
+        "dailyLeft": "Bugun yana {max}gacha to‘ldirish mumkin.",
+        "newAccountDone": "Yangi akkauntlar uchun kunlik limit tugadi. Ertaga yana urinib ko‘ring.",
+        "rate": "Juda ko‘p urinish. Biroz kutib, qayta urinib ko‘ring.",
+        "rateWait": "Juda ko‘p urinish. {seconds} soniyadan keyin qayta urinib ko‘ring.",
+        "conflict": "Oldingi to‘lov so‘rovi yakunlangan. Qayta urinib ko‘ring."
+      },
+      "cardType": {
+        "label": "Karta turi",
+        "auto": "Avtomatik",
+        "humo": "Humo",
+        "uzcard": "Uzcard",
+        "help": "Qaysi kartadan o‘tkazishingiz farqi yo‘q — istalgan bank ilovasidan bo‘ladi."
+      },
+      "how": {
+        "title": "Qanday ishlaydi?",
+        "one": "Summani tanlang",
+        "two": "Ko‘rsatilgan kartaga aynan shu summani o‘tkazing",
+        "three": "Pul 1–2 daqiqada hisobingizga tushadi",
+        "tail": "Summaga 1–999 so‘m qo‘shiladi — shu raqamlar orqali to‘lovingizni taniymiz."
+      },
+      "continue": "Davom etish",
+      "continueAmount": "Davom etish · {amount}",
+      "creating": "Tayyorlanmoqda…",
+      "pending": {
+        "title": "Sizda tugallanmagan to‘lov bor",
+        "left": "{time} qoldi",
+        "open": "To‘lov sahifasini ochish",
+        "cancelNew": "Bekor qilish va yangisini boshlash",
+        "close": "Yopish",
+        "error": "Amalni bajarib bo‘lmadi. Qayta urinib ko‘ring."
+      },
+      "unavailable": {
+        "title": "To‘ldirish vaqtincha mavjud emas",
+        "body": "Bir necha daqiqadan keyin qayta urinib ko‘ring.",
+        "retry": "Qayta urinish",
+        "support": "Yordamga yozish"
+      },
+      "cancelDialog": {
+        "title": "To‘lovni bekor qilasizmi?",
+        "note": "Agar pulni allaqachon o‘tkazgan bo‘lsangiz, bekor qilmang.",
+        "yes": "Ha, bekor qilish",
+        "no": "Ortga"
+      },
+      "modal": {
+        "cancel": "To‘lovni bekor qilish",
+        "newPayment": "Yangi to‘lov",
+        "backToStore": "Do‘konga qaytish"
+      }
+    },
     "checkout": {
       "confirm": {
         "title": "Buyurtmani tasdiqlang",
@@ -179,7 +246,6 @@
         "price": "Narx:",
         "shortfall": "Yetishmaydi:",
         "topup": "Hisobni to‘ldirish",
-        "soon": "Tez orada",
         "close": "Yopish"
       },
       "frozen": {
@@ -196,7 +262,8 @@
         "retry": "Qayta tekshirish",
         "checking": "Tekshirilmoqda…",
         "wait": "{seconds} soniyadan keyin qayta tekshirish mumkin",
-        "support": "Yordamga yozish"
+        "support": "Yordamga yozish",
+        "orders": "Buyurtmalarim"
       },
       "failed": {
         "title": "To‘lov amalga oshmadi",
@@ -389,12 +456,10 @@
       "empty": "Faol sessiyalar yo‘q",
       "revokeError": "Sessiyani yakunlab bo‘lmadi. Qayta urinib ko‘ring."
     },
-    "profile": {
-      "title": "Profil"
-    },
     "nav": {
       "main": "Asosiy",
       "catalog": "Katalog",
+      "orders": "Tarix",
       "profile": "Profil",
       "menu": "Hisob menyusi",
       "theme": "Mavzuni almashtirish",
@@ -404,7 +469,280 @@
       "langRu": "Русский"
     }
   },
+  "account": {
+    "nav": {
+      "main": "Asosiy",
+      "home": "Bosh sahifa",
+      "history": "Tarix",
+      "profile": "Profil"
+    },
+    "history": {
+      "title": "Tarix",
+      "tabs": {
+        "label": "Tarix bo‘limlari",
+        "orders": "Buyurtmalar",
+        "finance": "Moliya"
+      },
+      "filter": {
+        "label": "Buyurtmalar filtri",
+        "all": "Barchasi",
+        "done": "Bajarildi",
+        "wait": "Kutilmoqda",
+        "cancel": "Bekor qilingan"
+      },
+      "loading": "Tarix yuklanmoqda…",
+      "error": {
+        "title": "Tarixni yuklab bo‘lmadi",
+        "body": "Internet aloqasini tekshirib, qayta urinib ko‘ring."
+      },
+      "empty": {
+        "orders": {
+          "title": "Hali buyurtmalar yo‘q",
+          "body": "Birinchi xaridingiz shu yerda ko‘rinadi.",
+          "cta": "Xaridni boshlash"
+        },
+        "filtered": {
+          "title": "Bu filtrda buyurtma yo‘q",
+          "body": "Boshqa filtrni tanlang."
+        },
+        "finance": {
+          "title": "Hali amallar yo‘q",
+          "body": "Balans to‘ldirish, xarid va bonuslar shu yerda ko‘rinadi."
+        }
+      },
+      "unknownDay": "Sana nomaʼlum",
+      "loadMore": "Yana yuklash",
+      "loadingMore": "Yuklanmoqda…",
+      "loadMoreError": "Keyingi sahifani yuklab bo‘lmadi.",
+      "pager": {
+        "label": "Sahifalar",
+        "summary": "Jami {total, number} tadan {from, number}–{to, number}",
+        "prev": "Oldingi",
+        "next": "Keyingi",
+        "page": "{page}-sahifa"
+      },
+      "columns": {
+        "date": "Sana",
+        "product": "Mahsulot",
+        "recipient": "Qabul qiluvchi",
+        "amount": "Summa",
+        "status": "Holat",
+        "operation": "Amal",
+        "action": "Ochish"
+      },
+      "ledger": {
+        "kind": {
+          "TOPUP": "Balans to‘ldirildi",
+          "TOPUP_REVERSAL": "To‘ldirish bekor qilindi",
+          "PURCHASE": "Xarid",
+          "REFUND": "Pul qaytarildi",
+          "REFERRAL_BONUS": "Referal bonus",
+          "REFERRAL_BONUS_REVERSAL": "Referal bonus bekor qilindi",
+          "ADJUSTMENT": "Balans tuzatildi"
+        }
+      }
+    },
+    "profile": {
+      "title": "Profil",
+      "idLabel": "ID: {id}",
+      "idCopy": "ID ni nusxalash",
+      "idCopied": "ID nusxalandi",
+      "balance": "Balans",
+      "cashback": "Keshbek",
+      "coinsLabel": "Keshbek: {count, plural, one {# tanga} other {# tanga}}",
+      "walletError": "Balansni yuklab bo‘lmadi",
+      "phone": {
+        "title": "Telefon raqami",
+        "linked": "Ulangan",
+        "unlinked": "Ulanmagan",
+        "hint": "Buyurtma bo‘yicha savol bo‘lsa, siz bilan bog‘lanishimiz uchun."
+      },
+      "language": {
+        "title": "Til",
+        "label": "Interfeys tili",
+        "uz": "O‘zbekcha",
+        "ru": "Русский",
+        "error": "Tilni o‘zgartirib bo‘lmadi. Qayta urinib ko‘ring."
+      },
+      "appearance": {
+        "title": "Til va ko‘rinish",
+        "theme": {
+          "label": "Mavzu",
+          "system": "Avto",
+          "light": "Yorug‘",
+          "dark": "Qorong‘i"
+        }
+      },
+      "services": {
+        "title": "Xizmatlar",
+        "referral": {
+          "label": "Do‘stlarni taklif qilish",
+          "sub": "Har bir xariddan 1% bonus"
+        },
+        "coupons": {
+          "label": "Chegirma kodlari",
+          "sub": "Keshbekni chegirmaga aylantiring"
+        },
+        "bonus": {
+          "label": "Bonus kod kiritish"
+        },
+        "help": {
+          "label": "Yordam va savollar"
+        },
+        "soon": "Tez orada"
+      },
+      "settings": {
+        "title": "Sozlamalar",
+        "reducedMotion": {
+          "label": "Animatsiyalarni kamaytirish",
+          "hint": "Eski qurilmalarda tezroq ishlashi uchun"
+        }
+      }
+    },
+    "referral": {
+      "title": "Do‘stlarni taklif qilish",
+      "hero": "Do‘stlaringiz xarid qilganda har bir to‘lovdan 1% bonus olasiz",
+      "linkLabel": "Taklif havolangiz",
+      "copy": "Nusxalash",
+      "copied": "Nusxalandi",
+      "share": "Ulashish",
+      "shareText": "{brand} — Telegram Stars, Premium va o‘yinlarni to‘ldirish. Mening havolam orqali qo‘shiling:",
+      "stats": {
+        "title": "Statistika",
+        "body": "Taklif qilinganlar soni va jami bonus tez orada shu yerda ko‘rinadi."
+      },
+      "soon": "Tez orada",
+      "unavailable": "Havola hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
+    },
+    "help": {
+      "title": "Yordam",
+      "faqLabel": "Ko‘p beriladigan savollar",
+      "ask": {
+        "title": "Savolingiz qoldimi?",
+        "hours": "Har kuni 09:00–23:00",
+        "cta": "Operatorga yozish",
+        "note": "Telegramʼda {handle} bilan chat ochiladi",
+        "noteExternal": "Qo‘llab-quvvatlash sahifasi ochiladi",
+        "unavailable": "Operator havolasi hozircha mavjud emas"
+      },
+      "faq": {
+        "q1": "Buyurtma qancha vaqtda yetkaziladi?",
+        "a1": "Telegram Stars va Premium odatda tez yetkaziladi. Buyurtma holatini “Tarix” bo‘limida ko‘rasiz.",
+        "q2": "Username yoki IDʼni noto‘g‘ri kiritsam-chi?",
+        "a2": "To‘lovdan oldin qabul qiluvchining ism va rasmini ko‘rsatamiz. “Ha, shu”ni bosmaguningizcha pul yechilmaydi.",
+        "q3": "Buyurtma bajarilmasa pulim nima bo‘ladi?",
+        "a3": "Pul avtomatik ravishda balansingizga qaytadi va “Moliya” bo‘limida ko‘rinadi.",
+        "q4": "Balansni qanday to‘ldiraman?",
+        "a4": "“Hisobni to‘ldirish”da summani tanlang, so‘ng ko‘rsatilgan Humo yoki Uzcard kartasiga istalgan bank ilovasidan aynan shu summani o‘tkazing. Pul 1–2 daqiqada tushadi.",
+        "q5": "Keshbek tangalari nima?",
+        "a5": "Keshbek tangalari — xaridlar uchun beriladigan bonus. Ulardan foydalanish imkoniyatlari keyingi yangilanishlarda qo‘shiladi.",
+        "q6": "Balansdagi pulni qaytarib olsam bo‘ladimi?",
+        "a6": "Balans faqat {brand}ʼdagi xaridlar uchun. Maxsus holatlar bo‘yicha operatorga yozing."
+      }
+    }
+  },
+  "pay": {
+    "title": "Hisobni to‘ldirish",
+    "lang": "Til",
+    "loading": "Yuklanmoqda",
+    "exact": "Aynan shu summani o‘tkazing",
+    "tailCaption": "oxirgi 3 raqam to‘lovingizni tanitadi",
+    "copy": "Nusxalash",
+    "copiedAmount": "Summa nusxalandi",
+    "copiedCard": "Karta raqami nusxalandi",
+    "cardNumber": "Karta raqami",
+    "holder": "Karta egasi",
+    "holderCheck": "Karta egasi ismini o‘tkazishdan oldin tekshiring",
+    "timeLabel": "To‘lov muddati",
+    "left": "{time} qoldi",
+    "lowLeft": "5 daqiqadan kam qoldi",
+    "howTitle": "Qanday to‘lash kerak",
+    "steps": {
+      "one": "Bank ilovangizni oching",
+      "two": "Kartaga o‘tkazmani tanlang",
+      "three": "Karta raqamini va aynan shu summani kiriting",
+      "four": "O‘tkazing — pul 1–2 daqiqada tushadi"
+    },
+    "warn": "Summani yaxlitlamang va bo‘lib yubormang. Boshqa summa avtomatik tushmaydi — bunday holda yordamga yozing.",
+    "cardChanges": "Karta raqami har safar boshqacha bo‘lishi mumkin: eski kartaga o‘tkazmang.",
+    "noCancelled": "Bekor qilingan to‘lovga pul o‘tkazmang.",
+    "owner": "Hisob: {hint}",
+    "foreign": "Bu havola faqat o‘z ggpin hisobingizni to‘ldirish uchun. Boshqa odam yuborgan bo‘lsa, to‘lamang.",
+    "waiting": "To‘lov kutilmoqda…",
+    "netError": "Ulanishda xatolik",
+    "retry": "Qayta urinish",
+    "stale": "yangilanmadi",
+    "credited": {
+      "title": "To‘lov qabul qilindi!",
+      "sub": "hisobingizga tushdi"
+    },
+    "expired": {
+      "title": "To‘lov muddati tugadi",
+      "body": "Agar pulni o‘tkazgan bo‘lsangiz, xavotir olmang: 24 soat ichida tushgan to‘lov hisobingizga avtomatik yoziladi."
+    },
+    "cancelled": {
+      "title": "Bu to‘lov bekor qilingan"
+    },
+    "invalid": {
+      "title": "Havola eskirgan yoki noto‘g‘ri",
+      "body": "Yangi to‘lovni ggpin ichidan boshlang.",
+      "hint": "Mini Appʼda «Sahifani qayta ochish» tugmasini bosing."
+    },
+    "paidHelp": "Agar pulni allaqachon o‘tkazgan bo‘lsangiz, yordamga yozing.",
+    "done": {
+      "title": "Bu so‘rov yakunlangan",
+      "body": "Natijani Mini Appʼda yoki botda ko‘ring."
+    },
+    "cta": {
+      "back": "Telegramʼga qaytish",
+      "bot": "Botga qaytish",
+      "support": "Yordamga yozish"
+    }
+  },
   "tg": {
+    "topup": {
+      "waiting": {
+        "title": "To‘lov sahifasi brauzerda ochildi",
+        "line": "Karta raqami va aniq summa o‘sha sahifada. O‘tkazgach shu yerga qayting.",
+        "toPay": "To‘lanadigan summa",
+        "left": "{time} qoldi",
+        "status": "To‘lov kutilmoqda…",
+        "reopen": "Sahifani qayta ochish",
+        "cancel": "To‘lovni bekor qilish",
+        "linkError": "Sahifani ochib bo‘lmadi. Qayta urinib ko‘ring.",
+        "openPage": "Sahifani ochish",
+        "cancelError": "To‘lovni bekor qilib bo‘lmadi. Qayta urinib ko‘ring.",
+        "notFound": {
+          "title": "To‘lov topilmadi",
+          "body": "Bu to‘lov mavjud emas yoki sizniki emas."
+        }
+      },
+      "credited": {
+        "title": "Balans to‘ldirildi!",
+        "balance": "Balans: {balance}",
+        "buy": "Xaridni davom ettirish",
+        "home": "Bosh sahifaga"
+      },
+      "expired": {
+        "title": "To‘lov muddati tugadi",
+        "body": "Agar pulni o‘tkazgan bo‘lsangiz, xavotir olmang: 24 soat ichida tushgan to‘lov hisobingizga avtomatik yoziladi.",
+        "newPayment": "Yangi to‘lov",
+        "support": "Yordamga yozish"
+      },
+      "cancelled": {
+        "title": "To‘lov bekor qilindi",
+        "body": "Agar pulni allaqachon o‘tkazgan bo‘lsangiz, yordamga yozing.",
+        "newPayment": "Yangi to‘lov",
+        "support": "Yordamga yozish"
+      },
+      "notes": {
+        "exact": "Aynan shu summani o‘tkazing.",
+        "cardChanges": "Karta raqami har safar boshqacha bo‘lishi mumkin: eski kartaga o‘tkazmang.",
+        "own": "Faqat o‘z ggpin hisobingiz uchun.",
+        "noCancelled": "Bekor qilingan so‘rovga pul o‘tkazmang."
+      },
+      "pill": "To‘lov kutilmoqda · {amount} · {time}"
+    },
     "splash": {
       "label": "Yuklanmoqda",
       "signingIn": "Telegram orqali kirilmoqda…"

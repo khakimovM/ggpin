@@ -4,6 +4,7 @@ import {
   IntentListQuerySchema,
   LedgerItemSchema,
   OrderDetailSchema,
+  OrderSchema,
   PayLinkResponseSchema,
   PAY_TOKEN_HEADER,
   PayLinkUrlSchema,
@@ -93,6 +94,33 @@ describe('mock handlers answer in the real contract shape', () => {
       LedgerItemSchema.array(),
     );
     expect(purchases.data.map((entry) => entry.kind)).toEqual(['PURCHASE']);
+  });
+
+  it('order list: filtered by a group of statuses and cut into pages', async () => {
+    const all = valid(await call({ method: 'GET', path: '/orders' }), OrderSchema.array());
+    expect(all.data).toHaveLength(20);
+    expect(all.meta).toEqual({ page: 1, limit: 20, total: 25 });
+    const second = valid(
+      await call({ method: 'GET', path: '/orders?page=2' }),
+      OrderSchema.array(),
+    );
+    expect(second.data).toHaveLength(5);
+    const done = valid(
+      await call({ method: 'GET', path: '/orders?status=DELIVERED' }),
+      OrderSchema.array(),
+    );
+    expect(done.data.length).toBeGreaterThan(0);
+    expect(done.data.every((order) => order.status === 'DELIVERED')).toBe(true);
+    const cancelled = valid(
+      await call({ method: 'GET', path: '/orders?status=FAILED,REFUNDED,CANCELLED' }),
+      OrderSchema.array(),
+    );
+    expect(cancelled.data.length).toBeGreaterThan(0);
+    expect(
+      cancelled.data.every((order) => ['FAILED', 'REFUNDED', 'CANCELLED'].includes(order.status)),
+    ).toBe(true);
+    const bad = await call({ method: 'GET', path: '/orders?status=NOPE' });
+    expect(bad.status).toBe(400);
   });
 
   it('payments: methods, create, read, cancel, pay-link, pay view', async () => {

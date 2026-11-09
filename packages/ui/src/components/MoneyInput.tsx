@@ -34,6 +34,11 @@ export interface MoneyInputProps {
   max?: string;
   minError?: string;
   maxError?: string;
+  /**
+   * An error the caller knows better than the limits do (the step, an answer of the server). Wins
+   * over the min/max texts and is shown even while the field is empty.
+   */
+  error?: string;
   /** Chips that add to the current amount. */
   quickAmounts?: QuickAmount[];
   maxDigits?: number;
@@ -98,6 +103,7 @@ export function MoneyInput({
   max,
   minError,
   maxError,
+  error: externalError,
   quickAmounts,
   maxDigits = 9,
   placeholder = '0',
@@ -108,7 +114,8 @@ export function MoneyInput({
   const fieldId = id ?? autoId;
   const messageId = `${fieldId}-message`;
   const violation = outOfRange(value, min, max);
-  const error = violation === 'min' ? minError : violation === 'max' ? maxError : undefined;
+  const error =
+    externalError ?? (violation === 'min' ? minError : violation === 'max' ? maxError : undefined);
   const message = error ?? help;
 
   const inputRef = useRef<HTMLInputElement>(null);

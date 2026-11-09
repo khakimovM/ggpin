@@ -1,5 +1,5 @@
-import { CreateOrderBodySchema } from '@repo/shared';
-import { mockOrder, mockOrderDetail, mockQuote } from '../fixtures/orders';
+import { CreateOrderBodySchema, OrderListQuerySchema } from '@repo/shared';
+import { mockOrder, mockOrderDetail, mockOrderList, mockQuote } from '../fixtures/orders';
 import { fail, ok, page, type MockRoute } from '../router';
 
 export const ordersRoutes: readonly MockRoute[] = [
@@ -28,8 +28,22 @@ export const ordersRoutes: readonly MockRoute[] = [
   {
     method: 'GET',
     pattern: '/orders',
-    handler: ({ query, now, scenario }) =>
-      page([mockOrder(scenario === 'orderFailed' ? 'FAILED' : 'PROCESSING', now)], query),
+    handler: ({ query, now, locale }) => {
+      const parsed = OrderListQuerySchema.safeParse({
+        locale,
+        ...Object.fromEntries(query),
+      });
+      if (!parsed.success) {
+        return fail('VALIDATION_ERROR', {
+          fields: parsed.error.issues.map((i) => i.path.join('.')),
+        });
+      }
+      const { status } = parsed.data;
+      return page(
+        mockOrderList(now).filter((order) => status === undefined || status.includes(order.status)),
+        query,
+      );
+    },
   },
   {
     method: 'GET',

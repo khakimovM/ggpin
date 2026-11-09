@@ -33,11 +33,15 @@ export const qk = {
     all: ['wallet'] as const,
     balance: () => ['wallet', 'balance'] as const,
     ledger: (filters: LedgerFilters) => ['wallet', 'ledger', filters] as const,
+    // The Mini App list that grows page by page; `page` is not part of the filters it is keyed by.
+    ledgerInfinite: (filters: LedgerFilters) => ['wallet', 'ledger-infinite', filters] as const,
   },
 
   orders: {
     all: ['orders'] as const,
     list: (filters: OrderListParams) => ['orders', 'list', filters] as const,
+    // The Mini App list that grows page by page; `page` is not part of the filters it is keyed by.
+    infinite: (filters: OrderListParams) => ['orders', 'infinite', filters] as const,
     // The locale is part of the key: the order carries the product name in the page language.
     detail: (id: string, locale?: Locale) => ['orders', 'detail', id, locale] as const,
   },

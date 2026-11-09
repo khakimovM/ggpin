@@ -9,7 +9,7 @@ export interface AvatarProps {
   name?: string;
   /** Telegram photo_url or an uploaded picture. */
   src?: string;
-  size?: 24 | 32 | 40 | 44 | 48 | 56;
+  size?: 24 | 32 | 40 | 44 | 48 | 56 | 64 | 72;
   /** Small marker in the bottom-right corner (the accent "g" of the design). */
   badge?: ReactNode;
   className?: string;
@@ -23,6 +23,9 @@ const TEXT_SIZE: Record<number, string> = {
   44: 'text-[15px]',
   48: 'text-base',
   56: 'text-xl',
+  // The profile cards (Account.dc.html 64 px, Store.dc.html 72 px).
+  64: 'text-[22px]',
+  72: 'text-2xl',
 };
 
 export function initialsOf(name: string): string {

@@ -37,8 +37,15 @@ export function openLink(input: string): boolean {
   const href = resolveSiteUrl(input);
   if (href === null) return false;
   const app = getWebApp();
-  if (app) callSdk(() => app.openLink(href));
-  else window.open(href, '_blank', 'noopener,noreferrer');
+  if (app) {
+    // A client that refuses the call (it throws) must not be reported as "opened": the caller then
+    // keeps the link for a button press instead of showing a screen that says it is open.
+    try {
+      app.openLink(href);
+    } catch {
+      return false;
+    }
+  } else window.open(href, '_blank', 'noopener,noreferrer');
   return true;
 }
 

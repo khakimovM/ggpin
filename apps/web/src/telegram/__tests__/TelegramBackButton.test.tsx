@@ -59,6 +59,20 @@ describe('TelegramBackButton', () => {
     expect(nested.BackButton.show).toHaveBeenCalledOnce();
   });
 
+  it('is hidden on the history and profile roots too: the tab bar replaces it', () => {
+    for (const path of ['/tg/history', '/tg/profile']) {
+      nav.pathname = path;
+      const root = createFakeWebApp();
+      mount(root);
+      expect(root.BackButton.show).not.toHaveBeenCalled();
+    }
+    // The screens under a root (the referral page, the help page) do have a way back.
+    nav.pathname = '/tg/referral';
+    const child = createFakeWebApp();
+    mount(child);
+    expect(child.BackButton.show).toHaveBeenCalledOnce();
+  });
+
   it('goes back when the app itself has pushed a screen on top of the one it came from', () => {
     nav.pathname = '/tg/orders';
     const app = createFakeWebApp();
@@ -67,6 +81,18 @@ describe('TelegramBackButton', () => {
     act(() => app.pressBack());
     expect(nav.back).toHaveBeenCalledOnce();
     expect(nav.replace).not.toHaveBeenCalled();
+  });
+
+  it('a deep-linked referral or help screen returns to the profile, its parent', () => {
+    for (const path of ['/tg/referral', '/tg/help']) {
+      nav.pathname = path;
+      nav.replace.mockClear();
+      const app = createFakeWebApp();
+      const view = mount(app);
+      act(() => app.pressBack());
+      expect(nav.replace).toHaveBeenCalledExactlyOnceWith('/tg/profile');
+      view.unmount();
+    }
   });
 
   it('a screen opened directly returns to the home page instead of leaving the Mini App', () => {

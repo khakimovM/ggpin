@@ -129,3 +129,18 @@ describe('openTelegramUrl', () => {
     expect(openTelegramUrl('https://t.me/ggpin_support')).toBe(false);
   });
 });
+
+describe('openLink when the client refuses the call', () => {
+  afterEach(() => {
+    delete window.Telegram;
+  });
+
+  it('reports false when the SDK throws, so the caller can keep the link for another press', () => {
+    const app = createFakeWebApp();
+    installWebApp(app);
+    app.openLink = vi.fn(() => {
+      throw new Error('refused');
+    });
+    expect(openLink(`${SITE}/pay/abc#t=x`)).toBe(false);
+  });
+});

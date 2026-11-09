@@ -18,8 +18,18 @@ describe('query keys', () => {
 
   it('put every feature key under its root so one invalidation covers the feature', () => {
     const roots: [readonly string[], readonly (readonly unknown[])[]][] = [
-      [qk.wallet.all, [qk.wallet.balance(), qk.wallet.ledger({ page: 2 })]],
-      [qk.orders.all, [qk.orders.list({ limit: 5 }), qk.orders.detail('o1')]],
+      [
+        qk.wallet.all,
+        [
+          qk.wallet.balance(),
+          qk.wallet.ledger({ page: 2 }),
+          qk.wallet.ledgerInfinite({ limit: 20 }),
+        ],
+      ],
+      [
+        qk.orders.all,
+        [qk.orders.list({ limit: 5 }), qk.orders.infinite({ limit: 20 }), qk.orders.detail('o1')],
+      ],
       [
         qk.payments.all,
         [

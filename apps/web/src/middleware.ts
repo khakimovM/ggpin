@@ -2,6 +2,7 @@ import createIntlMiddleware from 'next-intl/middleware';
 import { NextRequest, NextResponse } from 'next/server';
 import { createNonce, NONCE_HEADER } from './csp/nonce';
 import { env } from './env';
+import { PAY_LOCALE_HEADER, payLocaleFromEntries } from './features/pay/pay-locale';
 import { routing } from './i18n/routing';
 import { buildCsp, cspKindFor } from './security-headers';
 
@@ -31,6 +32,13 @@ export default function middleware(request: NextRequest): NextResponse {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(NONCE_HEADER, nonce);
   requestHeaders.set('Content-Security-Policy', policy);
+  // /pay has no locale prefix: its language is `?locale=`, handed on for the root layout's `lang`.
+  if (cspKindFor(request.nextUrl.pathname) === 'pay') {
+    requestHeaders.set(
+      PAY_LOCALE_HEADER,
+      payLocaleFromEntries([...request.nextUrl.searchParams.entries()]),
+    );
+  }
 
   const response = NO_LOCALE_PREFIX.test(request.nextUrl.pathname)
     ? NextResponse.next({ request: { headers: requestHeaders } })

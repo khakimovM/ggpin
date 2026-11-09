@@ -18,16 +18,20 @@ interface Options {
   isDev: boolean;
 }
 
-export type CspKind = 'tg' | 'default';
+export type CspKind = 'tg' | 'pay' | 'default';
 
 // Exactly the SDK file, not the whole host: this is only what a browser without 'strict-dynamic'
 // can still load.
 const TELEGRAM_SCRIPT = 'https://telegram.org/js/telegram-web-app.js';
 const TELEGRAM_FRAME_ANCESTOR = 'https://web.telegram.org';
 
-/** The CSP flavour for a request path: only the Mini App may load telegram.org scripts. */
+/**
+ * The CSP flavour for a request path: only the Mini App may load telegram.org scripts, and the
+ * payment page (a card number and an exact amount) loads nothing from anywhere but itself.
+ */
 export function cspKindFor(pathname: string): CspKind {
-  return /^\/tg(?:\/|$)/.test(pathname) ? 'tg' : 'default';
+  if (/^\/tg(?:\/|$)/.test(pathname)) return 'tg';
+  return /^\/pay(?:\/|$)/.test(pathname) ? 'pay' : 'default';
 }
 
 // A nonce is interpolated into a header: anything outside the base64 alphabet could add a
@@ -63,11 +67,18 @@ export function buildCsp(kind: CspKind, nonce: string, { apiOrigin, isDev }: Opt
     // script half of the card-swap threat, and the other half is that no user-controlled HTML is
     // ever rendered unescaped.
     ['style-src', ["'self'", "'unsafe-inline'"]],
-    ['img-src', ["'self'", 'data:', 'blob:', apiOrigin, ...TELEGRAM_IMAGE_CSP_SOURCES]],
+    // /pay shows no picture from any other origin (no Telegram avatars, no API images, no blob).
+    [
+      'img-src',
+      kind === 'pay'
+        ? ["'self'", 'data:']
+        : ["'self'", 'data:', 'blob:', apiOrigin, ...TELEGRAM_IMAGE_CSP_SOURCES],
+    ],
     ['font-src', ["'self'"]],
     ['connect-src', ["'self'", apiOrigin, ...(isDev ? ['ws:'] : [])]],
     ['frame-ancestors', kind === 'tg' ? [TELEGRAM_FRAME_ANCESTOR] : ["'none'"]],
-    ['base-uri', ["'self'"]],
+    // /pay has no <base> at all: a relative link or script can never be pointed elsewhere.
+    ['base-uri', kind === 'pay' ? ["'none'"] : ["'self'"]],
     ['form-action', ["'self'"]],
     ['object-src', ["'none'"]],
   ];
@@ -110,8 +121,18 @@ export function buildHeaderRules({ isDev }: Pick<Options, 'isDev'>): HeaderRule[
     {
       // /pay/<id>#t=<capability token>: a fragment is never sent in a Referer, but the token is a
       // payment capability, so the page also sends no Referer at all, whatever the URL looks like.
+      // The page shows a card number and an exact amount: never cached, never indexed.
       source: '/pay/:path*',
-      headers: [csp('default'), ...common('no-referrer', isDev)],
+      headers: [
+        csp('pay'),
+        { key: 'Cache-Control', value: 'no-store' },
+        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        // No window of another origin keeps a handle on this one, and old browsers that ignore
+        // frame-ancestors still refuse to frame it.
+        { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        ...common('no-referrer', isDev),
+      ],
     },
     {
       source: '/((?!tg(?:/|$)|pay(?:/|$)).*)',

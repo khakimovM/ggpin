@@ -10,8 +10,13 @@ import { useTelegram } from '../../telegram/telegram-context';
 
 export interface SupportLinkButtonProps {
   children: ReactNode;
-  variant?: 'outline' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'outline' | 'secondary' | 'ghost';
   className?: string;
+  /**
+   * With no support link configured, lead to our own bot (`t.me/<NEXT_PUBLIC_BOT_USERNAME>`)
+   * instead of drawing nothing: for screens whose text says "write to support".
+   */
+  fallbackToBot?: boolean;
 }
 
 /**
@@ -23,9 +28,14 @@ export function SupportLinkButton({
   children,
   variant = 'outline',
   className,
+  fallbackToBot = false,
 }: SupportLinkButtonProps) {
   const { webApp } = useTelegram();
-  const link = supportLink(env.NEXT_PUBLIC_SUPPORT_URL);
+  const configured = supportLink(env.NEXT_PUBLIC_SUPPORT_URL);
+  const link =
+    configured.kind === 'none' && fallbackToBot
+      ? supportLink(`https://t.me/${env.NEXT_PUBLIC_BOT_USERNAME}`)
+      : configured;
   if (link.kind === 'none') return null;
   const content = (
     <>

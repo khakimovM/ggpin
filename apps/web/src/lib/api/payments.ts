@@ -91,15 +91,15 @@ export async function createPayLink(id: string): Promise<PayLinkResponse> {
  *
  * Link format: `${WEB_URL}/pay/<intentId>?locale=<uz|ru>#t=<token>`. The token lives only in
  * the URL fragment; the one allowed query parameter is the page language. The page itself is
- * built in phase 7 S8 and must:
- *   1. read the language with `readPayLocaleFromQuery(location.search)` and the token with
- *      `readPayTokenFromHash(location.hash)` (both from @repo/shared);
- *   2. remove `#t=` while KEEPING `?locale=`. In Next 15.5 do it either with
- *      `router.replace(pathname + search, { scroll: false })` or, after hydration, with
- *      `window.history.replaceState(null, '', pathname + search)`. Do not do it before hydration:
- *      the router would restore the fragment;
- *   3. keep the token in memory only (never storage, logs or the query cache key) and pass it
- *      to `getPayView`, which sends it as the `X-Pay-Token` header.
+ * built in phase 7 S8 (D-50) and does this:
+ *   1. the language comes from the DECODED query (`payLocaleOf`, one rule for the middleware and
+ *      the page) and the token from `readPayTokenFromHash(location.hash)`, read before hydration;
+ *   2. `#t=` is removed with `router.replace(pathname + search, { scroll: false })` while KEEPING
+ *      `?locale=` (a bare `history.replaceState` lets Next put the fragment back);
+ *   3. the token is kept for THIS TAB only: in memory and in `sessionStorage` (`ggpin:pay:<id>`,
+ *      one token per tab, erased when the request ends or the server stops knowing it), never in
+ *      `localStorage`, cookies, logs or the query cache key; it is passed to `getPayView`, which
+ *      sends it as the `X-Pay-Token` header.
  * S8 Playwright requirement: after load, after `router.refresh()` and after a language switch
  * the URL has no `#t=`.
  */
