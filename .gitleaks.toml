@@ -40,6 +40,12 @@ regex = '''(?i)(mnemonic|seed)\s*[:=]\s*["']([a-z]{3,8}\s+){11,23}[a-z]{3,8}["']
 id = "ton-mnemonic-array"
 description = "Mnemonic as an array of 12+ quoted lowercase words"
 regex = '''\[\s*(?:["'][a-z]{3,8}["']\s*,\s*){11,23}["'][a-z]{3,8}["']\s*,?\s*\]'''
+# Value-based, any path: only the exact twelve Uzbek month names in calendar order
+# (apps/web/src/lib/format/date.ts and its test). No mnemonic is this list, so nothing else is hidden.
+[[rules.allowlists]]
+description = "the Uzbek (Latin) month names, yanvar..dekabr, in order"
+regexTarget = "match"
+regexes = ['''^\[\s*["']yanvar["'],\s*["']fevral["'],\s*["']mart["'],\s*["']aprel["'],\s*["']may["'],\s*["']iyun["'],\s*["']iyul["'],\s*["']avgust["'],\s*["']sentabr["'],\s*["']oktabr["'],\s*["']noyabr["'],\s*["']dekabr["'],?\s*\]$''']
 
 # Test-file allowlists below are deliberately two-sided (condition = "AND"): a finding is
 # ignored only when it sits in a test SOURCE file AND its value is one of the fake values the
