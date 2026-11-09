@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, formatDateTime, formatTime, formatUserDateTime } from './date';
+import { formatCountdown, formatDateTime, formatDay, formatTime, formatUserDateTime } from './date';
 
 const TZ = 'Asia/Tashkent'; // UTC+5, so 09:05Z is 14:05
 const at = (iso: string): Date => new Date(iso);
@@ -100,5 +100,39 @@ describe('display time zone', () => {
     );
     const options = { locale: 'uz', labels: LABELS.uz } as const;
     expect(formatUserDateTime(date, options, at('2026-11-15T10:00:00Z'))).toBe('Bugun, 14:05');
+  });
+});
+
+describe('formatDay', () => {
+  const NOW = at('2026-11-20T00:00:00Z');
+
+  it('Uzbek months come from a table, not from the engine (Chromium has no Uzbek calendar data)', () => {
+    const months = [
+      'yanvar',
+      'fevral',
+      'mart',
+      'aprel',
+      'may',
+      'iyun',
+      'iyul',
+      'avgust',
+      'sentabr',
+      'oktabr',
+      'noyabr',
+      'dekabr',
+    ];
+    months.forEach((name, index) => {
+      const date = new Date(Date.UTC(2026, index, 15, 9));
+      expect(formatDay(date, { locale: 'uz', timeZone: TZ }, NOW)).toBe(`15-${name}`);
+    });
+  });
+
+  it('adds the year outside the current one, and counts the day in Tashkent time', () => {
+    expect(formatDay(at('2025-12-31T20:30:00Z'), { locale: 'uz', timeZone: TZ }, NOW)).toBe(
+      '1-yanvar',
+    ); // 01:30 on 1 January in Uzbekistan
+    expect(formatDay(at('2025-12-30T09:00:00Z'), { locale: 'uz', timeZone: TZ }, NOW)).toBe(
+      '30-dekabr, 2025',
+    );
   });
 });

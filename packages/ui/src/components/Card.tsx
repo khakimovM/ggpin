@@ -33,7 +33,8 @@ export function Card({
         padding === 'lg' && 'p-5',
         interactive &&
           cn(
-            'block no-underline transition duration-base ease-out hover:-translate-y-0.5 hover:shadow-md',
+            // Store.dc.html: the card lifts 3px on hover; no lift under reduced motion (OS or profile switch).
+            'block no-underline transition duration-base ease-out hover:-translate-y-[3px] hover:shadow-md motion-reduce:hover:translate-y-0 [[data-reduced=true]_&]:hover:translate-y-0',
             FOCUS_RING,
           ),
         className,

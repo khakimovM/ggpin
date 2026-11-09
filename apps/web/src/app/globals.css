@@ -47,6 +47,10 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-pressed: var(--primary-pressed);
   --color-primary-foreground: var(--primary-foreground);
+  /* The design's "#fff" on coloured badges and banners (spinner on --info, check on --success).
+     The default palette is removed above, so `text-white` / `bg-white` had no colour at all;
+     --primary-foreground is white in both themes. */
+  --color-white: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-foreground: var(--primary-soft-foreground);
 

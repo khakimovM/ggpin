@@ -1,8 +1,9 @@
 import type { Locale } from '@repo/shared';
 
 // Pure date helpers (no React): the locale and time zone are arguments, so a test can pin both.
-// Month names come from Intl (uz: "15-noyabr", ru: "15 ноября"); the test suite fails if an
-// engine ever stops producing them.
+// Russian month names come from Intl ("15 ноября"). Uzbek ones are a table below: Chromium's ICU
+// has no Uzbek calendar data and answers "M11 15" (seen in Playwright's Chromium 156), so Intl
+// cannot be trusted for "uz" in a browser.
 
 /**
  * Every date is shown in Uzbekistan time, whatever the device says. Bank notifications, which
@@ -36,21 +37,55 @@ export function formatTime(
   }).format(date);
 }
 
+// Month names of the Uzbek (Latin) calendar, lower case, no apostrophes.
+const UZ_MONTHS = [
+  'yanvar',
+  'fevral',
+  'mart',
+  'aprel',
+  'may',
+  'iyun',
+  'iyul',
+  'avgust',
+  'sentabr',
+  'oktabr',
+  'noyabr',
+  'dekabr',
+] as const;
+
+/** "15-noyabr" (+ ", 2025" outside the current year), the Uzbek way, whatever the engine knows. */
+function formatUzDay(date: Date, timeZone: string, withYear: boolean): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone,
+  }).format(date);
+  const [year, month, day] = parts.split('-').map(Number);
+  const name = UZ_MONTHS[(month ?? 1) - 1] ?? '';
+  return withYear ? `${day}-${name}, ${year}` : `${day}-${name}`;
+}
+
+/** "15-noyabr" / "15 ноября"; the year is added when it is not `now`'s year. */
+export function formatDay(date: Date, options: DateFormatOptions, now: Date = new Date()): string {
+  const { locale, timeZone = DISPLAY_TIME_ZONE } = options;
+  const sameYear = yearOf(date, timeZone) === yearOf(now, timeZone);
+  if (locale === 'uz') return formatUzDay(date, timeZone, !sameYear);
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    year: sameYear ? undefined : 'numeric',
+    timeZone,
+  }).format(date);
+}
+
 /** "15-noyabr, 14:05" / "15 ноября, 14:05"; the year is added when it is not `now`'s year. */
 export function formatDateTime(
   date: Date,
   options: DateFormatOptions,
   now: Date = new Date(),
 ): string {
-  const { locale, timeZone = DISPLAY_TIME_ZONE } = options;
-  const sameYear = yearOf(date, timeZone) === yearOf(now, timeZone);
-  const day = new Intl.DateTimeFormat(locale, {
-    day: 'numeric',
-    month: 'long',
-    year: sameYear ? undefined : 'numeric',
-    timeZone,
-  }).format(date);
-  return `${day}, ${formatTime(date, options)}`;
+  return `${formatDay(date, options, now)}, ${formatTime(date, options)}`;
 }
 
 function yearOf(date: Date, timeZone: string | undefined): string {

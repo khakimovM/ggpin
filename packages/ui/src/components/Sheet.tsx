@@ -31,6 +31,12 @@ interface SheetBaseProps {
   footer?: ReactNode;
   /** Accessible name of the close button; the button is rendered only when this is set. */
   closeLabel?: string;
+  /**
+   * Width of the centred modal from 768px: `md` (480, the design system) or, for the web store's
+   * checkout and top-up dialogs (Store.dc.html), `lg` (520) and `xl` (560) with a rounder corner and
+   * 24px of padding. A bottom sheet below 768px ignores it.
+   */
+  size?: 'md' | 'lg' | 'xl';
   className?: string;
 }
 
@@ -41,6 +47,28 @@ interface SheetBaseProps {
  */
 export type SheetProps = SheetBaseProps &
   ({ onBack?: undefined; backLabel?: undefined } | { onBack: () => void; backLabel: string });
+
+// Desktop modal sizes (classes are spelled out whole so Tailwind sees them).
+const MODAL = {
+  md: {
+    box: 'md:max-w-[480px] md:rounded-xl',
+    head: 'md:px-5 md:pt-5',
+    pad: 'md:px-5',
+    foot: 'md:px-5 md:pb-5',
+  },
+  lg: {
+    box: 'md:max-w-[520px] md:rounded-2xl',
+    head: 'md:px-6 md:pt-6',
+    pad: 'md:px-6',
+    foot: 'md:px-6 md:pb-6',
+  },
+  xl: {
+    box: 'md:max-w-[560px] md:rounded-2xl',
+    head: 'md:px-6 md:pt-6',
+    pad: 'md:px-6',
+    foot: 'md:px-6 md:pb-6',
+  },
+} as const;
 
 // One component, two shapes: a bottom sheet below 768px (spring in, drag down to dismiss) and a
 // centred modal (max 480) from 768px (scale .96 -> 1). Radix Dialog supplies the focus trap,
@@ -56,6 +84,7 @@ export function Sheet({
   onBack,
   backLabel,
   closeLabel,
+  size = 'md',
   className,
 }: SheetProps) {
   const desktop = useMediaQuery('(min-width: 768px)');
@@ -125,14 +154,15 @@ export function Sheet({
                   onDragEnd={onDragEnd}
                   className={cn(
                     'pointer-events-auto flex max-h-[90dvh] w-full flex-col bg-elevated text-foreground shadow-lg',
-                    'rounded-t-2xl md:max-h-[85dvh] md:max-w-[480px] md:rounded-xl md:border md:border-border',
+                    'rounded-t-2xl md:max-h-[85dvh] md:border md:border-border',
+                    MODAL[size].box,
                     'focus-visible:outline-none',
                     className,
                   )}
                 >
                   {/* The handle and header are the drag area, so a scrolling body never drags. */}
                   <div
-                    className="shrink-0 touch-none px-4 pt-2 md:px-5 md:pt-5"
+                    className={cn('shrink-0 touch-none px-4 pt-2', MODAL[size].head)}
                     onPointerDown={(event) => {
                       if (!desktop && !(event.target as HTMLElement).closest('button')) {
                         dragControls.start(event);
@@ -183,15 +213,27 @@ export function Sheet({
                     </div>
                   </div>
                   {description ? (
-                    <Dialog.Description className="px-4 pt-1 text-sm leading-5 font-medium text-foreground-secondary md:px-5">
+                    <Dialog.Description
+                      className={cn(
+                        'px-4 pt-1 text-sm leading-5 font-medium text-foreground-secondary',
+                        MODAL[size].pad,
+                      )}
+                    >
                       {description}
                     </Dialog.Description>
                   ) : null}
-                  <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3.5 md:px-5">
+                  <div
+                    className={cn('min-h-0 flex-1 overflow-y-auto px-4 py-3.5', MODAL[size].pad)}
+                  >
                     {children}
                   </div>
                   {footer ? (
-                    <div className="shrink-0 px-4 pt-1 pb-[calc(16px+max(env(safe-area-inset-bottom),var(--tg-safe-bottom,0px)))] md:px-5 md:pb-5">
+                    <div
+                      className={cn(
+                        'shrink-0 px-4 pt-1 pb-[calc(16px+max(env(safe-area-inset-bottom),var(--tg-safe-bottom,0px)))]',
+                        MODAL[size].foot,
+                      )}
+                    >
                       {footer}
                     </div>
                   ) : (

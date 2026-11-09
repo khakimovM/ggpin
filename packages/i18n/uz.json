@@ -17,7 +17,7 @@
       "network": "Internet bilan aloqa yo‘q. Ulanishni tekshirib, qayta urinib ko‘ring."
     },
     "money": {
-      "uzs": "{amount} so‘m",
+      "uzs": "{amount} so‘m",
       "usdt": "{amount} USDT",
       "ton": "{amount} TON",
       "stars": "{amount} Stars"
@@ -26,8 +26,25 @@
   "store": {
     "catalog": {
       "title": "Katalog",
+      "allProducts": "Barcha mahsulotlar",
       "results": "Natijalar",
       "count": "{count, plural, one {# ta mahsulot} other {# ta mahsulot}}",
+      "promo": {
+        "label": "Eʼlonlar",
+        "roleCarousel": "karusel",
+        "roleSlide": "eʼlon",
+        "slide": "{number}-eʼlon",
+        "referral": {
+          "title": "Do‘stlaringizni taklif qiling — har bir xariddan 1% bonus",
+          "sub": "Taklif havolangizni Profil sahifasida oling.",
+          "cta": "Havolani olish"
+        },
+        "gift": {
+          "title": "Premiumni do‘stingizga sovg‘a qiling",
+          "sub": "Faqat username kerak — 1–2 daqiqada ulanadi.",
+          "cta": "Sovg‘a qilish"
+        }
+      },
       "fromPrice": "{price} <muted>dan</muted>",
       "soldOut": "Tugagan",
       "badge": {
@@ -223,6 +240,7 @@
       "confirm": {
         "title": "Buyurtmani tasdiqlang",
         "close": "Yopish",
+        "cancel": "Bekor qilish",
         "price": "Narx",
         "total": "Jami",
         "balance": "Balans:",
@@ -274,6 +292,7 @@
     },
     "order": {
       "loading": "Buyurtma yuklanmoqda",
+      "breadcrumb": "Sahifa yo‘li",
       "number": "Buyurtma #{number}",
       "error": {
         "title": "Buyurtmani yuklab bo‘lmadi",
@@ -289,6 +308,7 @@
         "review": "Tekshirilmoqda",
         "delivered": "Yetkazildi",
         "refunded": "Bajarilmadi — pul qaytarildi",
+        "refundedShort": "Bajarilmadi",
         "cancelled": "Bekor qilindi"
       },
       "item": {
@@ -349,6 +369,8 @@
         "refunded": "Pul qaytarildi"
       },
       "details": {
+        "title": "Buyurtma tafsilotlari",
+        "date": "Sana",
         "order": "Buyurtma",
         "payment": "To‘lov",
         "wallet": "Hamyon",
@@ -464,9 +486,13 @@
       "menu": "Hisob menyusi",
       "theme": "Mavzuni almashtirish",
       "language": "Til",
-      "topUp": "Hisobni to‘ldirish (tez orada)",
+      "topUp": "Hisobni to‘ldirish",
       "langUz": "O‘zbekcha",
       "langRu": "Русский"
+    },
+    "footer": {
+      "copyright": "© {year} {brand}",
+      "contact": "Aloqa"
     }
   },
   "account": {

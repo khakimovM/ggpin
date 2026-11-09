@@ -37,6 +37,11 @@ export interface TimelineProps {
   stateLabels: Record<TimelineState, string>;
   /** Lead-in of the live announcement, e.g. "Joriy qadam" -> "Joriy qadam: Yuborilmoqda". */
   currentLabel: string;
+  /**
+   * `lg` is the web order page of Store.dc.html: 32px dots, a 17px title and the time in a column
+   * of its own on the right. `md` (default) is the Mini App's compact list.
+   */
+  size?: 'md' | 'lg';
   className?: string;
 }
 
@@ -75,15 +80,32 @@ export function Timeline({
   ariaLabel,
   stateLabels,
   currentLabel,
+  size = 'md',
   className,
 }: TimelineProps) {
+  const roomy = size === 'lg';
+  const dot = roomy ? 'size-8' : 'size-6';
+  const glyph = roomy ? 15 : 13;
   // Steps that turned "done" in this very update: only their connector animates (growth). Found
   // by comparing with the previous items during render (the pattern React documents for state
   // derived from earlier props); a step present from the first render never animates.
   const [previous, setPrevious] = useState(items);
   const [justDone, setJustDone] = useState<ReadonlySet<string>>(() => new Set());
+  // Steps whose time label appeared in this update: it fades in (dur-fast); at first paint it does not.
+  const [labelled, setLabelled] = useState<ReadonlySet<string>>(() => new Set());
+  const reduced = useReducedMotion();
   if (previous !== items) {
     setPrevious(items);
+    setLabelled(
+      new Set(
+        items
+          .filter((item) => {
+            const before = previous.find((p) => p.id === item.id);
+            return before !== undefined && !before.description && Boolean(item.description);
+          })
+          .map((item) => item.id),
+      ),
+    );
     setJustDone(
       new Set(
         items
@@ -115,34 +137,54 @@ export function Timeline({
               key={item.id}
               data-state={item.state}
               aria-current={item.state === 'active' ? 'step' : undefined}
-              className="grid grid-cols-[24px_minmax(0,1fr)] gap-3"
+              className={cn(
+                roomy
+                  ? 'grid grid-cols-[32px_minmax(0,1fr)_auto] gap-4'
+                  : 'grid grid-cols-[24px_minmax(0,1fr)] gap-3',
+              )}
             >
               <span className="flex flex-col items-center">
                 {item.tone ? (
                   <span
+                    data-dot=""
                     className={cn(
-                      'grid size-6 place-items-center rounded-full transition-colors duration-base ease-standard',
+                      'grid place-items-center rounded-full transition-colors duration-base ease-standard',
+                      dot,
                       TONE_LOOK[item.tone].dot,
                     )}
                   >
-                    <Icon icon={TONE_LOOK[item.tone].icon} size={13} />
+                    <Icon icon={TONE_LOOK[item.tone].icon} size={glyph} />
                   </span>
                 ) : item.state === 'done' ? (
-                  <span className="grid size-6 place-items-center rounded-full bg-success text-card transition-colors duration-base ease-standard">
-                    <Icon icon={Check} size={13} />
+                  <span
+                    data-dot=""
+                    className={cn(
+                      'grid place-items-center rounded-full bg-success text-card transition-colors duration-base ease-standard',
+                      dot,
+                    )}
+                  >
+                    <Icon icon={Check} size={glyph} />
                   </span>
                 ) : item.state === 'active' ? (
-                  <span className="relative grid size-6 place-items-center">
+                  <span data-dot="" className={cn('relative grid place-items-center', dot)}>
                     <span
                       aria-hidden="true"
-                      className="absolute inset-0 animate-[gg-pulse_1600ms_var(--ease-out)_infinite] rounded-full bg-info"
+                      className="absolute inset-0 animate-[gg-pulse_1400ms_var(--ease-out)_infinite] rounded-full bg-info"
                     />
-                    <span className="relative grid size-6 place-items-center rounded-full bg-info text-card">
-                      <Spinner size={14} />
+                    <span
+                      className={cn(
+                        'relative grid place-items-center rounded-full bg-info text-card',
+                        dot,
+                      )}
+                    >
+                      <Spinner size={roomy ? 16 : 14} />
                     </span>
                   </span>
                 ) : (
-                  <span className="size-6 rounded-full border-2 border-border bg-card" />
+                  <span
+                    data-dot=""
+                    className={cn('rounded-full border-2 border-border bg-card', dot)}
+                  />
                 )}
                 {last ? null : (
                   <Connector
@@ -158,10 +200,12 @@ export function Timeline({
                   />
                 )}
               </span>
-              <span className={cn('flex flex-col gap-0.5', last ? '' : 'pb-4')}>
+              <span
+                className={cn('flex flex-col gap-0.5', roomy ? 'pt-1 pb-6' : last ? '' : 'pb-4')}
+              >
                 <span
                   className={cn(
-                    'text-sm leading-5',
+                    roomy ? 'text-[17px] leading-6' : 'text-sm leading-5',
                     item.state === 'active' && 'font-extrabold text-info-text',
                     item.state === 'done' && 'font-bold',
                     item.state === 'pending' && 'font-bold text-foreground-muted',
@@ -171,12 +215,39 @@ export function Timeline({
                   <span className="sr-only">{stateLabels[item.state]}: </span>
                   {item.title}
                 </span>
-                {item.description ? (
-                  <span className="text-xs leading-4 font-semibold text-foreground-muted">
+                {item.description && !roomy ? (
+                  <motion.span
+                    initial={labelled.has(item.id) && !reduced ? { opacity: 0 } : false}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: DURATION.fast }}
+                    className="text-xs leading-4 font-semibold text-foreground-muted"
+                  >
                     {item.description}
-                  </span>
+                  </motion.span>
                 ) : null}
               </span>
+              {roomy ? (
+                // The column is always there (the grid needs it); the time itself is mounted when it
+                // arrives, so its fade runs (only when it first appears: `labelled` holds the steps that had no
+                // time before; a time that merely changes is swapped in without a fade).
+                item.description ? (
+                  <motion.span
+                    key={
+                      typeof item.description === 'string' || typeof item.description === 'number'
+                        ? item.description
+                        : item.id
+                    }
+                    initial={labelled.has(item.id) && !reduced ? { opacity: 0 } : false}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: DURATION.fast }}
+                    className="pt-1.5 text-sm leading-5 font-bold text-foreground-muted tabular-nums"
+                  >
+                    {item.description}
+                  </motion.span>
+                ) : (
+                  <span aria-hidden="true" />
+                )
+              ) : null}
             </li>
           );
         })}
