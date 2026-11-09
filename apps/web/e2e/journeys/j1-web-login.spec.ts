@@ -135,7 +135,9 @@ test.describe('journey 1: sign in through Telegram', () => {
     await typeCode(page, 'uz', GOOD_CODE);
 
     await expect(page).toHaveURL(/\/store\/profile$/);
-    await expect(page.getByRole('heading', { level: 1, name: uz.web.profile.title })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: uz.account.profile.title }),
+    ).toBeVisible();
   });
 
   for (const next of ['//evil.com', 'https://evil.com', '/%2F%2Fevil.com', '/\\evil.com']) {

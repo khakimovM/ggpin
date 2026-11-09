@@ -29,11 +29,12 @@ const DESKTOP_ONLY = /\.desktop\.spec\.ts/;
 const REAL_API_SPECS = /j4-referral\.spec\.ts/;
 
 // WebKit (the Safari engine Telegram on iOS uses) runs the component gallery locally. CI installs
-// chromium only, to keep that job small and fast; WebKit joins CI in phase 7 S12, when the full
+// chromium only, to keep that job small and fast (the public pay page, which people open in
+// Safari from the Mini App, runs on WebKit too); WebKit joins CI in phase 7 S12, when the full
 // journeys run on it too, together with the browser download in the workflow cache key.
 const webkitProject = {
   name: 'webkit-390',
-  testMatch: /ui-gallery.*\.spec\.ts/,
+  testMatch: /(?:ui-gallery.*|pay-page|pay-ends)\.spec\.ts/,
   testIgnore: DESKTOP_ONLY,
   use: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } },
 };

@@ -34,7 +34,7 @@ test('j2-stars-purchase: not enough money ends in the "Mablag‘ yetarli emas" s
   await expect(sheet).toContainText(/10.000\s*so‘m/); // balance
   await expect(sheet).toContainText(/11.000\s*so‘m/); // price
   await expect(sheet).toContainText(/1.000\s*so‘m/); // shortfall, the server's
-  await expect(sheet.getByRole('button', { name: t.checkout.insufficient.topup })).toBeDisabled();
+  await expect(sheet.getByRole('button', { name: t.checkout.insufficient.topup })).toBeEnabled();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   expect(await axeViolations(page)).toEqual([]);
   expect(orders.posts).toHaveLength(1);

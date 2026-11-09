@@ -93,7 +93,9 @@ test.describe('account menu', () => {
     await menuButton(page, uz).click();
     await page.locator('#account-menu').getByRole('link', { name: uz.web.nav.profile }).click();
     await expect(page).toHaveURL(/\/store\/profile$/);
-    await expect(page.getByRole('heading', { level: 1, name: uz.web.profile.title })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: uz.account.profile.title }),
+    ).toBeVisible();
     await expect(page.locator('#account-menu')).toHaveCount(0);
   });
 
@@ -103,6 +105,11 @@ test.describe('account menu', () => {
     await openStore(page);
     await menuButton(page, uz).focus();
     await page.keyboard.press('Enter');
+    // The panel walks: history, profile, ...
+    await page.keyboard.press('Tab');
+    await expect(
+      page.locator('#account-menu').getByRole('link', { name: uz.web.nav.orders }),
+    ).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(
       page.locator('#account-menu').getByRole('link', { name: uz.web.nav.profile }),

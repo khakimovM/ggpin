@@ -130,28 +130,25 @@ test.describe('ready', () => {
 });
 
 test.describe('wallet card', () => {
-  test('top-up, bonus code and help (no support link configured) are shown but not pressable', async ({
+  test('top-up leads to /tg/topup; the bonus code is shown but not pressable, help leads to /tg/help', async ({
     page,
   }) => {
     const api = await openHome(page);
     const t = uz.wallet.card;
-    const topUp = page.getByRole('button', { name: new RegExp(t.topUp) });
+    const topUp = page.getByRole('link', { name: new RegExp(t.topUp) });
+    await expect(topUp).toHaveAttribute('href', '/tg/topup');
+    await expect(topUp).not.toContainText(t.soon);
     const bonus = page.getByRole('button', { name: new RegExp(t.bonus) });
-    for (const button of [topUp, bonus]) {
-      await expect(button).toHaveAttribute('aria-disabled', 'true');
-      await expect(button).toContainText(t.soon);
-    }
+    await expect(bonus).toHaveAttribute('aria-disabled', 'true');
+    await expect(bonus).toContainText(t.soon);
     const before = api.requests.length;
-    await topUp.click({ force: true });
     await bonus.click({ force: true });
     expect(page.url()).toMatch(/\/tg$/);
     expect(api.requests.length).toBe(before);
-    // The e2e app has no NEXT_PUBLIC_SUPPORT_URL: help is "Tez orada" too, and nothing on the
-    // page leads to the help screen that does not exist yet.
-    const help = page.getByRole('button', { name: new RegExp(t.help) });
-    await expect(help).toHaveAttribute('aria-disabled', 'true');
-    await expect(help).toContainText(t.soon);
-    await expect(page.locator('a[href="/tg/help"]')).toHaveCount(0);
+    // Help is the Mini App's own screen (phase 7 S9), whatever support link is configured.
+    const help = page.getByRole('link', { name: new RegExp(t.help) });
+    await expect(help).toHaveAttribute('href', '/tg/help');
+    await expect(help).not.toContainText(t.soon);
   });
 
   test('a wallet that cannot be loaded says so and retries, apart from the catalog', async ({

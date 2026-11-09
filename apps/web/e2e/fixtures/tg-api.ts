@@ -31,6 +31,8 @@ export async function installTgApi(page: Page, answers: LoginAnswer[] = [{ kind:
   let held: Promise<void> | null = null;
   let releaseHeld: () => void = () => undefined;
   let logins = 0;
+  // The profile language: a PATCH /me changes what the next GET /me answers, like the server.
+  let profileLocale: string = USER.locale;
 
   const api: TgApi = {
     answers,
@@ -94,7 +96,14 @@ export async function installTgApi(page: Page, answers: LoginAnswer[] = [{ kind:
     } else if (request.method() === 'GET' && path === '/me') {
       const authorised = request.headers().authorization === `Bearer ${TG_TOKEN}`;
       await (authorised
-        ? reply(route, 200, envelope(USER))
+        ? reply(route, 200, envelope({ ...USER, locale: profileLocale }))
+        : reply(route, 401, failure('UNAUTHORIZED')));
+    } else if (request.method() === 'PATCH' && path === '/me') {
+      const authorised = request.headers().authorization === `Bearer ${TG_TOKEN}`;
+      const body = request.postDataJSON() as { locale?: string };
+      if (authorised) profileLocale = body.locale ?? profileLocale;
+      await (authorised
+        ? reply(route, 200, envelope({ ...USER, locale: profileLocale }))
         : reply(route, 401, failure('UNAUTHORIZED')));
     } else {
       await reply(route, 404, failure('NOT_FOUND'));

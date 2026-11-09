@@ -155,7 +155,7 @@ test.describe('paying', () => {
 
 test.describe('every answer of POST /orders', () => {
   for (const lang of ['uz', 'ru'] as const) {
-    test(`${lang}: not enough money - the server's numbers, top-up not offered yet`, async ({
+    test(`${lang}: not enough money - the server's numbers, a working top-up button, no buy-and-top-up`, async ({
       page,
     }, testInfo) => {
       const text = t(lang).insufficient;
@@ -170,8 +170,7 @@ test.describe('every answer of POST /orders', () => {
       await expect(sheet).toContainText(/5.000\s*(so‘m|сум)/); // balance
       await expect(sheet).toContainText(/11.000\s*(so‘m|сум)/); // price
       await expect(sheet).toContainText(/6.000\s*(so‘m|сум)/); // shortfall, written by the server
-      await expect(sheet.getByRole('button', { name: text.topup })).toBeDisabled();
-      await expect(sheet.getByText(text.soon)).toBeVisible();
+      await expect(sheet.getByRole('button', { name: text.topup })).toBeEnabled();
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       expect(await axeViolations(page)).toEqual([]);
       await attachShot(page, testInfo, `insufficient-${lang}`);
@@ -180,6 +179,17 @@ test.describe('every answer of POST /orders', () => {
       expect(orders.posts).toHaveLength(1);
     });
   }
+
+  test('not enough money: the top-up button leaves for /tg/topup and remembers the product page', async ({
+    page,
+  }) => {
+    await openCheckout(page, STARS, { orders: { balanceTiyin: '500000' } });
+    await reachConfirm(page);
+    await tgPressMain(page);
+    const sheet = dialog(page, t('uz').insufficient.title);
+    await sheet.getByRole('button', { name: t('uz').insufficient.topup }).click();
+    await expect(page).toHaveURL(/\/tg\/topup\?from=%2Ftg%2Fproducts%2Ftelegram-stars$/);
+  });
 
   test('410: a new price is shown first, and the payment goes on the NEW quote with a new key', async ({
     page,

@@ -66,6 +66,8 @@ export interface FakeWebAppOptions {
   languageCode?: string;
   safeArea?: Inset;
   contentSafeArea?: Inset;
+  /** The first N calls of `openLink` throw (a client that refuses the call), then it works. */
+  openLinkRefusals?: number;
 }
 
 export type TgCall = [name: string, ...args: unknown[]];
@@ -88,6 +90,7 @@ export async function installFakeWebApp(page: Page, options: FakeWebAppOptions =
   await page.addInitScript((o: FakeWebAppOptions) => {
     const zero = { top: 0, bottom: 0, left: 0, right: 0 };
     const calls: unknown[][] = [];
+    let refusals = o.openLinkRefusals ?? 0;
     const listeners: Record<string, (() => void)[]> = {};
     const mainHandlers: (() => void)[] = [];
     const backHandlers: (() => void)[] = [];
@@ -116,7 +119,13 @@ export async function installFakeWebApp(page: Page, options: FakeWebAppOptions =
       setHeaderColor: record('setHeaderColor'),
       setBackgroundColor: record('setBackgroundColor'),
       setBottomBarColor: record('setBottomBarColor'),
-      openLink: record('openLink'),
+      openLink: (...args: unknown[]) => {
+        calls.push(['openLink', ...args]);
+        if (refusals > 0) {
+          refusals -= 1;
+          throw new Error('openLink refused');
+        }
+      },
       openTelegramLink: record('openTelegramLink'),
       enableClosingConfirmation: record('enableClosingConfirmation'),
       disableClosingConfirmation: record('disableClosingConfirmation'),

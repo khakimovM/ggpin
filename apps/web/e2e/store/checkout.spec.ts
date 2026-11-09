@@ -106,7 +106,7 @@ test.describe('paying', () => {
 
 test.describe('every answer of POST /orders', () => {
   for (const lang of ['uz', 'ru'] as const) {
-    test(`${lang}: not enough money - the server's numbers, top-up not offered yet`, async ({
+    test(`${lang}: not enough money - the server's numbers, a working top-up button, no buy-and-top-up`, async ({
       page,
     }, testInfo) => {
       const text = t(lang).insufficient;
@@ -117,8 +117,7 @@ test.describe('every answer of POST /orders', () => {
       await expect(sheet).toContainText(/5.000\s*(so‘m|сум)/);
       await expect(sheet).toContainText(/11.000\s*(so‘m|сум)/);
       await expect(sheet).toContainText(/6.000\s*(so‘m|сум)/);
-      await expect(sheet.getByRole('button', { name: text.topup })).toBeDisabled();
-      await expect(sheet.getByText(text.soon)).toBeVisible();
+      await expect(sheet.getByRole('button', { name: text.topup })).toBeEnabled();
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       expect(await axeViolations(page)).toEqual([]);
       await shot(page, testInfo, `insufficient-${lang}`);

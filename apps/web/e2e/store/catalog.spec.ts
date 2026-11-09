@@ -33,10 +33,7 @@ test.describe('ready', () => {
           );
         }
         await expect(page.getByTestId('header-balance')).toContainText(/85.400/);
-        await expect(page.getByRole('button', { name: t.web.nav.topUp })).toHaveAttribute(
-          'aria-disabled',
-          'true',
-        );
+        await expect(page.getByRole('button', { name: t.web.nav.topUp })).toBeEnabled();
 
         // Links go to the product screen of the same language (S6).
         await expect(card(page, 'PUBG Mobile')).toHaveAttribute(
@@ -144,7 +141,9 @@ test.describe('search in the URL', () => {
     page,
   }) => {
     await openStore(page, { path: '/store/profile' });
-    await expect(page.getByRole('heading', { level: 1, name: uz.web.profile.title })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: uz.account.profile.title }),
+    ).toBeVisible();
     await searchbox(page).fill('steam');
     await expect(page).toHaveURL(/\/store\?q=steam$/);
     await expect(card(page, 'Steam')).toBeVisible();
@@ -158,7 +157,9 @@ test.describe('search in the URL', () => {
     await page.getByRole('button', { name: uz.web.nav.menu }).click();
     await page.locator('#account-menu').getByRole('link', { name: uz.web.nav.profile }).click();
     await expect(page).toHaveURL(/\/store\/profile$/);
-    await expect(page.getByRole('heading', { level: 1, name: uz.web.profile.title })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: uz.account.profile.title }),
+    ).toBeVisible();
     // Long enough for the debounce and any wrong redirect to have happened.
     await page.waitForTimeout(800);
     await expect(page).toHaveURL(/\/store\/profile$/);

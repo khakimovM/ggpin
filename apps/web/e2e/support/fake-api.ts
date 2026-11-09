@@ -22,7 +22,8 @@ export const USER = {
   firstName: 'Sardor',
   photoUrl: null,
   locale: 'uz',
-  referralCode: 'REF123',
+  // The shape the bot's start parameter accepts: 8 lowercase letters or digits.
+  referralCode: 'ref12345',
   phoneLinked: false,
 };
 
@@ -104,6 +105,8 @@ export async function installFakeApi(
   const statuses = options.statuses ?? ['PENDING', 'CODE_SENT'];
   let statusCalls = 0;
   let triesLeft = options.attempts ?? 5;
+  // The profile language: a PATCH /me changes what the next GET /me answers, like the server.
+  let profileLocale: string = USER.locale;
   const api: FakeApi = {
     signedIn: options.signedIn ?? false,
     sessions: SESSIONS.map((session) => ({ ...session })),
@@ -185,7 +188,14 @@ export async function installFakeApi(
       }
     } else if (method === 'GET' && path === '/me') {
       await (api.signedIn
-        ? answer(route, 200, ok(USER))
+        ? answer(route, 200, ok({ ...USER, locale: profileLocale }))
+        : answer(route, 401, error('UNAUTHORIZED')));
+    } else if (method === 'PATCH' && path === '/me') {
+      // The language choice (profile picker and header switch): saved, and echoed back.
+      const body = request.postDataJSON() as { locale?: string };
+      if (api.signedIn) profileLocale = body.locale ?? profileLocale;
+      await (api.signedIn
+        ? answer(route, 200, ok({ ...USER, locale: profileLocale }))
         : answer(route, 401, error('UNAUTHORIZED')));
     } else if (method === 'POST' && path === '/auth/refresh') {
       await answer(route, 401, error('UNAUTHORIZED'));
