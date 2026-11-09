@@ -14,7 +14,7 @@ export function HelpAction({ className }: { className: string }) {
   return (
     <Link
       href="/tg/help"
-      className={`relative flex h-11 items-center justify-center gap-1.5 rounded-[14px] text-sm font-extrabold whitespace-nowrap no-underline hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-ring ${className}`}
+      className={`relative flex min-h-11 items-center justify-center gap-1.5 rounded-[14px] text-center text-sm font-extrabold no-underline hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-ring ${className}`}
     >
       <Icon icon={LifeBuoy} size={16} />
       {t('help')}

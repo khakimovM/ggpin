@@ -13,6 +13,31 @@ import { HistoryTable, LINK_CLASS, ROW_CLASS, type HistoryColumn } from './Histo
 import { recipientLabel } from './order-labels';
 import { ProductThumb } from './ProductThumb';
 
+/**
+ * The chip of a table row. Russian QA 3: the longest chip ("Не выполнено — деньги возвращены") has a
+ * short form for tables; assistive tech still gets the full sentence (the short chip is hidden
+ * from it, so it is not read twice).
+ */
+function StatusLabel({ status: code }: { status: OrderDto['status'] }) {
+  const status = useTranslations('store.order.status');
+  const key = chipKeyOf(code);
+  const short = key === 'refunded';
+  return (
+    <>
+      <span aria-hidden={short ? true : undefined}>
+        <StatusChip
+          status={code}
+          label={status(key)}
+          shortLabel={short ? status('refundedShort') : undefined}
+          form="short"
+          size="lg"
+        />
+      </span>
+      {short ? <span className="sr-only">{status(key)}</span> : null}
+    </>
+  );
+}
+
 export function OrderTable({
   orders,
   hrefOf,
@@ -21,7 +46,6 @@ export function OrderTable({
   hrefOf: (id: string) => string;
 }) {
   const t = useTranslations('account.history');
-  const status = useTranslations('store.order.status');
   const itemLabel = useItemLabel();
   const { userDateTime } = useDateFormat();
   const columns: HistoryColumn[] = [
@@ -54,7 +78,7 @@ export function OrderTable({
             <Money tiyin={order.totalTiyin} size="md" />
           </td>
           <td className="px-3">
-            <StatusChip status={order.status} label={status(chipKeyOf(order.status))} size="lg" />
+            <StatusLabel status={order.status} />
           </td>
           <td className="pr-4 text-foreground-muted">
             <Icon icon={ChevronRight} size={17} />

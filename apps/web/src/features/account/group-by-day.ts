@@ -1,5 +1,5 @@
 import type { Locale } from '@repo/shared';
-import { DISPLAY_TIME_ZONE } from '../../lib/format/date';
+import { DISPLAY_TIME_ZONE, formatDay } from '../../lib/format/date';
 
 // The history is grouped under day headings ("Bugun", "Kecha", "27-oktabr"). Grouping is a way of
 // laying out what the server sent, in Tashkent time like every other date of the app; the order
@@ -61,12 +61,7 @@ export function groupByDay<T>(
         ? options.labels.today
         : ago === 1
           ? options.labels.yesterday
-          : new Intl.DateTimeFormat(options.locale, {
-              day: 'numeric',
-              month: 'long',
-              year: parts.year === now.year ? undefined : 'numeric',
-              timeZone: DISPLAY_TIME_ZONE,
-            }).format(date);
+          : formatDay(date, { locale: options.locale }, options.now);
     groups.push({ key: parts.key, label, items: [item] });
   }
   return groups;

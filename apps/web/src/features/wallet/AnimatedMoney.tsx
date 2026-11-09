@@ -41,7 +41,7 @@ export function AnimatedMoney({ tiyin, className }: { tiyin: string; className?:
       value.set(target);
       return;
     }
-    const controls = animate(value, target, { duration: DURATION.slower * 1.5, ease: EASE.out });
+    const controls = animate(value, target, { duration: DURATION.slower, ease: EASE.out });
     return () => controls.stop();
   }, [target, reduced, value]);
 

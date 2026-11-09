@@ -1,7 +1,8 @@
 'use client';
 
-import { Badge, ErrorState, Icon, Skeleton } from '@repo/ui';
+import { Badge, DURATION, ErrorState, Icon, Skeleton, useReducedMotion } from '@repo/ui';
 import { Plus, Ticket } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { AnimatedMoney } from './AnimatedMoney';
@@ -9,7 +10,7 @@ import { HelpAction } from './HelpAction';
 import { useWallet } from './use-wallet';
 
 const BLOB =
-  'pointer-events-none absolute -z-10 rounded-full animate-[gg-drift_9s_ease-in-out_infinite]';
+  'pointer-events-none absolute -z-10 rounded-full animate-[gg-drift_14s_ease-in-out_infinite]';
 const ON_PRIMARY_BUTTON =
   'bg-[color-mix(in_oklab,var(--primary-foreground)_16%,transparent)] text-primary-foreground';
 
@@ -23,6 +24,7 @@ export function WalletCard() {
   const t = useTranslations('wallet.card');
   const common = useTranslations('common');
   const wallet = useWallet();
+  const reduced = useReducedMotion();
 
   if (wallet.isPending) {
     return (
@@ -57,11 +59,11 @@ export function WalletCard() {
       />
       <span
         aria-hidden="true"
-        className={`${BLOB} -bottom-[120px] -left-20 size-[220px] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent)_45%,transparent),transparent)] [animation-duration:11s] [animation-delay:1.5s]`}
+        className={`${BLOB} -bottom-[120px] -left-20 size-[220px] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent)_45%,transparent),transparent)] [animation-delay:-4s]`}
       />
       <span
         aria-hidden="true"
-        className={`${BLOB} -bottom-[70px] right-10 size-[140px] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--premium)_55%,transparent),transparent)] [animation-duration:13s] [animation-delay:3s]`}
+        className={`${BLOB} -bottom-[70px] right-10 size-[140px] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--premium)_55%,transparent),transparent)] [animation-delay:-8s]`}
       />
       <span className="flex items-center justify-between">
         <span className="text-sm leading-[18px] font-bold">{t('balance')}</span>
@@ -79,10 +81,16 @@ export function WalletCard() {
         />
         <span className="text-[17px] leading-[22px] font-bold">{common('currency.uzs')}</span>
       </span>
-      <div className="flex flex-col gap-2">
+      {/* Motion table "Wallet card": the actions fade in 140 ms after the card, dur-base. */}
+      <motion.div
+        initial={reduced ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: DURATION.base, delay: DURATION.fast }}
+        className="flex flex-col gap-2"
+      >
         <Link
           href="/tg/topup"
-          className="flex h-12 items-center justify-center gap-2 rounded-[14px] bg-primary-foreground text-[15px] font-extrabold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-[14px] text-center bg-primary-foreground text-[15px] font-extrabold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground"
         >
           <Icon icon={Plus} size={18} />
           {t('topUp')}
@@ -91,7 +99,7 @@ export function WalletCard() {
           <button
             type="button"
             aria-disabled="true"
-            className={`relative flex h-11 cursor-not-allowed items-center justify-center gap-1.5 rounded-[14px] text-sm font-extrabold whitespace-nowrap ${ON_PRIMARY_BUTTON}`}
+            className={`relative flex min-h-11 cursor-not-allowed items-center justify-center gap-1.5 rounded-[14px] text-center text-sm font-extrabold ${ON_PRIMARY_BUTTON}`}
           >
             <Icon icon={Ticket} size={16} />
             {t('bonus')}
@@ -101,7 +109,7 @@ export function WalletCard() {
           </button>
           <HelpAction className={ON_PRIMARY_BUTTON} />
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }
