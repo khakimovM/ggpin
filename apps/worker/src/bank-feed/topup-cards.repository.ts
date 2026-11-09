@@ -29,6 +29,15 @@ export class TopupCardsRepository {
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${wait}, true) AS "lockTimeout"`;
   }
 
+  /**
+   * Options of an interactive transaction that waits on a card lock (setLockTimeout): Prisma's
+   * default 5 s timeout must not end the transaction before `lock_timeout` does, or a busy card
+   * shows up as a transaction timeout instead of 55P03. maxWait as the matcher's TX_OPTIONS.
+   */
+  cardLockTxOptions(): { readonly maxWait: number; readonly timeout: number } {
+    return { maxWait: 4_000, timeout: this.config.BANK_FEED_LOCK_TIMEOUT_MS + 5_000 };
+  }
+
   /** The card's advisory lock, the same key as the API (`lockTopupCard`). */
   lockCard(tx: Tx, cardId: string): Promise<void> {
     return lockTopupCard(tx, cardId);

@@ -107,6 +107,6 @@ export class CardLimitsService {
         alerts.push({ alert: 'lateOverLimit', refId: payment.id });
       }
       return alerts;
-    });
+    }, this.cards.cardLockTxOptions());
   }
 }

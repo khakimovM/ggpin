@@ -9,6 +9,7 @@ import {
 } from '@repo/shared';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { BankFeedNotifier } from './bank-feed-notifier';
+import { CardDrainService, type CardDrainResult } from './card-drain.service';
 import { MatchWritesRepository } from './match-writes.repository';
 import { OrphanRequeueService } from './orphan-requeue.service';
 import { TopupCardsRepository } from './topup-cards.repository';
@@ -21,6 +22,12 @@ export interface TopupExpireResult {
   readonly limitAlerts: number;
   /** Cards that could not be checked this time (busy, or an error): the next sweep retries. */
   readonly skippedCards: number;
+  /** DRAINING cards whose reservations all ended, moved to RETIRED (CardDrainService). */
+  readonly retiredCards: number;
+  /** DRAINING cards kept only because a message on them awaits its decision. */
+  readonly drainHeldByMessage: number;
+  /** `cardDrained` alerts that could not be queued (the next runs queue them again). */
+  readonly drainAlertsFailed: number;
   /** Bank messages without a decision whose job was added again or retried (S9 m1). */
   readonly requeuedMessages: number;
 }
@@ -38,8 +45,11 @@ const SYSTEM = { actor: 'system', withinGrace: true } as const;
  *    `cardLimitAlertRef` the card-limit job uses, so the notify queue keeps one alert per card
  *    and limit set; an alert repeats only after NOTIFY_DEDUPE_SEC (30 days) while the card stays
  *    there, a deliberate reminder.
- * 3. The orphan fallback (OrphanRequeueService): a stored message with no decision and no live
- *    job gets its `bm-<id>` job back. Its own failure does not stop the steps above.
+ * 3. DRAINING -> RETIRED (CardDrainService): a draining card none of whose requests holds its
+ *    amount any more, with a LATE_STORED_AFTER_MS margin for a payment stored late
+ *    (`reservedUntil < now - 10 min`), is retired under its card lock; alert `cardDrained`.
+ * 4. The orphan fallback (OrphanRequeueService): a stored message with no decision and no live
+ *    job gets its `bm-<id>` job back. Neither failure stops the other steps.
  * The sweep moves no money. Logs carry counts and card ids only.
  */
 @Injectable()
@@ -52,6 +62,7 @@ export class TopupExpireService {
     private readonly writes: MatchWritesRepository,
     private readonly notifier: BankFeedNotifier,
     private readonly orphans: OrphanRequeueService,
+    private readonly drain: CardDrainService,
   ) {}
 
   async run(now: Date = new Date()): Promise<TopupExpireResult> {
@@ -71,8 +82,28 @@ export class TopupExpireService {
         this.logger.warn(`topup-expire card=${totals.card.id} not checked: ${name}`);
       }
     }
+    const drain = await this.retireDrained(now);
     const requeuedMessages = await this.requeueOrphans(now);
-    return { expired, madeFull, limitAlerts, skippedCards, requeuedMessages };
+    return {
+      expired,
+      madeFull,
+      limitAlerts,
+      skippedCards: skippedCards + drain.skipped,
+      retiredCards: drain.retired,
+      drainHeldByMessage: drain.heldByMessage,
+      drainAlertsFailed: drain.alertsFailed,
+      requeuedMessages,
+    };
+  }
+
+  private async retireDrained(now: Date): Promise<CardDrainResult> {
+    try {
+      return await this.drain.run(now);
+    } catch (error) {
+      const name = error instanceof Error ? error.name : 'unknown';
+      this.logger.warn(`topup-expire card drain failed: ${name}`);
+      return { retired: 0, skipped: 0, heldByMessage: 0, alertsFailed: 0 };
+    }
   }
 
   private async requeueOrphans(now: Date): Promise<number> {
@@ -109,7 +140,7 @@ export class TopupExpireService {
       const moved = fresh.card.status === 'ACTIVE';
       if (moved) await this.writes.markFull(tx, cardId);
       return { fresh, moved };
-    });
+    }, this.cards.cardLockTxOptions());
     if (locked === null) return 'BELOW';
     await this.notifier.alert('cardFull', cardLimitAlertRef('cardFull', limitsOf(locked.fresh)));
     return locked.moved ? 'MADE_FULL' : 'FULL';

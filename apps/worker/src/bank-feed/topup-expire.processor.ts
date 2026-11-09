@@ -18,11 +18,21 @@ export class TopupExpireProcessor extends WorkerHost {
 
   async process(): Promise<TopupExpireResult> {
     const result = await this.sweep.run(new Date());
-    const busy = result.expired + result.madeFull + result.skippedCards + result.requeuedMessages;
+    const busy =
+      result.expired +
+      result.madeFull +
+      result.skippedCards +
+      result.retiredCards +
+      result.drainHeldByMessage +
+      result.drainAlertsFailed +
+      result.requeuedMessages;
     if (busy > 0) {
       this.logger.log(
         `topup-expire expired=${String(result.expired)} madeFull=${String(result.madeFull)} ` +
           `limitAlerts=${String(result.limitAlerts)} skippedCards=${String(result.skippedCards)} ` +
+          `retiredCards=${String(result.retiredCards)} ` +
+          `drainHeldByMessage=${String(result.drainHeldByMessage)} ` +
+          `drainAlertsFailed=${String(result.drainAlertsFailed)} ` +
           `requeuedMessages=${String(result.requeuedMessages)}`,
       );
     }
