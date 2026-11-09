@@ -3,8 +3,6 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../lib/api/errors';
-import { TelegramContext } from '../../../telegram/telegram-context';
-import { createFakeWebApp, installWebApp } from '../../../telegram/__tests__/fake-webapp';
 import { renderApp } from '../../auth/__tests__/test-utils';
 import { AnimatedMoney } from '../AnimatedMoney';
 import { WalletCard } from '../WalletCard';
@@ -123,76 +121,36 @@ describe('WalletCard', () => {
     renderApp(<WalletCard />, { locale: 'ru' });
     const balance = await screen.findByTestId('wallet-balance');
     expect(balance).toHaveTextContent('сум');
-    expect(screen.getByRole('button', { name: /Пополнить счёт/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Помощь/ })).toHaveTextContent('Скоро');
+    expect(screen.getByRole('link', { name: /Пополнить счёт/ })).toHaveAttribute(
+      'href',
+      '/tg/topup',
+    );
+    expect(screen.getByRole('link', { name: /Помощь/ })).toHaveAttribute('href', '/tg/help');
   });
 
-  it('top-up and bonus code are shown, marked "Tez orada", and do nothing when pressed', async () => {
+  it('top-up leads to /tg/topup; the bonus code is shown, marked "Tez orada", and does nothing when pressed', async () => {
     mocks.getWallet.mockResolvedValue(WALLET);
     renderApp(<WalletCard />);
     await screen.findByTestId('wallet-balance');
-    for (const name of [/Hisobni to‘ldirish/, /Bonus kod/]) {
-      const button = screen.getByRole('button', { name });
-      expect(button).toHaveAttribute('aria-disabled', 'true');
-      expect(button).toHaveTextContent('Tez orada');
-      await userEvent.click(button);
-    }
-    // Nothing was requested or navigated by those presses.
+    const topUp = screen.getByRole('link', { name: /Hisobni to‘ldirish/ });
+    expect(topUp).toHaveAttribute('href', '/tg/topup');
+    expect(topUp).not.toHaveTextContent('Tez orada');
+    const bonus = screen.getByRole('button', { name: /Bonus kod/ });
+    expect(bonus).toHaveAttribute('aria-disabled', 'true');
+    expect(bonus).toHaveTextContent('Tez orada');
+    await userEvent.click(bonus);
+    // Nothing was requested by that press.
     expect(mocks.getWallet).toHaveBeenCalledTimes(1);
   });
 
-  describe('Yordam (support)', () => {
-    const card = async (webApp?: ReturnType<typeof createFakeWebApp>) => {
-      mocks.getWallet.mockResolvedValue(WALLET);
-      renderApp(
-        <TelegramContext.Provider
-          value={{ phase: webApp ? 'telegram' : 'browser', webApp: webApp ?? null }}
-        >
-          <WalletCard />
-        </TelegramContext.Provider>,
-      );
-      await screen.findByTestId('wallet-balance');
-    };
-
-    it('no support link configured: shown, "Tez orada", not pressable, and not a link', async () => {
-      await card();
-      const button = screen.getByRole('button', { name: /Yordam/ });
-      expect(button).toHaveAttribute('aria-disabled', 'true');
-      expect(button).toHaveTextContent('Tez orada');
-      expect(screen.queryByRole('link', { name: /Yordam/ })).not.toBeInTheDocument();
-      // Never a link to a page that does not exist.
-      expect(document.querySelector('a[href="/tg/help"]')).toBeNull();
-    });
-
-    it('a t.me link opens inside Telegram, not in a browser', async () => {
-      mocks.env.NEXT_PUBLIC_SUPPORT_URL = 'https://t.me/ggpin_support';
-      const app = createFakeWebApp();
-      installWebApp(app); // the SDK object the open helpers read (window.Telegram)
-      await card(app);
-      await userEvent.click(screen.getByRole('button', { name: /Yordam/ }));
-      expect(app.openTelegramLink).toHaveBeenCalledExactlyOnceWith('https://t.me/ggpin_support');
-      expect(app.openLink).not.toHaveBeenCalled();
-    });
-
-    it('a t.me link outside Telegram is an ordinary link in a new tab', async () => {
-      mocks.env.NEXT_PUBLIC_SUPPORT_URL = 'https://t.me/ggpin_support';
-      await card();
-      const link = screen.getByRole('link', { name: /Yordam/ });
-      expect(link).toHaveAttribute('href', 'https://t.me/ggpin_support');
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
-    });
-
-    it('any other link is an ordinary link, also inside Telegram', async () => {
-      mocks.env.NEXT_PUBLIC_SUPPORT_URL = 'https://help.example.test/ggpin';
-      const app = createFakeWebApp();
-      await card(app);
-      expect(screen.getByRole('link', { name: /Yordam/ })).toHaveAttribute(
-        'href',
-        'https://help.example.test/ggpin',
-      );
-      expect(app.openTelegramLink).not.toHaveBeenCalled();
-    });
+  it('Yordam leads to the Mini App’s own help screen, whatever support link is configured', async () => {
+    mocks.getWallet.mockResolvedValue(WALLET);
+    renderApp(<WalletCard />);
+    await screen.findByTestId('wallet-balance');
+    const help = screen.getByRole('link', { name: /Yordam/ });
+    expect(help).toHaveAttribute('href', '/tg/help');
+    expect(help).not.toHaveTextContent('Tez orada');
+    expect(help).not.toHaveAttribute('target');
   });
 
   it('shows a new balance when the wallet is refetched', async () => {

@@ -95,7 +95,7 @@ describe('paying', () => {
 });
 
 describe('every answer has its screen', () => {
-  it('422 INSUFFICIENT_BALANCE: the server numbers, top-up not available yet, a way to close', async () => {
+  it('422 INSUFFICIENT_BALANCE: the server numbers, a working top-up button, no buy-and-top-up, a way to close', async () => {
     api.createOrder.mockRejectedValue(
       serverError({
         status: 422,
@@ -112,9 +112,9 @@ describe('every answer has its screen', () => {
     expect(sheet).toHaveTextContent(/Balansingiz:\s*85.400\s*so‘m/);
     expect(sheet).toHaveTextContent(/Narx:\s*122.450\s*so‘m/);
     expect(sheet).toHaveTextContent(/Yetishmaydi:\s*37.050\s*so‘m/);
-    // Until the wallet slice exists: top-up is off and marked, "pay and buy" is not offered.
-    expect(within(sheet).getByRole('button', { name: /Hisobni to‘ldirish/ })).toBeDisabled();
-    expect(within(sheet).getByText('Tez orada')).toBeInTheDocument();
+    // Top-up works; "top up and buy" is not offered (TOPUP_AND_BUY is phase 5).
+    expect(within(sheet).getByRole('button', { name: /Hisobni to‘ldirish/ })).toBeEnabled();
+    expect(within(sheet).queryByText('Tez orada')).toBeNull();
     expect(within(sheet).queryByText(/to‘ldirish va sotib olish/)).toBeNull();
     // (the sheet's own close button carries the same name: the text button is the last one)
     const closers = within(sheet).getAllByRole('button', { name: 'Yopish' });

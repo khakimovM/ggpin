@@ -1,8 +1,11 @@
 'use client';
 
-import { Icon } from '@repo/ui';
+import { Button, Icon } from '@repo/ui';
 import { CircleHelp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
+import { getActiveAuth } from '../../lib/api/client';
+import { useAccountPaths } from '../account/use-account-paths';
 import { SupportLinkButton } from '../support/SupportLinkButton';
 
 export interface UncertainNoteProps {
@@ -15,10 +18,12 @@ export interface UncertainNoteProps {
 /**
  * The answer to "To‘lash" never came: the order may exist and the money may be gone. It says which
  * purchase it is, says so plainly, promises that asking again cannot charge twice (the same key is
- * sent) and leads to support. The order list does not exist yet (S9 adds a link to it here).
+ * sent) and leads to the order list (the wallet and order caches were refreshed when the doubt
+ * began) and to support.
  */
 export function UncertainNote({ label, message }: UncertainNoteProps) {
   const t = useTranslations('store.checkout.uncertain');
+  const paths = useAccountPaths(getActiveAuth().channel === 'tg' ? 'tg' : 'web');
   return (
     <div
       role="alert"
@@ -40,6 +45,9 @@ export function UncertainNote({ label, message }: UncertainNoteProps) {
       {message ? (
         <span className="text-[13px] leading-[18px] font-bold text-danger-text">{message}</span>
       ) : null}
+      <Button asChild variant="outline" className="w-full">
+        <Link href={paths.history}>{t('orders')}</Link>
+      </Button>
       <SupportLinkButton variant="secondary" className="w-full">
         {t('support')}
       </SupportLinkButton>

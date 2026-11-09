@@ -15,10 +15,12 @@ import { useTelegram } from '../../telegram/telegram-context';
 import { useBackInterceptor } from '../../telegram/use-back-button';
 import { useClosingGuard } from '../../telegram/use-closing-guard';
 import { useMainButton } from '../../telegram/use-main-button';
+import { useTopupModalStore } from '../../stores/topup-modal-store';
 import { useCountdown } from '../auth/use-countdown';
 import { useMe } from '../auth/use-me';
 import type { QuoteControls } from '../product/use-quote';
 import { retryDelaySec } from '../product/retry-delay';
+import { fromQuery, safeFrom } from '../topup/topup-from';
 import { useWallet } from '../wallet/use-wallet';
 import { ConfirmSheet } from './ConfirmSheet';
 import { FrozenSheet } from './FrozenSheet';
@@ -114,6 +116,14 @@ export function CheckoutFlow({
   useEffect(() => {
     if (dead) onOpenChange(false);
   }, [dead, onOpenChange]);
+
+  // Top up, then come back: the Mini App leaves for /tg/topup (and returns here after it), the web
+  // store opens its top-up modal over the page.
+  const topUp = () => {
+    close(false);
+    if (variant === 'web') useTopupModalStore.getState().show();
+    else router.push(`/tg/topup${fromQuery(safeFrom(window.location.pathname))}`);
+  };
 
   const orderHref = (id: string) =>
     variant === 'tg' ? `/tg/orders/${id}` : localizedPath(locale, `/store/orders/${id}`);
@@ -273,7 +283,7 @@ export function CheckoutFlow({
         }}
       />
       {outcome?.kind === 'insufficient' ? (
-        <InsufficientSheet open={open} onOpenChange={close} details={outcome} />
+        <InsufficientSheet open={open} onOpenChange={close} details={outcome} onTopUp={topUp} />
       ) : null}
       {outcome?.kind === 'frozen' ? (
         <FrozenSheet open={open} onOpenChange={close} uncertain={attempt !== null} />

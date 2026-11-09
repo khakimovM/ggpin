@@ -1,7 +1,7 @@
 'use client';
 
 import type { InsufficientBalanceDetails } from '@repo/shared';
-import { Badge, Button, Icon, Sheet } from '@repo/ui';
+import { Button, Icon, Sheet } from '@repo/ui';
 import { Wallet } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Money } from '../../lib/format/money';
@@ -11,14 +11,22 @@ export interface InsufficientSheetProps {
   onOpenChange: (open: boolean) => void;
   /** The server's numbers (`details.balance`, `required`, `shortfall`); none is worked out here. */
   details: InsufficientBalanceDetails;
+  /** "Hisobni to'ldirish": the Mini App goes to /tg/topup, the web store opens its top-up modal. */
+  onTopUp: () => void;
 }
 
 /**
- * "Mablag‘ yetarli emas" (Checkout.dc.html `insufficient`). The top-up buttons belong to the
- * wallet slice (S8): until it exists the only way on is "Hisobni to‘ldirish" marked "Tez orada"
- * and off, and "Yopish". "{amount} to‘ldirish va sotib olish" is not drawn at all yet.
+ * "Mablag‘ yetarli emas" (Checkout.dc.html `insufficient`): the server's numbers, "Hisobni
+ * to‘ldirish" and "Yopish". "{amount} to‘ldirish va sotib olish" is not drawn: `TOPUP_AND_BUY` is a
+ * phase 5 purpose (docs/04: it answers 400 today), and the missing amount is never rounded up to a
+ * top-up step in the browser; the visitor chooses the amount on the top-up screen.
  */
-export function InsufficientSheet({ open, onOpenChange, details }: InsufficientSheetProps) {
+export function InsufficientSheet({
+  open,
+  onOpenChange,
+  details,
+  onTopUp,
+}: InsufficientSheetProps) {
   const t = useTranslations('store.checkout.insufficient');
   return (
     <Sheet
@@ -62,11 +70,8 @@ export function InsufficientSheet({ open, onOpenChange, details }: InsufficientS
         </dl>
 
         <div className="flex flex-col gap-2">
-          <Button size="lg" disabled className="relative w-full">
+          <Button size="lg" glow onClick={onTopUp} className="w-full">
             {t('topup')}
-            <Badge size="sm" variant="soon" className="absolute -top-2 right-3">
-              {t('soon')}
-            </Badge>
           </Button>
           <Button variant="ghost" size="lg" onClick={() => onOpenChange(false)} className="w-full">
             {t('close')}

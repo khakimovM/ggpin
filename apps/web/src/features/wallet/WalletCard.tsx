@@ -3,6 +3,7 @@
 import { Badge, ErrorState, Icon, Skeleton } from '@repo/ui';
 import { Plus, Ticket } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import { AnimatedMoney } from './AnimatedMoney';
 import { HelpAction } from './HelpAction';
 import { useWallet } from './use-wallet';
@@ -14,9 +15,9 @@ const ON_PRIMARY_BUTTON =
 
 /**
  * The wallet card of the Mini App home (MiniApp.dc.html `home`). The balance is the server's
- * `GET /me/wallet`, never computed here. "To‘ldirish" and "Bonus kod" are shown but not pressable
- * ("Tez orada") until the top-up (phase 7 S8) and bonus-code screens exist; "Yordam" is the
- * support link (see HelpAction).
+ * `GET /me/wallet`, never computed here. "To‘ldirish" opens the top-up (`/tg/topup`); "Bonus kod"
+ * is shown but not pressable ("Tez orada") until the bonus-code screen exists; "Yordam" opens
+ * the help screen (`/tg/help`, see HelpAction).
  */
 export function WalletCard() {
   const t = useTranslations('wallet.card');
@@ -79,15 +80,13 @@ export function WalletCard() {
         <span className="text-[17px] leading-[22px] font-bold">{common('currency.uzs')}</span>
       </span>
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          aria-disabled="true"
-          className="flex h-12 cursor-not-allowed items-center justify-center gap-2 rounded-[14px] bg-primary-foreground text-[15px] font-extrabold text-primary"
+        <Link
+          href="/tg/topup"
+          className="flex h-12 items-center justify-center gap-2 rounded-[14px] bg-primary-foreground text-[15px] font-extrabold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground"
         >
           <Icon icon={Plus} size={18} />
           {t('topUp')}
-          <Badge size="sm">{t('soon')}</Badge>
-        </button>
+        </Link>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
