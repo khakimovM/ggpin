@@ -1,7 +1,8 @@
 'use client';
 
-import { BottomActionBar, Icon } from '@repo/ui';
+import { BottomActionBar, DURATION, Icon, useReducedMotion } from '@repo/ui';
 import { ShoppingBag } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 import { Money, useFormatMoney } from '../../lib/format/money';
 import { useMainButton } from '../../telegram/use-main-button';
@@ -22,8 +23,8 @@ export interface PriceBarProps {
 
 /**
  * The buy action. In the Mini App it is Telegram's native MainButton, with the reason printed in
- * the page (the native button has no room for it); on the web it is the bottom bar below 1024 px
- * and a block at the end of the sticky panel from 1024 px. It is on only with a confirmed
+ * the page (the native button has no room for it); on the web it is the bottom bar below 768 px
+ * and a block at the end of the purchase panel from 768 px. It is on only with a confirmed
  * recipient and a live quote, and the amount on it is the quote's, as the server wrote it.
  */
 export function PriceBar({
@@ -39,6 +40,7 @@ export function PriceBar({
   const { webApp } = useTelegram();
   const enabled = reason === undefined && totalTiyin !== null && !pending;
   const price = totalTiyin === null ? null : formatMoney(totalTiyin);
+  const reduced = useReducedMotion();
 
   useMainButton(variant === 'tg' && !suspended ? webApp : null, {
     text: enabled && price !== null ? t('withPrice', { price }) : t('label'),
@@ -64,15 +66,26 @@ export function PriceBar({
   const bar = {
     label: t('label'),
     onAction: onBuy,
-    price: totalTiyin === null ? undefined : <Money tiyin={totalTiyin} size="lg" />,
+    // Motion table "SKU selection": the price crossfades (dur-base) when the choice changes it.
+    price:
+      totalTiyin === null ? undefined : (
+        <motion.span
+          key={totalTiyin}
+          initial={reduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: DURATION.base }}
+        >
+          <Money tiyin={totalTiyin} size="lg" />
+        </motion.span>
+      ),
     priceLoading: pending,
     disabledReason: reason,
     icon: <Icon icon={ShoppingBag} size={18} />,
   };
   return (
     <>
-      <BottomActionBar {...bar} fixed className="lg:hidden" />
-      <BottomActionBar {...bar} className="hidden border-0 bg-transparent p-0 lg:flex" />
+      <BottomActionBar {...bar} fixed className="md:hidden" />
+      <BottomActionBar {...bar} className="hidden border-0 bg-transparent p-0 md:flex" />
     </>
   );
 }

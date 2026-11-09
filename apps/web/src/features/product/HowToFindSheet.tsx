@@ -2,6 +2,7 @@
 
 import { Button, Sheet } from '@repo/ui';
 import { useTranslations } from 'next-intl';
+import { HelpSteps } from './HelpSteps';
 
 export interface HowToFindSheetProps {
   open: boolean;
@@ -10,13 +11,7 @@ export interface HowToFindSheetProps {
   help: string;
 }
 
-/** One non-empty line per step; a text with a single line is one paragraph. */
-export function helpSteps(help: string): string[] {
-  return help
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line !== '');
-}
+export { helpSteps } from './HelpSteps';
 
 /**
  * "Qanday topaman?" (Product.dc.html `sheet`). The text is the catalog's `help` and reaches the
@@ -24,7 +19,6 @@ export function helpSteps(help: string): string[] {
  */
 export function HowToFindSheet({ open, onOpenChange, help }: HowToFindSheetProps) {
   const t = useTranslations('store.product.help');
-  const steps = helpSteps(help);
   return (
     <Sheet
       open={open}
@@ -36,26 +30,7 @@ export function HowToFindSheet({ open, onOpenChange, help }: HowToFindSheetProps
         </Button>
       }
     >
-      {steps.length > 1 ? (
-        <ol className="m-0 flex list-none flex-col gap-3 p-0">
-          {steps.map((step, index) => (
-            <li
-              key={`${index}-${step}`}
-              className="grid grid-cols-[28px_minmax(0,1fr)] items-start gap-3"
-            >
-              <span
-                aria-hidden="true"
-                className="grid size-7 place-items-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground"
-              >
-                {index + 1}
-              </span>
-              <span className="text-sm leading-5 font-semibold text-pretty">{step}</span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="m-0 text-sm leading-5 font-semibold text-pretty">{steps[0] ?? ''}</p>
-      )}
+      <HelpSteps help={help} />
     </Sheet>
   );
 }

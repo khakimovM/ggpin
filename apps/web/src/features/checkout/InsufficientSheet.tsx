@@ -35,6 +35,7 @@ export function InsufficientSheet({
       title={t('title')}
       hideTitle
       closeLabel={t('close')}
+      size="lg"
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col items-center gap-3 pt-1 text-center">

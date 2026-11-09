@@ -13,7 +13,7 @@ const COLORS = [
   'bg-danger',
   'bg-star',
 ] as const;
-const PIECES = 18;
+const PIECES = 24;
 
 /**
  * Whether this order's burst has not been played in this tab yet; claims it. The flag is

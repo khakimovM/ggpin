@@ -25,7 +25,7 @@ export function RecipientConfirmed({ recipient, username, onChange }: RecipientC
           <span
             role="img"
             aria-label={t('confirmed')}
-            className="absolute -right-0.5 -bottom-0.5 grid size-[18px] place-items-center rounded-full border-2 border-card bg-success text-white"
+            className="absolute -right-0.5 -bottom-0.5 grid size-[18px] place-items-center rounded-full border-2 border-card bg-success text-card"
           >
             <Icon icon={Check} size={10} />
           </span>

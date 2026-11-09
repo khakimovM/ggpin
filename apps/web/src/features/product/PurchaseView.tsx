@@ -14,6 +14,17 @@ import { RecipientForm } from './RecipientForm';
 import { usePurchase } from './use-purchase';
 import { useSelectionLabel } from './use-selection-label';
 
+// Store.dc.html purchase panel, from 768 px: the recipient, the package and the summary are one
+// card with hairlines between them (and the summary a quiet box) instead of three cards. Written
+// as selectors on the wrapper so the Mini App, which keeps the three cards, shares the sections.
+const WEB_PANEL = [
+  'flex flex-col gap-4',
+  'md:gap-3.5 md:rounded-[24px] md:border md:border-border md:bg-card md:p-5 md:shadow-md',
+  'md:[&>section[aria-labelledby]]:rounded-none md:[&>section[aria-labelledby]]:border-0 md:[&>section[aria-labelledby]]:bg-transparent md:[&>section[aria-labelledby]]:p-0',
+  'md:[&>section[aria-labelledby]+section[aria-labelledby]]:border-t md:[&>section[aria-labelledby]+section[aria-labelledby]]:pt-3.5',
+  'md:[&>section[aria-label]]:rounded-2xl md:[&>section[aria-label]]:border-0 md:[&>section[aria-label]]:bg-muted md:[&>section[aria-label]]:p-3.5',
+].join(' ');
+
 export interface PurchaseViewProps {
   variant: 'tg' | 'web';
   product: CatalogProductDetail;
@@ -47,7 +58,7 @@ export function PurchaseView({ variant, product, field }: PurchaseViewProps) {
   const found = recipient.state.found;
 
   return (
-    <>
+    <div className={variant === 'web' ? WEB_PANEL : 'contents'}>
       <RecipientForm
         field={field}
         controls={recipient}
@@ -95,6 +106,6 @@ export function PurchaseView({ variant, product, field }: PurchaseViewProps) {
           help={help}
         />
       ) : null}
-    </>
+    </div>
   );
 }

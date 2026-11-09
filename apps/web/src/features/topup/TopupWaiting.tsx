@@ -54,7 +54,7 @@ function Credited({ intent, from }: { intent: TopupIntent; from: string | null }
       <SuccessBurst orderId={`topup:${intent.intentId}`} />
       <span
         aria-hidden="true"
-        className="grid size-[88px] animate-[gg-pop_var(--dur-slower)_var(--ease-spring)_both] place-items-center rounded-full bg-success text-white motion-reduce:animate-none"
+        className="grid size-[88px] animate-[gg-pop_var(--dur-slower)_var(--ease-spring)_both] place-items-center rounded-full bg-success text-card motion-reduce:animate-none"
       >
         <Icon icon={Check} size={42} />
       </span>

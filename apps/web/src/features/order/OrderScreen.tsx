@@ -42,6 +42,7 @@ export function OrderScreen({ variant, id }: OrderScreenProps) {
         order={order}
         homeHref={homeHref}
         productHref={`${productBase}/${order.productSlug}`}
+        web={web ? { historyHref: localizedPath(locale, '/store/orders') } : undefined}
       />
     );
   } else if (isMissing(query.error)) {
@@ -70,7 +71,7 @@ export function OrderScreen({ variant, id }: OrderScreenProps) {
   }
 
   return web ? (
-    <main className="mx-auto w-full max-w-[720px] flex-1 px-4 pt-6 pb-10 md:px-8 md:pt-8">
+    <main className="mx-auto w-full max-w-[1264px] flex-1 px-4 pt-6 pb-10 md:px-6 md:pt-8 lg:px-8">
       {body}
     </main>
   ) : (

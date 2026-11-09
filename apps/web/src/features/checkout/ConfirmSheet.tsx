@@ -88,21 +88,43 @@ export function ConfirmSheet(props: ConfirmSheetProps) {
             left: formatMoney(props.leftTiyin),
           });
 
+  // The one way to close: not while the payment (or its check) is on its way, the answer is still
+  // coming. The sheet's own close, Escape, the overlay and "Bekor qilish" all go through it.
+  const requestOpen = (next: boolean) => {
+    if (!next && (state === 'paying' || props.checking)) return;
+    onOpenChange(next);
+  };
+
   let action: ReactNode = null;
   if (!nativeAction) {
     if (state === 'ready' || state === 'paying') {
+      // Store.dc.html modal: "Bekor qilish" beside the pay button from 768 px; on a phone the
+      // sheet has its close button and the pay button alone.
       action = (
-        <Button
-          size="lg"
-          glow
-          loading={state === 'paying'}
-          onClick={props.onPay}
-          className="w-full"
-        >
-          {state === 'paying'
-            ? t('confirm.paying')
-            : t('confirm.pay', { total: total === null ? MONEY_PLACEHOLDER : formatMoney(total) })}
-        </Button>
+        <div className="grid gap-2.5 md:grid-cols-[auto_minmax(0,1fr)]">
+          <Button
+            variant="outline"
+            size="lg"
+            disabled={state === 'paying' || props.checking}
+            onClick={() => requestOpen(false)}
+            className="hidden md:inline-flex"
+          >
+            {t('confirm.cancel')}
+          </Button>
+          <Button
+            size="lg"
+            glow
+            loading={state === 'paying'}
+            onClick={props.onPay}
+            className="w-full"
+          >
+            {state === 'paying'
+              ? t('confirm.paying')
+              : t('confirm.pay', {
+                  total: total === null ? MONEY_PLACEHOLDER : formatMoney(total),
+                })}
+          </Button>
+        </div>
       );
     } else if (state === 'expired' || state === 'refreshing') {
       action = (
@@ -153,12 +175,10 @@ export function ConfirmSheet(props: ConfirmSheetProps) {
   return (
     <Sheet
       open={open}
-      onOpenChange={(next) => {
-        // Closing is not possible while the payment is on its way: the answer is still coming.
-        if (!((state === 'paying' || props.checking) && !next)) onOpenChange(next);
-      }}
+      onOpenChange={requestOpen}
       title={t('confirm.title')}
       closeLabel={t('confirm.close')}
+      size="lg"
       footer={action ?? props.footerExtra}
     >
       {state === 'uncertain' ? (

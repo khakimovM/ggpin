@@ -1,5 +1,5 @@
 import type { OrderDetail, OrderStatus } from '@repo/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../lib/api/errors';
@@ -216,5 +216,83 @@ describe('the code of a voucher', () => {
     open();
     await screen.findByRole('heading', { level: 1, name: /Yetkazildi!/ });
     expect(screen.queryByTestId('voucher-code')).toBeNull();
+  });
+});
+
+describe('the web page from 768 px', () => {
+  const wide = () =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 768px)',
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+
+  it('puts the product and the buttons in a "details" panel and adds a breadcrumb to the history', async () => {
+    wide();
+    try {
+      getOrder.mockResolvedValue(base('DELIVERED'));
+      open();
+      expect(
+        await screen.findByRole('heading', { level: 2, name: 'Buyurtma tafsilotlari' }),
+      ).toBeVisible();
+      const crumb = screen.getByRole('navigation', { name: 'Sahifa yo‘li' });
+      expect(within(crumb).getByRole('link', { name: 'Tarix' })).toHaveAttribute(
+        'href',
+        '/store/orders',
+      );
+      expect(crumb).toHaveTextContent('Buyurtma #1042');
+      // Each block once: the buttons are in the panel only.
+      expect(screen.getAllByRole('link', { name: 'Yana xarid qilish' })).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('crossing 768 px does not remount the status (the same DOM node, so the hero keeps its state)', async () => {
+    let wideNow = false;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      get matches() {
+        return query === '(min-width: 768px)' && wideNow;
+      },
+      media: query,
+      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+    }));
+    try {
+      getOrder.mockResolvedValue(base('PROCESSING'));
+      const { container } = open();
+      await screen.findByRole('heading', { level: 1, name: 'Bajarilmoqda' });
+      const before = container.querySelector('[data-hero]');
+      expect(before).not.toBeNull();
+      expect(screen.queryByRole('heading', { level: 2, name: 'Buyurtma tafsilotlari' })).toBeNull();
+
+      wideNow = true;
+      act(() => listeners.forEach((listener) => listener()));
+      expect(
+        await screen.findByRole('heading', { level: 2, name: 'Buyurtma tafsilotlari' }),
+      ).toBeVisible();
+      expect(container.querySelector('[data-hero]')).toBe(before);
+
+      wideNow = false;
+      act(() => listeners.forEach((listener) => listener()));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('heading', { level: 2, name: 'Buyurtma tafsilotlari' }),
+        ).toBeNull(),
+      );
+      expect(container.querySelector('[data-hero]')).toBe(before);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('a phone keeps the single column: no panel, no breadcrumb', async () => {
+    getOrder.mockResolvedValue(base('PROCESSING'));
+    open();
+    await screen.findByRole('heading', { level: 1, name: 'Bajarilmoqda' });
+    expect(screen.queryByRole('heading', { level: 2, name: 'Buyurtma tafsilotlari' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Sahifa yo‘li' })).toBeNull();
   });
 });

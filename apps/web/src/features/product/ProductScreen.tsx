@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { localizedPath } from '../../i18n/paths';
 import { isApiError } from '../../lib/api/errors';
 import { useProduct } from '../catalog/use-product';
+import { HelpSteps } from './HelpSteps';
 import { ProductHeader } from './ProductHeader';
 import { ProductSkeleton } from './ProductSkeleton';
 import { ProductUnavailable } from './ProductUnavailable';
@@ -76,7 +77,7 @@ export function ProductScreen({ variant, slug }: ProductScreenProps) {
     );
   }
   return (
-    <main className="mx-auto flex w-full max-w-[1264px] flex-1 flex-col gap-4 px-4 pt-6 pb-40 md:px-8 md:pt-8 lg:pb-8">
+    <main className="mx-auto flex w-full max-w-[1264px] flex-1 flex-col gap-4 px-4 pt-6 pb-40 md:px-6 md:pt-8 md:pb-8 lg:px-8">
       <nav aria-label={t('breadcrumb')}>
         <ol className="m-0 flex list-none items-center gap-1.5 p-0 text-[13px] leading-5 font-semibold text-foreground-muted">
           <li>
@@ -101,6 +102,21 @@ export function ProductScreen({ variant, slug }: ProductScreenProps) {
   );
 }
 
+function HowToSection({ help }: { help: string }) {
+  const t = useTranslations('store.product.help');
+  return (
+    <section
+      aria-labelledby="howto-title"
+      className="hidden flex-col gap-3.5 rounded-[24px] border border-border bg-card p-5 [grid-area:howto] md:flex"
+    >
+      <h2 id="howto-title" className="m-0 text-xl leading-[26px] font-extrabold">
+        {t('title')}
+      </h2>
+      <HelpSteps help={help} />
+    </section>
+  );
+}
+
 function Purchase({
   variant,
   product,
@@ -121,10 +137,20 @@ function Purchase({
       </>
     );
   }
+  const help = product.help !== null && product.help.trim() !== '' ? product.help : null;
+  // Store.dc.html areas: the header, the purchase panel (beside it from 1024 px, under it below)
+  // and the "where do I find it" steps. The sheet behind the panel's help button stays for phones.
+  const areas =
+    help === null
+      ? "[grid-template-areas:'head'_'panel'] lg:[grid-template-areas:'head_panel']"
+      : "[grid-template-areas:'head'_'panel'_'howto'] lg:[grid-template-areas:'head_panel'_'howto_panel']";
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-      {header}
-      <div className="flex flex-col gap-4 lg:sticky lg:top-24">{form}</div>
+    <div
+      className={`grid grid-cols-[minmax(0,1fr)] items-start gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_420px] ${areas}`}
+    >
+      <div className="[grid-area:head]">{header}</div>
+      <div className="[grid-area:panel] lg:sticky lg:top-24">{form}</div>
+      {help === null ? null : <HowToSection help={help} />}
     </div>
   );
 }

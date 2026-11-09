@@ -66,7 +66,9 @@ export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGrid
             onClick={() => onSelect(sku.id)}
             onKeyDown={(event) => move(event, index)}
             className={[
-              'relative flex text-left transition duration-fast ease-standard active:scale-[.98]',
+              // Motion table "SKU selection": press scale .97 (dur-instant), border and tint 140 ms, and no
+              // scale under reduced motion (OS setting or the profile switch).
+              'relative flex text-left transition duration-fast ease-standard active:scale-[.97] active:duration-instant motion-reduce:active:scale-100 [[data-reduced=true]_&]:active:scale-100',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
               'border-[1.5px] text-foreground',
               on ? 'border-primary bg-primary-soft' : 'border-border bg-card',
@@ -78,7 +80,7 @@ export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGrid
             {layout === 'grid' ? (
               <span
                 aria-hidden="true"
-                className={`absolute top-2.5 right-2.5 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground transition-transform duration-base ${on ? 'scale-100' : 'scale-0'}`}
+                className={`absolute top-2.5 right-2.5 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground transition-transform duration-slow ease-spring ${on ? 'scale-100' : 'scale-0'}`}
               >
                 <Icon icon={Check} size={12} />
               </span>
