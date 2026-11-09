@@ -97,6 +97,7 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 | `notify`             | `topup-<paymentId>`, `alert-<kind>-<refId>` | api       | 5 marta, eksponensial 2 s; payload faqat id'lar, matnni API render qiladi        |
 | `tg-outbox`          | `messageId`                                 | api       | 429 → `retry_after`                                                              |
 | `payment-reconcile`  | cron 03:00 Asia/Tashkent                    | worker    | 3 marta, eksponensial 60 s, keyin alert `reconcileFailed`; MTProto → api'da emas |
+| ↳ `bank-text-purge`  | cron 03:30 Asia/Tashkent (shu navbat)       | worker    | 3 marta; xom matn `text = NULL` partiyalab, alert yo‘q (`purgeOverdue`)          |
 
 ## Asosiy oqim: Stars xaridi
 

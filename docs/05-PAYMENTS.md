@@ -53,7 +53,12 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 - **Test o‘tkazma.** `card:add` kartani `VERIFYING` qiladi va `verifyAmountTiyin` beradi; ega shu summani o‘tkazganda xabar kelib,
   karta `ACTIVE` bo‘ladi (ledger yozuvi yo‘q). Boshqa summa — review `NO_MATCH`.
 - **Yopish.** Oddiy `card:retire` kartani `DRAINING` qiladi (alert `cardDraining`); shu kartaning band summalari `reservedUntil` gacha yoziladi, keyin
-  karta avtomatik `RETIRED` bo‘ladi. `--emergency` (karta bloklandi, ishonchsiz) — kartaning `PENDING` so‘rovlari `CANCELLED`, havola tokenlari
+  karta avtomatik `RETIRED` bo‘ladi (har daqiqalik `topup-expire` sweep: karta qulfi ostida kartaning birorta so‘rovida — holatidan qat’i nazar —
+  `reservedUntil >= now − LATE_STORED_AFTER_MS` (10 daqiqa) qolmagan va kartada qarorsiz xabar yo‘q bo‘lsa; `retiredAt`, SYSTEM `AuditLog` `CARD_RETIRE_DRAINED`,
+  alert `cardDrained`). 10 daqiqa zaxira: matcher so‘rovni xabarning Telegram sanasi bo‘yicha oladi (`reservedUntil >= tgDate`), shuning uchun vaqtida
+  qilingan, lekin biroz kech saqlangan to‘lov baribir avtomatik yoziladi; bundan kech saqlangani D-47 bo‘yicha baribir `LATE_STORED` review. Kartani faqat
+  qarorsiz xabar ushlab tursa, sweep har daqiqa karta id’sini logga yozadi (`drainHeldByMessage`); xabar `missingOutcome` (kunlik solishtirish) yoki
+  `messageStuck` da ko‘rinadi, `card:retire --emergency` kartani majburan yopadi. `--emergency` (karta bloklandi, ishonchsiz) — kartaning `PENDING` so‘rovlari `CANCELLED`, havola tokenlari
   o‘ladi va karta darhol `RETIRED` bo‘ladi; yo‘ldagi pul baribir ko‘rib chiqishga tushadi.
 - `(bank, last4)` bo‘yicha faqat bitta faol (`RETIRED` emas) karta bo‘lishi mumkin (bot xabari kartani `last4` bilan aniqlaydi). `card:add` yaqinda
   ishlatilgan `(bank, last4)` ni rad etadi: kartada hali `reservedUntil > now` so‘rov bor yoki u `RETIRED` bo‘lganiga 30 kun bo‘lmagan (taxmin, S4 da
@@ -139,7 +144,10 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
   (barcha `BANK_FEED_*` bilan). Production’da `fake` rad etiladi.
 - **Sessiya siri.** AES-256-GCM (`BANK_FEED_SESSION_ENC` = `iv(12)`, `tag(16)`, `ciphertext`; kalit `BANK_FEED_ENC_KEY`); faqat worker xotirasida
   ochiladi (`MemoryStorage`, diskka fayl yozilmaydi). API muhitida bu o‘zgaruvchilar bo‘lsa API ishga tushmaydi.
-- **Xom matn** admin ko‘rishi uchun 1 yil saqlanadi (D-37 (10)); hech qachon logga yozilmaydi.
+- **Xom matn** admin ko‘rishi uchun 1 yil saqlanadi (D-37 (10)); hech qachon logga yozilmaydi. Har kuni 03:30 (Toshkent) `payment-reconcile` navbatidagi
+  `bank-text-purge` jobi `purgeAfter` o‘tgan qatorlarda faqat `text` ni NULL qiladi (partiyalab, DB soati bo‘yicha, logda faqat son); `BankMessage` qatori qoladi.
+  D-37 (10) faqat xom matnga tegishli: parse qilingan maydonlar (`amountTiyin`, `balanceAfterTiyin`, `last4`, `bankTxnAt`, `channel`) va `textSha256`
+  doimiy saqlanadi.
 
 **Runbook (VPS, ega ishtirokida — D-37 (14)).**
 
@@ -467,7 +475,8 @@ egaga `reconcileFailed` (`refId = <yyyymmdd>`, render bazani o‘qimaydi) ketadi
    review’i `RESOLVED` bo‘lgani — ega qanday yopgan bo‘lmasin — farq emas, ma’lumot sifatida `chainBreaksReviewed` da sanaladi); `pendingPastGrace` — `reservedUntil` o‘tgan
    PENDING so‘rov; `lateOverLimit` — D-42 qoldiq xavfi: `paidAt > expiresAt + TOPUP_CAPACITY_HOLD_SEC` bo‘lgan avtomatik to‘lov, kartasi hozir
    limitdan oshgan (to‘lov id’lari); `reviewOpenOver24h` — 24 soatdan oldin ochilgan va hali `OPEN` review (S9 I-1: egasini kutayotgan pul hech qachon
-   «farq yo‘q» kun emas; misollar eng eskisidan). Ma’lumot uchun (farq emas): OPEN review’larning umumiy soni, **chiqimlar xulosasi** (karta bo‘yicha DEBIT soni va summasi,
+   «farq yo‘q» kun emas; misollar eng eskisidan); `purgeOverdue` — `purgeAfter` dan 2 kundan (`PURGE_OVERDUE_DAYS`) ko‘p o‘tib hali NULL qilinmagan
+   xom matnlar (tozalash jobi yiqilyapti yoki orqada qolgan; misollar — `BankMessage` id’lari, matn o‘qilmaydi). Ma’lumot uchun (farq emas): OPEN review’larning umumiy soni, **chiqimlar xulosasi** (karta bo‘yicha DEBIT soni va summasi,
    tiyin satr; yaqinda yozilgan to‘lovga teng chiqimlar — oynadagi `POSSIBLE_REVERSAL` review’lar soni), grace’i oynada tugagan to‘lanmagan so‘rovlar.
 3. **Natija.** `AuditLog` (`RECONCILE_AUDIT`: `actorType = SYSTEM`, `action = PAYMENT_RECONCILE`, `targetType = PaymentReconcileDay`,
    `targetId = <yyyymmdd>` Asia/Tashkent = alert `refId`, `actorId` bo‘sh), `after = { count, debits, openReviews, historyScan, history, window,
@@ -486,10 +495,17 @@ qayta o‘qib ACTIVE → FULL + `cardFull`; alert id’lari card-limit job’ini
 uchun bitta alert (30 kunlik dedupe’dan keyin eslatma takrorlanadi). Kartaning jimligi (`cardSilent`, 2-band) hali yo‘q — alohida qadam.
 Muddat UPDATE’i karta qulfini olmaydi va allocator/matcher bilan deadlock qilmasligi kerak; baribir `40P01` (deadlock) bo‘lsa PostgreSQL bitta
 tranzaksiyani bekor qiladi: sweep job’i xato bilan tugaydi va keyingi daqiqada butunlay qayta ishlaydi (UPDATE idempotent, yarim yozuv yo‘q).
+**DRAINING → RETIRED:** keyin DRAINING kartalar 2-banddagi qoida bo‘yicha yopiladi (`CardDrainService`, karta qulfi, `lock_timeout` dan uzun tranzaksiya
+timeout’i; band karta keyingi daqiqada); natijada `retiredCards`, `drainHeldByMessage`, `drainAlertsFailed` sanaladi, yo‘qolgan `cardDrained` 1 soat davomida
+qayta navbatga qo‘yiladi (job id kartaga bitta).
 **Yetim xabarlar (S9 m1):** sweep oxirida oxirgi 7 kun ichida 15 daqiqadan oldin saqlangan, qarorsiz xabarlar (eng yangisi birinchi, 100 tagacha)
 `bm-<id>` job’ini qaytadan oladi: job yo‘q bo‘lsa qo‘shiladi (ingest commit bo‘ldi, `add` bo‘lmadi), `failed` bo‘lsa va 30 daqiqadan oldin tushgan bo‘lsa
 yangi urinishlar va toza job ma’lumoti bilan (`updateData({ bankMessageId })`: tugab qolgan `predecessorWaits` / `dbOutageWaits` tashlanadi, B4) `retry`; kutayotgan/kechiktirilgan/ishlayotgan job’ga tegilmaydi. Pulni baribir faqat matcher yozadi (qaror bor bo‘lsa job
 hech narsa qilmaydi). 7 kundan eskilari `missingOutcome` da ko‘rinadi. Log’da faqat sonlar.
+
+**`bank-text-purge`** (har kuni 03:30 Asia/Tashkent, `payment-reconcile` navbatida, `payment-reconcile:bank-text-purge`): `text IS NOT NULL AND
+purgeAfter <= timezone('UTC', now())` qatorlarda faqat `text` = NULL (trigger ruxsat bergan yagona o‘zgarish), 1000 talik partiyalar, bir yurishda
+ko‘pi bilan 100 partiya (qolgani ertaga), `FOR UPDATE SKIP LOCKED`; idempotent, alert yo‘q — yiqilsa yoki orqada qolsa kunlik `purgeOverdue` ko‘rsatadi.
 
 **DB uzilishi (S6 N5).** `bank-message` job’i DB ulanish xatosida (Prisma P1001/P1002/P1008/P1017/P2024, adapter `DatabaseNotReachable`,
 `ConnectionClosed`, `SocketTimeout`, `TooManyConnections`, SQLSTATE 08xxx/57P01-3) attempt sarflamay 30 s ga kechiktiriladi, ko‘pi bilan 20 marta
@@ -520,7 +536,7 @@ xato bilan tugaydi va failed to‘plamida qoladi — hech qachon «bajarildi» d
 | `effectsFailed`                                                     | `BankMessage.id`                                               | `messageId` = refId (bazadan hech narsa o‘qilmaydi); qaror saqlangan, commit’dan keyingi effektlar xato bergan, qayta ishlanmaydi (S9F-I1)                                                                                                                                         |
 | `limitCheckFailed`                                                  | `BankMessage.id`                                               | `messageId` = refId; `bank`, `last4` = xabar kartasidan                                                                                                                                                                                                                            |
 | `debit`                                                             | `BankMessage.id`                                               | `last4`; `amount` (xabardan, har chiqim uchun)                                                                                                                                                                                                                                     |
-| `cardVerified`, `cardDraining`                                      | `TopupCard.id`                                                 | `bank`; `last4`                                                                                                                                                                                                                                                                    |
+| `cardVerified`, `cardDraining`, `cardDrained`                       | `TopupCard.id`                                                 | `bank`; `last4`                                                                                                                                                                                                                                                                    |
 | `cardFull`                                                          | `<cardId>_<limit>[_<oylik limit>]` (`cardLimitAlertRef`)       | `bank`; `last4`                                                                                                                                                                                                                                                                    |
 | `cardNearLimit`                                                     | `<cardId>_80_<limit>[_<oylik limit>]` (`cardLimitAlertRef`)    | `bank`; `last4`; `percent` = tushgan pul ulushi, bazadan qayta hisoblanadi (`receivedUsagePercent`)                                                                                                                                                                                |
 | `cardReservedHigh`                                                  | `<cardId>_<epoch soat>` (soatiga bitta; `cardReservedHighRef`) | `bank`; `last4`; `percent` = to‘lanmagan band ulushi, bazadan qayta hisoblanadi (`reservedSharePercent`)                                                                                                                                                                           |

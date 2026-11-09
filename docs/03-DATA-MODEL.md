@@ -549,7 +549,8 @@ Append-only (`updatedAt` yo‘q). **Xom matn bu yerda yo‘q** — faqat `textSh
   `purgeAfter` ni surish) va har DELETE rad etiladi.
 - Tozalash so‘rovi trigger ruxsat beradigan shaklda bo‘lishi kerak:
   `UPDATE "BankMessageText" SET "text" = NULL WHERE "purgeAfter" <= timezone('UTC', now()) AND "text" IS NOT NULL`.
-  Bunday worker sweep hozirgi kodda **hali yo‘q** (birinchi qatorlar `purgeAfter` iga 1 yildan keyin yetadi).
+  Worker'ning kunlik `bank-text-purge` jobi (03:30 Asia/Tashkent, `payment-reconcile` navbati) aynan shu shaklda, 1000 talik partiyalarda
+  (`ORDER BY "purgeAfter" LIMIT … FOR UPDATE SKIP LOCKED`) faqat `text = NULL` qiladi; orqada qolsa kunlik solishtirish `purgeOverdue` beradi.
 
 ### `BankMessageOutcome` — xabarni qayta ishlash natijasi
 
@@ -616,6 +617,7 @@ GREATEST(eski, yangi)` bilan yoziladi: tarixni qayta ko‘rish kursorni orqaga s
   | `WALLET_ADJUST`, `USER_UNFREEZE`                                                              | `User`                | CLI               |
   | `PAYMENT_REVERSE`                                                                             | `Payment`             | CLI               |
   | `PAYMENT_RECONCILE` (`targetId` = Toshkent kuni `yyyymmdd`)                                   | `PaymentReconcileDay` | `SYSTEM` (worker) |
+  | `CARD_RETIRE_DRAINED` (DRAINING → RETIRED, `reason = RESERVATIONS_ENDED`)                     | `TopupCard`           | `SYSTEM` (worker) |
 
 ### `@repo/db` yordamchilari
 
