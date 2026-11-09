@@ -779,15 +779,21 @@ X-Pay-Token: <43 belgili token>
 
 **Frontend talablari (`/pay/[intentId]`, `/topup`, Mini App; 7-bosqich):**
 
-1. _Token._ `location.hash` dan o‘qiladi (`readPayTokenFromHash`), darhol `history.replaceState` bilan URL’dan olib tashlanadi (`?locale=` qoladi); faqat klientda
-   (SSR’da fragment yo‘q) xotirada yoki `sessionStorage`da saqlanadi, hech qachon `localStorage`da yoki cookie’da emas. Token yo‘q yoki
-   yaroqsiz bo‘lsa va web sessiya bo‘lsa — sessiyali `GET /payments/intents/:id` ishlatiladi; bo‘lmasa «havola eskirgan yoki bekor qilingan».
+1. _Token_ (D-50). `location.hash` dan o‘qiladi (`readPayTokenFromHash`; sahifa yuklanishidan oldin, `hashchange` ham tinglanadi) va `router.replace` bilan URL’dan
+   olib tashlanadi (`?locale=` qoladi). Token faqat shu tabning `sessionStorage`ida (`ggpin:pay:<intentId>` = `{intentId, token, expiresAt}`) va
+   xotirada saqlanadi, shuning uchun sahifani qayta yuklash ishlayveradi; bitta tabda BITTA token (yangisini saqlash boshqalarini va muddati o‘tganlarini o‘chiradi);
+   hech qachon `localStorage`da yoki cookie’da emas. To‘lov yakunlanganda (`PAID`, `CANCELLED`, `EXPIRED`), token `404` bersa (shu tokenga javob bo‘lsa;
+   eski tokenning kech javobi yangisini o‘chirmaydi) yoki `expiresAt` o‘tganda token hamma joydan (storage, xotira) darhol o‘chiriladi; o‘rniga tokensiz belgi
+   (`ggpin:pay-done:<intentId>` = `{intentId, status}`) qoladi: qayta yuklashda summa, karta va natija ko‘rsatilmaydi, faqat «bu so‘rov yakunlangan, natijani
+   Mini App yoki botda ko‘ring» va «Botga qaytish». Token yo‘q yoki yaroqsiz bo‘lsa va belgi ham yo‘q bo‘lsa sahifa HECH QACHON boshqa yo‘l bilan (cookie, web sessiya,
+   sessiyali `GET /payments/intents/:id`) ma’lumot so‘ramaydi: «havola eskirgan yoki noto‘g‘ri» ekrani va Mini App’da «Sahifani qayta ochish»ni bosish maslahati chiqadi.
 2. _So‘rovlar._ `fetch(..., { credentials: 'omit' })` va `X-Pay-Token` sarlavhasi; sahifa cookie’siz ishlaydi. Polling oralig‘i ≥ 5 s, terminal
    holatda to‘xtaydi.
 3. _`POST /payments/intents` avtomatik qayta yuborilmaydi_ (tarmoq xatosida ham, TanStack Query `retry: false`): foydalanuvchi o‘zi qayta bosadi.
 4. _`openLink`_ faqat `${WEB_URL}/pay/` bilan boshlanadigan URL’ni ochadi (allowlist), boshqasini rad etadi.
-5. _/pay HTML javobi sarlavhalari:_ `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Content-Security-Policy: frame-ancestors 'none'`.
+5. _/pay HTML javobi sarlavhalari:_ `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Cross-Origin-Opener-Policy: same-origin`, `X-Frame-Options: DENY`, `Content-Security-Policy` (bitta; `frame-ancestors 'none'`, `base-uri 'none'`, `img-src 'self' data:`).
 6. _Uchinchi tomon resursi yo‘q_ `/pay` va `/topup` da: shrift `next/font` bilan o‘zimizdan, ikonkalar bundle ichida, tashqi CSS/CDN/analytics/widget yo‘q.
+   (`/tg/topup` Mini App ichida ishlaydi, shuning uchun u yerda `telegram.org` SDK va Telegram rasm hostlari D-38 Q16 bo‘yicha ruxsat etilgan; bu cheklov faqat `/pay` uchun.)
 7. _Ogohlantirishlar_ (matn `pay.*` va `tg.*` i18n kalitlarida, uz va ru): «Bu havola faqat o‘z ggpin hisobingizni to‘ldirish uchun. Boshqa odam
    yuborgan bo‘lsa, to‘lamang»; `ownerHint` ko‘rsatiladi («Hisob: S***r»); «Karta raqami har safar boshqacha bo‘lishi mumkin: eski kartaga
    o‘tkazmang»; summa aynan `payAmountTiyin` bo‘lishi kerak, farqli summa o‘tkazilsa avtomatik topilmasligi; bekor qilingan so‘rovga o‘tkazma qilinmasligi.
