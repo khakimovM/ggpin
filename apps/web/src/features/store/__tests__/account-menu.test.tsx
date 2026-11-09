@@ -62,6 +62,8 @@ describe('AccountMenu', () => {
     menu();
     await userEvent.click(button());
     await userEvent.tab();
+    expect(screen.getByRole('link', { name: 'Tarix' })).toHaveFocus();
+    await userEvent.tab();
     expect(screen.getByRole('link', { name: 'Profil' })).toHaveFocus();
     expect(button()).toHaveAttribute('aria-expanded', 'true');
   });
@@ -78,9 +80,9 @@ describe('AccountMenu', () => {
   it('tabbing out through the last item, to what follows the menu, closes it', async () => {
     menu();
     await userEvent.click(button());
-    // Panel items: Profil, (language and theme, hidden from 1024 px in the browser, here present),
+    // Panel items: Tarix, Profil, (language and theme, hidden from 1024 px in the browser, here present),
     // Chiqish; then the page continues with the "after" button.
-    for (let step = 0; step < 6; step += 1) {
+    for (let step = 0; step < 7; step += 1) {
       await userEvent.tab();
       if (screen.getByRole('button', { name: 'after' }) === document.activeElement) break;
     }

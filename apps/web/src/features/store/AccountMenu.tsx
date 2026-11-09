@@ -1,7 +1,7 @@
 'use client';
 
 import { Avatar, Icon } from '@repo/ui';
-import { ChevronDown, CircleUser, LogOut } from 'lucide-react';
+import { ChevronDown, CircleUser, History, LogOut } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -91,6 +91,14 @@ export function AccountMenu() {
               ) : null}
             </span>
           </div>
+          <Link
+            href={localizedPath(locale, '/store/orders')}
+            className={ITEM}
+            onClick={() => setOpen(false)}
+          >
+            <Icon icon={History} size={17} className="text-foreground-muted" />
+            {t('orders')}
+          </Link>
           <Link
             href={localizedPath(locale, '/store/profile')}
             className={ITEM}

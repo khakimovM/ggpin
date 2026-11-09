@@ -31,6 +31,7 @@ export const CATALOGS = {
     tg: uz.tg,
     store: uz.store,
     wallet: uz.wallet,
+    account: uz.account,
   },
   ru: {
     common: ru.common,
@@ -39,6 +40,7 @@ export const CATALOGS = {
     tg: ru.tg,
     store: ru.store,
     wallet: ru.wallet,
+    account: ru.account,
   },
 };
 

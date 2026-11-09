@@ -16,12 +16,14 @@ import { WalletPill } from './WalletPill';
 
 const NAV = [
   { path: '/store', key: 'catalog' },
+  { path: '/store/orders', key: 'orders' },
   { path: '/store/profile', key: 'profile' },
 ] as const;
 
 /**
  * Store.dc.html header: logo, the search (inline from 768 px, on its own row below), the balance
- * and the account menu; from 1024 px also the two screens that exist, the language and the theme
+ * and the account menu; from 1024 px also the three screens that exist (catalog, history, profile),
+ * the language and the theme
  * (below it they are in the account menu: a 768 px header cannot hold them all). It sits behind
  * AuthGuard, so the profile and the wallet can be read.
  */

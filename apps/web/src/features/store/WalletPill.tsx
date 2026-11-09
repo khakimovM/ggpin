@@ -4,12 +4,12 @@ import { Icon, Skeleton } from '@repo/ui';
 import { Plus, RefreshCw, Wallet } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { MONEY_PLACEHOLDER, useFormatMoney } from '../../lib/format/money';
+import { useTopupModalStore } from '../../stores/topup-modal-store';
 import { useWallet } from '../wallet/use-wallet';
 
 /**
  * The balance in the store header (Store.dc.html: soft pill, a wallet icon, the amount and a round
- * "+"). The amount is the server's. The "+" is shown but inert until the top-up screen exists
- * (phase 7 S8), and says so in its name.
+ * "+"). The amount is the server's. The "+" opens the top-up modal.
  */
 export function WalletPill() {
   const t = useTranslations('web.nav');
@@ -43,9 +43,9 @@ export function WalletPill() {
       <span data-testid="header-balance">{amount}</span>
       <button
         type="button"
-        aria-disabled="true"
         aria-label={t('topUp')}
-        className="ml-1.5 grid size-9 cursor-not-allowed place-items-center rounded-full bg-primary text-primary-foreground opacity-80"
+        onClick={() => useTopupModalStore.getState().show()}
+        className="ml-1.5 grid size-9 place-items-center rounded-full bg-primary text-primary-foreground transition duration-fast ease-standard hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Icon icon={Plus} size={17} />
       </button>
