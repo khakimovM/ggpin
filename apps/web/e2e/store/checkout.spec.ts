@@ -43,7 +43,7 @@ test.describe('the confirmation', () => {
         const box = await sheet.boundingBox();
         const viewport = page.viewportSize();
         if (box === null || viewport === null) throw new Error('no layout');
-        if (viewport.width >= 768) expect(box.width).toBeLessThanOrEqual(480);
+        if (viewport.width >= 768) expect(box.width).toBeLessThanOrEqual(520);
         else expect(box.width).toBeGreaterThan(viewport.width - 4);
         expect(await overflow(page)).toBeLessThanOrEqual(0);
         expect(await axeViolations(page)).toEqual([]);

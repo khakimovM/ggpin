@@ -44,18 +44,19 @@ async function clearCode(page: Page) {
   for (let i = 0; i < 6; i += 1) await page.keyboard.press('Backspace');
 }
 
+// `welcome` is the web store's heading for the "all" category (Store.dc.html: "Barcha mahsulotlar").
 const journeyCases = [
   {
     lang: 'uz',
     theme: 'light',
     wrong: 'Kod noto‘g‘ri. Yana 4 ta urinish qoldi',
-    welcome: 'Katalog',
+    welcome: 'Barcha mahsulotlar',
   },
   {
     lang: 'ru',
     theme: 'dark',
     wrong: 'Код неверный. Осталось 4 попытки',
-    welcome: 'Каталог',
+    welcome: 'Все товары',
   },
 ] as const;
 

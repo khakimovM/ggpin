@@ -18,7 +18,7 @@ test.describe('ready', () => {
         await openStore(page, { lang, scheme });
 
         await expect(
-          page.getByRole('heading', { level: 1, name: t.store.catalog.title }),
+          page.getByRole('heading', { level: 1, name: t.store.catalog.allProducts }),
         ).toBeVisible();
         await expect(page.getByRole('list').getByRole('listitem')).toHaveCount(7);
         await expect(

@@ -87,7 +87,8 @@ test.describe('account menu', () => {
   test('a click outside closes it; the profile link goes to the profile', async ({ page }) => {
     await openStore(page);
     await menuButton(page, uz).click();
-    await page.getByRole('heading', { level: 1 }).click();
+    // The corner of the heading: on a phone its text runs under the open menu.
+    await page.getByRole('heading', { level: 1 }).click({ position: { x: 2, y: 2 } });
     await expect(page.locator('#account-menu')).toHaveCount(0);
 
     await menuButton(page, uz).click();
@@ -105,11 +106,13 @@ test.describe('account menu', () => {
     await openStore(page);
     await menuButton(page, uz).focus();
     await page.keyboard.press('Enter');
-    // The panel walks: history, profile, ...
-    await page.keyboard.press('Tab');
-    await expect(
-      page.locator('#account-menu').getByRole('link', { name: uz.web.nav.orders }),
-    ).toBeFocused();
+    // The panel walks: history (on a phone only: from 768 px the header has it), profile, ...
+    if ((page.viewportSize()?.width ?? 0) < 768) {
+      await page.keyboard.press('Tab');
+      await expect(
+        page.locator('#account-menu').getByRole('link', { name: uz.web.nav.orders }),
+      ).toBeFocused();
+    }
     await page.keyboard.press('Tab');
     await expect(
       page.locator('#account-menu').getByRole('link', { name: uz.web.nav.profile }),
