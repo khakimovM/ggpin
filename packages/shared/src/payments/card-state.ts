@@ -6,7 +6,11 @@ import type { TopupCardStatus } from './bank-feed';
 //   VERIFYING -> ACTIVE   the test transfer arrived (worker, S6)
 //   ACTIVE    -> FULL     limit reached (worker)        FULL -> ACTIVE  limit raised (setLimit)
 //   ACTIVE|FULL -> DRAINING  ordinary retire: no new requests, issued ones stay payable
-//   DRAINING  -> RETIRED  its reservations ended (worker sweep, S9)
+//   DRAINING  -> RETIRED  no request of the card (any status) has `reservedUntil >= now -
+//                         LATE_STORED_AFTER_MS` (10 min: a payment made in time but stored late
+//                         is still credited) and no message on it awaits a decision (worker,
+//                         CardDrainService in the every-minute topup-expire sweep; alert
+//                         `cardDrained`)
 //   any but RETIRED -> RETIRED  emergency retire; VERIFYING has no requests, so it retires at once
 const GRAPH: Readonly<Record<TopupCardStatus, readonly TopupCardStatus[]>> = Object.freeze({
   VERIFYING: Object.freeze<TopupCardStatus[]>(['ACTIVE', 'RETIRED']),

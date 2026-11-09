@@ -103,6 +103,7 @@ exports[`owner alert templates (uz) with synthetic parameters renders every decl
   "amountReallocated": "⚠️ HUMO kartasi ***1234 ga 50 000 so‘m kech keldi, lekin bu summa allaqachon boshqa so‘rovga berilgan: kimniki ekanini aniqlab, qo‘lda yozing. Ko‘rib chiqish: rev1",
   "autoCreditPaused": "⏸ Karta ***1234 da avtomatik yozish to‘xtatilgan, to‘lov qo‘lda ko‘riladi: rev1",
   "cancelledLate": "🚫 Bekor qilingan so‘rovga 50 000 so‘m tushdi, avtomatik yozilmadi. Ko‘rib chiqish: rev1",
+  "cardDrained": "🔒 HUMO kartasi ***1234 ishdan chiqarildi: undagi barcha band summalar muddati tugadi.",
   "cardDraining": "🚰 HUMO kartasi ***1234 yopilmoqda: yangi so‘rovlar berilmaydi, mavjudlari muddatigacha yoziladi.",
   "cardFull": "🈵 HUMO kartasi ***1234 limiti to‘ldi, unga yangi so‘rovlar berilmaydi.",
   "cardNearLimit": "📈 HUMO kartasi ***1234: limit 85% to‘ldi.",

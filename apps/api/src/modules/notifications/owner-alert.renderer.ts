@@ -106,6 +106,7 @@ export class OwnerAlertRenderer {
       }
       case 'cardVerified':
       case 'cardDraining':
+      case 'cardDrained':
         return this.cardParams(refId);
       case 'cardFull': {
         const ref = parseCardLimitAlertRef('cardFull', refId);

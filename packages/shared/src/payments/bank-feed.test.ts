@@ -97,6 +97,7 @@ describe('bank feed vocabulary', () => {
       'debit',
       'cardSilent',
       'cardDraining',
+      'cardDrained',
       'adminAction',
     ];
     const reviewAlerts = Object.values(REVIEW_ALERT);

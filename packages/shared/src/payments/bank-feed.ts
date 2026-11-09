@@ -106,6 +106,7 @@ export const ALERT_KINDS = [
   'debit',
   'cardSilent',
   'cardDraining',
+  'cardDrained',
   'adminAction',
   'cardVerified',
   'cardNearLimit',

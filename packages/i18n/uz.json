@@ -164,6 +164,7 @@
       "debit": "➖ Karta ***{last4} dan {amount} yechildi.",
       "cardSilent": "🔇 {bank} kartasi ***{last4} ga uzoq vaqt pul tushmadi. Soatlar: {hours}. Tinglovchi va botni tekshiring.",
       "cardDraining": "🚰 {bank} kartasi ***{last4} yopilmoqda: yangi so‘rovlar berilmaydi, mavjudlari muddatigacha yoziladi.",
+      "cardDrained": "🔒 {bank} kartasi ***{last4} ishdan chiqarildi: undagi barcha band summalar muddati tugadi.",
       "adminAction": "🛠 Ega amali: {action} ({ref}).",
       "dailyLimit": "🛑 {amount} kunlik limitdan oshadi ({limit}), avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}"
     },

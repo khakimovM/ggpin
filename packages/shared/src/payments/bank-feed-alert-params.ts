@@ -41,6 +41,8 @@ export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly
     // No CREDIT on an active card for `hours`: a silent listener or bot looks the same as no sales.
     cardSilent: ['bank', 'last4', 'hours'],
     cardDraining: ['bank', 'last4'],
+    // The worker's sweep retired a DRAINING card whose reservations all ended (refId = card id).
+    cardDrained: ['bank', 'last4'],
     // Every money or card operation by the owner CLI (D-37 (9)).
     adminAction: ['action', 'ref'],
     cardVerified: ['bank', 'last4'],

@@ -124,7 +124,9 @@ export type ReconcileHistoryReason = (typeof RECONCILE_HISTORY_REASONS)[number];
  * - lateOverLimit: D-42 residual risk, a payment after `expiresAt + TOPUP_CAPACITY_HOLD_SEC`
  *   on a card now over its receive limit;
  * - reviewOpenOver24h: a payment review still OPEN a day after it was opened (S9 I-1: money
- *   waiting for the owner is never reported as a clean day).
+ *   waiting for the owner is never reported as a clean day);
+ * - purgeOverdue: a raw bank text still kept more than PURGE_OVERDUE_DAYS after its
+ *   `purgeAfter` (D-37 (10)): the daily `bank-text-purge` job is failing or falling behind.
  */
 export const RECONCILE_MISMATCH_CODES = [
   'recovered',
@@ -135,5 +137,9 @@ export const RECONCILE_MISMATCH_CODES = [
   'pendingPastGrace',
   'lateOverLimit',
   'reviewOpenOver24h',
+  'purgeOverdue',
 ] as const;
 export type ReconcileMismatchCode = (typeof RECONCILE_MISMATCH_CODES)[number];
+
+/** Days past `purgeAfter` after which a kept raw text is a `purgeOverdue` mismatch. */
+export const PURGE_OVERDUE_DAYS = 2;
