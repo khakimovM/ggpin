@@ -91,9 +91,10 @@ export function AccountMenu() {
               ) : null}
             </span>
           </div>
+          {/* From 768 px the header's own navigation has the history. */}
           <Link
             href={localizedPath(locale, '/store/orders')}
-            className={ITEM}
+            className={`${ITEM} md:hidden`}
             onClick={() => setOpen(false)}
           >
             <Icon icon={History} size={17} className="text-foreground-muted" />

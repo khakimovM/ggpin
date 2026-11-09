@@ -11,21 +11,23 @@ import { ProductImage } from './ProductImage';
 // MiniApp.dc.html `home`, the "Telegram" section: Stars and Premium are drawn as two tall tiles
 // with their own glow. The two products are known by name (CLAUDE.md section 1: built first);
 // any other product in that category gets the neutral tile.
+// `art` carries the glyph colour too: white sits on the gold and violet art, but on the pale neutral
+// tile it would be ~1.2:1, so that one gets the dark tint of its own surface.
 const TONE: Record<string, { glow: string; art: string; glyph: typeof Star }> = {
   'telegram-stars': {
     glow: 'bg-[radial-gradient(120%_90%_at_100%_0%,var(--star-soft)_0%,var(--card)_62%)]',
-    art: 'rounded-full bg-[radial-gradient(circle_at_32%_28%,color-mix(in_oklab,var(--accent)_35%,white)_0%,var(--accent)_45%,var(--star)_100%)] rotate-[10deg]',
+    art: 'rounded-full text-white bg-[radial-gradient(circle_at_32%_28%,color-mix(in_oklab,var(--accent)_35%,white)_0%,var(--accent)_45%,var(--star)_100%)] rotate-[10deg]',
     glyph: Star,
   },
   'telegram-premium': {
     glow: 'bg-[radial-gradient(120%_90%_at_100%_0%,var(--premium-soft)_0%,var(--card)_62%)]',
-    art: 'rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--premium)_70%,white),var(--premium))] -rotate-[8deg]',
+    art: 'rounded-[20px] text-white bg-[linear-gradient(145deg,color-mix(in_oklab,var(--premium)_70%,white),var(--premium))] -rotate-[8deg]',
     glyph: Crown,
   },
 };
 const NEUTRAL = {
   glow: 'bg-card',
-  art: 'rounded-[20px] bg-primary-soft rotate-[6deg]',
+  art: 'rounded-[20px] bg-primary-soft text-primary-soft-foreground rotate-[6deg]',
   glyph: Star,
 };
 
@@ -48,7 +50,7 @@ export function TelegramProductTile({
       className={`relative flex min-h-48 flex-col justify-between gap-3 overflow-hidden rounded-3xl border border-border p-4 text-foreground no-underline transition duration-instant active:scale-[.97] ${tone.glow}`}
     >
       <span
-        className={`relative grid size-16 place-items-center overflow-hidden text-white shadow-md ${tone.art}`}
+        className={`relative grid size-16 place-items-center overflow-hidden shadow-md ${tone.art}`}
       >
         <Icon icon={tone.glyph} size={30} />
         {/* Over the glyph only when there is a picture: it must not hide the star or the crown. */}

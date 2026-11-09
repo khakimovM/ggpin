@@ -2,7 +2,8 @@
 
 import { Button, EmptyState, ErrorState, Icon, Skeleton } from '@repo/ui';
 import { PackageSearch, SearchX } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { localizedPath } from '../../i18n/paths';
 import { useOnline } from '../../lib/use-online';
 import { isApiError } from '../../lib/api/errors';
 import { groupByCategory, type CatalogSection } from './catalog-query';
@@ -11,6 +12,7 @@ import { CatalogSkeleton } from './CatalogSkeleton';
 import { CategoriesError } from './CategoriesError';
 import { CategoryChips } from './CategoryChips';
 import { OfflineBanner } from './OfflineBanner';
+import { PromoCarousel } from './PromoCarousel';
 import { useCatalogSearch } from './use-catalog-search';
 import { useCategories } from './use-categories';
 import { useProducts } from './use-products';
@@ -36,6 +38,7 @@ export function CatalogView({
   productHref,
 }: CatalogViewProps) {
   const t = useTranslations('store.catalog');
+  const locale = useLocale();
   const common = useTranslations('common');
   const search = useCatalogSearch();
   const categories = useCategories();
@@ -63,7 +66,16 @@ export function CatalogView({
     sections = items.length === 0 ? [] : [{ category: selected, items }];
   else sections = groupByCategory(names, items);
 
-  const heading = searching ? t('results') : (selected?.name ?? t('title'));
+  const heading = searching
+    ? t('results')
+    : (selected?.name ?? (web ? t('allProducts') : t('title')));
+  // The announcements belong to the unfiltered catalog (Store.dc.html `showPromo`).
+  const showPromo = web && !searching && category === undefined && products.data !== undefined;
+  // Only a Premium that is on sale, and only from the answer for this very filter (not the
+  // previous one kept while the new one loads).
+  const hasPremium =
+    !products.isPlaceholderData &&
+    items.some((item) => item.slug === 'telegram-premium' && item.inStock);
 
   let body;
   if (products.isPending) {
@@ -157,6 +169,12 @@ export function CatalogView({
           onChange={onCategoryChange}
           counts={web}
           className={web ? 'lg:hidden' : undefined}
+        />
+      ) : null}
+      {showPromo ? (
+        <PromoCarousel
+          referralHref={localizedPath(locale, '/store/profile')}
+          giftHref={hasPremium ? localizedPath(locale, '/store/products/telegram-premium') : null}
         />
       ) : null}
       {web ? (

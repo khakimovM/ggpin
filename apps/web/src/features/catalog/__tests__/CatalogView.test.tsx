@@ -99,7 +99,9 @@ describe('CatalogView: the four states', () => {
   it('success (web): a heading with the count and one flat grid, no section titles', async () => {
     view({ variant: 'web' });
     await screen.findByRole('link', { name: /STARS/ });
-    expect(screen.getByRole('heading', { level: 1, name: 'Katalog' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Barcha mahsulotlar' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('3 ta mahsulot')).toBeInTheDocument();
     expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
   });
@@ -108,8 +110,53 @@ describe('CatalogView: the four states', () => {
     mocks.getCategories.mockResolvedValue([{ slug: 'games', name: 'Игры', productCount: 3 }]);
     view({ variant: 'web' }, 'ru');
     await screen.findByRole('link', { name: /STARS/ });
-    expect(screen.getByRole('heading', { level: 1, name: 'Каталог' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Все товары' })).toBeInTheDocument();
     expect(screen.getByText('3 товара')).toBeInTheDocument();
+  });
+});
+
+describe('CatalogView: the web announcements', () => {
+  const premium = (extra: Partial<CatalogProductListItem> = {}) =>
+    product('telegram-premium', 'telegram', extra);
+
+  it('the Premium banner is there only for a Premium that is on sale', async () => {
+    mocks.getProducts.mockResolvedValue(page([premium(), ...PRODUCTS]));
+    view({ variant: 'web' });
+    await screen.findByRole('link', { name: /TELEGRAM-PREMIUM/ });
+    expect(screen.getByRole('button', { name: '2-eʼlon' })).toBeInTheDocument();
+  });
+
+  it('a sold-out Premium gets no banner (one announcement, no dots)', async () => {
+    mocks.getProducts.mockResolvedValue(page([premium({ inStock: false }), ...PRODUCTS]));
+    view({ variant: 'web' });
+    await screen.findByRole('link', { name: /TELEGRAM-PREMIUM/ });
+    expect(screen.getByText('Havolani olish')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '2-eʼlon' })).toBeNull();
+  });
+});
+
+describe('CatalogView: the banner and a filter that is still loading', () => {
+  it('going from a category back to "all" while the new answer is on its way: no Premium banner from the old list', async () => {
+    const premium = product('telegram-premium', 'telegram');
+    mocks.getProducts.mockImplementation(({ category }: { category?: string }) =>
+      category === 'telegram' ? Promise.resolve(page([premium])) : new Promise(() => undefined),
+    );
+    const { rerender } = view({ variant: 'web', category: 'telegram' });
+    await screen.findByRole('link', { name: /TELEGRAM-PREMIUM/ });
+
+    rerender(
+      <CatalogView
+        variant="web"
+        category={undefined}
+        onCategoryChange={vi.fn()}
+        productHref={href}
+      />,
+    );
+    // The old grid stays (dimmed, busy) while "all" loads; the banner waits for the real answer.
+    await waitFor(() => expect(mocks.getProducts).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('link', { name: /TELEGRAM-PREMIUM/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '2-eʼlon' })).toBeNull();
+    expect(screen.getByText('Havolani olish')).toBeInTheDocument(); // the referral banner alone
   });
 });
 

@@ -36,6 +36,17 @@ describe('TelegramProductTile', () => {
     expect(screen.getByRole('link')).toHaveTextContent('Tugagan');
   });
 
+  it('the glyph is white on the Stars and Premium art, dark on the pale neutral tile (contrast)', () => {
+    const art = () => document.querySelector('svg')?.parentElement ?? null;
+    render({});
+    expect(art()?.className).toContain('text-white');
+    expect(art()?.className).not.toContain('text-primary-soft-foreground');
+    document.body.innerHTML = '';
+    render({ slug: 'telegram-gifts' });
+    expect(art()?.className).toContain('text-primary-soft-foreground');
+    expect(art()?.className).not.toContain('text-white');
+  });
+
   it('no sold-out chip for a product in stock', () => {
     render({});
     expect(screen.queryByText('Tugagan')).not.toBeInTheDocument();
