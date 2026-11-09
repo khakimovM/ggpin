@@ -798,6 +798,9 @@ X-Pay-Token: <43 belgili token>
    yuborgan bo‘lsa, to‘lamang»; `ownerHint` ko‘rsatiladi («Hisob: S***r»); «Karta raqami har safar boshqacha bo‘lishi mumkin: eski kartaga
    o‘tkazmang»; summa aynan `payAmountTiyin` bo‘lishi kerak, farqli summa o‘tkazilsa avtomatik topilmasligi; bekor qilingan so‘rovga o‘tkazma qilinmasligi.
 8. Hamyon yoki profil ma’lumoti ko‘rsatilmaydi; `Referrer-Policy: no-referrer`.
+9. _Karta raqami boshida yashirin_ (D-51): faqat birinchi va oxirgi 4 raqam ko‘rinadi, o‘rtadagilar o‘rnida xira `••••` chiziladi
+   (yashirin holatda haqiqiy raqamlar DOM’da yo‘q); «ko‘z» tugmasi to‘liq ko‘rsatadi va yana yashiradi. «Nusxalash» har doim to‘liq
+   raqamni oladi. Bu yelka orqali qarash va skrinshotdan himoya, maxfiylik chegarasi emas: to‘liq raqam API javobida bor.
 
 ### Xatolar (to‘ldirish)
 

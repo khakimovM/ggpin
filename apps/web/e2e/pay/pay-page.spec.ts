@@ -158,9 +158,14 @@ test.describe('waiting for the money', () => {
         await expect(amount).toBeVisible();
         await expect(amount).toContainText(/50\s347/);
         await expect(page.getByTestId('pay-amount-tail')).toHaveText('347');
-        await expect(page.getByTestId('pay-card-number')).toHaveAccessibleName(
-          '9860 1234 5678 9012',
+        // The middle digits start hidden (owner decision 2026-11-09) and are not in the page at all.
+        const number = page.getByTestId('pay-card-number');
+        await expect(number).toHaveAccessibleName(
+          t(lang).cardMasked.replace('{first}', '9860').replace('{last}', '9012'),
         );
+        expect(await number.innerHTML()).not.toMatch(/1234|5678/);
+        // One line of digits (28.8 px) at every width, 375 included.
+        expect((await number.boundingBox())?.height).toBeLessThan(40);
         await expect(page.getByTestId('pay-card-holder')).toHaveText('ALISHER K.');
         // Whose account it tops up, and that it is only for one's own (D-37 (7)).
         await expect(page.getByTestId('pay-owner')).toContainText('S***r');
@@ -179,6 +184,23 @@ test.describe('waiting for the money', () => {
         expect(await overflow(page)).toBeLessThanOrEqual(0);
         expect(await axeViolations(page)).toEqual([]);
         await shot(page, testInfo, `pay-pending-${lang}-${scheme}`);
+      });
+
+      // A test of its own: two axe passes in one test ran past the timeout on a loaded WebKit.
+      test(`${lang} / ${scheme}: the eye shows the full card number and hides it again`, async ({
+        page,
+      }, testInfo) => {
+        await openPay(page, { lang, scheme });
+        const number = page.getByTestId('pay-card-number');
+        await expect(number).not.toContainText(/1234|5678/);
+        await page.getByRole('button', { name: t(lang).showCard }).click();
+        await expect(number).toHaveAccessibleName('9860 1234 5678 9012');
+        expect((await number.boundingBox())?.height).toBeLessThan(40);
+        expect(await overflow(page)).toBeLessThanOrEqual(0);
+        expect(await axeViolations(page)).toEqual([]);
+        await shot(page, testInfo, `pay-revealed-${lang}-${scheme}`);
+        await page.getByRole('button', { name: t(lang).hideCard }).click();
+        await expect(number).not.toContainText(/1234|5678/);
       });
     }
   }
@@ -207,6 +229,8 @@ test.describe('waiting for the money', () => {
     await expect(page.getByRole('button', { name: t('uz').copiedAmount })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: t('uz').copiedAmount })).toBeVisible();
     if (readable) expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('50347');
+    // The card's copy works on the HIDDEN number and still takes all 16 digits (checked below).
+    await expect(page.getByTestId('pay-card-number')).not.toContainText(/1234|5678/);
     await page
       .getByRole('button', { name: t('uz').copy })
       .last()

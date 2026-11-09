@@ -72,7 +72,11 @@ test.describe('the payment step', () => {
 
     const dialog = modal(page);
     await expect(dialog.getByTestId('pay-amount')).toContainText(/50\s347/);
-    await expect(dialog.getByTestId('pay-card-number')).toHaveAccessibleName('9860 1234 5678 9012');
+    // The modal shares the pay page's card block: the middle digits start hidden.
+    const number = dialog.getByTestId('pay-card-number');
+    await expect(number).not.toContainText(/1234|5678/);
+    await dialog.getByRole('button', { name: pay('uz').showCard }).click();
+    await expect(number).toHaveAccessibleName('9860 1234 5678 9012');
     await expect(dialog).toContainText(pay('uz').noCancelled);
     expect(api.creates).toEqual([
       expect.objectContaining({ amountTiyin: '5000000', bank: 'UZCARD' }),
