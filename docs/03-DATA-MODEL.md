@@ -25,18 +25,18 @@
 
 ## Modellar (36 ta model, 21 ta enum)
 
-| Guruh         | Modellar                                                                                               |
-| ------------- | ------------------------------------------------------------------------------------------------------ |
-| Foydalanuvchi | `User`, `Wallet`                                                                                       |
-| Hamyon        | `LedgerEntry` (so‘m), `CoinEntry` (keshbek tangalari)                                                  |
-| Katalog       | `Category`, `Product`, `Sku`, `ProductRoute`, `Voucher`                                                |
-| Narx          | `FxRate`, `CostSnapshot`, `Quote`                                                                      |
-| Buyurtma      | `Order`, `OrderEvent`, `FulfillmentAttempt`                                                            |
-| To‘lov        | `PaymentIntent`, `Payment`                                                                             |
-| P2P karta     | `TopupCard`, `BankMessage`, `BankMessageText`, `BankMessageOutcome`, `PaymentReview`, `BankFeedCursor` |
-| Promo         | `BonusCode`, `BonusRedemption`, `DiscountTier`, `DiscountCode`                                         |
-| Fragment      | `FragmentSession`, `WalletSnapshot`                                                                    |
-| Auth / admin  | `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `AuditLog`, `Broadcast`, `Setting`          |
+| Guruh         | Modellar                                                                                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foydalanuvchi | `User`, `Wallet`                                                                                                                                   |
+| Hamyon        | `LedgerEntry` (so‘m), `CoinEntry` (keshbek tangalari)                                                                                              |
+| Katalog       | `Category`, `Product`, `Sku`, `ProductRoute`, `Voucher`                                                                                            |
+| Narx          | `FxRate`, `CostSnapshot`, `Quote`                                                                                                                  |
+| Buyurtma      | `Order`, `OrderEvent`, `FulfillmentAttempt`                                                                                                        |
+| To‘lov        | `PaymentIntent`, `Payment`                                                                                                                         |
+| P2P karta     | `TopupCard`, `BankMessage`, `BankMessageText`, `BankMessageOutcome`, `PaymentReview`, `BankFeedCursor`, `BankFeedAccount`, `BankFeedAuthorization` |
+| Promo         | `BonusCode`, `BonusRedemption`, `DiscountTier`, `DiscountCode`                                                                                     |
+| Fragment      | `FragmentSession`, `WalletSnapshot`                                                                                                                |
+| Auth / admin  | `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `AuditLog`, `Broadcast`, `Setting`                                                      |
 
 ## Idempotentlik unique'lari
 
@@ -594,6 +594,24 @@ Append-only (`updatedAt` yo‘q). **Xom matn bu yerda yo‘q** — faqat `textSh
 `source BankFeedSource` (PK), `lastMessageId BigInt`, `createdAt`, `updatedAt`. Har manba uchun oxirgi saqlangan xabar id;
 listener so‘rovi shu yerdan davom etadi. Xabar bilan bitta tranzaksiyada `INSERT … ON CONFLICT DO UPDATE SET lastMessageId =
 GREATEST(eski, yangi)` bilan yoziladi: tarixni qayta ko‘rish kursorni orqaga surmaydi (DB'da trigger emas, yozuvchida).
+Kursor umuman yo‘q bo‘lsa (birinchi start), tinglovchi chatning eng oxirgi xabar id’sini bitta chaqiruv bilan olib shu yerga yozadi
+va undan keyingilarni o‘qiydi; eskilari kunlik qayta skanga qoladi (D-52, M2).
+
+### `BankFeedAccount` (D-52, migratsiya `20261109165317_p4_bank_feed_account`)
+
+`id` (cuid), `slot Int @unique @default(1)` (CHECK `slot = 1` — ko‘pi bilan bitta qator), `telegramUserId BigInt` (CHECK `> 0`),
+`createdAt`; `updatedAt` yo‘q (o‘zgarmaydi). Bank-feed sessiyasi tegishli Telegram akkaunti: birinchi startda `getMe` id’si
+yoziladi. Keyingi startda id farq qilsa tinglovchi lider bo‘lmaydi, heartbeat yozmaydi va `listenerStopped`
+(`ACCOUNT_MISMATCH`) alerti ketadi (fail-closed). Akkaunt almashtirish hozircha qo‘llab-quvvatlanmaydi (alohida bo‘lak).
+
+### `BankFeedAuthorization` (D-52)
+
+`id` (cuid), `hash String @unique` (Telegram avtorizatsiya hash’ining ishorasiz o‘nlik yozuvi, CHECK faqat raqam), `appName?`,
+`deviceModel?` (CHECK ≤ 128 belgi), `authCreatedAt?` (Telegram `date_created`), `createdAt` (birinchi ko‘rilgan vaqt);
+`updatedAt` yo‘q (faqat qo‘shiladi). Ishchi akkauntning ma’lum sessiyalari: jadvalda yo‘q hash — yangi qurilma, BARCHA
+kartalarda avtomatik yozish to‘xtaydi. Jadval bo‘sh bo‘lsa ham hammasi to‘xtaydi (`authorizationsBaseline`, jim asos yo‘q).
+IP, mamlakat va hudud hech qachon saqlanmaydi. Avval Redis `bankfeed:authorizations` edi; undan voz kechildi (Redis
+tozalansa asos jimgina qayta yozilardi).
 
 ### Hamyon: `User`, `Wallet`, `LedgerEntry`, `AuditLog` (DDL o‘zgarmagan)
 
