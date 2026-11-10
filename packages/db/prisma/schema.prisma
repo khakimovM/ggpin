@@ -729,6 +729,30 @@ model BankFeedCursor {
   updatedAt     DateTime       @updatedAt
 }
 
+// D-52 D1/D4: the Telegram account the bank-feed session belongs to, bound at the first start
+// (getMe). At most one row (`slot` = 1, CHECK in the migration). The listener refuses to lead
+// with a session of another account (fail closed); switching accounts is not supported yet.
+model BankFeedAccount {
+  id             String   @id @default(cuid(2))
+  slot           Int      @unique @default(1)
+  telegramUserId BigInt
+  createdAt      DateTime @default(now())
+}
+
+// D-52 D1: the working account's authorizations (sessions) seen so far. A hash not here is a new
+// device: auto-credit is paused on ALL cards. An empty table pauses everything too (never a
+// silent baseline). Never the IP, country or region of a session.
+model BankFeedAuthorization {
+  id            String    @id @default(cuid(2))
+  // Telegram's authorization hash as an unsigned decimal (the alert refId).
+  hash          String    @unique
+  appName       String?
+  deviceModel   String?
+  // Telegram's date_created of the session (null when the server gave none).
+  authCreatedAt DateTime?
+  createdAt     DateTime  @default(now())
+}
+
 // ---------- Promo ----------
 model BonusCode {
   id          String            @id @default(cuid(2))

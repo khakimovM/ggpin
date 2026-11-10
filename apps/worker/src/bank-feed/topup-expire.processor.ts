@@ -25,7 +25,9 @@ export class TopupExpireProcessor extends WorkerHost {
       result.retiredCards +
       result.drainHeldByMessage +
       result.drainAlertsFailed +
-      result.requeuedMessages;
+      result.requeuedMessages +
+      result.silentAlerts +
+      result.silentAlertsFailed;
     if (busy > 0) {
       this.logger.log(
         `topup-expire expired=${String(result.expired)} madeFull=${String(result.madeFull)} ` +
@@ -33,7 +35,9 @@ export class TopupExpireProcessor extends WorkerHost {
           `retiredCards=${String(result.retiredCards)} ` +
           `drainHeldByMessage=${String(result.drainHeldByMessage)} ` +
           `drainAlertsFailed=${String(result.drainAlertsFailed)} ` +
-          `requeuedMessages=${String(result.requeuedMessages)}`,
+          `requeuedMessages=${String(result.requeuedMessages)} ` +
+          `silentAlerts=${String(result.silentAlerts)} ` +
+          `silentAlertsFailed=${String(result.silentAlertsFailed)}`,
       );
     }
     return result;

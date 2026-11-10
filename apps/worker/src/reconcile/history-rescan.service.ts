@@ -7,6 +7,8 @@ import {
 } from '@repo/shared';
 import { BankFeedNotifier } from '../bank-feed/bank-feed-notifier';
 import { BANK_FEED_CLIENT, type BankFeedClient } from '../bank-feed/client/bank-feed-client';
+import { BANK_FEED_LISTENER } from '../bank-feed/client/bank-feed-client.provider';
+import type { BankFeedListener } from '../bank-feed/client/bank-feed-listener';
 import { IngestService } from '../bank-feed/client/ingest.service';
 import { LATE_STORED_AFTER_MS } from '../bank-feed/match-rules';
 import { ReconcileRepository } from './reconcile.repository';
@@ -15,6 +17,13 @@ import { ReconcileRepository } from './reconcile.repository';
 export const RESCAN_PAGE = 100;
 /** A re-scan reads at most this many pages per source (5 000 messages); more is `failed`. */
 export const RESCAN_MAX_PAGES = 50;
+/**
+ * Extra age a message must have before the re-scan stores it (S9 security I1): "late" is judged by
+ * the row (Postgres now() minus Telegram's date, isLateStored) but this filter uses the worker's
+ * clock. With Postgres on another host the two clocks may differ; a minute of margin keeps every
+ * message this path stores late by its own row.
+ */
+export const RESCAN_CLOCK_MARGIN_MS = 60_000;
 
 export interface SourceRescan {
   readonly state: ReconcileHistoryState;
@@ -44,10 +53,13 @@ const unavailable = (reason: ReconcileHistoryReason): SourceRescan => ({
  * read again from the source's last stored message older than the window; a message whose id is
  * not stored goes through the ordinary ingest path (filter, parse, store, `bank-message` job)
  * in id order, and the matcher decides it (a late one for a request no longer PENDING goes to
- * review, D-47). Skipped: messages younger than LATE_STORED_AFTER_MS (the listener's), and on a
+ * review, D-47). Skipped: messages younger than LATE_STORED_AFTER_MS + RESCAN_CLOCK_MARGIN_MS (the listener's), and on a
  * source's first re-scan (nothing stored before the window) messages dated before the window.
- * Without a client (S7 not wired, or BANK_FEED_MODE off) or a pinned bot id the source is
- * `unavailable`; a client error, a history longer than RESCAN_MAX_PAGES, or a page carrying a
+ * Without a client (BANK_FEED_MODE off) or a pinned bot id the source is `unavailable`, and so
+ * it is while a listener exists but this worker does not lead, or leads without an authorization
+ * check of the last 2 poll intervals (NOT_LEADER, D-52 r2 L-A: `mayRead`, checked before every
+ * page, r3 I-B; only the leader is connected; the client refuses reads otherwise, and a second
+ * connection must never open); a client error, a history longer than RESCAN_MAX_PAGES, or a page carrying a
  * message of another chat (S9F-I2: the client broke its contract; nothing of that page is
  * ingested and the cursor never moves past it; the owner gets the hourly `foreignChat` alert) is
  * `failed`. Neither is ever reported as `ok`; each source keeps its reason code.
@@ -62,6 +74,9 @@ export class HistoryRescanService {
     private readonly ingest: IngestService,
     private readonly repo: ReconcileRepository,
     private readonly notifier: BankFeedNotifier,
+    /** null: no listener (mode off, or a suite that reads the client directly). */
+    @Inject(BANK_FEED_LISTENER)
+    private readonly listener: Pick<BankFeedListener, 'mayRead'> | null = null,
   ) {}
 
   async rescan(since: Date, now: Date): Promise<HistoryRescan> {
@@ -84,6 +99,7 @@ export class HistoryRescanService {
     const pinned = this.ingest.pinnedBot(source);
     if (client === null) return unavailable('NO_CLIENT');
     if (pinned === null) return unavailable('NOT_PINNED');
+    if (!this.mayRead()) return unavailable('NOT_LEADER');
     const recovered: string[] = [];
     let fetched = 0;
     const failed = (reason: ReconcileHistoryReason): SourceRescan => ({
@@ -99,6 +115,12 @@ export class HistoryRescanService {
       const firstScan = before === null;
       let cursor = before ?? 0n;
       for (let page = 0; page < RESCAN_MAX_PAGES; page += 1) {
+        // Before EVERY page (r3, audit I-B): a lead or a fresh authorization check lost mid-scan
+        // stops the read at once; what was already stored stays, the source is not ok.
+        if (!this.mayRead()) {
+          this.logger.warn(`history re-scan source=${source} stopped: NOT_LEADER`);
+          return { state: 'unavailable', reason: 'NOT_LEADER', fetched, recovered };
+        }
         const messages = await client.fetchSince(source, cursor, RESCAN_PAGE);
         // Only an empty page ends the history (the client contract): a short one may not be last.
         if (messages.length === 0) return { state: 'ok', reason: null, fetched, recovered };
@@ -118,7 +140,8 @@ export class HistoryRescanService {
           if (firstScan && message.date < since) continue;
           // Too young: the listener stores it live (or the next day's re-scan does). So every
           // message this path stores is "stored late" by its own row (D-47).
-          if (now.getTime() - message.date.getTime() <= LATE_STORED_AFTER_MS) continue;
+          const age = now.getTime() - message.date.getTime();
+          if (age <= LATE_STORED_AFTER_MS + RESCAN_CLOCK_MARGIN_MS) continue;
           const stored = await this.ingest.ingest(source, message, now);
           if (stored.stored) recovered.push(stored.bankMessageId);
         }
@@ -137,6 +160,11 @@ export class HistoryRescanService {
       this.logger.error(`history re-scan source=${source} failed: ${name}`);
       return failed('CLIENT_ERROR');
     }
+  }
+
+  /** No listener (mode off, direct-client suites), or it leads with a fresh check (r2 L-A). */
+  private mayRead(): boolean {
+    return this.listener === null || this.listener.mayRead();
   }
 
   /**

@@ -22,7 +22,7 @@ import {
   FailClosedService,
   type FailClosedTiming,
 } from '../fail-closed.service';
-import { SENDER_ID, SUITE_HOLDER, retireSuiteCards } from './matcher-e2e.fixtures';
+import { HUMO_SENDER_ID, SENDER_ID, SUITE_HOLDER, retireSuiteCards } from './matcher-e2e.fixtures';
 
 // Real ggpin_test Postgres + Redis DB 15 (`buildE2eEnv`), run through the e2e lock. Only the
 // matcher's modules are booted: no BullMQ Worker is opened (the processor is replaced), so jobs
@@ -158,10 +158,10 @@ async function removeSuiteJobs(
 
 /** Shared state of one e2e file: a second matcher instance stands for a second worker process. */
 export function useMatcherE2e() {
-  // This run's synthetic sender is the pinned bot of both sources (MessageIntegrity).
+  // This run's synthetic senders: two different pinned bots, as the config demands (S9-I2).
   const env: Env = {
     ...buildE2eEnv(),
-    BANK_FEED_HUMO_BOT_ID: SENDER_ID,
+    BANK_FEED_HUMO_BOT_ID: HUMO_SENDER_ID,
     BANK_FEED_UZCARD_BOT_ID: SENDER_ID,
   };
   const state = {} as {

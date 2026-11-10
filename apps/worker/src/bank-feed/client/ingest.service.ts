@@ -18,6 +18,7 @@ import { bankTextSha256 } from '../message-integrity';
 import { parseBankMessage } from '../parsers/parse-bank-message';
 import { PARSER_VERSION } from '../parsers/parser-version';
 import { isUniqueViolationOn } from '../prisma-errors';
+import { BankChatAnomalyGuard, bankChatAnomalyOf } from './bank-chat-anomaly';
 import type { BankFeedMessage } from './bank-feed-client';
 import { HourlyCounter } from './hourly-counter';
 import { ingestRejectReason, isForeignText } from './ingest-filter';
@@ -60,6 +61,10 @@ export type IngestResult =
  * push the cursor past real messages, or take the (senderId, tgMessageId) key a real message of
  * the bot's own chat needs later; the owner gets a `foreignChat` security alert instead. Another
  * sender or a non-bot in the bot's chat (FOREIGN_SENDER / NOT_BOT) is stored with its hash only.
+ * Those two and OUTGOING mean someone else uses the read-only working account (E-19, D-52):
+ * BEFORE the row is stored, the owner is alerted and ALL cards are paused (BankChatAnomalyGuard);
+ * if that fails nothing is stored, so the next poll tries again. An OUTGOING message written before
+ * the account was bound (the owner's bot setup, D-52 r2 I-C) is only stored REJECTED.
  * Logs name the source and the code only: never the text, an amount, a balance or card digits.
  */
 @Injectable()
@@ -72,6 +77,7 @@ export class IngestService {
     @InjectQueue(QUEUES.BANK_MESSAGE) private readonly queue: Queue,
     @Inject(WORKER_CONFIG) private readonly config: WorkerConfig,
     private readonly notifier: BankFeedNotifier,
+    private readonly anomaly: BankChatAnomalyGuard,
   ) {}
 
   /** The pinned bot of a source, or null when it is not configured. */
@@ -103,6 +109,12 @@ export class IngestService {
       }
       await this.notifier.alert('foreignChat', alertRef.foreignChat(source, now));
       return { stored: false, reason: 'FOREIGN_CHAT' };
+    }
+    const anomaly = bankChatAnomalyOf(rejected);
+    // A setup message of the owner (OUTGOING before the binding, review I-C) is stored REJECTED and
+    // reviewed like any other, with no anomaly; anything else here alerts and pauses first.
+    if (anomaly !== null && !(await this.anomaly.isSetupMessage(anomaly, message))) {
+      await this.anomaly.raise(source, anomaly, message.id, now);
     }
     let bankMessageId: string;
     try {

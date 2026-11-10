@@ -22,6 +22,11 @@ const next = (): number => ++seq;
 const runSeed = BigInt(Date.now());
 /** The pinned "bot" of this run (synthetic). */
 export const SENDER_ID = 900_000_000_000n + (runSeed % 1_000_000n);
+/**
+ * The pinned Humo bot of this run: never SENDER_ID (S9-I2: one bot must not be two sources; the
+ * config refuses equal ids). The suites store Uzcard messages only.
+ */
+export const HUMO_SENDER_ID = SENDER_ID + 5_000_000n;
 let messageSeq = runSeed * 1_000n;
 
 /** A fresh unique pay amount: BASE + n so'm (n = 1..999 within a run). */
@@ -55,12 +60,22 @@ export interface CardOptions {
   readonly paused?: boolean;
 }
 
-/** A card with a last4 no live card has (retried on the partial unique). */
-export async function createCard(db: PrismaClient, opts: CardOptions = {}): Promise<TopupCard> {
+/**
+ * A card with a last4 no live card has (checked first, so it also works inside a transaction,
+ * where a unique violation would abort it; retried on the partial unique for a racing suite).
+ */
+export async function createCard(
+  db: Pick<PrismaClient, 'topupCard'>,
+  opts: CardOptions = {},
+): Promise<TopupCard> {
   const status = opts.status ?? 'ACTIVE';
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const digits = randomBytes(6).readUIntBE(0, 6) % 1_000_000_000_000;
     const pan = `9998${String(digits).padStart(12, '0')}`;
+    const taken = await db.topupCard.count({
+      where: { bank: 'UZCARD', last4: pan.slice(-4), status: { not: 'RETIRED' } },
+    });
+    if (taken > 0) continue;
     try {
       return await db.topupCard.create({
         data: {

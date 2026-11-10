@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { BankFeedNotifier } from './bank-feed-notifier';
 import { CardDrainService, type CardDrainResult } from './card-drain.service';
+import { CardSilenceService, type CardSilenceResult } from './card-silence.service';
 import { MatchWritesRepository } from './match-writes.repository';
 import { OrphanRequeueService } from './orphan-requeue.service';
 import { TopupCardsRepository } from './topup-cards.repository';
@@ -30,6 +31,10 @@ export interface TopupExpireResult {
   readonly drainAlertsFailed: number;
   /** Bank messages without a decision whose job was added again or retried (S9 m1). */
   readonly requeuedMessages: number;
+  /** `cardSilent` alerts queued for new silent periods (CardSilenceService). */
+  readonly silentAlerts: number;
+  /** `cardSilent` alerts that could not be queued (the next run tries again). */
+  readonly silentAlertsFailed: number;
 }
 
 const SYSTEM = { actor: 'system', withinGrace: true } as const;
@@ -49,7 +54,9 @@ const SYSTEM = { actor: 'system', withinGrace: true } as const;
  *    amount any more, with a LATE_STORED_AFTER_MS margin for a payment stored late
  *    (`reservedUntil < now - 10 min`), is retired under its card lock; alert `cardDrained`.
  * 4. The orphan fallback (OrphanRequeueService): a stored message with no decision and no live
- *    job gets its `bm-<id>` job back. Neither failure stops the other steps.
+ *    job gets its `bm-<id>` job back.
+ * 5. Card silence (CardSilenceService, D-52 r2 M-C): an ACTIVE card with no CREDIT for 6 daytime
+ *    hours raises `cardSilent`, once per silent period. No step's failure stops the others.
  * The sweep moves no money. Logs carry counts and card ids only.
  */
 @Injectable()
@@ -63,6 +70,7 @@ export class TopupExpireService {
     private readonly notifier: BankFeedNotifier,
     private readonly orphans: OrphanRequeueService,
     private readonly drain: CardDrainService,
+    private readonly silence: CardSilenceService,
   ) {}
 
   async run(now: Date = new Date()): Promise<TopupExpireResult> {
@@ -84,6 +92,7 @@ export class TopupExpireService {
     }
     const drain = await this.retireDrained(now);
     const requeuedMessages = await this.requeueOrphans(now);
+    const silence = await this.checkSilence(now);
     return {
       expired,
       madeFull,
@@ -93,7 +102,19 @@ export class TopupExpireService {
       drainHeldByMessage: drain.heldByMessage,
       drainAlertsFailed: drain.alertsFailed,
       requeuedMessages,
+      silentAlerts: silence.alerted,
+      silentAlertsFailed: silence.failed,
     };
+  }
+
+  private async checkSilence(now: Date): Promise<CardSilenceResult> {
+    try {
+      return await this.silence.run(now);
+    } catch (error) {
+      const name = error instanceof Error ? error.name : 'unknown';
+      this.logger.warn(`topup-expire card silence check failed: ${name}`);
+      return { alerted: 0, failed: 1 };
+    }
   }
 
   private async retireDrained(now: Date): Promise<CardDrainResult> {

@@ -7,7 +7,17 @@ import { CardLimitCheck } from './card-limit-check';
 import { CardLimitProcessor } from './card-limit.processor';
 import { CardLimitScheduler } from './card-limit-scheduler';
 import { CardLimitsService } from './card-limits.service';
+import { AutoCreditPauser } from './client/auto-credit-pauser';
+import { BankChatAnomalyGuard } from './client/bank-chat-anomaly';
+import { BankFeedAccountRepository } from './client/bank-feed-account.repository';
 import { BANK_FEED_CLIENT } from './client/bank-feed-client';
+import {
+  BANK_FEED_LISTENER,
+  bankFeedClientProvider,
+  bankFeedListenerProvider,
+} from './client/bank-feed-client.provider';
+import { ListenerRepository } from './client/listener.repository';
+import { SecurityPauseRepository } from './client/security-pause.repository';
 import { IngestService } from './client/ingest.service';
 import { CreditDecider } from './credit-decider';
 import {
@@ -23,15 +33,20 @@ import { TopupCardsRepository } from './topup-cards.repository';
 import { WalletCacheInvalidator } from './wallet-cache-invalidator';
 
 // P2P top-ups, worker side (docs/05 §6): matching stored bank messages and crediting wallets.
-// The MTProto listener arrives in slice S7; until then BANK_FEED_CLIENT is null (no client) and
-// only the daily re-scan uses IngestService. Prisma, Redis, config and the queues come from
-// global modules.
+// The bank-feed client of BANK_FEED_MODE (null when off) and its listener (S7) feed IngestService,
+// as the daily re-scan does. Prisma, Redis, config and the queues come from global modules.
 @Module({
   providers: [
     { provide: MATCHER_HOOKS, useValue: NO_MATCHER_HOOKS },
     { provide: FAIL_CLOSED_TIMING, useValue: DEFAULT_FAIL_CLOSED_TIMING },
-    { provide: BANK_FEED_CLIENT, useValue: null },
+    bankFeedClientProvider,
     IngestService,
+    ListenerRepository,
+    AutoCreditPauser,
+    SecurityPauseRepository,
+    BankChatAnomalyGuard,
+    BankFeedAccountRepository,
+    bankFeedListenerProvider,
     BankMessageRepository,
     MatchWritesRepository,
     TopupCardsRepository,
@@ -55,6 +70,7 @@ import { WalletCacheInvalidator } from './wallet-cache-invalidator';
     BankFeedNotifier,
     IngestService,
     BANK_FEED_CLIENT,
+    BANK_FEED_LISTENER,
   ],
 })
 export class BankFeedModule {}

@@ -1,74 +1,12 @@
-import { alertRef, type BankFeedSource } from '@repo/shared';
-import type { BankFeedNotifier } from '../../bank-feed/bank-feed-notifier';
-import type { BankFeedClient, BankFeedMessage } from '../../bank-feed/client/bank-feed-client';
+import { alertRef } from '@repo/shared';
+import type { BankFeedClient } from '../../bank-feed/client/bank-feed-client';
 import { FakeBankFeedClient } from '../../bank-feed/client/fake-bank-feed.client';
-import type { IngestResult, IngestService } from '../../bank-feed/client/ingest.service';
 import { LATE_STORED_AFTER_MS } from '../../bank-feed/match-rules';
-import { HistoryRescanService, RESCAN_MAX_PAGES, RESCAN_PAGE } from '../history-rescan.service';
-import type { ReconcileRepository } from '../reconcile.repository';
+import { RESCAN_CLOCK_MARGIN_MS, RESCAN_MAX_PAGES, RESCAN_PAGE } from '../history-rescan.service';
+import { NOW, SINCE, message, setup } from './history-rescan.harness';
 
-// The re-scan's paging and verdicts with in-memory fakes; the database path (a recovered
-// message stored, queued and credited) is in payment-reconcile.e2e-spec.ts.
-const SINCE = new Date('2030-05-01T00:00:00.000Z');
-const NOW = new Date('2030-05-03T00:00:00.000Z');
-/** An ordinary history message: an hour old, well past the "listener's" bound. */
-const HOUR_AGO = new Date(NOW.getTime() - 3_600_000);
-const BOTS: Record<BankFeedSource, bigint | null> = {
-  HUMO_BOT: 900_000_001n,
-  UZCARD_BOT: 900_000_002n,
-};
-
-function message(
-  id: number,
-  source: BankFeedSource = 'HUMO_BOT',
-  date = HOUR_AGO,
-): BankFeedMessage {
-  const bot = BOTS[source] ?? 0n;
-  return {
-    id: BigInt(id),
-    date,
-    chatId: bot,
-    senderId: bot,
-    senderIsBot: true,
-    text: 'synthetic',
-    outgoing: false,
-    forwarded: false,
-    editDate: null,
-    viaBotId: null,
-  };
-}
-
-function setup(client: BankFeedClient | null, opts: { known?: bigint[]; pins?: typeof BOTS } = {}) {
-  const pins = opts.pins ?? BOTS;
-  const known = new Set(opts.known ?? []);
-  const ingested: { source: BankFeedSource; id: bigint }[] = [];
-  const ingest: Pick<IngestService, 'pinnedBot' | 'ingest'> = {
-    pinnedBot: (source) => pins[source],
-    ingest: (source, m): Promise<IngestResult> => {
-      ingested.push({ source, id: m.id });
-      return Promise.resolve({ stored: true, bankMessageId: `cm3rec${String(m.id)}` });
-    },
-  };
-  const repo: Pick<ReconcileRepository, 'lastIdBefore' | 'knownIds'> = {
-    lastIdBefore: (source) => Promise.resolve(source === 'HUMO_BOT' ? 100n : null),
-    knownIds: (_source, ids) => Promise.resolve(new Set(ids.filter((id) => known.has(id)))),
-  };
-  const alert = jest
-    .fn<Promise<void>, Parameters<BankFeedNotifier['alert']>>()
-    .mockResolvedValue(undefined);
-  const notifier: Pick<BankFeedNotifier, 'alert'> = { alert };
-  const service = new HistoryRescanService(
-    client,
-    ingest as IngestService,
-    repo as ReconcileRepository,
-    notifier as BankFeedNotifier,
-  );
-  const logError = jest.fn<void, [string]>();
-  const logWarn = jest.fn<void, [string]>();
-  service['logger'].warn = logWarn;
-  service['logger'].error = logError;
-  return { service, ingested, logError, logWarn, alert };
-}
+// The re-scan's paging and verdicts with in-memory fakes (history-rescan.harness.ts); the database
+// path (a recovered message stored, queued and credited) is in payment-reconcile.e2e-spec.ts.
 
 describe('HistoryRescanService', () => {
   it('is unavailable (never ok) without a client, and reads nothing', async () => {
@@ -78,6 +16,39 @@ describe('HistoryRescanService', () => {
     expect(result.sources.HUMO_BOT).toMatchObject({ state: 'unavailable', reason: 'NO_CLIENT' });
     expect(result.sources.UZCARD_BOT).toMatchObject({ state: 'unavailable', reason: 'NO_CLIENT' });
     expect(ingested).toEqual([]);
+  });
+
+  it('D-52: is unavailable (NOT_LEADER) and reads nothing when the listener may not read (not leading or no fresh authorization check)', async () => {
+    const client = new FakeBankFeedClient();
+    client.put('HUMO_BOT', message(101));
+    const { service, ingested } = setup(client, { leading: false });
+    const result = await service.rescan(SINCE, NOW);
+    expect(result.state).toBe('unavailable');
+    expect(result.sources.HUMO_BOT).toMatchObject({ state: 'unavailable', reason: 'NOT_LEADER' });
+    expect(result.sources.UZCARD_BOT).toMatchObject({ state: 'unavailable', reason: 'NOT_LEADER' });
+    expect(client.calls).toEqual([]);
+    expect(ingested).toEqual([]);
+    const leader = setup(client, { leading: true });
+    expect((await leader.service.rescan(SINCE, NOW)).sources.HUMO_BOT.state).toBe('ok');
+  });
+
+  it('I-B (r3): mayRead is checked before every page; lost before page 2, the read stops there', async () => {
+    const client = new FakeBankFeedClient();
+    for (let id = 101; id <= 100 + RESCAN_PAGE + 5; id += 1) client.put('HUMO_BOT', message(id));
+    let checks = 0;
+    // True for the source check and page 1, then the lead (or the fresh check) is gone.
+    const { service, ingested } = setup(client, { leading: () => (checks += 1) <= 2 });
+    const result = await service.rescan(SINCE, NOW);
+    expect(result.state).toBe('unavailable');
+    expect(result.sources.HUMO_BOT).toMatchObject({
+      state: 'unavailable',
+      reason: 'NOT_LEADER',
+      fetched: RESCAN_PAGE,
+    });
+    expect(result.sources.UZCARD_BOT).toMatchObject({ state: 'unavailable', reason: 'NOT_LEADER' });
+    // One page read from the stored cursor; the cursor never moved on to a second fetch.
+    expect(client.calls).toEqual([{ source: 'HUMO_BOT', minId: 100n, limit: RESCAN_PAGE }]);
+    expect(ingested).toHaveLength(RESCAN_PAGE);
   });
 
   it('is unavailable for a source without a pinned bot id', async () => {
@@ -157,9 +128,11 @@ describe('HistoryRescanService', () => {
     expect(ingested).toEqual([{ source: 'HUMO_BOT', id: 101n }]);
   });
 
-  it('leaves a message no older than LATE_STORED_AFTER_MS to the listener (D-47)', async () => {
+  it('leaves a message no older than LATE_STORED_AFTER_MS + the clock margin to the listener (D-47, S9 security I1)', async () => {
     const client = new FakeBankFeedClient();
-    const bound = new Date(NOW.getTime() - LATE_STORED_AFTER_MS);
+    // The margin: a Postgres clock a minute behind must still see every stored row as late.
+    expect(RESCAN_CLOCK_MARGIN_MS).toBe(60_000);
+    const bound = new Date(NOW.getTime() - LATE_STORED_AFTER_MS - RESCAN_CLOCK_MARGIN_MS);
     client.put('HUMO_BOT', message(101, 'HUMO_BOT', new Date(bound.getTime() - 1)));
     client.put('HUMO_BOT', message(102, 'HUMO_BOT', bound));
     client.put('HUMO_BOT', message(103, 'HUMO_BOT', new Date(NOW.getTime() - 60_000)));
