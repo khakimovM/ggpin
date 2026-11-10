@@ -70,7 +70,7 @@ export function SegmentedControl<V extends string>({
             className={cn(
               'relative grid place-items-center rounded-full px-3 text-center font-bold transition-colors duration-base ease-standard',
               size === 'md'
-                ? 'min-h-10 flex-1 text-sm'
+                ? `min-h-10 flex-1 text-sm ${HIT_AREA_44}`
                 : `min-h-9 min-w-11 text-[13px] font-extrabold tracking-[.02em] ${HIT_AREA_44}`,
               selected
                 ? variant === 'primary'

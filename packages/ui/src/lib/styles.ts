@@ -16,3 +16,20 @@ export const FIELD_FOCUS =
  */
 export const HIT_AREA_44 =
   "before:absolute before:top-1/2 before:left-1/2 before:h-11 before:w-full before:min-w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";
+
+/**
+ * Vertical-only 44 px hit area, for a control that sits on a pitch too tight for a wider one (the
+ * promo dots, 24 px apart): a wider area would take the neighbour's taps. Mark the element
+ * `data-hit="y"` so the QA spec holds it to 44 high and the desktop floor (24) wide. Needs `relative`.
+ */
+export const HIT_AREA_44_Y =
+  "before:absolute before:top-1/2 before:left-0 before:h-11 before:w-full before:-translate-y-1/2 before:content-['']";
+
+/**
+ * Hit area of a text link or a small inline control, whose size comes from the context:
+ * `--hit-min` is 44 px in a touch context (the Mini App, a viewport under 768 px, a coarse pointer)
+ * and 24 px on a desktop (WCAG 2.2 AA 2.5.8); see globals.css. The drawn link does not change. The
+ * element needs `relative` and must be a box (flex/grid item, `inline-block`), not a plain inline.
+ */
+export const HIT_AREA_LINK =
+  "before:absolute before:top-1/2 before:left-1/2 before:h-[max(100%,var(--hit-min,44px))] before:w-[max(100%,var(--hit-min,44px))] before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";

@@ -22,6 +22,23 @@ describe('Logo', () => {
     expect(mark).toHaveStyle({ width: '96px', height: '96px', borderRadius: '28px' });
   });
 
+  it('a decorative logo is hidden from assistive tech, so a named link keeps its own name', () => {
+    render(
+      <a href="/" aria-label="ggpin — bosh sahifa">
+        <Logo name="ggpin" decorative />
+        <Logo name="ggpin" variant="wordmark" decorative />
+      </a>,
+    );
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'ggpin — bosh sahifa' })).toBeInTheDocument();
+  });
+
+  it('a decorative mark draws its letters with CSS, so it adds no text to the link', () => {
+    const { container } = render(<Logo name="ggpin" size={32} decorative />);
+    expect(container.textContent).toBe('');
+    expect(container.querySelector('[data-first="g"][data-second="g"]')).not.toBeNull();
+  });
+
   it('is a circle for the bot avatar and a single accent g up to 20px', () => {
     const { rerender } = render(<Logo name="ggpin" variant="avatar" size={96} />);
     expect(screen.getByRole('img')).toHaveStyle({ borderRadius: '50%' });

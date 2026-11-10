@@ -138,6 +138,14 @@ describe('Accordion', () => {
     },
   ];
 
+  it('questions are h3 headings by default and the level can follow the page', () => {
+    const { rerender } = render(<Accordion items={items} />);
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(items.length);
+    rerender(<Accordion items={items} headingLevel={2} />);
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(items.length);
+    expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
+  });
+
   it('opens one answer at a time and closes it again', async () => {
     render(<Accordion items={items} />);
     const first = screen.getByRole('button', { name: items[0]?.question as string });

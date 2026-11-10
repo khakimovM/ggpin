@@ -49,6 +49,8 @@ export function BottomActionBar({
   const blocked = Boolean(disabledReason) || priceLoading;
   return (
     <div
+      // A pinned bar covers the end of the page: the page makes room for it (see StoreShell).
+      data-fixed-bar={fixed ? '' : undefined}
       className={cn(
         'flex flex-col gap-2.5 rounded-lg border border-border bg-surface px-4 pt-3',
         'pb-[calc(12px+max(env(safe-area-inset-bottom),var(--tg-safe-bottom,0px)))]',

@@ -21,6 +21,8 @@ export interface AccordionProps {
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
+  /** Heading level of each question (default 3); pick the one that follows the page's last heading. */
+  headingLevel?: 2 | 3 | 4;
   className?: string;
 }
 
@@ -30,8 +32,10 @@ export function Accordion({
   value,
   defaultValue = '',
   onValueChange,
+  headingLevel = 3,
   className,
 }: AccordionProps) {
+  const Heading = `h${headingLevel}` as const;
   const [inner, setInner] = useState(defaultValue);
   const open = value ?? inner;
   const reduced = useReducedMotion();
@@ -55,25 +59,27 @@ export function Accordion({
             value={item.value}
             className="border-b border-border last:border-b-0"
           >
-            <AccordionPrimitive.Header className="m-0">
-              <AccordionPrimitive.Trigger
-                className={cn(
-                  'flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm leading-5 font-bold',
-                  'transition-colors duration-fast ease-standard hover:bg-muted',
-                  FOCUS_RING,
-                  'focus-visible:ring-inset focus-visible:ring-offset-0',
-                )}
-              >
-                <span className="min-w-0">{item.question}</span>
-                <Icon
-                  icon={ChevronDown}
-                  size={18}
+            <AccordionPrimitive.Header asChild>
+              <Heading className="m-0">
+                <AccordionPrimitive.Trigger
                   className={cn(
-                    'shrink-0 text-foreground-muted transition-transform duration-base ease-standard',
-                    expanded && 'rotate-180',
+                    'flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm leading-5 font-bold',
+                    'transition-colors duration-fast ease-standard hover:bg-muted',
+                    FOCUS_RING,
+                    'focus-visible:ring-inset focus-visible:ring-offset-0',
                   )}
-                />
-              </AccordionPrimitive.Trigger>
+                >
+                  <span className="min-w-0">{item.question}</span>
+                  <Icon
+                    icon={ChevronDown}
+                    size={18}
+                    className={cn(
+                      'shrink-0 text-foreground-muted transition-transform duration-base ease-standard',
+                      expanded && 'rotate-180',
+                    )}
+                  />
+                </AccordionPrimitive.Trigger>
+              </Heading>
             </AccordionPrimitive.Header>
             <AnimatePresence initial={false}>
               {expanded ? (

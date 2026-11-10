@@ -72,3 +72,4 @@ export {
   useReducedMotion,
 } from './lib/motion';
 export { cn } from './lib/cn';
+export { HIT_AREA_44, HIT_AREA_44_Y, HIT_AREA_LINK } from './lib/styles';
