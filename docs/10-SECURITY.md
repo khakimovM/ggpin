@@ -77,7 +77,7 @@
   pul amali hali yo‘q. Har o‘zgartiruvchi buyruqda `--reason` va `--operator` majburiy, `AuditLog` bir tranzaksiyada (`actorType = CLI`,
   `ip` = SSH mijoz manzili, `after.osUser`), har amaldan keyin `adminAction` alerti. Asosiy nazorat — SSH huquqi faqat egada (D-46).
 - **Owner OTP (D-46).** `ADMIN_CONFIRM_THRESHOLD_TIYIN` dan katta `review:credit`, `wallet:adjust`, `payment:reverse` da summa qayta kiritiladi va
-  ega Telegram’iga (`OWNER_ALERT_CHAT_ID`) bir martalik kod boradi: 3 daqiqa, 5 urinish, amal + summa + target + flag’larga bog‘langan; kod ekranda
+  ega Telegram’iga (`OWNER_ALERT_CHAT_ID` ro‘yxatining faqat **birinchi**, asosiy id’si: bitta kod — bitta odam, D-53) bir martalik kod boradi: 3 daqiqa, 5 urinish, amal + summa + target + flag’larga bog‘langan; kod ekranda
   ko‘rinmaydi, servis uni tranzaksiyadan oldin tekshiradi (`after.otpVerified`). Kod, challenge va binding log’ga yozilmaydi.
 - **`wallet:adjust --confirm-override=<set>` (S9F-L1).** Musbat qo‘lda pul berishdan oldin servis hamyon qulfi ostida oxirgi 7 kundagi avtomatik
   to‘ldirishlarni o‘qiydi (`AUTO_CREDIT_HORIZON_MS`). Ular bo‘lsa, faqat aynan shu to‘plamning id’si (`recentAutoTopupSet`: barcha to‘lov id’larining

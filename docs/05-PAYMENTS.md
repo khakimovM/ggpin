@@ -476,7 +476,7 @@ butun son), `user:unfreeze <userId>` (D-41). `review:show` bank matnining har qa
 boshqa qiymatlarda yangi qator ham `\u{A}` bo‘lib chiqadi. Natija: 0 — bajarildi, 1 — rad etildi (kod va maydon, qiymat emas), 2 — buyruq noto‘g‘ri yozilgan.
 
 - **Chegaradan katta summa (D-46):** `review:credit`, `wallet:adjust`, `payment:reverse` da summa qayta kiritiladi, mos kelsa ega Telegram’iga
-  (`OWNER_ALERT_CHAT_ID`) bir martalik kod boradi (3 daqiqa, 5 urinish, amal + summa + target’ga bog‘langan), kod ekranda ko‘rinmasdan kiritiladi. Servis kodni
+  (`OWNER_ALERT_CHAT_ID` ro‘yxatining **birinchi**, asosiy id’si; D-53) bir martalik kod boradi (3 daqiqa, 5 urinish, amal + summa + target’ga bog‘langan), kod ekranda ko‘rinmasdan kiritiladi. Servis kodni
   tranzaksiyadan oldin tekshiradi, AuditLog `after.otpVerified = true`. Rad etishlar: `OTP_REQUIRED`, `OTP_INVALID`, `OTP_MISMATCH`, `OTP_EXPIRED`
   (muddati o‘tgan yoki ishlatilgan), `OTP_LOCKED`, `OTP_UNAVAILABLE`. Buyruq tugagach kod xabari navbatdan o‘chiriladi. `OTP_INVALID` va `OTP_LOCKED`
   security `warn` log yozadi (faqat amal va natija; kod, challenge va binding yo‘q). `review:credit` kodi `--confirm-override` va `--bank-verified` ga ham
@@ -616,6 +616,22 @@ Job faqat `{ alert, refId }` olib yuradi; API `refId` bo‘yicha ma’lumotni ba
 `alert-<alert>-<refId>`: BullMQ bir xil id ni qayta qabul qilmaydi (30 kun, `NOTIFY_DEDUPE_SEC`), shuning uchun `refId` har **mantiqiy hodisaga** bitta bo‘lishi kerak (takrorlanishi
 kerak bo‘lgan alertlarda vaqt bo‘lagi qo‘shiladi). `refId` faqat `[A-Za-z0-9_]`, ko‘pi bilan 64 belgi. `OWNER_ALERT_CHAT_ID` production’da majburiy (API boot tekshiruvi); dev’da yo‘q bo‘lsa alert job’i
 xato bilan tugaydi va failed to‘plamida qoladi — hech qachon «bajarildi» deb yopilmaydi.
+
+**Ikkala sherikka (D-53).** `OWNER_ALERT_CHAT_ID` vergul bilan ajratilgan 1..5 ta user id ro‘yxati (takrorlar olib tashlanadi, tartib saqlanadi,
+birinchisi — asosiy; masalan `111111111,222222222`). Har alert har id ga **alohida** `tg-outbox` job bo‘lib ketadi, job id
+`alert-<alert>-<refId>-<chatId>` (`notify` job id esa o‘zgarmaydi): qayta urinish ikki marta yubormaydi, bitta qabul qiluvchi 403 bersa
+(botni bloklagan yoki `/start` bosmagan) boshqasi baribir oladi. Dedupe oynalari alert bo‘yicha. Owner OTP faqat asosiy id ga boradi.
+Alert matnlari o‘zgarmaydi. Log’da to‘liq chat id yo‘q: `tg-outbox` log qatoridagi job id’ning oxirgi segmenti (`…-<chatId>`) `***1234` ko‘rinishida
+maskalanadi; API boot’da bitta info qator chiqadi: `owner alert recipients: N, primary ***1234` (faqat soni va asosiyning maskasi).
+
+**S11 runbook (D-53):**
+
+1. `OWNER_ALERT_CHAT_ID` ro‘yxati production env’ga qo‘yilgach, har bir qabul qiluvchi **sinov alertini olganini tasdiqlaydi** (id xato yozilgan bo‘lsa,
+   alert begona odamga ketadi yoki 403 bilan jim yo‘qoladi). Har biri production botda `/start` bosgan bo‘lishi shart. Boot logidagi qator
+   (`owner alert recipients: N, primary ***1234`) env’dagi tartibni tekshirishga yordam beradi.
+2. Owner OTP kodi **hech kimga uzatilmaydi** (kod matnining o‘zi ham shuni aytadi).
+3. Chegaradan yuqori CLI pul amallarini (`review:credit`, `wallet:adjust`, `payment:reverse`) phase 9 da adminning o‘z OTP’si chiqquncha **faqat
+   asosiy ega** bajaradi.
 
 | Alert                                                               | `refId`                                                                     | Parametrlar manbasi                                                                                                                                                                                                                                                                |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
