@@ -130,7 +130,7 @@ test.describe('ready', () => {
 });
 
 test.describe('wallet card', () => {
-  test('top-up leads to /tg/topup; the bonus code is shown but not pressable, help leads to /tg/help', async ({
+  test('top-up leads to /tg/topup; the bonus code answers "Tez orada" in a toast, help leads to /tg/help', async ({
     page,
   }) => {
     const api = await openHome(page);
@@ -138,15 +138,25 @@ test.describe('wallet card', () => {
     const topUp = page.getByRole('link', { name: new RegExp(t.topUp) });
     await expect(topUp).toHaveAttribute('href', '/tg/topup');
     await expect(topUp).not.toContainText(t.soon);
+    // MiniApp.dc.html:114: the bonus code is a button like "Yordam", with no label of its own.
     const bonus = page.getByRole('button', { name: new RegExp(t.bonus) });
-    await expect(bonus).toHaveAttribute('aria-disabled', 'true');
-    await expect(bonus).toContainText(t.soon);
+    await expect(bonus).not.toContainText(t.soon);
+    const help = page.getByRole('link', { name: new RegExp(t.help) });
+    const [bonusBox, helpBox] = await Promise.all([bonus.boundingBox(), help.boundingBox()]);
+    expect(bonusBox).not.toBeNull();
+    expect(helpBox).not.toBeNull();
+    expect(bonusBox?.y).toBe(helpBox?.y);
+    expect(bonusBox?.height).toBe(helpBox?.height);
     const before = api.requests.length;
-    await bonus.click({ force: true });
+    await bonus.click();
+    // The toast is announced through the live region of the provider.
+    await expect(
+      page.locator('[aria-live="polite"]').getByText(uz.common.comingSoon),
+    ).toBeVisible();
+    // Checked once the toast is up, so a late request or navigation would be seen.
     expect(page.url()).toMatch(/\/tg$/);
     expect(api.requests.length).toBe(before);
     // Help is the Mini App's own screen (phase 7 S9), whatever support link is configured.
-    const help = page.getByRole('link', { name: new RegExp(t.help) });
     await expect(help).toHaveAttribute('href', '/tg/help');
     await expect(help).not.toContainText(t.soon);
   });

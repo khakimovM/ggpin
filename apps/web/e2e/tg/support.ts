@@ -54,6 +54,8 @@ export const axeViolations = async (page: Page) => {
   }, 3000);
   if (stuck.length > 0)
     console.warn(`axe: animations still running after 3 s: ${stuck.join(', ')}`);
-  const scan = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const scan = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
   return scan.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`);
 };

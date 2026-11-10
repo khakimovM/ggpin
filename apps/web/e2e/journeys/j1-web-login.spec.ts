@@ -262,7 +262,9 @@ test.describe('every state fits the viewport and passes the accessibility scan',
         );
         expect(overflow).toBeLessThanOrEqual(0);
 
-        const scan = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+        const scan = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
         expect(scan.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
         expect(unexpectedProblems(problems)).toEqual([]);
       });

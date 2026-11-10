@@ -64,7 +64,7 @@ test.describe('gallery accessibility (axe, WCAG AA contrast included)', () => {
       test(`${theme} · ${lang}`, async ({ page }) => {
         await openGallery(page, theme, lang);
         const results = await new AxeBuilder({ page })
-          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
           .analyze();
         expect(
           results.violations.map((v) => ({

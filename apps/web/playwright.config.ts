@@ -27,6 +27,13 @@ const DESKTOP_ONLY = /\.desktop\.spec\.ts/;
 // Journeys that run against the real API (its own database, Redis DB and port 5000). They start
 // that API themselves, so they run once, in their own project, never in the viewport ones.
 const REAL_API_SPECS = /j4-referral\.spec\.ts/;
+// The S11 QA specs (e2e/qa). The cheap ones run in the ordinary suite, in the three width projects
+// only: a11y-targets (the pressable area of every control) and a11y-keyboard. The heavy sweeps (the
+// 396-cell screenshot matrix, focus and motion on every screen) run only with
+// playwright.qa.config.ts, and the tablet check (coarse pointer at 1024 px) in w1440 only.
+export const QA_ALL = /e2e[\\/]qa[\\/]/;
+export const QA_HEAVY = /e2e[\\/]qa[\\/](?:matrix|a11y-focus-motion)\.spec\.ts/;
+const QA_TABLET = /e2e[\\/]qa[\\/]a11y-targets-tablet\.spec\.ts/;
 
 // WebKit (the Safari engine Telegram on iOS uses) runs the component gallery locally. CI installs
 // chromium only, to keep that job small and fast (the public pay page, which people open in
@@ -39,7 +46,7 @@ const webkitProject = {
   use: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } },
 };
 
-export default defineConfig({
+const config = defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -63,22 +70,22 @@ export default defineConfig({
     },
     {
       name: 'mobile-390',
-      testIgnore: [HTTP_SPECS, REAL_API_SPECS, DESKTOP_ONLY],
+      testIgnore: [HTTP_SPECS, REAL_API_SPECS, DESKTOP_ONLY, QA_ALL],
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
     },
     {
       name: 'w375',
-      testIgnore: [HTTP_SPECS, REAL_API_SPECS, DESKTOP_ONLY],
+      testIgnore: [HTTP_SPECS, REAL_API_SPECS, DESKTOP_ONLY, QA_HEAVY, QA_TABLET],
       use: { ...desktopChrome, viewport: { width: 375, height: 812 } },
     },
     {
       name: 'w768',
-      testIgnore: [HTTP_SPECS, REAL_API_SPECS, MOBILE_ONLY],
+      testIgnore: [HTTP_SPECS, REAL_API_SPECS, MOBILE_ONLY, QA_HEAVY, QA_TABLET],
       use: { ...desktopChrome, viewport: { width: 768, height: 1024 } },
     },
     {
       name: 'w1440',
-      testIgnore: [HTTP_SPECS, REAL_API_SPECS, MOBILE_ONLY],
+      testIgnore: [HTTP_SPECS, REAL_API_SPECS, MOBILE_ONLY, QA_HEAVY],
       use: { ...desktopChrome, viewport: { width: 1440, height: 900 } },
     },
     ...(process.env.CI ? [] : [webkitProject]),
@@ -91,3 +98,5 @@ export default defineConfig({
     timeout: 300_000,
   },
 });
+
+export default config;
