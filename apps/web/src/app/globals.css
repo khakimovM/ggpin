@@ -183,6 +183,20 @@
     --font-sans: var(--font-manrope), 'Manrope', system-ui, sans-serif;
     --font-display: var(--font-unbounded), 'Unbounded', 'Manrope', sans-serif;
   }
+  /* Size of the invisible pressable area of text links and small controls (HIT_AREA_LINK in
+     packages/ui): 44 px in a touch context (the Mini App, a viewport under 768 px, a coarse
+     pointer), 24 px on a desktop (WCAG 2.2 AA 2.5.8). The drawn size never changes. */
+  :root {
+    --hit-min: 24px;
+  }
+  @media (max-width: 767.98px), (pointer: coarse) {
+    :root {
+      --hit-min: 44px;
+    }
+  }
+  :root[data-surface='tg'] {
+    --hit-min: 44px;
+  }
   html,
   body {
     font-family: var(--font-sans);

@@ -1,12 +1,13 @@
 'use client';
 
-import { Icon, cn } from '@repo/ui';
+import { HIT_AREA_44, Icon, cn } from '@repo/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { Feed } from './history-feed';
 import { pageWindow } from './page-window';
 
 const BUTTON =
+  `relative ${HIT_AREA_44} ` +
   'grid h-10 min-w-10 cursor-pointer place-items-center rounded-xl border-[1.5px] text-sm font-extrabold tabular-nums focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40';
 
 /**

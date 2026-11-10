@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon, Skeleton } from '@repo/ui';
+import { HIT_AREA_44, Icon, Skeleton } from '@repo/ui';
 import { Plus, RefreshCw, Wallet } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { MONEY_PLACEHOLDER, useFormatMoney } from '../../lib/format/money';
@@ -45,7 +45,7 @@ export function WalletPill() {
         type="button"
         aria-label={t('topUp')}
         onClick={() => useTopupModalStore.getState().show()}
-        className="ml-1.5 grid size-9 place-items-center rounded-full bg-primary text-primary-foreground transition duration-fast ease-standard hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className={`relative ml-1.5 grid size-9 place-items-center rounded-full bg-primary text-primary-foreground transition duration-fast ease-standard hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${HIT_AREA_44}`}
       >
         <Icon icon={Plus} size={17} />
       </button>

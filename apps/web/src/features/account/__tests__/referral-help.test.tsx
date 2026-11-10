@@ -105,6 +105,14 @@ describe('ReferralView', () => {
 });
 
 describe('HelpView', () => {
+  it('the heading levels never skip: h1, then h2 for every question and for the support card', () => {
+    renderApp(<HelpView />);
+    const levels = screen.getAllByRole('heading').map((h) => Number(h.tagName.slice(1)));
+    expect(levels[0]).toBe(1);
+    expect(levels.slice(1).length).toBeGreaterThan(1);
+    expect(levels.slice(1).every((level) => level === 2)).toBe(true);
+  });
+
   it('opens the first question and shows one answer at a time', async () => {
     renderApp(<HelpView />);
     const first = screen.getByRole('button', { name: /Buyurtma qancha vaqtda yetkaziladi/ });

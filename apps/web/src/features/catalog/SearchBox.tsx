@@ -1,7 +1,7 @@
 'use client';
 
 import { CATALOG_SEARCH_MAX_LENGTH } from '@repo/shared';
-import { Icon } from '@repo/ui';
+import { HIT_AREA_44, Icon } from '@repo/ui';
 import { Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCatalogSearch } from './use-catalog-search';
@@ -42,7 +42,7 @@ export function SearchBox({
           type="button"
           aria-label={t('clear')}
           onClick={clear}
-          className="absolute top-1.5 right-1.5 grid size-9 place-items-center rounded-[10px] bg-muted text-foreground-secondary transition duration-fast hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className={`absolute top-1.5 right-1.5 grid size-9 place-items-center rounded-[10px] bg-muted text-foreground-secondary transition duration-fast hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring ${HIT_AREA_44}`}
         >
           <Icon icon={X} size={15} />
         </button>

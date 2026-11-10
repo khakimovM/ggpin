@@ -1,7 +1,7 @@
 'use client';
 
 import type { CatalogProductDetail } from '@repo/shared';
-import { ErrorState, Icon } from '@repo/ui';
+import { ErrorState, HIT_AREA_LINK, Icon } from '@repo/ui';
 import { ChevronRight } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -81,7 +81,10 @@ export function ProductScreen({ variant, slug }: ProductScreenProps) {
       <nav aria-label={t('breadcrumb')}>
         <ol className="m-0 flex list-none items-center gap-1.5 p-0 text-[13px] leading-5 font-semibold text-foreground-muted">
           <li>
-            <Link href={catalogHref} className="text-foreground-muted hover:text-foreground">
+            <Link
+              href={catalogHref}
+              className={`relative inline-block text-foreground-muted hover:text-foreground ${HIT_AREA_LINK}`}
+            >
               {t('catalog')}
             </Link>
           </li>

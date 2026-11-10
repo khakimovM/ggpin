@@ -27,7 +27,8 @@ export function CategoryChips({
     <div
       role="group"
       aria-label={t('label')}
-      className={`-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 ${className ?? ''}`}
+      // py-1 / -my-1: room for the chips' 44 px hit area, which overflow-x-auto would clip.
+      className={`-mx-4 -my-1 flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:mx-0 md:px-0 ${className ?? ''}`}
     >
       <Chip
         selected={value === undefined}

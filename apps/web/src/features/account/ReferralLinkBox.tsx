@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon, cn } from '@repo/ui';
+import { HIT_AREA_44, Icon, cn } from '@repo/ui';
 import { Check, Copy } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCopy } from './use-copy';
@@ -31,6 +31,7 @@ export function ReferralLinkBox({ link, compact }: { link: string; compact?: boo
         onClick={() => copy(link)}
         className={cn(
           'relative flex min-w-[118px] flex-none items-center justify-center gap-1.5 rounded-[11px] border-none bg-primary-soft px-3 text-[13px] leading-none font-extrabold text-primary-soft-foreground focus-visible:outline-2 focus-visible:outline-ring',
+          HIT_AREA_44,
           compact ? 'h-10' : 'h-11',
           copied && 'text-success-text',
         )}

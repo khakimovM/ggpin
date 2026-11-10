@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon } from '@repo/ui';
+import { HIT_AREA_44, Icon } from '@repo/ui';
 import { RefreshCw, WifiOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -24,7 +24,7 @@ export function OfflineBanner({ onRetry }: { onRetry: () => void }) {
         type="button"
         aria-label={common('retry')}
         onClick={onRetry}
-        className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        className={`relative grid size-10 shrink-0 place-items-center rounded-xl bg-card text-foreground focus-visible:outline-2 focus-visible:outline-ring ${HIT_AREA_44}`}
       >
         <Icon icon={RefreshCw} size={17} />
       </button>

@@ -15,6 +15,7 @@ export function FaqList() {
     <Accordion
       value={open}
       onValueChange={setOpen}
+      headingLevel={2}
       className="rounded-3xl"
       items={FAQ.map((n) => ({
         value: `q${n}`,

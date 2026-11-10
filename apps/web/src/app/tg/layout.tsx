@@ -44,7 +44,7 @@ const CATALOGS = {
 export default async function TelegramLayout({ children }: { children: ReactNode }) {
   const nonce = await requestNonce();
   return (
-    <html lang="uz" className={FONT_CLASSES} suppressHydrationWarning>
+    <html lang="uz" data-surface="tg" className={FONT_CLASSES} suppressHydrationWarning>
       <head>
         <ThemeScript variant="tg" />
         {/* Loaded by Next before hydration, so window.Telegram exists when the provider reads it.

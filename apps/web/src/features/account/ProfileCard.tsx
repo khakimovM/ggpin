@@ -1,6 +1,6 @@
 'use client';
 
-import { Avatar, Icon, cn } from '@repo/ui';
+import { Avatar, HIT_AREA_44, Icon, cn } from '@repo/ui';
 import { Check, Copy } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMe } from '../auth/use-me';
@@ -50,7 +50,7 @@ export function ProfileCard({ variant }: { variant: 'tg' | 'web' }) {
               <button
                 type="button"
                 onClick={() => copy(user.telegramId)}
-                className="relative mt-1 flex h-[30px] items-center gap-1.5 self-start rounded-full border border-border bg-background px-2.5 text-xs leading-none font-bold text-foreground-secondary tabular-nums before:absolute before:-inset-y-[7px] before:inset-x-0 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring"
+                className={`relative mt-1 flex h-[30px] items-center gap-1.5 self-start rounded-full border border-border bg-background px-2.5 text-xs leading-none font-bold text-foreground-secondary tabular-nums focus-visible:outline-2 focus-visible:outline-ring ${HIT_AREA_44}`}
               >
                 {t('idLabel', { id: user.telegramId })}
                 <span className="sr-only">{t('idCopy')}</span>

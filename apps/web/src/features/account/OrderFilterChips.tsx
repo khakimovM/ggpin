@@ -25,7 +25,8 @@ export function OrderFilterChips({
       className={cn(
         'flex gap-2',
         variant === 'tg'
-          ? '-mx-4 overflow-x-auto px-4 [scrollbar-width:none]'
+          ? // py-1 / -my-1: room for the chips' 44 px hit area, which overflow-x-auto would clip.
+            '-mx-4 -my-1 overflow-x-auto px-4 py-1 [scrollbar-width:none]'
           : 'flex-wrap gap-1.5',
       )}
     >
@@ -34,7 +35,9 @@ export function OrderFilterChips({
           key={filter}
           selected={filter === value}
           onClick={() => onChange(filter)}
-          className={variant === 'tg' ? 'shrink-0 whitespace-nowrap' : undefined}
+          // Store.dc.html: 38 px tall chips, 6 px apart, so wrapped rows sit 44 px apart and the 44 px
+          // hit areas of two rows touch without overlapping.
+          className={variant === 'tg' ? 'shrink-0 whitespace-nowrap' : 'min-h-[38px]'}
         >
           {t(filter)}
         </Chip>

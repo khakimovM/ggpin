@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon } from '@repo/ui';
+import { HIT_AREA_44, HIT_AREA_44_Y, Icon } from '@repo/ui';
 import { ArrowRight, Gift } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -99,7 +99,7 @@ export function PromoCarousel({ referralHref, giftHref }: PromoCarouselProps) {
               </span>
               <Link
                 href={slide.href}
-                className={`relative z-10 mt-1.5 flex h-10 items-center gap-1.5 self-start rounded-xl px-4 text-sm font-extrabold no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${slide.button}`}
+                className={`relative z-10 mt-1.5 flex h-10 items-center gap-1.5 self-start rounded-xl px-4 text-sm font-extrabold no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${HIT_AREA_44} ${slide.button}`}
               >
                 {t(`${slide.id}.cta`)}
                 <Icon icon={ArrowRight} size={15} />
@@ -123,7 +123,8 @@ export function PromoCarousel({ referralHref, giftHref }: PromoCarouselProps) {
               aria-label={t('slide', { number: position + 1 })}
               aria-current={position === current ? 'true' : undefined}
               onClick={() => setIndex(position)}
-              className="grid h-6 w-6 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring"
+              data-hit="y"
+              className={`relative grid h-6 w-6 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring ${HIT_AREA_44_Y}`}
             >
               <span
                 className={`h-1.5 rounded-[3px] transition-[width] duration-base ${position === current ? 'w-5 bg-primary' : 'w-1.5 bg-input-border'}`}

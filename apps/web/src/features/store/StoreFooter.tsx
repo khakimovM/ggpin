@@ -1,6 +1,7 @@
 'use client';
 
 import { BRAND } from '@repo/shared';
+import { HIT_AREA_LINK } from '@repo/ui';
 import { useTranslations } from 'next-intl';
 import { env } from '../../env';
 import { DISPLAY_TIME_ZONE } from '../../lib/format/date';
@@ -33,7 +34,7 @@ export function StoreFooter() {
             href={contact.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-foreground-secondary no-underline hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className={`relative text-foreground-secondary no-underline hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring ${HIT_AREA_LINK}`}
           >
             {t('contact')}
           </a>

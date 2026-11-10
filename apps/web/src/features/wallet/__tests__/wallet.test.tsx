@@ -1,4 +1,5 @@
 import type { WalletResponse } from '@repo/shared';
+import { ToastProvider } from '@repo/ui';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +7,13 @@ import { ApiError } from '../../../lib/api/errors';
 import { renderApp } from '../../auth/__tests__/test-utils';
 import { AnimatedMoney } from '../AnimatedMoney';
 import { WalletCard } from '../WalletCard';
+
+// The wallet card toasts "Tez orada" for the bonus code; the Mini App mounts the provider (TgRoot).
+const WalletInToasts = ({ closeLabel = 'Yopish' }: { closeLabel?: string }) => (
+  <ToastProvider placement="top" closeLabel={closeLabel}>
+    <WalletCard />
+  </ToastProvider>
+);
 
 const mocks = vi.hoisted(() => ({
   getWallet: vi.fn(),
@@ -90,7 +98,7 @@ describe('WalletCard', () => {
   it('loading: a placeholder with a status text', async () => {
     let finish: (value: WalletResponse) => void = () => undefined;
     mocks.getWallet.mockReturnValue(new Promise<WalletResponse>((resolve) => (finish = resolve)));
-    renderApp(<WalletCard />);
+    renderApp(<WalletInToasts />);
     expect(screen.getByRole('status')).toHaveTextContent('Balans yuklanmoqda');
     expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
     finish(WALLET);
@@ -100,7 +108,7 @@ describe('WalletCard', () => {
   it('error: says so and retry asks again', async () => {
     mocks.getWallet.mockRejectedValueOnce(new ApiError({ status: 500, code: 'INTERNAL_ERROR' }));
     mocks.getWallet.mockResolvedValue(WALLET);
-    renderApp(<WalletCard />);
+    renderApp(<WalletInToasts />);
     expect(await screen.findByText('Balansni yuklab bo‘lmadi')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Qayta urinish' }));
     expect(await screen.findByTestId('wallet-balance')).toHaveTextContent(amount('85 400'));
@@ -109,7 +117,7 @@ describe('WalletCard', () => {
 
   it('balance: the server amount with the unit, and the label of the section', async () => {
     mocks.getWallet.mockResolvedValue(WALLET);
-    renderApp(<WalletCard />);
+    renderApp(<WalletInToasts />);
     const balance = await screen.findByTestId('wallet-balance');
     expect(balance).toHaveTextContent(amount('85 400'));
     expect(balance).toHaveTextContent('so‘m');
@@ -118,7 +126,7 @@ describe('WalletCard', () => {
 
   it('Russian: the unit and the buttons are in Russian', async () => {
     mocks.getWallet.mockResolvedValue(WALLET);
-    renderApp(<WalletCard />, { locale: 'ru' });
+    renderApp(<WalletInToasts />, { locale: 'ru' });
     const balance = await screen.findByTestId('wallet-balance');
     expect(balance).toHaveTextContent('сум');
     expect(screen.getByRole('link', { name: /Пополнить счёт/ })).toHaveAttribute(
@@ -128,24 +136,39 @@ describe('WalletCard', () => {
     expect(screen.getByRole('link', { name: /Помощь/ })).toHaveAttribute('href', '/tg/help');
   });
 
-  it('top-up leads to /tg/topup; the bonus code is shown, marked "Tez orada", and does nothing when pressed', async () => {
+  it('top-up leads to /tg/topup; the bonus code looks like Yordam, with no label, and answers "Tez orada" in a toast', async () => {
     mocks.getWallet.mockResolvedValue(WALLET);
-    renderApp(<WalletCard />);
+    renderApp(<WalletInToasts />);
     await screen.findByTestId('wallet-balance');
     const topUp = screen.getByRole('link', { name: /Hisobni to‘ldirish/ });
     expect(topUp).toHaveAttribute('href', '/tg/topup');
-    expect(topUp).not.toHaveTextContent('Tez orada');
-    const bonus = screen.getByRole('button', { name: /Bonus kod/ });
-    expect(bonus).toHaveAttribute('aria-disabled', 'true');
-    expect(bonus).toHaveTextContent('Tez orada');
+    const bonus = screen.getByRole('button', { name: 'Bonus kod' });
+    // MiniApp.dc.html:114: the same structure as "Yordam", no "soon" label, a real button.
+    expect(bonus).not.toHaveAttribute('aria-disabled');
+    expect(bonus).not.toHaveTextContent('Tez orada');
+    const help = screen.getByRole('link', { name: /Yordam/ });
+    expect(bonus.className).toContain('min-h-11');
+    expect(help.className).toContain('min-h-11');
+    expect(screen.queryByText('Tez orada')).not.toBeInTheDocument();
     await userEvent.click(bonus);
+    // The toast text is announced through a live region.
+    const message = await screen.findByText('Tez orada');
+    expect(message.closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
     // Nothing was requested by that press.
     expect(mocks.getWallet).toHaveBeenCalledTimes(1);
   });
 
+  it('Russian: the toast says "Скоро"', async () => {
+    mocks.getWallet.mockResolvedValue(WALLET);
+    renderApp(<WalletInToasts closeLabel="Закрыть" />, { locale: 'ru' });
+    await screen.findByTestId('wallet-balance');
+    await userEvent.click(screen.getByRole('button', { name: 'Бонус-код' }));
+    expect(await screen.findByText('Скоро')).toBeInTheDocument();
+  });
+
   it('Yordam leads to the Mini App’s own help screen, whatever support link is configured', async () => {
     mocks.getWallet.mockResolvedValue(WALLET);
-    renderApp(<WalletCard />);
+    renderApp(<WalletInToasts />);
     await screen.findByTestId('wallet-balance');
     const help = screen.getByRole('link', { name: /Yordam/ });
     expect(help).toHaveAttribute('href', '/tg/help');
@@ -157,7 +180,7 @@ describe('WalletCard', () => {
     mocks.getWallet.mockResolvedValueOnce(WALLET);
     mocks.getWallet.mockResolvedValue({ ...WALLET, balanceTiyin: '1000000' });
     document.documentElement.dataset.reduced = 'true';
-    const { client } = renderApp(<WalletCard />);
+    const { client } = renderApp(<WalletInToasts />);
     await screen.findByTestId('wallet-balance');
     await client.invalidateQueries({ queryKey: ['wallet'] });
     await waitFor(() =>

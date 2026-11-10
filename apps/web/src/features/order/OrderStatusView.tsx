@@ -1,7 +1,7 @@
 'use client';
 
 import type { OrderDetail } from '@repo/shared';
-import { Icon, StatusChip, useMediaQuery } from '@repo/ui';
+import { HIT_AREA_LINK, Icon, StatusChip, useMediaQuery } from '@repo/ui';
 import { ChevronRight, Package } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -112,7 +112,10 @@ export function OrderStatusView({ order, homeHref, productHref, web }: OrderStat
         <nav aria-label={t('breadcrumb')}>
           <ol className="m-0 flex list-none items-center gap-1.5 p-0 text-[13px] leading-5 font-semibold text-foreground-muted">
             <li>
-              <Link href={web.historyHref} className="text-foreground-muted hover:text-foreground">
+              <Link
+                href={web.historyHref}
+                className={`relative inline-block text-foreground-muted hover:text-foreground ${HIT_AREA_LINK}`}
+              >
                 {nav('orders')}
               </Link>
             </li>

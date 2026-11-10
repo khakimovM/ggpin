@@ -1,7 +1,7 @@
 'use client';
 
 import { BRAND } from '@repo/shared';
-import { Logo } from '@repo/ui';
+import { HIT_AREA_LINK, Logo } from '@repo/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -39,9 +39,10 @@ export function StoreHeader() {
         <Link
           href={localizedPath(locale, '/store')}
           aria-label={login('homeLabel', { brand: BRAND.name })}
-          className="flex shrink-0 items-center gap-2.5 text-foreground no-underline"
+          className={`relative flex shrink-0 items-center gap-2.5 text-foreground no-underline ${HIT_AREA_LINK}`}
         >
-          <Logo name={BRAND.name} size={34} />
+          {/* The mark is decorative: the link's name starts with the visible wordmark (WCAG 2.5.3). */}
+          <Logo name={BRAND.name} size={34} decorative />
           <Logo name={BRAND.name} variant="wordmark" size={20} className="hidden sm:inline-block" />
         </Link>
         <nav aria-label={t('main')} className="hidden shrink-0 gap-0.5 md:flex">
@@ -53,7 +54,7 @@ export function StoreHeader() {
                 key={item.path}
                 href={localizedPath(locale, item.path)}
                 aria-current={current ? 'page' : undefined}
-                className={`flex h-10 items-center rounded-[10px] px-3.5 text-sm font-extrabold whitespace-nowrap no-underline hover:bg-muted ${current ? 'bg-primary-soft text-primary-soft-foreground' : 'text-foreground-secondary'}`}
+                className={`relative flex h-10 items-center rounded-[10px] px-3.5 text-sm font-extrabold whitespace-nowrap no-underline hover:bg-muted ${HIT_AREA_LINK} ${current ? 'bg-primary-soft text-primary-soft-foreground' : 'text-foreground-secondary'}`}
               >
                 {t(item.key)}
               </Link>

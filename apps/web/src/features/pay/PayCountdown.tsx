@@ -28,7 +28,8 @@ export function PayCountdown({ msLeft }: PayCountdownProps) {
   const low = msLeft < LOW_MS;
   const width = `${Math.min(100, Math.max(0, (msLeft / TOTAL_MS) * 100))}%`;
   return (
-    <section
+    // A div, not a section: `timer` is not an allowed role of <section> (axe aria-allowed-role).
+    <div
       role="timer"
       aria-live="off"
       data-low={low ? '' : undefined}
@@ -56,6 +57,6 @@ export function PayCountdown({ msLeft }: PayCountdownProps) {
           style={{ width }}
         />
       </span>
-    </section>
+    </div>
   );
 }

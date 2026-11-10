@@ -1,11 +1,12 @@
 'use client';
 
-import { Badge, DURATION, ErrorState, Icon, Skeleton, useReducedMotion } from '@repo/ui';
-import { Plus, Ticket } from 'lucide-react';
+import { DURATION, ErrorState, Icon, Skeleton, useReducedMotion } from '@repo/ui';
+import { Plus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { AnimatedMoney } from './AnimatedMoney';
+import { BonusAction } from './BonusAction';
 import { HelpAction } from './HelpAction';
 import { useWallet } from './use-wallet';
 
@@ -17,7 +18,7 @@ const ON_PRIMARY_BUTTON =
 /**
  * The wallet card of the Mini App home (MiniApp.dc.html `home`). The balance is the server's
  * `GET /me/wallet`, never computed here. "To‘ldirish" opens the top-up (`/tg/topup`); "Bonus kod"
- * is shown but not pressable ("Tez orada") until the bonus-code screen exists; "Yordam" opens
+ * says "Tez orada" in a toast until the bonus-code screen exists (see BonusAction); "Yordam" opens
  * the help screen (`/tg/help`, see HelpAction).
  */
 export function WalletCard() {
@@ -96,17 +97,7 @@ export function WalletCard() {
           {t('topUp')}
         </Link>
         <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            aria-disabled="true"
-            className={`relative flex min-h-11 cursor-not-allowed items-center justify-center gap-1.5 rounded-[14px] text-center text-sm font-extrabold ${ON_PRIMARY_BUTTON}`}
-          >
-            <Icon icon={Ticket} size={16} />
-            {t('bonus')}
-            <Badge size="sm" variant="soon" className="absolute -top-2 right-2">
-              {t('soon')}
-            </Badge>
-          </button>
+          <BonusAction className={ON_PRIMARY_BUTTON} />
           <HelpAction className={ON_PRIMARY_BUTTON} />
         </div>
       </motion.div>

@@ -1,5 +1,5 @@
 import { BRAND } from '@repo/shared';
-import { Icon, Logo } from '@repo/ui';
+import { HIT_AREA_LINK, Icon, Logo } from '@repo/ui';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -38,9 +38,10 @@ export function LoginShell({
         <a
           href={homeHref}
           aria-label={homeLabel}
-          className="flex items-center gap-2.5 rounded-xs text-foreground no-underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+          className={`relative flex items-center gap-2.5 rounded-xs text-foreground no-underline ${HIT_AREA_LINK} focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none`}
         >
-          <Logo variant="mark" size={32} name={BRAND.name} />
+          {/* The mark is decorative: the link's name starts with the visible wordmark (WCAG 2.5.3). */}
+          <Logo variant="mark" size={32} name={BRAND.name} decorative />
           <Logo variant="wordmark" size={20} name={BRAND.name} />
         </a>
         <a

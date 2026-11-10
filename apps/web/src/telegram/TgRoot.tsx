@@ -5,6 +5,7 @@ import { Providers } from '../app/providers';
 import { TgGate } from '../features/tg-auth/TgGate';
 import { TelegramProvider } from './TelegramProvider';
 import { TgIntlProvider, type TgCatalogs } from './TgIntlProvider';
+import { TgToastProvider } from './TgToastProvider';
 
 /**
  * Everything the Mini App screens run inside, outermost first: the Telegram connection (theme,
@@ -16,7 +17,9 @@ export function TgRoot({ catalogs, children }: { catalogs: TgCatalogs; children:
     <TelegramProvider>
       <TgIntlProvider catalogs={catalogs}>
         <Providers>
-          <TgGate>{children}</TgGate>
+          <TgToastProvider>
+            <TgGate>{children}</TgGate>
+          </TgToastProvider>
         </Providers>
       </TgIntlProvider>
     </TelegramProvider>
