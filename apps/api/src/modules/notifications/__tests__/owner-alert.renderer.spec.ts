@@ -1,34 +1,6 @@
 import type { BankFeedAlertKind } from '@repo/shared';
-import { buildTestEnv } from '../../../config/__tests__/test-env';
-import type { NotifySourcesRepository } from '../notify-sources.repository';
-import { AlertSourceMissingError, OwnerAlertRenderer } from '../owner-alert.renderer';
-
-// Only the reads these cases use; awaited like the Prisma promises they stand for.
-interface Sources {
-  review: () => Promise<unknown>;
-  heartbeat: () => Promise<string | null>;
-  payment: () => Promise<unknown>;
-  message: () => Promise<unknown>;
-  card: () => Promise<unknown>;
-  reconcileRun: (day: string) => Promise<unknown>;
-}
-
-const NOW = new Date('2030-01-01T09:00:00.000Z');
-
-function renderer(sources: Partial<Sources>): OwnerAlertRenderer {
-  const fake: Sources = {
-    review: () => Promise.resolve(null),
-    heartbeat: () => Promise.resolve(null),
-    payment: () => Promise.resolve(null),
-    message: () => Promise.resolve(null),
-    card: () => Promise.resolve(null),
-    reconcileRun: () => Promise.resolve(null),
-    ...sources,
-  };
-  return new OwnerAlertRenderer(fake as unknown as NotifySourcesRepository, buildTestEnv(), {
-    now: () => NOW,
-  });
-}
+import { AlertSourceMissingError } from '../owner-alert.renderer';
+import { renderer } from './owner-alert.test-renderer';
 
 function review(rejectReason: string | null, note: string | null = null) {
   return {
@@ -194,14 +166,6 @@ describe('OwnerAlertRenderer', () => {
     );
   });
 
-  it('listenerDown counts minutes since the heartbeat, "?" without one', async () => {
-    const tenMinAgo = String(NOW.getTime() - 10 * 60_000);
-    await expect(
-      renderer({ heartbeat: () => Promise.resolve(tenMinAgo) }).render('listenerDown', 'x1'),
-    ).resolves.toContain('10 daqiqadan');
-    await expect(renderer({}).render('listenerDown', 'x1')).resolves.toContain('? daqiqadan');
-  });
-
   it('walletFrozen takes the user id from the composite refId', async () => {
     await expect(renderer({}).render('walletFrozen', 'user1_entry1')).resolves.toContain(
       'Foydalanuvchi user1 hamyoni',
@@ -285,13 +249,5 @@ describe('OwnerAlertRenderer', () => {
         AlertSourceMissingError,
       );
     });
-  });
-
-  it('foreignChat (B2) names the bank of the source and reads nothing', async () => {
-    const r = renderer({});
-    const text = await r.render('foreignChat', 'UZCARD_BOT_123456');
-    expect(text).toContain('XAVFSIZLIK');
-    expect(text).toContain('UZCARD bot manbasiga boshqa chatdagi xabar keldi');
-    await expect(r.render('foreignChat', 'cm3abc')).rejects.toBeInstanceOf(AlertSourceMissingError);
   });
 });

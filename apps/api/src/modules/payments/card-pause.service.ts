@@ -4,7 +4,7 @@ import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { cardInputError, type CardAdminActor } from './card-admin.input';
 import { CardAdminService, type CardChange } from './card-admin.service';
-import { CardPauseRepository, type PauseReason } from './card-pause.repository';
+import { CardPauseRepository, isPauseDecision, type PauseReason } from './card-pause.repository';
 
 export interface ResumeOptions {
   /** The owner looked at the open pause reasons and resumes anyway (AuditLog.after.override). */
@@ -36,12 +36,18 @@ export class CardPauseService {
   ): Promise<CardChange> {
     const audit = this.cards.audit('CARD_RESUME', reason, actor);
     return this.cards.setPaused(cardId, false, audit, async (tx: Db) => {
-      // The manual pause being lifted right now is not a reason against lifting it.
-      const open = (await this.pauses.reasons(tx, cardId)).filter((r) => r.what !== 'CARD_PAUSE');
+      // The pause being lifted right now (the owner's or a security pause) is not a reason
+      // against lifting it: card:resume is exactly that decision (D-52 r2 M-A).
+      const open = (await this.pauses.reasons(tx, cardId)).filter((r) => !isPauseDecision(r));
       const override = options.confirmOverride === true;
       if (open.length > 0 && !override) throw cardInputError('card', 'OPEN_PAUSE_REVIEWS');
       return { openPauseReviews: reasonsText(open), override };
     });
+  }
+
+  /** Unlocked: how many other live cards are paused too (card:resume warns, D-52 D2). */
+  otherPausedCount(cardId: string): Promise<number> {
+    return this.pauses.otherPausedCount(this.prisma.client, checkedId('cardId', cardId));
   }
 
   /** Unlocked: what the CLI shows before it asks (the service checks again under the lock). */

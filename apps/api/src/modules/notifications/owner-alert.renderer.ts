@@ -6,7 +6,10 @@ import {
   formatMoney,
   parseCardLimitAlertRef,
   parseCardReservedHighRef,
+  parseBankChatAnomalyRef,
   parseForeignChatAlertRef,
+  parseListenerDownRef,
+  parseListenerStoppedRef,
   BANK_FEED_SOURCES,
   RECONCILE_HISTORY_REASONS,
   RECONCILE_HISTORY_STATES,
@@ -120,10 +123,20 @@ export class OwnerAlertRenderer {
       case 'lateOverLimit':
         return this.lateParams(refId);
       case 'listenerDown':
-        return this.listenerParams();
+        return this.listenerParams(refId);
       case 'sessionRevoked':
       case 'newAuthorization':
+      case 'authorizationsBaseline':
+      case 'accountBound':
         return {};
+      case 'listenerStopped': {
+        const reason = parseListenerStoppedRef(refId);
+        return reason === null ? null : { reason };
+      }
+      case 'bankChatAnomaly': {
+        const ref = parseBankChatAnomalyRef(refId);
+        return ref === null ? null : { bank: BANK_OF_SOURCE[ref.source], reason: ref.reason };
+      }
       case 'reconcileOk':
       case 'reconcileMismatch':
         return this.reconcileParams(refId);
@@ -219,7 +232,11 @@ export class OwnerAlertRenderer {
   }
 
   /** Minutes since the last heartbeat; "?" when there is none (the listener never ran). */
-  private async listenerParams(): Promise<Params> {
+  // D-52: the worker puts the outage start in the refId (a stopped listener clears the heartbeat);
+  // the hour-only form of older jobs still reads the heartbeat.
+  private async listenerParams(refId: string): Promise<Params> {
+    const since = parseListenerDownRef(refId);
+    if (since !== null) return { minutes: minutesSince(since, this.clock.now()) };
     const raw = await this.sources.heartbeat();
     if (raw === null || !/^\d{1,15}$/.test(raw)) return { minutes: '?' };
     const minutes = Math.max(0, Math.floor((this.clock.now().getTime() - Number(raw)) / 60_000));
@@ -275,4 +292,8 @@ function historyReasons(history: unknown): string[] {
     out.push(`${source}=${known ?? '?'}`);
   }
   return out;
+}
+
+function minutesSince(since: Date, now: Date): number {
+  return Math.max(0, Math.floor((now.getTime() - since.getTime()) / 60_000));
 }

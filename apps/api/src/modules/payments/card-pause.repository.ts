@@ -4,15 +4,25 @@ import type { Db } from '../../infra/prisma/db';
 /** Review notes that mean "this stored message is not what the pinned bank bot sent" (D-43). */
 export const INTEGRITY_NOTES: readonly string[] = ['SENDER_MISMATCH', 'TEXT_HASH_MISMATCH'];
 
-// Every reason the worker pauses a card's auto-credit leaves an OPEN review behind (docs/05 §6):
-// a chain break (also PREDECESSOR_PENDING), an integrity anomaly, a message no attempt could
-// process. The owner's own card:pause leaves an AuditLog row.
+// Why a card's auto-credit is off, by where it is recorded (docs/05 §6). An OPEN review: a chain
+// break (also PREDECESSOR_PENDING), an integrity anomaly, a message no attempt could process. A
+// CARD_PAUSE AuditLog row not followed by a CARD_RESUME: the owner's own card:pause (actorType
+// CLI), or the worker's all-cards SECURITY pause (actorType SYSTEM: a new authorization, an empty
+// authorization baseline or a bank-chat anomaly, D-52 r2 M-A; also on a card born during one).
 const PAUSING_NOTES = [...INTEGRITY_NOTES, 'PROCESSING_FAILED'];
+
+/** A pause decision (the owner's card:pause or the worker's security pause), not a review. */
+export function isPauseDecision(reason: PauseReason): boolean {
+  return reason.what === 'CARD_PAUSE' || reason.what.startsWith('SECURITY_PAUSE/');
+}
 
 export interface PauseReason {
   /** A review id, or the AuditLog id of a manual CARD_PAUSE. */
   readonly id: string;
-  /** `CHAIN_BREAK`, `CHAIN_BREAK/PREDECESSOR_PENDING`, `UNRECOGNIZED/<note>` or `CARD_PAUSE`. */
+  /**
+   * `CHAIN_BREAK`, `CHAIN_BREAK/PREDECESSOR_PENDING`, `UNRECOGNIZED/<note>`, `CARD_PAUSE` (the
+   * owner's) or `SECURITY_PAUSE/<reason>` (the worker's, D-52 r2).
+   */
   readonly what: string;
 }
 
@@ -41,14 +51,22 @@ export class CardPauseRepository {
       id: r.id,
       what: r.note === null ? r.kind : `${r.kind}/${r.note}`,
     }));
-    const manual = await this.manualPause(tx, cardId);
-    return manual === null ? found : [...found, { id: manual, what: 'CARD_PAUSE' }];
+    const decision = await this.pauseDecision(tx, cardId);
+    return decision === null ? found : [...found, decision];
   }
 
-  // The owner's latest pause/resume decision, however old (S8 R1: a pause made before the chain
-  // broke must not be lifted by accepting that break). A CARD_PAUSE stands until a CARD_RESUME:
-  // accept-chain never switches a card back on over it.
-  private async manualPause(tx: Db, cardId: string): Promise<string | null> {
+  /** Live (not RETIRED) cards other than this one with auto-credit paused (D-52 D2). */
+  otherPausedCount(tx: Db, cardId: string): Promise<number> {
+    return tx.topupCard.count({
+      where: { id: { not: cardId }, status: { not: 'RETIRED' }, autoCreditPaused: true },
+    });
+  }
+
+  // The latest pause/resume decision, however old (S8 R1: a pause made before the chain broke must
+  // not be lifted by accepting that break). A CARD_PAUSE (the owner's, or the worker's SYSTEM
+  // security pause) stands until a CARD_RESUME: accept-chain never switches a card back on over
+  // it; only card:resume does.
+  private async pauseDecision(tx: Db, cardId: string): Promise<PauseReason | null> {
     const last = await tx.auditLog.findFirst({
       where: {
         targetType: 'TopupCard',
@@ -56,8 +74,10 @@ export class CardPauseRepository {
         action: { in: ['CARD_PAUSE', 'CARD_RESUME'] },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, action: true },
+      select: { id: true, action: true, actorType: true, reason: true },
     });
-    return last?.action === 'CARD_PAUSE' ? last.id : null;
+    if (last?.action !== 'CARD_PAUSE') return null;
+    const security = last.actorType === 'SYSTEM';
+    return { id: last.id, what: security ? `SECURITY_PAUSE/${last.reason}` : 'CARD_PAUSE' };
   }
 }

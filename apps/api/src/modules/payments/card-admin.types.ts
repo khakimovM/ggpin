@@ -30,6 +30,11 @@ export type Committed<T extends CardChange> = Omit<T, 'alertQueued'>;
 export interface AddedCard extends CardChange {
   /** The owner sends exactly this to the card; its bank message moves the card to ACTIVE. */
   readonly verifyAmountTiyin: bigint;
+  /**
+   * Born paused under an open security pause (D-52 D2, r2 I-B): the CLI warns the owner to check
+   * the bank-feed account and card:resume BEFORE sending the verify transfer.
+   */
+  readonly autoCreditPaused: boolean;
 }
 
 export type AuditExtra = Record<string, string | number | boolean | null>;

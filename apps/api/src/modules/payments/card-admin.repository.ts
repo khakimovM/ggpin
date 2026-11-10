@@ -1,5 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { CardBank, Prisma, TopupCard } from '@repo/db';
+import {
+  lockBankFeedPause,
+  openSecurityPause,
+  type CardBank,
+  type OpenSecurityPause,
+  type Prisma,
+  type TopupCard,
+} from '@repo/db';
+import { SECURITY_PAUSE_AUDIT } from '@repo/shared';
 import type { Db } from '../../infra/prisma/db';
 
 export interface NewCardData {
@@ -9,6 +17,8 @@ export interface NewCardData {
   readonly receiveLimitTiyin: bigint;
   readonly monthlyLimitTiyin: bigint | null;
   readonly verifyAmountTiyin: bigint;
+  /** D-52 D2 (r2): born paused while a security pause is open on a live card. */
+  readonly autoCreditPaused: boolean;
 }
 
 export interface CardAuditData {
@@ -50,6 +60,49 @@ export class CardAdminRepository {
       where: { cardId: { in: cards.map((card) => card.id) }, reservedUntil: { gt: now } },
     });
     return reserved > 0 ? 'STILL_RESERVED' : null;
+  }
+
+  /**
+   * The lock the worker's all-cards security pause reads its card list under (D-52 r2, review
+   * I-A): taken by card:add BEFORE it reads the pause state, so the pause either sees this card
+   * committed or card:add sees the pause.
+   */
+  lockSecurityPause(tx: Db): Promise<void> {
+    return lockBankFeedPause(tx);
+  }
+
+  /**
+   * The newest open security pause on a live card (a SYSTEM CARD_PAUSE for NEW_AUTHORIZATION,
+   * AUTH_BASELINE or BANK_CHAT_ANOMALY with no CARD_RESUME after it), or null. A chain-break pause
+   * is not one (D2, refined in D-52 r2).
+   */
+  openSecurityPause(tx: Db): Promise<OpenSecurityPause | null> {
+    return openSecurityPause(tx);
+  }
+
+  /**
+   * The SYSTEM CARD_PAUSE row of a card born under a security pause (D-52 r2, review M-A): the
+   * same reason as the open pause, `after.ref` = that pause's AuditLog id. Only the owner's
+   * card:resume (CARD_RESUME) lifts it; review:accept-chain keeps the card paused.
+   */
+  async createBornPausedAudit(tx: Db, cardId: string, pause: OpenSecurityPause): Promise<string> {
+    const row = await tx.auditLog.create({
+      data: {
+        ...SECURITY_PAUSE_AUDIT,
+        actorId: null,
+        ip: null,
+        targetId: cardId,
+        reason: pause.reason,
+        after: {
+          autoCreditPaused: true,
+          reason: pause.reason,
+          ref: pause.auditId,
+          bornPaused: true,
+        },
+      },
+      select: { id: true },
+    });
+    return row.id;
   }
 
   createCard(tx: Db, data: NewCardData): Promise<TopupCard> {

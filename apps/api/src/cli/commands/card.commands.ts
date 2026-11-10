@@ -1,5 +1,6 @@
 import { checkedBank, checkedHolderName } from '../../modules/payments/card-admin.input';
 import { CardAdminService, type CardChange } from '../../modules/payments/card-admin.service';
+import { isPauseDecision } from '../../modules/payments/card-pause.repository';
 import { CardPauseService, reasonsText } from '../../modules/payments/card-pause.service';
 import { CardListing } from '../card-listing';
 import {
@@ -69,7 +70,20 @@ const add: CliCommand = {
     });
     changed(ctx, added);
     // The owner sends exactly this to the card; its bank message makes the card ACTIVE.
-    report(ctx, { verifyAmount: money(added.verifyAmountTiyin) });
+    report(ctx, {
+      verifyAmount: money(added.verifyAmountTiyin),
+      autoCreditPaused: added.autoCreditPaused,
+    });
+    if (added.autoCreditPaused) {
+      // D-52 D2/r2 I-B: born under an open security pause (a new authorization of the bank-feed
+      // account, an empty baseline or a bank-chat anomaly). A verify transfer to a paused card
+      // goes to review instead of activating it.
+      ctx.io.out(
+        'warning: the card is born paused: a security pause is open on the other cards. Check ' +
+          'Telegram -> Devices of the bank-feed account (docs/05 runbook), then run ' +
+          `card:resume ${added.cardId} BEFORE sending the verify transfer.`,
+      );
+    }
   },
 };
 
@@ -160,11 +174,22 @@ const resume: CliCommand = {
     const { reason, actor } = actorOf(ctx, p);
     const id = positional(p, 0);
     const pauses = ctx.app.get(CardPauseService);
-    const open = (await pauses.openReasons(id)).filter((r) => r.what !== 'CARD_PAUSE');
+    const open = (await pauses.openReasons(id)).filter((r) => !isPauseDecision(r));
     if (open.length > 0) {
       report(ctx, { openPauseReviews: reasonsText(open) });
       ctx.io.out(
         'decide those reviews first (review:show <id>), or resume with --confirm-override',
+      );
+    }
+    const others = await pauses.otherPausedCount(id);
+    if (others > 0) {
+      // D-52 D2/r2: several paused cards usually mean the all-cards security pause (a new
+      // authorization or an empty baseline of the bank-feed account, or a bank-chat anomaly):
+      // each card is resumed on its own, after the account was checked.
+      ctx.io.out(
+        `warning: ${String(others)} other card(s) are paused too (the all-cards security pause ` +
+          'after a new authorization or a bank-chat anomaly?). Check Telegram -> Devices of the ' +
+          'bank-feed account and the bot chats first (docs/05 runbook), then resume each card.',
       );
     }
     const override = flag(p, 'confirm-override');

@@ -85,6 +85,8 @@ export class CardAdminService {
     let added: Committed<AddedCard>;
     try {
       added = await this.pool.transaction(async (tx) => {
+        // D-52 r2 (review I-A): the pause lock first, then the pause state (see below).
+        await this.repo.lockSecurityPause(tx);
         const block = await this.repo.last4Block(
           tx,
           { bank, last4: pan.slice(-4) },
@@ -92,7 +94,15 @@ export class CardAdminService {
           new Date(now.getTime() - LAST4_REUSE_COOLDOWN_DAYS * DAY_MS),
         );
         if (block !== null) throw cardInputError('pan', block);
+        // D-52 D2, refined in r2: while a SECURITY pause is open (a new authorization or an
+        // empty baseline of the bank-feed account, or a bank-chat anomaly paused ALL cards), a
+        // new card is born paused too, with its own SYSTEM CARD_PAUSE row, so auto-credit on it
+        // waits for the owner's card:resume like the others. A chain-break pause of another card
+        // alone does not. Read under the pause lock: the worker's pause reads its card list
+        // under the same lock, so it either sees this card or this read sees its pause.
+        const pause = await this.repo.openSecurityPause(tx);
         const card = await this.repo.createCard(tx, {
+          autoCreditPaused: pause !== null,
           bank,
           pan,
           holderName,
@@ -106,7 +116,15 @@ export class CardAdminService {
           last4: card.last4,
           verifyAmountTiyin: verifyAmountTiyin.toString(),
         });
-        return { applied: true, cardId: card.id, status: card.status, auditId, verifyAmountTiyin };
+        if (pause !== null) await this.repo.createBornPausedAudit(tx, card.id, pause);
+        return {
+          applied: true,
+          cardId: card.id,
+          status: card.status,
+          auditId,
+          verifyAmountTiyin,
+          autoCreditPaused: card.autoCreditPaused,
+        };
       });
     } catch (error) {
       // Two adds of one (bank, last4) at once: the partial unique index keeps only one.

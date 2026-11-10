@@ -98,10 +98,13 @@ Balans: 150 000 so‘m",
 
 exports[`owner alert templates (uz) with synthetic parameters renders every declared alert 1`] = `
 {
+  "accountBound": "ℹ️ Bank xabarlari tinglovchisi ishchi akkauntga birinchi marta bog‘landi. Endi faqat shu akkaunt ishlaydi; boshqa akkaunt sessiyasi bilan tinglovchi to‘xtaydi. Buni siz kutmagan bo‘lsangiz, runbook bo‘yicha harakat qiling.",
   "adminAction": "🛠 Ega amali: REFUND (aud1).",
   "ambiguous": "⚠️ 50 000 so‘m to‘lov bir nechta so‘rovga mos keldi. Ko‘rib chiqish: rev1",
   "amountReallocated": "⚠️ HUMO kartasi ***1234 ga 50 000 so‘m kech keldi, lekin bu summa allaqachon boshqa so‘rovga berilgan: kimniki ekanini aniqlab, qo‘lda yozing. Ko‘rib chiqish: rev1",
+  "authorizationsBaseline": "🚨 Ishchi akkaunt sessiyalari ro‘yxati bazada yo‘q edi va hozir yozildi. Barcha kartalarda avtomatik yozish to‘xtatildi. Telegram → Devices bo‘limida faqat sizlarning (ega va sherik) qurilmalaringiz va worker sessiyasi borligini tekshirib, har bir karta uchun card:resume qiling.",
   "autoCreditPaused": "⏸ Karta ***1234 da avtomatik yozish to‘xtatilgan, to‘lov qo‘lda ko‘riladi: rev1",
+  "bankChatAnomaly": "🚨 HUMO boti chatida begona xabar topildi (SENDER_MISMATCH): ishchi akkaunt faqat o‘qishi kerak. Barcha kartalarda avtomatik yozish to‘xtatildi. Akkauntni tekshiring.",
   "cancelledLate": "🚫 Bekor qilingan so‘rovga 50 000 so‘m tushdi, avtomatik yozilmadi. Ko‘rib chiqish: rev1",
   "cardDrained": "🔒 HUMO kartasi ***1234 ishdan chiqarildi: undagi barcha band summalar muddati tugadi.",
   "cardDraining": "🚰 HUMO kartasi ***1234 yopilmoqda: yangi so‘rovlar berilmaydi, mavjudlari muddatigacha yoziladi.",
@@ -124,6 +127,7 @@ exports[`owner alert templates (uz) with synthetic parameters renders every decl
   "lateStored": "⚠️ HUMO kartasi ***1234 ga kelgan 50 000 so‘m haqidagi bank xabari kech saqlandi (tarixdan topildi yoki listener uzilishdan keyin oldi), so‘rov esa endi kutilmayapti: avtomatik yozilmadi. Bu pulni qo‘lda bermaganingizni tekshirib, keyin hal qiling. Ko‘rib chiqish: rev1",
   "limitCheckFailed": "⚠️ HUMO kartasi ***1234 limitini tekshirib bo‘lmadi (barcha urinishlar xato bilan tugadi). Karta holatini qo‘lda tekshiring. Xabar: msg1",
   "listenerDown": "🔴 Bank xabarlari tinglovchisi 12 daqiqadan beri ishlamayapti. Yangi to‘ldirish so‘rovlari to‘xtatildi.",
+  "listenerStopped": "🔴 Bank xabarlari tinglovchisi butunlay to‘xtadi, sabab: SENDER_MISMATCH. Yangi to‘ldirish so‘rovlari to‘xtatildi. Runbook bo‘yicha harakat qiling.",
   "manualCreditSeen": "⚠️ HUMO kartasi ***1234 ga 50 000 so‘m keldi va so‘rovga mos tushdi, lekin foydalanuvchiga bu so‘rovdan keyin qo‘lda pul berilgan: avtomatik yozilmadi. Ikki marta yozmaslik uchun tekshiring, keyin hal qiling. Ko‘rib chiqish: rev1",
   "messageStuck": "⛔ Bank xabari msg1 barcha urinishlarda xato bilan tugadi va oxirigacha ishlanmadi: ko‘rib chiqish yozuvi yoki ogohlantirishlar bo‘lmasligi mumkin. Qo‘lda tekshiring. Xabar 30 daqiqadan keyin avtomatik qayta ishlanadi va pul allaqachon yozilgan bo‘lishi mumkin. Qo‘lda berishdan oldin foydalanuvchining oxirgi to‘ldirishini tekshiring.",
   "newAuthorization": "🚨 Ishchi akkauntga nomaʼlum yangi qurilma kirdi. Barcha kartalarda avtomatik yozish to‘xtatildi. Sessiyalarni tekshiring.",
