@@ -111,6 +111,13 @@ describe('BankFeedListener (D-52 r3)', () => {
     // A nudge still needs the fresh check (r2 L-A): no read.
     t.client.emitNew({ source: 'HUMO_BOT', messageId: 80n });
     expect(t.polls).toEqual([]);
+    // An edit of a message not stored yet is left to the poll, which needs the fresh check too:
+    // the only edit branch that reads Telegram stays closed (r3 security check I-1).
+    const alertsBefore = [...t.alerts];
+    t.client.emitEdit({ source: 'HUMO_BOT', messageId: 81n });
+    await flush();
+    expect(t.polls).toEqual([]);
+    expect(t.alerts).toEqual(alertsBefore);
   });
 
   it('I-A: a worker that is not leading handles no edit at all', async () => {
