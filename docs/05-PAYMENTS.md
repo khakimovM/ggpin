@@ -274,6 +274,15 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 12. _7 kundan eski o‘tkazma bo‘yicha shikoyat (S9 m1):_ `wallet:adjust` to‘sig‘i faqat oxirgi 7 kunda **tasdiqlangan** avtomatik to‘lovlarni ko‘radi
     (oyna hozirdan sanaladi, o‘tkazma vaqtidan emas). Shuning uchun bunday shikoyatda pul berishdan oldin foydalanuvchining to‘lovlar tarixini
     qo‘lda tekshiring (to‘siq uni ko‘rmaydi): o‘sha o‘tkazma allaqachon avtomatik yozilgan bo‘lishi mumkin.
+13. _Worker image va deploy (S7d):_ tartib — `docker compose build worker migrate`, `docker compose run --rm migrate`, keyin `up`. `migrate`
+    image’i (`apps/worker/Dockerfile`, target `migrate`) faqat `@repo/db` + prisma’dan iborat, faqat `DATABASE_URL` oladi va faqat ichki tarmoqda
+    yuradi. Migratsiya roli (DDL, jadvallar egasi) runtime rolidan alohida bo‘lsin; runtime roli superuser ham, ega ham bo‘lmasin — aks holda
+    buzilgan api/worker `ALTER DATABASE … SET ggpin.env` yoki AuditLog o‘chirishi mumkin (r3 I-C, I-3). Worker konteyneri `read_only: true` va
+    `tmpfs: ["/tmp"]` bilan ishlaydi (`off` rejimda sinalgan; `live` sessiyasi doim `MemoryStorage` da — `mtcute-loader.ts` — faylga
+    yozilmaydi, S11 da `live` + `read_only` bilan bir marta tasdiqlanadi). Secret fayllar — 7-banddagidek `install -m 0400 -o 1000 -g 1000`.
+    Sog‘liq: Dockerfile’dagi `HEALTHCHECK` Redis’dagi `worker:heartbeat` kalitini tekshiradi (10 s da yoziladi, TTL 30 s); compose’da alohida
+    healthcheck kerak emas. `docker stop` da worker shutdown hook’laridan keyin 143 (SIGTERM) kodi bilan chiqadi — bu normal to‘xtash.
+    Windows Git Bash’dan `docker run`/`exec` ga `/app/...` kabi absolyut yo‘l berilsa, `MSYS_NO_PATHCONV=1` kerak (aks holda yo‘l buziladi).
 
 ## 5. Parser
 
