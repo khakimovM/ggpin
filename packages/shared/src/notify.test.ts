@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { alertRef, notifyJobId, notifyJobSchema, parseForeignChatAlertRef } from './notify';
+import {
+  LISTENER_STOP_REASONS,
+  alertRef,
+  notifyJobId,
+  notifyJobSchema,
+  parseBankChatAnomalyRef,
+  parseForeignChatAlertRef,
+  parseListenerDownRef,
+  parseListenerStoppedRef,
+} from './notify';
 
 describe('notifyJobSchema', () => {
   it('accepts the three shapes', () => {
@@ -89,5 +98,50 @@ describe('foreignChat alert ref (B2)', () => {
     for (const ref of ['HUMO_BOT_', 'OTHER_BOT_1', 'HUMO_BOT_1x', 'cm3abc']) {
       expect(parseForeignChatAlertRef(ref)).toBeNull();
     }
+  });
+});
+
+describe('listener alert refs (D-52)', () => {
+  const at = new Date('2030-05-03T10:30:00.000Z');
+  const hour = String(Math.floor(at.getTime() / 3_600_000));
+
+  it('listenerDown carries the outage start and the hour; read back to the start', () => {
+    const since = new Date('2030-05-03T10:20:00.000Z');
+    const ref = alertRef.listenerDown(since, at);
+    expect(ref).toBe(`${String(since.getTime())}_${hour}`);
+    expect(
+      notifyJobSchema.safeParse({ kind: 'OWNER_ALERT', alert: 'listenerDown', refId: ref }).success,
+    ).toBe(true);
+    expect(parseListenerDownRef(ref)).toEqual(since);
+    expect(parseListenerDownRef(hour)).toBeNull();
+  });
+
+  it('listenerStopped: one per reason per hour', () => {
+    for (const reason of LISTENER_STOP_REASONS) {
+      expect(parseListenerStoppedRef(alertRef.listenerStopped(reason, at))).toBe(reason);
+    }
+    for (const ref of ['OTHER_1', 'REVOKED_', 'REVOKED_1x', hour]) {
+      expect(parseListenerStoppedRef(ref)).toBeNull();
+    }
+  });
+
+  it('bankChatAnomaly: source, reason and the hour (one alert an hour per source and reason, M-B)', () => {
+    const ref = alertRef.bankChatAnomaly('UZCARD_BOT', 'FOREIGN_SENDER', at);
+    expect(ref).toBe(`UZCARD_BOT_FOREIGN_SENDER_${hour}`);
+    const sameHour = new Date(at.getTime() + 29 * 60_000);
+    expect(alertRef.bankChatAnomaly('UZCARD_BOT', 'FOREIGN_SENDER', sameHour)).toBe(ref);
+    expect(parseBankChatAnomalyRef(ref)).toEqual({
+      source: 'UZCARD_BOT',
+      reason: 'FOREIGN_SENDER',
+    });
+    for (const bad of ['HUMO_BOT_EDITED_1', 'X_OUTGOING_1', 'HUMO_BOT_OUTGOING_']) {
+      expect(parseBankChatAnomalyRef(bad)).toBeNull();
+    }
+  });
+
+  it('accountBound: the hour of the first binding (D-52 r2, L-B)', () => {
+    expect(alertRef.accountBound(at)).toBe(hour);
+    const job = { kind: 'OWNER_ALERT', alert: 'accountBound', refId: hour };
+    expect(notifyJobSchema.safeParse(job).success).toBe(true);
   });
 });

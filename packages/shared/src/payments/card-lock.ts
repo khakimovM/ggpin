@@ -13,6 +13,15 @@ export function topupCardLockKey(cardId: string): string {
   return `topup-card:${cardId}`;
 }
 
+/**
+ * The one advisory lock of the all-cards security pause (D-52 r2, review I-A): card:add takes it
+ * before it reads whether a security pause is open, and the worker's pauseAll takes it for its
+ * final re-read of unpaused live cards. Never together with a card lock in one transaction (the
+ * re-read only reads; the pauses run in their own card-locked transactions), so the "one card lock
+ * at a time" rule holds and the two cannot deadlock.
+ */
+export const BANK_FEED_PAUSE_LOCK_KEY = 'bank-feed:security-pause';
+
 const HOUR_MS = 3_600_000;
 const RESERVED_HIGH_REF = /^([A-Za-z0-9_]+)_(\d{1,12})$/;
 const REF_MAX_LENGTH = 64; // the notify job's refId segment (notify.ts)

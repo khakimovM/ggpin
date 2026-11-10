@@ -45,7 +45,63 @@ export const alertRef = {
   // One per source per hour: a misbehaving client cannot flood the owner (B2).
   foreignChat: (source: BankFeedSource, at: Date): string =>
     `${source}_${String(Math.floor(at.getTime() / 3_600_000))}`,
+  // D-52: one per outage per hour; the outage start (the last healthy round, epoch ms) is in the
+  // ref, so the API renders the minutes without a heartbeat (a stopped listener clears it).
+  listenerDown: (downSince: Date, at: Date): string =>
+    `${String(downSince.getTime())}_${String(Math.floor(at.getTime() / 3_600_000))}`,
+  listenerStopped: (reason: ListenerStopReason, at: Date): string =>
+    `${reason}_${String(Math.floor(at.getTime() / 3_600_000))}`,
+  // One per source and reason an hour, like foreignChat (D-52 r2, review M-B): a flood of messages
+  // in a bot chat is one alert, not one per message (the Telegram id stays in the log and the row).
+  bankChatAnomaly: (source: BankFeedSource, reason: BankChatAnomalyReason, at: Date): string =>
+    `${source}_${reason}_${String(Math.floor(at.getTime() / 3_600_000))}`,
+  // The listener bound a working account for the first time (D-52 r2, review L-B): the hour.
+  accountBound: (at: Date): string => String(Math.floor(at.getTime() / 3_600_000)),
 } as const;
+
+/** Why the bank-feed listener stopped for good (alert `listenerStopped`, D-52). */
+export const LISTENER_STOP_REASONS = [
+  'REVOKED',
+  'BANNED',
+  'DUPLICATED',
+  'BOT_MISMATCH',
+  'ACCOUNT_MISMATCH',
+  // No bound account but bank history exists (D-52 r2, review L-B): the BankFeedAccount row was
+  // deleted; binding now could tie the old cursor to another account (runbook item 3).
+  'ACCOUNT_UNBOUND',
+] as const;
+export type ListenerStopReason = (typeof LISTENER_STOP_REASONS)[number];
+
+/** Ingest reject reasons that mean someone else uses the read-only working account (E-19). */
+export const BANK_CHAT_ANOMALY_REASONS = ['OUTGOING', 'FOREIGN_SENDER', 'NOT_BOT'] as const;
+export type BankChatAnomalyReason = (typeof BANK_CHAT_ANOMALY_REASONS)[number];
+
+const LISTENER_DOWN_REF = /^(\d{1,15})_\d{1,10}$/;
+const LISTENER_STOPPED_REF = /^([A-Z_]{1,20})_\d{1,10}$/;
+const ANOMALY_REF = /^(HUMO_BOT|UZCARD_BOT)_(OUTGOING|FOREIGN_SENDER|NOT_BOT)_\d{1,20}$/;
+
+/** The outage start of a `listenerDown` refId, or null (the older hour-only form). */
+export function parseListenerDownRef(refId: string): Date | null {
+  const since = LISTENER_DOWN_REF.exec(refId)?.[1];
+  return since === undefined ? null : new Date(Number(since));
+}
+
+/** The reason of a `listenerStopped` refId, or null. */
+export function parseListenerStoppedRef(refId: string): ListenerStopReason | null {
+  const reason = LISTENER_STOPPED_REF.exec(refId)?.[1];
+  return LISTENER_STOP_REASONS.find((r) => r === reason) ?? null;
+}
+
+/** Source and reason of a `bankChatAnomaly` refId, or null. */
+export function parseBankChatAnomalyRef(
+  refId: string,
+): { readonly source: BankFeedSource; readonly reason: BankChatAnomalyReason } | null {
+  const match = ANOMALY_REF.exec(refId);
+  const reason = BANK_CHAT_ANOMALY_REASONS.find((r) => r === match?.[2]);
+  const source = match?.[1];
+  if (reason === undefined || (source !== 'HUMO_BOT' && source !== 'UZCARD_BOT')) return null;
+  return { source, reason };
+}
 
 const FOREIGN_CHAT_REF = /^(HUMO_BOT|UZCARD_BOT)_\d+$/;
 
@@ -96,14 +152,16 @@ export type ReconcileHistoryState = (typeof RECONCILE_HISTORY_STATES)[number];
 
 /**
  * Why a source's re-scan was not `ok` (`after.history.<source>.reason`; the mismatch alert
- * lists them as `<source>=<reason>`): unavailable — NO_CLIENT (no client wired) or NOT_PINNED
- * (no bot id); failed — CLIENT_ERROR (the client threw), NO_PROGRESS (a page that does not move
+ * lists them as `<source>=<reason>`): unavailable — NO_CLIENT (no client wired), NOT_PINNED
+ * (no bot id) or NOT_LEADER (this worker does not lead the bank feed, D-52: only the leader is
+ * connected); failed — CLIENT_ERROR (the client threw), NO_PROGRESS (a page that does not move
  * the cursor), TOO_LONG (more than the page limit), FOREIGN_CHAT (a page carried another chat's
  * message: the client broke its contract, a security event).
  */
 export const RECONCILE_HISTORY_REASONS = [
   'NO_CLIENT',
   'NOT_PINNED',
+  'NOT_LEADER',
   'CLIENT_ERROR',
   'NO_PROGRESS',
   'TOO_LONG',

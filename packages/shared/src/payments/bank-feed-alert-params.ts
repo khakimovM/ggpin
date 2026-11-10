@@ -54,8 +54,22 @@ export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly
     // its receive limit. One per payment (refId = Payment.id); `amount` = that payment.
     lateOverLimit: ['bank', 'last4', 'amount'],
     listenerDown: ['minutes'],
+    // Deprecated (D-52): the worker sends `listenerStopped REVOKED` instead. Kept one release for
+    // jobs still queued; removing it (enum, i18n uz/ru, params, snapshot) is S11 backlog.
     sessionRevoked: [],
     newAuthorization: [],
+    // D-52 D1: the known-authorizations table was empty: everything is paused until the owner
+    // checks the account's sessions (refId = epoch hour).
+    authorizationsBaseline: [],
+    // The listener stopped for good and needs a human (refId = <reason>_<epoch hour>, D-52):
+    // reason = REVOKED | BANNED | DUPLICATED | BOT_MISMATCH | ACCOUNT_MISMATCH | ACCOUNT_UNBOUND.
+    listenerStopped: ['reason'],
+    // The working account only reads (E-19): an outgoing message, or another sender / a non-bot
+    // in a bank bot's chat, pauses auto-credit on ALL cards (refId = <source>_<reason>_<epoch
+    // hour>: one alert an hour, D-52 r2 M-B).
+    bankChatAnomaly: ['bank', 'reason'],
+    // Info (D-52 r2, L-B): the listener bound the working account for the first time (refId = hour).
+    accountBound: [],
     // The day's reconciliation (refId = yyyymmdd): count = checked messages (ok) or mismatches;
     // history = the 48 h re-scan; details = non-zero mismatch codes. Failed: no DB read at all.
     reconcileOk: ['count', 'debits', 'openReviews', 'history'],

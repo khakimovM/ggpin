@@ -116,6 +116,10 @@ export const ALERT_KINDS = [
   'listenerDown',
   'sessionRevoked',
   'newAuthorization',
+  'authorizationsBaseline',
+  'listenerStopped',
+  'bankChatAnomaly',
+  'accountBound',
   'reconcileOk',
   'reconcileMismatch',
   'reconcileFailed',
@@ -173,6 +177,27 @@ export function reviewAlertOf(
 
 // Split out to keep this file small (S9 n2); re-exported so the barrel stays as it is.
 export { BANK_FEED_ALERT_PARAMS } from './bank-feed-alert-params';
+
+/**
+ * Why the worker paused auto-credit on EVERY live card (D-52 r2, review M-A): a new
+ * authorization of the working account, an empty authorization baseline, or a bank-chat anomaly.
+ * Each pause writes a SYSTEM `CARD_PAUSE` AuditLog row per card (`reason` = this code), so
+ * review:accept-chain keeps the card paused and only card:resume (CARD_RESUME) lifts it; while
+ * such a pause is open on a live card, card:add creates new cards paused (D2).
+ */
+export const SECURITY_PAUSE_REASONS = [
+  'NEW_AUTHORIZATION',
+  'AUTH_BASELINE',
+  'BANK_CHAT_ANOMALY',
+] as const;
+export type SecurityPauseReason = (typeof SECURITY_PAUSE_REASONS)[number];
+
+/** The AuditLog shape of a security pause (`reason` = SecurityPauseReason, `after.ref` = alert refId). */
+export const SECURITY_PAUSE_AUDIT = {
+  actorType: 'SYSTEM',
+  action: 'CARD_PAUSE',
+  targetType: 'TopupCard',
+} as const;
 
 // ---- Tunables shared by the worker (writer) and the API (reader) ----------------------------
 export const BANK_FEED_DEFAULTS = {
