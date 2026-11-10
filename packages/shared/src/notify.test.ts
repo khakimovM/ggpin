@@ -4,6 +4,7 @@ import {
   alertRef,
   notifyJobId,
   notifyJobSchema,
+  ownerAlertOutboxJobId,
   parseBankChatAnomalyRef,
   parseForeignChatAlertRef,
   parseListenerDownRef,
@@ -143,5 +144,22 @@ describe('listener alert refs (D-52)', () => {
     expect(alertRef.accountBound(at)).toBe(hour);
     const job = { kind: 'OWNER_ALERT', alert: 'accountBound', refId: hour };
     expect(notifyJobSchema.safeParse(job).success).toBe(true);
+  });
+});
+
+describe('ownerAlertOutboxJobId (D-53)', () => {
+  const job = { kind: 'OWNER_ALERT', alert: 'chainBreak', refId: 'r9' } as const;
+
+  it('is the alert id plus the recipient: stable, one per partner', () => {
+    expect(ownerAlertOutboxJobId(job, '111111111')).toBe('alert-chainBreak-r9-111111111');
+    expect(ownerAlertOutboxJobId(job, '111111111')).toBe(ownerAlertOutboxJobId(job, '111111111'));
+    expect(ownerAlertOutboxJobId(job, '222222222')).not.toBe(
+      ownerAlertOutboxJobId(job, '111111111'),
+    );
+  });
+
+  it('fits the longest ref and the longest chat id', () => {
+    const long = { ...job, refId: 'a'.repeat(64) };
+    expect(() => ownerAlertOutboxJobId(long, '9'.repeat(20))).not.toThrow();
   });
 });

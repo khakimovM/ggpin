@@ -6,7 +6,7 @@ import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { RedisService } from '../../infra/redis/redis.service';
 import { UsersService } from '../users/users.service';
-import { maskChatId } from './chat-id-mask';
+import { maskChatId, maskChatInJobId } from './chat-id-mask';
 import {
   hasOnlyOwnButtonLinks,
   outboxButtonOrigins,
@@ -116,7 +116,8 @@ export class TgOutboxConsumer {
 
   private log(job: Job, outcome: string, chatId?: string, error?: unknown): void {
     const parts = [
-      `job=${job.id ?? '?'}`,
+      // The id of an owner-alert job ends with the chat id: masked like the `chat=` part (D-53).
+      `job=${job.id === undefined ? '?' : maskChatInJobId(job.id, chatId)}`,
       `attempt=${job.attemptsMade + 1}`,
       `outcome=${outcome}`,
       ...(chatId === undefined ? [] : [`chat=${maskChatId(chatId)}`]),

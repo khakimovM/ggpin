@@ -135,6 +135,41 @@ describe('loadEnv: top-up limits and the owner alert chat', () => {
       expect(buildTestEnv({ OWNER_ALERT_CHAT_ID: '555000' }).OWNER_ALERT_CHAT_ID).toBe('555000');
     });
 
+    // D-53: the partners. A list of 1-5 ids, first = primary, repeats dropped, order kept.
+    it('accepts a comma-separated list: order kept, spaces trimmed, repeats dropped', () => {
+      expect(
+        buildTestEnv({ OWNER_ALERT_CHAT_ID: ' 111111111 , 222222222,111111111' })
+          .OWNER_ALERT_CHAT_ID,
+      ).toBe('111111111,222222222');
+    });
+
+    it('accepts five ids and refuses six distinct ones', () => {
+      const ids = ['1', '2', '3', '4', '5', '6'];
+      expect(buildTestEnv({ OWNER_ALERT_CHAT_ID: ids.slice(0, 5).join(',') })).toBeDefined();
+      expect(messageOf({ ...TEST_ENV_SOURCE, OWNER_ALERT_CHAT_ID: ids.join(',') })).toContain(
+        'OWNER_ALERT_CHAT_ID: must hold at most 5',
+      );
+      // Repeats do not count.
+      expect(
+        buildTestEnv({ OWNER_ALERT_CHAT_ID: [...ids.slice(0, 5), ...ids.slice(0, 5)].join(',') }),
+      ).toBeDefined();
+    });
+
+    it('one bad id in the list refuses the list, and the message does not echo the value', () => {
+      const message = messageOf({
+        ...TEST_ENV_SOURCE,
+        OWNER_ALERT_CHAT_ID: '111111111,-100987654321',
+      });
+      expect(message).toContain('OWNER_ALERT_CHAT_ID');
+      expect(message).not.toContain('100987654321');
+    });
+
+    it.each([',', ' , ,'])('refuses a list with no id: %j', (bad) => {
+      expect(messageOf({ ...TEST_ENV_SOURCE, OWNER_ALERT_CHAT_ID: bad })).toContain(
+        'OWNER_ALERT_CHAT_ID: must hold at least one',
+      );
+    });
+
     // tg-outbox writes to user chats only; a negative (group or channel) id would be accepted at
     // boot and then fail silently on the first alert, when the owner needs it most.
     it.each(['-100123456', '-1', 'abc', '12 3', '+5', '1.5', '0', '012', '1'.repeat(21)])(

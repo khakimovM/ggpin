@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { TG_TEXT_MAX_LENGTH, tgOutboxJobId, tgOutboxJobSchema } from './tg-outbox';
+import {
+  OWNER_ALERT_CHAT_IDS_MAX,
+  TG_TEXT_MAX_LENGTH,
+  ownerAlertChatIds,
+  parseOwnerAlertChatIds,
+  tgOutboxJobId,
+  tgOutboxJobSchema,
+} from './tg-outbox';
 
 const job = (replyMarkup: unknown) => ({ chatId: '1', text: 'x', replyMarkup });
 
@@ -100,5 +107,52 @@ describe('tgOutboxJobId', () => {
   it('rejects an id over 200 characters', () => {
     const long = 'a'.repeat(64);
     expect(() => tgOutboxJobId(long, long, long, long)).toThrow(/too long/);
+  });
+});
+
+describe('parseOwnerAlertChatIds (D-53)', () => {
+  const idsOf = (raw: string) => {
+    const parsed = parseOwnerAlertChatIds(raw);
+    if (!parsed.ok) throw new Error(parsed.problem);
+    return parsed.ids;
+  };
+
+  it('one id is the primary of a list of one', () => {
+    expect(idsOf('111111111')).toEqual(['111111111']);
+  });
+
+  it('keeps the order (the first id is the primary), trims spaces, drops blanks', () => {
+    expect(idsOf(' 222222222 , 111111111,, ')).toEqual(['222222222', '111111111']);
+  });
+
+  it('drops repeats and keeps the first place of each id', () => {
+    expect(idsOf('111111111,222222222,111111111')).toEqual(['111111111', '222222222']);
+  });
+
+  it('accepts exactly the maximum and refuses one more distinct id', () => {
+    const five = ['1', '2', '3', '4', '5'];
+    expect(idsOf(five.join(','))).toHaveLength(OWNER_ALERT_CHAT_IDS_MAX);
+    expect(parseOwnerAlertChatIds([...five, '6'].join(',')).ok).toBe(false);
+    // Repeats do not count towards the cap.
+    expect(idsOf([...five, ...five].join(','))).toHaveLength(5);
+  });
+
+  it.each(['', ',', ' , ', '-100123', 'abc', '12 3', '+5', '1.5', '0', '012', '1'.repeat(21)])(
+    'refuses %j',
+    (raw) => {
+      expect(parseOwnerAlertChatIds(raw).ok).toBe(false);
+    },
+  );
+
+  it('one bad id spoils the list, and the problem never echoes the value', () => {
+    const parsed = parseOwnerAlertChatIds('111111111,-100987654321');
+    expect(parsed.ok).toBe(false);
+    expect(JSON.stringify(parsed)).not.toContain('100987654321');
+  });
+
+  it('ownerAlertChatIds is empty when unset or unusable', () => {
+    expect(ownerAlertChatIds(undefined)).toEqual([]);
+    expect(ownerAlertChatIds('-1')).toEqual([]);
+    expect(ownerAlertChatIds('111111111,222222222')).toEqual(['111111111', '222222222']);
   });
 });

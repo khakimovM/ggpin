@@ -4,6 +4,7 @@ import {
   cardLimitAlertRef,
   cardReservedHighRef,
   notifyJobId,
+  ownerAlertOutboxJobId,
   type NotifyJob,
   type TgOutboxJob,
 } from '@repo/shared';
@@ -49,8 +50,11 @@ describe('notify consumer (real Postgres + Redis, private outbox queue)', () => 
     jobSeq += 1;
     return consumer.handle({ id: `n-${String(jobSeq)}`, data });
   };
+  // An owner alert is one outbox job per recipient (D-53): this reads the primary's.
   const outboxJob = async (data: NotifyJob): Promise<TgOutboxJob | undefined> => {
-    const job = await outboxQueue.getJob(notifyJobId(data));
+    const id =
+      data.kind === 'OWNER_ALERT' ? ownerAlertOutboxJobId(data, OWNER_CHAT) : notifyJobId(data);
+    const job = await outboxQueue.getJob(id);
     return job?.data as TgOutboxJob | undefined;
   };
 

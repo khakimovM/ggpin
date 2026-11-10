@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { formatMoney, OTP_CODE_TTL_SEC, scrubSecretsInText } from '@repo/shared';
+import { formatMoney, OTP_CODE_TTL_SEC, ownerAlertChatIds, scrubSecretsInText } from '@repo/shared';
 import { randomBytes } from 'node:crypto';
 import { APP_CONFIG, type AppConfig } from '../../../config/config.module';
 import { RedisService } from '../../../infra/redis/redis.service';
@@ -19,8 +19,10 @@ export interface OwnerChallenge {
 }
 
 /**
- * Issues the owner's code for one money action (D-46) and sends it to OWNER_ALERT_CHAT_ID: the
- * owner's own user chat, where every owner alert (adminAction too) already goes. Not
+ * Issues the owner's code for one money action (D-46) and sends it to the PRIMARY id of
+ * OWNER_ALERT_CHAT_ID (the first of the list, D-53): one code reaches one person, while the
+ * alerts themselves go to every partner. The owner's own user chat, where every owner alert
+ * (adminAction too) already goes. Not
  * ADMIN_TELEGRAM_IDS: that is the login allowlist of every admin, operators included, and an
  * operator must not be able to confirm the owner's money action.
  *
@@ -39,7 +41,7 @@ export class OwnerOtpIssuer {
   ) {}
 
   async issue(scope: OwnerOtpScope): Promise<OwnerChallenge> {
-    const chatId = this.config.OWNER_ALERT_CHAT_ID;
+    const [chatId] = ownerAlertChatIds(this.config.OWNER_ALERT_CHAT_ID);
     if (chatId === undefined) throw validationError('otp', 'OTP_UNAVAILABLE');
     const challengeId = randomBytes(16).toString('hex');
     const binding = otpBinding(scope);

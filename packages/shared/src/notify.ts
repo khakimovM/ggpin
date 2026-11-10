@@ -136,6 +136,18 @@ export function notifyJobId(job: NotifyJob): string {
 }
 
 /**
+ * The tg-outbox job id of an owner alert for ONE recipient (D-53): the notify job id plus the
+ * chat id. A retried notify job re-adds the same ids (no second message to anyone), and each
+ * partner's message succeeds or fails on its own.
+ */
+export function ownerAlertOutboxJobId(
+  job: Extract<NotifyJob, { kind: 'OWNER_ALERT' }>,
+  chatId: string,
+): string {
+  return tgOutboxJobId('alert', job.alert, job.refId, chatId);
+}
+
+/**
  * The daily reconciliation's audit row (docs/05 §10): the worker writes it, the API's notify
  * renderer reads the latest one of the day for `reconcileOk` / `reconcileMismatch`.
  * `targetId` = `tashkentDayKey(now)` (yyyymmdd), which is also the alert `refId`.

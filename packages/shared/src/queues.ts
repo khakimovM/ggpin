@@ -117,7 +117,8 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
   // Telegram 429s are handled by the processor with `retry_after`; these attempts cover
   // transient network errors only. Kept short on purpose, completed AND failed: these jobs hold
   // the rendered text (amounts, balances) and the chat id. Deduplication of top-up and alert messages is the notify job's
-  // (NOTIFY_DEDUPE_SEC); the outbox id equals the notify id only as a second line.
+  // (NOTIFY_DEDUPE_SEC); a top-up's outbox id equals the notify id as a second line, an owner
+  // alert's is the notify id plus the recipient's chat id (D-53: one message per partner).
   [QUEUES.TG_OUTBOX]: {
     attempts: 5,
     backoff: { type: 'exponential', delay: 2_000 },

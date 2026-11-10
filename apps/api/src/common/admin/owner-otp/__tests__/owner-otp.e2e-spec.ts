@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { tgOutboxJobSchema } from '@repo/shared';
 import { randomUUID } from 'node:crypto';
 import { Queue, UnrecoverableError, Worker } from 'bullmq';
 import { ACTOR, useOpsE2e } from '../../../../cli/__tests__/ops-e2e.harness';
@@ -10,7 +11,7 @@ import { WalletAdminService } from '../../../../modules/wallet/wallet-admin.serv
 import { AppError } from '../../../exceptions/app-error';
 import { ownerOtpKey, type OtpAnswer } from '../owner-otp';
 import { OwnerOtpIssuer } from '../owner-otp.issuer';
-import { ownerCode, sentMessageFor } from './owner-otp.testing';
+import { outboxQueue, ownerCode, sentMessageFor } from './owner-otp.testing';
 
 const t = useOpsE2e();
 const BIG = 100_000_001n; // just above the 1 000 000 so'm threshold of the test env
@@ -175,6 +176,28 @@ describe('owner one-time code (D-46, real Redis DB 15)', () => {
       'OTP_UNAVAILABLE',
     );
     await expect(sentMessageFor(app, target)).rejects.toThrow('no owner code message');
+  });
+
+  // D-53: alerts go to every partner, but one code reaches one person: the PRIMARY (first) id.
+  it('with two partners configured the code goes to the primary id only', async () => {
+    const app = t.app();
+    const config = {
+      ...app.get<AppConfig>(APP_CONFIG),
+      OWNER_ALERT_CHAT_ID: '700000001,700000002',
+    };
+    const issuer = new OwnerOtpIssuer(app.get(RedisService), app.get(TgOutboxEnqueuer), config);
+    const target = adjustOtpTarget(await t.user(), randomUUID());
+    const challenge = await issuer.issue({ action: 'wallet:adjust', amountTiyin: BIG, target });
+    try {
+      const queued = await outboxQueue(app).getJobs(['waiting', 'delayed', 'prioritized']);
+      const mine = queued
+        .filter((j) => (j.id ?? '').startsWith('owner-otp-'))
+        .map((j) => tgOutboxJobSchema.parse(j.data))
+        .filter((data) => data.text.includes(target));
+      expect(mine.map((data) => data.chatId)).toEqual(['700000001']);
+    } finally {
+      await issuer.discard(challenge.challengeId);
+    }
   });
 
   it('the CLI flow: the code is in no log line and no output, and its message is removed when the command ends', async () => {

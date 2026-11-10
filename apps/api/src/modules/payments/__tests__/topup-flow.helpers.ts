@@ -5,6 +5,8 @@ import {
   WalletResponseSchema,
   notifyJobId,
   notifyJobSchema,
+  ownerAlertChatIds,
+  ownerAlertOutboxJobId,
   webAppLoginResponseSchema,
 } from '@repo/shared';
 import type { Queue } from 'bullmq';
@@ -87,13 +89,22 @@ export function flowKit(e2e: PaymentsE2e, outboxIds: Set<string>) {
     expect(job).toBeDefined();
     const data = notifyJobSchema.parse(job?.data);
     await expect(e2e.app().get(NotifyConsumer).handle({ id: jobId, data })).resolves.toBe('queued');
-    const outJob = await e2e
-      .app()
-      .get<Queue>(getQueueToken(QUEUES.TG_OUTBOX))
-      .getJob(notifyJobId(data));
-    if (outJob === undefined) throw new Error('no tg-outbox job was queued');
-    outboxIds.add(notifyJobId(data));
-    await e2e.app().get(TgOutboxConsumer).handle(outJob, 'e2e-token');
+    // An owner alert is one outbox job per partner (D-53); every other notice is one job.
+    const outboxJobIds =
+      data.kind === 'OWNER_ALERT'
+        ? ownerAlertChatIds(e2e.env.OWNER_ALERT_CHAT_ID).map((chatId) =>
+            ownerAlertOutboxJobId(data, chatId),
+          )
+        : [notifyJobId(data)];
+    for (const outboxJobId of outboxJobIds) {
+      const outJob = await e2e
+        .app()
+        .get<Queue>(getQueueToken(QUEUES.TG_OUTBOX))
+        .getJob(outboxJobId);
+      if (outJob === undefined) throw new Error('no tg-outbox job was queued');
+      outboxIds.add(outboxJobId);
+      await e2e.app().get(TgOutboxConsumer).handle(outJob, 'e2e-token');
+    }
     return data;
   }
 

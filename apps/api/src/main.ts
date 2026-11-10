@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { scrubSecretsInText } from '@repo/shared';
@@ -6,6 +7,7 @@ import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { createHttpAdapter } from './common/http/create-http-adapter';
 import { EnvValidationError, loadProcessEnv, type Env } from './config/env';
+import { ownerAlertRecipientsLine } from './modules/notifications/owner-alert-recipients.log';
 
 // Misconfiguration must stop the process with a readable reason, not a stack trace.
 function loadEnvOrExit(): Env {
@@ -30,6 +32,7 @@ async function bootstrap(): Promise<void> {
   );
   await configureApp(app);
   app.enableShutdownHooks();
+  new Logger('Boot').log(ownerAlertRecipientsLine(env.OWNER_ALERT_CHAT_ID));
   await app.listen(env.API_PORT, '0.0.0.0');
 }
 

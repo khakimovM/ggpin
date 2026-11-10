@@ -1,4 +1,4 @@
-import { TG_USER_CHAT_ID_PATTERN, TOPUP_DEFAULTS, testModeOutsideJestProblem } from '@repo/shared';
+import { TOPUP_DEFAULTS, parseOwnerAlertChatIds, testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import {
   duplicateSecretProblems,
@@ -116,15 +116,21 @@ const EnvSchema = z
     TELEGRAM_NEWS_CHANNEL_URL: z.url({ protocol: /^https$/, hostname: /^t\.me$/ }).optional(),
 
     // ---- Optional now; the named phase makes them required (and checks them at boot). ----
-    // Chat that receives operational alerts (low TON balance, NEEDS_REVIEW orders, bank-feed
-    // events); required in production since phase 4 (checked below). Alerts travel through tg-outbox, which writes to user chats only (positive ids), so
-    // a group or channel id (negative) is refused here instead of failing silently when it matters.
+    // Chats that receive operational alerts (low TON balance, NEEDS_REVIEW orders, bank-feed
+    // events); required in production since phase 4 (checked below). A comma-separated list of 1-5
+    // user ids (D-53, the partners): every alert goes to each, the FIRST is the primary (the owner's
+    // one-time code goes only there). Kept as the normalised string (deduped, order kept); read it
+    // with ownerAlertChatIds(). Alerts travel through tg-outbox, which writes to user chats only
+    // (positive ids), so a group or channel id (negative) is refused here instead of failing
+    // silently when it matters.
     OWNER_ALERT_CHAT_ID: z
       .string()
-      .regex(
-        TG_USER_CHAT_ID_PATTERN,
-        'must be the numeric id of a user chat (positive digits; group ids are not supported)',
-      )
+      .transform((value, ctx) => {
+        const parsed = parseOwnerAlertChatIds(value);
+        if (parsed.ok) return parsed.ids.join(',');
+        ctx.addIssue({ code: 'custom', message: parsed.problem });
+        return z.NEVER;
+      })
       .optional(),
     // Phase 9 (admin): allowlist and money-action thresholds.
     ADMIN_TELEGRAM_IDS: telegramIdList,

@@ -1,5 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { notifyJobId, notifyJobSchema, type NotifyJob, type TgInlineKeyboard } from '@repo/shared';
+import {
+  notifyJobId,
+  notifyJobSchema,
+  ownerAlertChatIds,
+  ownerAlertOutboxJobId,
+  type NotifyJob,
+  type TgInlineKeyboard,
+} from '@repo/shared';
 import { UnrecoverableError, type Job } from 'bullmq';
 import { translate } from '../../common/i18n/translate';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
@@ -27,13 +34,17 @@ type TopupJob = Extract<NotifyJob, { kind: 'TOPUP_CREDITED' | 'TOPUP_LATE_CREDIT
 /**
  * Consumer of `notify` (worker -> API, notify.ts in shared). The job names WHAT happened; this
  * reads the rows, renders the text in the addressee's language (HTML-escaped by `translate`)
- * and hands it to `tg-outbox`, which sends it. The outbox job id is the notify job id
- * (`topup-<paymentId>`, `alert-<kind>-<refId>`), so a repeated notify job queues ONE message.
+ * and hands it to `tg-outbox`, which sends it. A top-up message's outbox job id is the notify
+ * job id (`topup-<paymentId>`), so a repeated notify job queues ONE message; an owner alert's is
+ * the notify id plus the recipient (`alert-<kind>-<refId>-<chatId>`, D-53): ONE message per
+ * recipient.
  *
  * - TOPUP_CREDITED / TOPUP_LATE_CREDITED: the Payment row decides the user (never the job), the
  *   balance is the current SUM(ledger); nobody is written to who blocked the bot.
- * - OWNER_ALERT: Uzbek, to OWNER_ALERT_CHAT_ID; without one configured the job fails
- *   (OwnerChatMissingError), it is never completed unsent.
+ * - OWNER_ALERT: Uzbek, to EVERY id of OWNER_ALERT_CHAT_ID (the partners, D-53): one outbox job
+ *   per recipient with the chat id in its job id, so a retry never double-sends and a recipient
+ *   who blocked the bot (403, handled by the outbox per job) never blocks the others. Without
+ *   one configured the job fails (OwnerChatMissingError), it is never completed unsent.
  * Logs carry the job id and outcome, never text, amounts or chat ids.
  */
 @Injectable()
@@ -105,13 +116,21 @@ export class NotifyConsumer {
   private async ownerAlert(
     job: Extract<NotifyJob, { kind: 'OWNER_ALERT' }>,
   ): Promise<NotifyOutcome> {
-    const chatId = this.config.OWNER_ALERT_CHAT_ID;
-    if (chatId === undefined) {
+    const chatIds = ownerAlertChatIds(this.config.OWNER_ALERT_CHAT_ID);
+    if (chatIds.length === 0) {
       this.logger.error('owner alert not sent: OWNER_ALERT_CHAT_ID is not configured');
       throw new OwnerChatMissingError();
     }
     const text = await this.alerts.render(job.alert, job.refId);
-    await this.outbox.enqueue(notifyJobId(job), { chatId, text });
+    // Every recipient is tried even if one enqueue fails; the job then fails and is retried, and
+    // the recipients already queued are no-ops the second time (same job ids).
+    const results = await Promise.allSettled(
+      chatIds.map((chatId) =>
+        this.outbox.enqueue(ownerAlertOutboxJobId(job, chatId), { chatId, text }),
+      ),
+    );
+    const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed !== undefined) throw failed.reason;
     return 'queued';
   }
 
