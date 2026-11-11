@@ -8,3 +8,5 @@ next-env.d.ts
 packages/db/src/generated
 packages/db/prisma/migrations
 design/handoff
+# Verbatim copy of design/handoff/ggpin-tokens.css (a test asserts they are identical)
+packages/ui/tokens.css

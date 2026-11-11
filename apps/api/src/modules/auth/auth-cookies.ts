@@ -1,7 +1,6 @@
 import {
-  ACCESS_COOKIE_NAME,
   ACCESS_TOKEN_TTL_SEC,
-  REFRESH_COOKIE_NAME,
+  authCookieNames,
   REFRESH_COOKIE_PATH,
   REFRESH_TOKEN_TTL_SEC,
 } from '@repo/shared';
@@ -10,7 +9,9 @@ import type { SessionTokens } from './web-session.service';
 
 // Session cookies (Q11): host-only (no Domain, so they never reach sibling subdomains),
 // HttpOnly, SameSite=Lax, Secure everywhere except NODE_ENV=development (Safari refuses Secure
-// cookies on http://localhost). The refresh cookie is confined to the auth routes.
+// cookies on http://localhost), both on Path=/ of the API host. Names come from
+// authCookieNames(NODE_ENV) only: in production the `__Host-` prefix makes the browser itself
+// refuse the cookie if an attribute is ever dropped, and refuse one planted with a Domain (Q13).
 
 export interface CookieSpec {
   readonly name: string;
@@ -41,29 +42,47 @@ export function isSecureCookie(nodeEnv: AppConfig['NODE_ENV']): boolean {
   return nodeEnv !== 'development';
 }
 
-export function sessionCookieSpecs(tokens: SessionTokens, secure: boolean): CookieSpec[] {
-  return [
+/**
+ * A prefixed name is a promise to the browser, which drops the cookie when it is broken: both
+ * prefixes need Secure, `__Host-` also Path=/ (and no Domain, which CookieSpec cannot carry).
+ * Secure is forced on; a wrong `__Host-` path is a programming error and fails loudly.
+ */
+export function enforcePrefixRules(spec: CookieSpec): CookieSpec {
+  const host = spec.name.startsWith('__Host-');
+  if (!host && !spec.name.startsWith('__Secure-')) return spec;
+  if (host && spec.path !== '/') throw new Error(`cookie ${spec.name} must use Path=/`);
+  return spec.secure ? spec : { ...spec, secure: true };
+}
+
+export function sessionCookieSpecs(
+  tokens: SessionTokens,
+  nodeEnv: AppConfig['NODE_ENV'],
+): CookieSpec[] {
+  const names = authCookieNames(nodeEnv);
+  const secure = isSecureCookie(nodeEnv);
+  const specs: CookieSpec[] = [
     {
-      name: ACCESS_COOKIE_NAME,
+      name: names.access,
       value: tokens.accessToken,
       path: '/',
       maxAge: ACCESS_TOKEN_TTL_SEC,
       secure,
     },
     {
-      name: REFRESH_COOKIE_NAME,
+      name: names.refresh,
       value: tokens.refreshToken,
       path: REFRESH_COOKIE_PATH,
       maxAge: REFRESH_TOKEN_TTL_SEC,
       secure,
     },
   ];
+  return specs.map(enforcePrefixRules);
 }
 
 // A cookie is only removed by the browser when name AND path match, so the clearing pair
 // repeats the exact paths of the set pair.
-export function clearCookieSpecs(secure: boolean): CookieSpec[] {
-  return sessionCookieSpecs({ accessToken: '', refreshToken: '' }, secure).map((spec) => ({
+export function clearCookieSpecs(nodeEnv: AppConfig['NODE_ENV']): CookieSpec[] {
+  return sessionCookieSpecs({ accessToken: '', refreshToken: '' }, nodeEnv).map((spec) => ({
     ...spec,
     maxAge: 0,
   }));
@@ -88,7 +107,7 @@ export function setSessionCookies(
   tokens: SessionTokens,
   nodeEnv: AppConfig['NODE_ENV'],
 ): void {
-  apply(reply, sessionCookieSpecs(tokens, isSecureCookie(nodeEnv)));
+  apply(reply, sessionCookieSpecs(tokens, nodeEnv));
 }
 
 /**
@@ -96,5 +115,5 @@ export function setSessionCookies(
  * response, because the exception filter only calls `reply.status(...).send(...)`.
  */
 export function clearSessionCookies(reply: CookieReply, nodeEnv: AppConfig['NODE_ENV']): void {
-  apply(reply, clearCookieSpecs(isSecureCookie(nodeEnv)));
+  apply(reply, clearCookieSpecs(nodeEnv));
 }

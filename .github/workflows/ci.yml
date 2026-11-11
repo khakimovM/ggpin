@@ -5,6 +5,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # A green run takes about 7 minutes. The ceiling stops a hung suite (an open handle keeps
+    # Jest alive forever) from holding the PR for the 6-hour default.
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -26,4 +29,57 @@ jobs:
       - run: npm ci
       - run: npm run verify
       - run: npm run db:deploy
-      - run: npm run test:e2e
+      # web e2e (Playwright) has its own job below: it needs browsers, not Postgres/Redis.
+      - run: npx turbo run test:e2e --concurrency=1 --filter="!web"
+  e2e-web:
+    runs-on: ubuntu-latest
+    # The full matrix (about 2,500 tests on 2 workers) needs about 35 minutes plus the builds.
+    timeout-minutes: 60
+    # Journey 4 runs against the real API: it needs Postgres and Redis. The e2e database is
+    # created and migrated by the Playwright setup project (it is not ggpin_test, which the backend
+    # suites clear); Redis DB 13 is used by the test API.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: ggpin, POSTGRES_PASSWORD: ggpin, POSTGRES_DB: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ggpin" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgresql://ggpin:ggpin@localhost:5432/ggpin_web_e2e_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      # apps/web imports @repo/shared from dist; Playwright builds and starts apps/web itself.
+      # The API and the worker (and what they are built from: shared, db) are built for the
+      # real-API journeys: the top-up journey starts the worker in BANK_FEED_MODE=fake.
+      - run: npx turbo run build --filter=api... --filter=worker...
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: apps/web
+      - run: npm run test:e2e -w web
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

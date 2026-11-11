@@ -68,8 +68,17 @@ Faqat `@PublicCache(N)` bilan belgilangan yo‘l — hozir uchta `GET /catalog/*
 (200) javobda `public, max-age=60` beradi; shu yo‘llarning 400/404/5xx javoblari ham
 `no-store`. IP limitlarida IPv6 manzillar /64 tarmoq bo‘yicha sanaladi.
 
-- **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh
-  (`path=/api/v1/auth`, 30 kun), ikkalasi host-only, `HttpOnly`, `SameSite=Lax`, `Secure`.
+- **Kanallar.** Web — ikkita cookie: access (`path=/`, 15 daqiqa) va refresh (`path=/`, 30 kun),
+  ikkalasi API hostining o‘ziga (host-only), `HttpOnly`, `SameSite=Lax`, `Secure`. Production’da
+  nomlari `__Host-access_token` va `__Host-refresh_token`: brauzer bunday cookie’ni faqat
+  `Secure`, `Path=/` va `Domain`siz qabul qiladi, shuning uchun qo‘shni subdomen o‘z sessiya
+  cookie’sini qo‘ya olmaydi (egasi qarori 2026-11-08; Q13 dagi `__Secure-refresh_token` o‘rniga).
+  Boshqa muhitlarda (development, test) `access_token` va `refresh_token` (`Secure` development’da
+  yo‘q). Eski nomlar production’da qabul qilinmaydi. Klient nomlarni bilmaydi (`HttpOnly`).
+  Bir nom so‘rovda bir necha marta kelsa, so‘rov foydalanuvchiga bog‘lanmaydi: access takrorlansa
+  `401 UNAUTHORIZED`; `POST /auth/refresh` da refresh takrorlansa `401 UNAUTHORIZED`, cookie’lar
+  tozalanadi, hech bir sessiya aylantirilmaydi va bekor qilinmaydi; `POST /auth/logout` esa `200`
+  qaytaradi va kelgan turli refresh qiymatlarining ko‘pi bilan 5 tasini bekor qiladi.
   Mini App — `Authorization: Bearer <token>` (cookie’siz).
 - **CSRF.** Har bir yozuv so‘rovida (POST/PUT/PATCH/DELETE) `X-CSRF-Token` sarlavhasi va
   ruxsat etilgan `Origin` talab qilinadi, ochiq login yo‘llarida ham. Bearer token qabul
@@ -391,6 +400,9 @@ Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, fa
 - Javob har doim `Cache-Control: no-store` (muvaffaqiyatda ham, xatoda ham).
 - Kotirovka pul harakatlantirmaydi, shuning uchun `Idempotency-Key` yo‘q; bir kotirovka ikki
   marta sarflanmasligini 5-bosqichda `Order.quoteId` (unique) va `usedAt` kafolatlaydi.
+- Har `201` — YANGI kotirovka va to‘liq TTL (10 daqiqa): bir xil body bilan qayta so‘rov ham yangi
+  `quoteId` va yangi `expiresAt` beradi (mijoz “narxni yangilash”da shunga tayanadi; eski kotirovka
+  uzaytirilmaydi).
 
 Xatolar:
 
@@ -466,6 +478,25 @@ tannarx, kurs, ustama, urinishlar, ichki sabab matni va ichki id’lar **yo‘q*
 `201`: `data` — `{ "order": { … } }` (yuqoridagi shakl, `status: "PAID"`). Bitta tranzaksiyada hamyon qulflanadi, balans tekshiriladi,
 `Order(PAID)` va `LedgerEntry(PURCHASE)` yoziladi; commit’dan keyin yetkazish navbatga qo‘yiladi. Idempotent takror (bir xil kalit va
 body) — o‘sha buyurtma yana `201` bilan qaytadi, ikkinchi yechilish bo‘lmaydi.
+
+Mijoz javobi yo‘qolgan (tarmoq uzilishi, timeout, `5xx`) so‘rovni o‘sha kalit va o‘sha `quoteId` bilan qayta yuboradi,
+shuning uchun server tomonida (5-bosqich, D-49):
+
+1. Takror so‘rov (bir xil `userId`, `Idempotency-Key`, body) kotirovka muddati (`410`) va “ishlatilgan” (`409 QUOTE_ALREADY_USED`)
+   tekshiruvlaridan OLDIN hal qilinadi: saqlangan `201` qaytadi, kotirovka muddati o‘tgan bo‘lsa ham. `(userId, Idempotency-Key)`
+   bo‘yicha replay qidiruvi hamyon qulfi olingandan KEYIN (qayta) bajariladi; `404` (kotirovka topilmadi), `409`/`410`/`422` faqat
+   shundan keyin.
+2. O‘sha kalitli parallel so‘rov birinchisining `201` javobini yoki `5xx` oladi, hech qachon `404`/`410`/`422` emas.
+3. Replay yozuvi `Order` qatorining o‘zi (`@@unique([userId, idempotencyKey])`), muddatsiz.
+4. Kotirovka qatori kamida 24 soat saqlanadi (klient noaniq urinish yozuvining TTL i); tozalash faqat shundan keyin, aks holda
+   replay’dan keyingi `404` “kotirovka yo‘q” emas, “buyurtma yo‘q” deb o‘qiladi.
+
+Klient shunga tayanadi: noaniq urinishni hal qiluvchi javoblar — `201`; `409 QUOTE_ALREADY_USED` + `orderId`; `410 QUOTE_EXPIRED`;
+`422 INSUFFICIENT_BALANCE`; Mini App’da `404` — hammasi FAQAT bizning javob konvertida (`success:false`). Konvertsiz javob
+(proksining HTML sahifasi, `502`) hech narsani hal qilmaydi. Webda konvertli `404` CSRF qo‘riqchisi ham bo‘lishi mumkin (D-26),
+shuning uchun klient uni hal qiluvchi deb olmaydi. Kod va status juftligi ham tekshiriladi (`410`+`QUOTE_EXPIRED`, `422`+`INSUFFICIENT_BALANCE`,
+`409`+`QUOTE_ALREADY_USED`, `404`+`NOT_FOUND`); mos kelmasa javob hal qilmaydi. Proksi/WAF ning o‘z xato javoblari hech qachon bizning
+konvert shaklida (`success:false`) bo‘lmasin (devops). Javob shakli o‘zgarmaydi.
 
 | Status | Kod                                                       | Qachon                                                    |
 | ------ | --------------------------------------------------------- | --------------------------------------------------------- |
@@ -781,19 +812,28 @@ X-Pay-Token: <43 belgili token>
 
 **Frontend talablari (`/pay/[intentId]`, `/topup`, Mini App; 7-bosqich):**
 
-1. _Token._ `location.hash` dan o‘qiladi (`readPayTokenFromHash`), darhol `history.replaceState` bilan URL’dan olib tashlanadi (`?locale=` qoladi); faqat klientda
-   (SSR’da fragment yo‘q) xotirada yoki `sessionStorage`da saqlanadi, hech qachon `localStorage`da yoki cookie’da emas. Token yo‘q yoki
-   yaroqsiz bo‘lsa va web sessiya bo‘lsa — sessiyali `GET /payments/intents/:id` ishlatiladi; bo‘lmasa «havola eskirgan yoki bekor qilingan».
+1. _Token_ (D-50). `location.hash` dan o‘qiladi (`readPayTokenFromHash`; sahifa yuklanishidan oldin, `hashchange` ham tinglanadi) va `router.replace` bilan URL’dan
+   olib tashlanadi (`?locale=` qoladi). Token faqat shu tabning `sessionStorage`ida (`ggpin:pay:<intentId>` = `{intentId, token, expiresAt}`) va
+   xotirada saqlanadi, shuning uchun sahifani qayta yuklash ishlayveradi; bitta tabda BITTA token (yangisini saqlash boshqalarini va muddati o‘tganlarini o‘chiradi);
+   hech qachon `localStorage`da yoki cookie’da emas. To‘lov yakunlanganda (`PAID`, `CANCELLED`, `EXPIRED`), token `404` bersa (shu tokenga javob bo‘lsa;
+   eski tokenning kech javobi yangisini o‘chirmaydi) yoki `expiresAt` o‘tganda token hamma joydan (storage, xotira) darhol o‘chiriladi; o‘rniga tokensiz belgi
+   (`ggpin:pay-done:<intentId>` = `{intentId, status}`) qoladi: qayta yuklashda summa, karta va natija ko‘rsatilmaydi, faqat «bu so‘rov yakunlangan, natijani
+   Mini App yoki botda ko‘ring» va «Botga qaytish». Token yo‘q yoki yaroqsiz bo‘lsa va belgi ham yo‘q bo‘lsa sahifa HECH QACHON boshqa yo‘l bilan (cookie, web sessiya,
+   sessiyali `GET /payments/intents/:id`) ma’lumot so‘ramaydi: «havola eskirgan yoki noto‘g‘ri» ekrani va Mini App’da «Sahifani qayta ochish»ni bosish maslahati chiqadi.
 2. _So‘rovlar._ `fetch(..., { credentials: 'omit' })` va `X-Pay-Token` sarlavhasi; sahifa cookie’siz ishlaydi. Polling oralig‘i ≥ 5 s, terminal
    holatda to‘xtaydi.
 3. _`POST /payments/intents` avtomatik qayta yuborilmaydi_ (tarmoq xatosida ham, TanStack Query `retry: false`): foydalanuvchi o‘zi qayta bosadi.
 4. _`openLink`_ faqat `${WEB_URL}/pay/` bilan boshlanadigan URL’ni ochadi (allowlist), boshqasini rad etadi.
-5. _/pay HTML javobi sarlavhalari:_ `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Content-Security-Policy: frame-ancestors 'none'`.
+5. _/pay HTML javobi sarlavhalari:_ `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Cross-Origin-Opener-Policy: same-origin`, `X-Frame-Options: DENY`, `Content-Security-Policy` (bitta; `frame-ancestors 'none'`, `base-uri 'none'`, `img-src 'self' data:`).
 6. _Uchinchi tomon resursi yo‘q_ `/pay` va `/topup` da: shrift `next/font` bilan o‘zimizdan, ikonkalar bundle ichida, tashqi CSS/CDN/analytics/widget yo‘q.
+   (`/tg/topup` Mini App ichida ishlaydi, shuning uchun u yerda `telegram.org` SDK va Telegram rasm hostlari D-38 Q16 bo‘yicha ruxsat etilgan; bu cheklov faqat `/pay` uchun.)
 7. _Ogohlantirishlar_ (matn `pay.*` va `tg.*` i18n kalitlarida, uz va ru): «Bu havola faqat o‘z ggpin hisobingizni to‘ldirish uchun. Boshqa odam
    yuborgan bo‘lsa, to‘lamang»; `ownerHint` ko‘rsatiladi («Hisob: S***r»); «Karta raqami har safar boshqacha bo‘lishi mumkin: eski kartaga
    o‘tkazmang»; summa aynan `payAmountTiyin` bo‘lishi kerak, farqli summa o‘tkazilsa avtomatik topilmasligi; bekor qilingan so‘rovga o‘tkazma qilinmasligi.
 8. Hamyon yoki profil ma’lumoti ko‘rsatilmaydi; `Referrer-Policy: no-referrer`.
+9. _Karta raqami boshida yashirin_ (D-51): faqat birinchi va oxirgi 4 raqam ko‘rinadi, o‘rtadagilar o‘rnida xira `••••` chiziladi
+   (yashirin holatda haqiqiy raqamlar DOM’da yo‘q); «ko‘z» tugmasi to‘liq ko‘rsatadi va yana yashiradi. «Nusxalash» har doim to‘liq
+   raqamni oladi. Bu yelka orqali qarash va skrinshotdan himoya, maxfiylik chegarasi emas: to‘liq raqam API javobida bor.
 
 ### Xatolar (to‘ldirish)
 

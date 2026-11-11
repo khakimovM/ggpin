@@ -1,6 +1,14 @@
-import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  type CanActivate,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ACCESS_COOKIE_NAME } from '@repo/shared';
+import { authCookieNames } from '@repo/shared';
+import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import { cookieValues } from '../../modules/auth/cookie-header';
 import { TokenCodec, type TokenPayload } from '../../modules/auth/token-codec';
 import { WebSessionService } from '../../modules/auth/web-session.service';
 import { UsersService } from '../../modules/users/users.service';
@@ -13,18 +21,24 @@ const BEARER = /^Bearer\s+(\S+)$/i;
 
 // Global guard (registered by AuthModule, after the throttler and before CsrfGuard).
 //   Authorization: Bearer <token>  -> Mini App token (typ 'tg')
-//   otherwise the access_token cookie -> web token (typ 'web') + a live session family
+//   otherwise the access cookie (authCookieNames) -> web token (typ 'web') + a live session family
 // Every failure is an AppError, never `return false`: Nest would turn that into a generic
 // 403, which this API maps to 404 (D-26) and which is the wrong answer for "log in first".
 @Injectable()
 export class UserAuthGuard implements CanActivate {
+  private readonly accessCookie: string;
+  private readonly logger = new Logger('Security');
+
   constructor(
     private readonly reflector: Reflector,
     private readonly codec: TokenCodec,
     private readonly users: UsersService,
     private readonly sessions: WebSessionService,
     @Inject(CLOCK) private readonly clock: Clock,
-  ) {}
+    @Inject(APP_CONFIG) config: Pick<AppConfig, 'NODE_ENV'>,
+  ) {
+    this.accessCookie = authCookieNames(config.NODE_ENV).access;
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, [
@@ -69,7 +83,12 @@ export class UserAuthGuard implements CanActivate {
     const bearer = typeof header === 'string' ? BEARER.exec(header)?.[1] : undefined;
     if (bearer !== undefined) return this.codec.verify(bearer, 'tg', now);
 
-    const cookie = request.cookies?.[ACCESS_COOKIE_NAME];
+    // A repeated name cannot be attributed to the caller (planted twin cookie): no session.
+    if (cookieValues(request.headers['cookie'], this.accessCookie).length > 1) {
+      this.logger.warn('security event=DUPLICATE_AUTH_COOKIE cookie=access endpoint=guard');
+      return null;
+    }
+    const cookie = request.cookies?.[this.accessCookie];
     if (typeof cookie === 'string' && cookie !== '') return this.codec.verify(cookie, 'web', now);
     return null;
   }

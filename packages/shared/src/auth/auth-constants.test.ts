@@ -3,6 +3,8 @@ import {
   ACCESS_COOKIE_NAME,
   ACCESS_TOKEN_TTL_SEC,
   BOT_CODE_ISSUE_LIMIT,
+  authCookieNames,
+  type AuthNodeEnv,
   CSRF_HEADER,
   LOGIN_NONCE_TTL_SEC,
   MINI_APP_TOKEN_TTL_SEC,
@@ -30,7 +32,7 @@ describe('auth constants', () => {
     expect(BOT_CODE_ISSUE_LIMIT).toEqual({ max: 5, windowSec: 600 });
     expect(ACCESS_COOKIE_NAME).toBe('access_token');
     expect(REFRESH_COOKIE_NAME).toBe('refresh_token');
-    expect(REFRESH_COOKIE_PATH).toBe('/api/v1/auth');
+    expect(REFRESH_COOKIE_PATH).toBe('/');
     expect(CSRF_HEADER).toBe('x-csrf-token');
   });
 });
@@ -45,5 +47,35 @@ describe('sessionEndCallbackData', () => {
 
   it('refuses an id that would overflow the callback_data limit', () => {
     expect(() => sessionEndCallbackData('x'.repeat(62))).toThrow(/64 bytes/);
+  });
+});
+
+describe('authCookieNames', () => {
+  it('production: __Host- access and refresh cookies', () => {
+    expect(authCookieNames('production')).toEqual({
+      access: '__Host-access_token',
+      refresh: '__Host-refresh_token',
+    });
+  });
+
+  it.each(['development', 'test'] as const)('%s keeps the plain names', (env) => {
+    expect(authCookieNames(env)).toEqual({ access: 'access_token', refresh: 'refresh_token' });
+  });
+
+  it.each(['staging', 'Production', ''])(
+    'fail-closed: unknown NODE_ENV "%s" gets the prefixed names',
+    (env) => {
+      expect(authCookieNames(env as unknown as AuthNodeEnv)).toEqual({
+        access: '__Host-access_token',
+        refresh: '__Host-refresh_token',
+      });
+    },
+  );
+
+  it('the prefixes are only valid with the attributes the API sets', () => {
+    // __Host- forbids a Domain and any Path but "/" (the browser would drop the cookie), and it is
+    // what keeps a sibling subdomain from planting a refresh cookie next to ours.
+    expect(REFRESH_COOKIE_PATH).toBe('/');
+    expect(authCookieNames('production').refresh.startsWith('__Host-')).toBe(true);
   });
 });

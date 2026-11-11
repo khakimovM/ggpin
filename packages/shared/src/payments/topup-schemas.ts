@@ -28,6 +28,8 @@ export const TOPUP_DEFAULTS = {
   STEP_TIYIN: TOPUP_BASE_UNIT_TIYIN, // base amount is a multiple of 1 000 so'm
   SUFFIX_MAX_SOM: 999, // unique extra of 1..999 so'm
   INTENT_TTL_SEC: 1800, // 30 minutes
+  // The quick-amount buttons of the top-up form, whole so'm; the form keeps those the limits allow.
+  QUICK_AMOUNTS_SOM: ['20000', '50000', '100000', '200000'],
   LATE_GRACE_SEC: 86_400, // the amount stays reserved 24 h after expiry (or after payment)
   // An UNPAID request (pending, expired or cancelled) counts against its card's limit only this
   // long after expiresAt (D-42 (1)); its amount stays reserved for the whole grace.

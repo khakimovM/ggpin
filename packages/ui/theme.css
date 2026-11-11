@@ -1,0 +1,10 @@
+/*
+ * Tailwind theme additions that tokens.css does not carry. tokens.css stays a 1:1 copy of the
+ * handoff; these three radii are the pixel values the design components use (8 / 12 / 16 px)
+ * but that have no counterpart among the handoff radius tokens (6 / 10 / 14 / 20 / 24 / 28).
+ */
+@theme {
+  --radius-badge: 8px;
+  --radius-control: 12px;
+  --radius-tile: 16px;
+}
