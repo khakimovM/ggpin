@@ -181,7 +181,7 @@
     },
     "reconcileHistory": {
       "ok": "bajarildi",
-      "unavailable": "bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan",
+      "unavailable": "bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan yoki bu worker hozir lider emas",
       "failed": "bajarilmadi, xato bilan tugadi"
     },
     "limitReason": {

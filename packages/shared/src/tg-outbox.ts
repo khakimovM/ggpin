@@ -1,6 +1,7 @@
 // Job contract for the `tg-outbox` queue (QUEUES.TG_OUTBOX): producers (api, worker alerts)
 // enqueue pre-rendered messages, the api consumer sends them. Never put an OTP code in a job:
-// jobs stay in Redis for days (QUEUE_JOB_DEFAULTS).
+// jobs stay in Redis for days (QUEUE_JOB_DEFAULTS). The one exception is the owner CLI's
+// confirmation code (D-46), which goes through `enqueueEphemeral`: its job is deleted once sent.
 import { z } from 'zod';
 
 /** Telegram's sendMessage text limit. */
