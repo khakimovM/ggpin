@@ -1,6 +1,7 @@
 // Job contract for the `tg-outbox` queue (QUEUES.TG_OUTBOX): producers (api, worker alerts)
 // enqueue pre-rendered messages, the api consumer sends them. Never put an OTP code in a job:
-// jobs stay in Redis for days (QUEUE_JOB_DEFAULTS).
+// jobs stay in Redis for days (QUEUE_JOB_DEFAULTS). The one exception is the owner CLI's
+// confirmation code (D-46), which goes through `enqueueEphemeral`: its job is deleted once sent.
 import { z } from 'zod';
 
 /** Telegram's sendMessage text limit. */
@@ -13,6 +14,10 @@ const BUTTON_TEXT_MAX_LENGTH = 64;
 const KEYBOARD_MAX_ROWS = 8;
 const KEYBOARD_MAX_BUTTONS_PER_ROW = 8;
 
+// Buttons open only https pages (Telegram requires https for web_app; a plain http link in a
+// message to a user is never wanted). `web_app` launches the Mini App from the button.
+const httpsUrl = z.url({ protocol: /^https$/ });
+
 const inlineButtonSchema = z.union([
   z.strictObject({
     text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
@@ -20,7 +25,11 @@ const inlineButtonSchema = z.union([
   }),
   z.strictObject({
     text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
-    url: z.url({ protocol: /^https?$/ }),
+    url: httpsUrl,
+  }),
+  z.strictObject({
+    text: z.string().min(1).max(BUTTON_TEXT_MAX_LENGTH),
+    web_app: z.strictObject({ url: httpsUrl }),
   }),
 ]);
 
@@ -34,8 +43,9 @@ export type TgInlineKeyboard = z.infer<typeof tgInlineKeyboardSchema>;
 
 /**
  * A Telegram USER chat id: positive, no leading zero, at most 20 digits. Group and channel ids
- * are negative, and the outbox never writes to them; the API and worker env use the same
- * pattern for OWNER_ALERT_CHAT_ID so a bad id fails at boot, not on the first alert.
+ * are negative, and the outbox never writes to them; the API env checks every id of
+ * OWNER_ALERT_CHAT_ID (a list since D-53, API only: the worker does not read it) against this
+ * pattern so a bad id fails at boot, not on the first alert.
  */
 export const TG_USER_CHAT_ID_PATTERN = /^[1-9]\d{0,19}$/;
 
@@ -65,4 +75,50 @@ export function tgOutboxJobId(...segments: readonly string[]): string {
   const id = segments.join('-');
   if (id.length > JOB_ID_MAX_LENGTH) throw new Error('tg-outbox job id is too long');
   return id;
+}
+
+/** Partners who receive every owner alert (D-53); more is a typo, not a team. */
+export const OWNER_ALERT_CHAT_IDS_MAX = 5;
+
+export type OwnerAlertChatIdsResult =
+  | { readonly ok: true; readonly ids: readonly string[] }
+  | { readonly ok: false; readonly problem: string };
+
+/**
+ * Parses OWNER_ALERT_CHAT_ID: a comma-separated list of 1..5 user chat ids (D-53). Order is kept
+ * (the first id is the PRIMARY: the owner's code goes only there), repeats are dropped, blanks
+ * around and between commas are ignored. The problem text never echoes the value.
+ */
+export function parseOwnerAlertChatIds(raw: string): OwnerAlertChatIdsResult {
+  const ids: string[] = [];
+  for (const part of raw.split(',')) {
+    const id = part.trim();
+    if (id === '') continue;
+    if (!TG_USER_CHAT_ID_PATTERN.test(id)) {
+      return {
+        ok: false,
+        problem:
+          'must be a comma-separated list of numeric ids of user chats (positive digits; group ids are not supported)',
+      };
+    }
+    if (!ids.includes(id)) ids.push(id);
+  }
+  if (ids.length === 0) return { ok: false, problem: 'must hold at least one user chat id' };
+  if (ids.length > OWNER_ALERT_CHAT_IDS_MAX) {
+    return {
+      ok: false,
+      problem: `must hold at most ${String(OWNER_ALERT_CHAT_IDS_MAX)} distinct user chat ids`,
+    };
+  }
+  return { ok: true, ids };
+}
+
+/**
+ * The recipients of owner alerts from the configured value; empty when unset or unusable (a
+ * booted API never has an unusable one, tests may). `ids[0]` is the primary.
+ */
+export function ownerAlertChatIds(raw: string | undefined): readonly string[] {
+  if (raw === undefined) return [];
+  const parsed = parseOwnerAlertChatIds(raw);
+  return parsed.ok ? parsed.ids : [];
 }

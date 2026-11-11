@@ -13,6 +13,7 @@ import { RedisModule } from '../../../infra/redis/redis.module';
 import { UsersService } from '../../users/users.service';
 import { NotificationsModule } from '../notifications.module';
 import { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
+import { NOTIFY_QUEUE_NAME } from '../notify.worker';
 import { TG_OUTBOX_SENDER } from '../tg-outbox.sender';
 import { FakeSender, telegramError, wait, waitFor } from './tg-outbox.e2e-helpers';
 import {
@@ -31,8 +32,14 @@ import {
 // processor. No FLUSHDB; the private queue is obliterated at the end. Chat ids and message ids
 // are built at runtime and unique per run.
 describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
-  const env = { ...buildE2eEnv(), TELEGRAM_BOT_MODE: 'polling' as const };
+  // MINI_APP_URL: buttons may open only our own origins (outbox-button-origins.ts).
+  const env = {
+    ...buildE2eEnv(),
+    TELEGRAM_BOT_MODE: 'polling' as const,
+    MINI_APP_URL: 'https://app.ggpin.test/tg',
+  };
   const queueName = `tg-outbox-e2e-${randomUUID()}`;
+  const notifyQueueName = `notify-e2e-${randomUUID()}`;
   const createdTelegramIds: bigint[] = [];
   let seq = 0;
 
@@ -58,6 +65,9 @@ describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
       .useValue(sender)
       .overrideProvider(TG_OUTBOX_QUEUE_NAME)
       .useValue(queueName)
+      // NotificationsModule also starts the notify consumer: never on the shared queue here.
+      .overrideProvider(NOTIFY_QUEUE_NAME)
+      .useValue(notifyQueueName)
       .compile();
     moduleRef.useLogger(false);
     await moduleRef.init();
@@ -104,12 +114,32 @@ describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
         chatId,
         text: '<b>Order delivered</b>',
         disableNotification: true,
-        replyMarkup: { inline_keyboard: [[{ text: 'Open', url: 'https://example.test' }]] },
+        replyMarkup: {
+          inline_keyboard: [
+            [{ text: 'Open', web_app: { url: 'https://app.ggpin.test/tg/orders/1' } }],
+          ],
+        },
       };
       const id = tgOutboxJobId('e2e', randomUUID().replaceAll('-', '_'));
       await enqueuer.enqueue(id, payload);
       await waitFor(async () => (await jobOf(id)).isCompleted());
       expect(sender.deliveriesTo(chatId).map((s) => s.job)).toEqual([payload]);
+    });
+
+    it('never sends a job whose button opens a foreign origin (fails, no retry)', async () => {
+      const chatId = newTelegramId().toString();
+      const id = tgOutboxJobId('e2e', randomUUID().replaceAll('-', '_'));
+      await enqueuer.enqueue(id, {
+        chatId,
+        text: 'hello',
+        replyMarkup: {
+          inline_keyboard: [[{ text: 'Open', web_app: { url: 'https://evil.test/' } }]],
+        },
+      });
+      await waitFor(async () => (await jobOf(id)).isFailed());
+      const job = await jobOf(id);
+      expect(job.attemptsMade).toBe(1);
+      expect(sender.deliveriesTo(chatId)).toHaveLength(0);
     });
 
     it('sends once when the same messageId is enqueued twice', async () => {
@@ -245,6 +275,9 @@ describe('tg-outbox consumer (real Redis + Postgres, fake transport)', () => {
   afterAll(async () => {
     await queue.obliterate({ force: true });
     await queue.close();
+    const notifyQueue = new Queue(notifyQueueName, { connection: { url: env.REDIS_URL } });
+    await notifyQueue.obliterate({ force: true });
+    await notifyQueue.close();
     const app = await Test.createTestingModule({
       imports: [AppConfigModule.forRoot(env), PrismaModule],
     }).compile();

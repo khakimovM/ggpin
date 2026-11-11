@@ -176,7 +176,12 @@ describe('workerSecretProblems / apiSecretProblems', () => {
 });
 
 describe('bank-feed secrets (phase 4)', () => {
-  const SESSION = ['BANK_FEED_API_HASH', 'BANK_FEED_SESSION_ENC', 'BANK_FEED_ENC_KEY'] as const;
+  const SESSION = [
+    'BANK_FEED_API_HASH',
+    'BANK_FEED_SESSION_ENC',
+    'BANK_FEED_ENC_KEY',
+    'BANK_FEED_ENC_KEY_FILE',
+  ] as const;
 
   it('are worker-only and the API refuses to boot with any of them', () => {
     for (const name of SESSION) {

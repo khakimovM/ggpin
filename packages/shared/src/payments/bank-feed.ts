@@ -1,9 +1,7 @@
-// Vocabulary of the bank-feed pipeline (docs/05-PAYMENTS.md): the worker reads the bank bots'
-// notifications over a Telegram user session, parses them, matches them to top-up intents and
-// credits the wallet. These names are shared because the API reads what the worker writes
-// (heartbeat, review kinds, alerts) and the Prisma enums must stay in step with them (a DB
-// test compares both lists once the schema lands in phase 4, slice S2).
+// Vocabulary of the bank-feed pipeline (docs/05-PAYMENTS.md), shared because the API reads what
+// the worker writes (heartbeat, review kinds, alerts); a DB test keeps the Prisma enums in step.
 import { z } from 'zod';
+import { TASHKENT_UTC_OFFSET_MINUTES } from '../tashkent-time';
 import { tgOutboxJobId } from '../tg-outbox';
 
 export const CARD_BANKS = ['HUMO', 'UZCARD'] as const;
@@ -55,8 +53,7 @@ export const REVIEW_KINDS = [
   'TIME_SKEW',
   // Money for an intent the user cancelled: never credited automatically (D-37 (5)).
   'CANCELLED_LATE',
-  // Crediting would push the user over a daily cap (D-37 (7)): either cap, one review kind; the
-  // review records which one was exceeded.
+  // Crediting would push the user over a daily cap (D-37 (7)); the note says which one.
   'DAILY_LIMIT',
   // A DEBIT equal to a recently credited payment: the bank may have taken the money back.
   'POSSIBLE_REVERSAL',
@@ -79,10 +76,19 @@ export type PaymentReviewResolution = (typeof PAYMENT_REVIEW_RESOLUTIONS)[number
 
 /**
  * Owner-alert kinds. Each one is the tail of an i18n key `alerts.bankFeed.<kind>`; the
- * review kinds map onto their alert in `REVIEW_ALERT`, the rest are operational events.
+ * review kinds map onto their alert in `REVIEW_ALERT` (an UNRECOGNIZED review on a card with
+ * one of the notes in `NOTE_ALERT` raises that alert instead, see `reviewAlertOf`), the rest
+ * are operational events.
  */
 export const ALERT_KINDS = [
   'unrecognized',
+  'titleUnknown',
+  'integrityAnomaly',
+  'foreignChat',
+  'processingFailed',
+  'amountReallocated',
+  'lateStored',
+  'manualCreditSeen',
   'rejected',
   'edited',
   'cardUnknown',
@@ -100,16 +106,27 @@ export const ALERT_KINDS = [
   'debit',
   'cardSilent',
   'cardDraining',
+  'cardDrained',
   'adminAction',
   'cardVerified',
   'cardNearLimit',
   'cardFull',
+  'cardReservedHigh',
+  'lateOverLimit',
   'listenerDown',
   'sessionRevoked',
   'newAuthorization',
+  'authorizationsBaseline',
+  'listenerStopped',
+  'bankChatAnomaly',
+  'accountBound',
   'reconcileOk',
   'reconcileMismatch',
+  'reconcileFailed',
   'walletFrozen',
+  'limitCheckFailed',
+  'messageStuck',
+  'effectsFailed',
 ] as const;
 export const BankFeedAlertKindSchema = z.enum(ALERT_KINDS);
 export type BankFeedAlertKind = z.infer<typeof BankFeedAlertKindSchema>;
@@ -132,45 +149,55 @@ export const REVIEW_ALERT: Readonly<Record<PaymentReviewKind, BankFeedAlertKind>
   USER_BLOCKED: 'userBlocked',
 });
 
+// Reviews whose note says more than their kind: the alert names the card (and the amount or code).
+const NOTE_ALERT: Readonly<
+  Record<string, { readonly kind: PaymentReviewKind; readonly alert: BankFeedAlertKind }>
+> = Object.freeze({
+  TITLE_UNKNOWN: { kind: 'UNRECOGNIZED', alert: 'titleUnknown' },
+  SENDER_MISMATCH: { kind: 'UNRECOGNIZED', alert: 'integrityAnomaly' },
+  TEXT_HASH_MISMATCH: { kind: 'UNRECOGNIZED', alert: 'integrityAnomaly' },
+  PROCESSING_FAILED: { kind: 'UNRECOGNIZED', alert: 'processingFailed' },
+  AMOUNT_REALLOCATED: { kind: 'AMBIGUOUS', alert: 'amountReallocated' },
+  LATE_STORED: { kind: 'AMBIGUOUS', alert: 'lateStored' },
+  MANUAL_CREDIT_SEEN: { kind: 'AMBIGUOUS', alert: 'manualCreditSeen' },
+});
+
 /**
- * `{placeholders}` each alert text takes, in `alerts.bankFeed.<kind>`. Alerts carry ids and
- * reason codes only: never a full card number, balance, message text or phone
- * (rules/60-security.md). A test in packages/i18n holds both locales to these lists.
+ * The alert of one review: by kind, except a review ON A CARD whose (kind, note) is in
+ * NOTE_ALERT. Those alerts name the card, so a card-less review keeps the generic one.
  */
-export const BANK_FEED_ALERT_PARAMS: Readonly<Record<BankFeedAlertKind, readonly string[]>> =
-  Object.freeze({
-    unrecognized: ['reviewId'],
-    rejected: ['reviewId', 'reason'],
-    edited: ['messageId'],
-    cardUnknown: ['reviewId'],
-    cardRetired: ['reviewId', 'last4'],
-    chainBreak: ['reviewId', 'last4'],
-    autoCreditPaused: ['reviewId', 'last4'],
-    noMatch: ['reviewId', 'amount'],
-    ambiguous: ['reviewId', 'amount'],
-    duplicate: ['reviewId', 'amount'],
-    timeSkew: ['reviewId'],
-    cancelledLate: ['reviewId', 'amount'],
-    dailyLimit: ['reviewId', 'amount', 'limit'],
-    possibleReversal: ['reviewId', 'last4', 'amount'],
-    userBlocked: ['reviewId', 'amount'],
-    // Every DEBIT on a receiving card is reported (D-37 (8)): money leaving it is never routine.
-    debit: ['last4', 'amount'],
-    // No CREDIT on an active card for `hours`: a silent listener or bot looks the same as no sales.
-    cardSilent: ['bank', 'last4', 'hours'],
-    cardDraining: ['bank', 'last4'],
-    // Every money or card operation by the owner CLI (D-37 (9)).
-    adminAction: ['action', 'ref'],
-    cardVerified: ['bank', 'last4'],
-    cardNearLimit: ['bank', 'last4', 'percent'],
-    cardFull: ['bank', 'last4'],
-    listenerDown: ['minutes'],
-    sessionRevoked: [],
-    newAuthorization: [],
-    reconcileOk: ['count', 'debits'],
-    reconcileMismatch: ['count', 'debits'],
-    walletFrozen: ['userId'],
-  });
+export function reviewAlertOf(
+  kind: PaymentReviewKind,
+  note: string | null,
+  onCard: boolean,
+): BankFeedAlertKind {
+  const byNote = note === null ? undefined : NOTE_ALERT[note];
+  return onCard && byNote !== undefined && byNote.kind === kind ? byNote.alert : REVIEW_ALERT[kind];
+}
+
+// Split out to keep this file small (S9 n2); re-exported so the barrel stays as it is.
+export { BANK_FEED_ALERT_PARAMS } from './bank-feed-alert-params';
+
+/**
+ * Why the worker paused auto-credit on EVERY live card (D-52 r2, review M-A): a new
+ * authorization of the working account, an empty authorization baseline, or a bank-chat anomaly.
+ * Each pause writes a SYSTEM `CARD_PAUSE` AuditLog row per card (`reason` = this code), so
+ * review:accept-chain keeps the card paused and only card:resume (CARD_RESUME) lifts it; while
+ * such a pause is open on a live card, card:add creates new cards paused (D2).
+ */
+export const SECURITY_PAUSE_REASONS = [
+  'NEW_AUTHORIZATION',
+  'AUTH_BASELINE',
+  'BANK_CHAT_ANOMALY',
+] as const;
+export type SecurityPauseReason = (typeof SECURITY_PAUSE_REASONS)[number];
+
+/** The AuditLog shape of a security pause (`reason` = SecurityPauseReason, `after.ref` = alert refId). */
+export const SECURITY_PAUSE_AUDIT = {
+  actorType: 'SYSTEM',
+  action: 'CARD_PAUSE',
+  targetType: 'TopupCard',
+} as const;
 
 // ---- Tunables shared by the worker (writer) and the API (reader) ----------------------------
 export const BANK_FEED_DEFAULTS = {
@@ -191,7 +218,6 @@ export const BANK_FEED_DEFAULTS = {
   REVERSAL_WINDOW_SEC: 7 * 24 * 60 * 60,
 } as const;
 
-const TASHKENT_UTC_OFFSET_MIN = 5 * 60;
 const NIGHT_END_HOUR = 8;
 
 /**
@@ -207,7 +233,7 @@ export function daytimeMinutesBetween(from: Date, to: Date): number {
 // Daytime minutes from the local epoch up to `minute`, in closed form: whole local days count
 // (1440 - night) each, the partial day counts what is past the night. O(1), whatever the range.
 function daytimeMinutesBefore(minute: number): number {
-  const local = minute + TASHKENT_UTC_OFFSET_MIN;
+  const local = minute + TASHKENT_UTC_OFFSET_MINUTES;
   const nightMinutes = NIGHT_END_HOUR * 60;
   const days = Math.floor(local / 1440);
   const intoDay = local - days * 1440;

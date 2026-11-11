@@ -58,23 +58,25 @@ Salomlashish xabari (rasm/banner + matn):
 ## Menyu tugmasi va buyruqlar
 
 - Menu button: Mini App (`setChatMenuButton`, web_app), matni tilga qarab.
-- `setMyCommands` (uz va ru alohida): `/start`, `/shop` (do‘kon), `/balance` (balans),
-  `/orders` (oxirgi buyurtmalar), `/ref` (referal havola), `/lang` (til), `/help`.
+- `setMyCommands` (uz va ru alohida, D-28): `/start`, `/shop` (do‘kon), `/ref` (referal havola),
+  `/lang` (til), `/help`. `/balance` va `/orders` qo‘shilmaydi (D-28): balans va
+  buyurtmalar Mini App’da.
 - Admin buyruqlari faqat allowlist chatlarida (`scope: chat`): `/admin` (panelni Mini App'da ochish),
   `/stats` (bugungi qisqa statistika), `/wallet` (hot wallet holati), `/id`.
 
 ## Bildirishnomalar (outbox orqali)
 
-| Hodisa                 | Xabar (uz)                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| Balans to‘ldirildi     | "✅ Hisobingiz {amount} ga to‘ldirildi. Balans: {balance}"                          |
-| Buyurtma qabul qilindi | "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}"                      |
-| Yetkazildi             | "🎉 #{number} yetkazildi! {product} → {recipient}" (+ "Buyurtmani ko‘rish" tugmasi) |
-| Voucher                | "🎟 #{number}: kodingiz Mini App'da" (kod chatga yuborilmaydi — faqat ilovada)       |
-| Muvaffaqiyatsiz        | "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi."                      |
-| Tekshirilmoqda         | "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz."                  |
-| Referal bonus          | "🎁 Do‘stingiz xarid qildi — sizga {amount} bonus!"                                 |
-| Bonus kod              | "🎁 Bonus kod faollashtirildi: +{amount}"                                           |
+| Hodisa                 | Xabar (uz)                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Balans to‘ldirildi     | "✅ Hisobingiz to‘ldirildi: {amount}↵Balans: {balance}" (+ "➕ Hisobni to‘ldirish" tugmasi, Mini App `/topup`) |
+| Kech tushgan to‘lov    | "✅ Kechikkan to‘lovingiz hisobga tushdi: {amount}↵Balans: {balance}" (+ o‘sha tugma)                          |
+| Buyurtma qabul qilindi | "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}"                                                 |
+| Yetkazildi             | "🎉 #{number} yetkazildi! {product} → {recipient}" (+ "Buyurtmani ko‘rish" tugmasi)                            |
+| Voucher                | "🎟 #{number}: kodingiz Mini App'da" (kod chatga yuborilmaydi — faqat ilovada)                                  |
+| Muvaffaqiyatsiz        | "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi."                                                 |
+| Tekshirilmoqda         | "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz."                                             |
+| Referal bonus          | "🎁 Do‘stingiz xarid qildi — sizga {amount} bonus!"                                                            |
+| Bonus kod              | "🎁 Bonus kod faollashtirildi: +{amount}"                                                                      |
 
 Ruscha matnlar `ru.json`da. Xabarlar HTML parse mode, foydalanuvchi matnlari escape qilinadi.
 

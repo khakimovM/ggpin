@@ -3,9 +3,10 @@ import type { TgOutboxJob } from '@repo/shared';
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq';
 import { GrammyError, HttpError } from 'grammy';
 import { TEST_BOT_TOKEN } from '../../../config/__tests__/test-env';
+import type { AppConfig } from '../../../config/config.module';
 import type { RedisService } from '../../../infra/redis/redis.service';
 import type { UsersService } from '../../users/users.service';
-import { maskChatId } from '../chat-id-mask';
+import { maskChatId, maskChatInJobId } from '../chat-id-mask';
 import { TgOutboxConsumer } from '../tg-outbox.consumer';
 import type { TgOutboxSender } from '../tg-outbox.sender';
 
@@ -35,7 +36,14 @@ function setup(gate: 'OK' | null = 'OK') {
   const redis = { client: { set: redisSet } } as unknown as RedisService;
   const markBotBlocked = jest.fn().mockResolvedValue(undefined);
   const users = { markBotBlocked } as unknown as UsersService;
-  const consumer = new TgOutboxConsumer(sender, { now: () => NOW }, redis, users);
+  const config = { MINI_APP_URL: 'https://shop.test/tg', WEB_URL: 'https://site.test' };
+  const consumer = new TgOutboxConsumer(
+    sender,
+    { now: () => NOW },
+    redis,
+    users,
+    config as unknown as AppConfig,
+  );
   const moveToDelayed = jest.fn().mockResolvedValue(undefined);
   const job = (data: unknown): Job =>
     ({ id: 'order-abc-delivered', data, attemptsMade: 0, moveToDelayed }) as unknown as Job;
@@ -75,6 +83,44 @@ describe('TgOutboxConsumer', () => {
     const t = setup();
     await expect(t.consumer.handle(t.job(data), 'tok')).rejects.toBeInstanceOf(UnrecoverableError);
     expect(t.send).not.toHaveBeenCalled();
+  });
+
+  const keyboard = (button: Record<string, unknown>): unknown => ({
+    ...payload,
+    replyMarkup: { inline_keyboard: [[{ text: 'Open', ...button }]] },
+  });
+
+  it.each([
+    ['a web_app button on our Mini App origin', { web_app: { url: 'https://shop.test/tg/topup' } }],
+    ['a url button on our Mini App origin', { url: 'https://shop.test/tg/orders/1' }],
+    ['a url button on our website origin', { url: 'https://site.test/store' }],
+  ])('sends %s', async (_name, button) => {
+    const t = setup();
+    await t.consumer.handle(t.job(keyboard(button)), 'tok');
+    expect(t.send).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a web_app button on a foreign host', { web_app: { url: 'https://evil.test/tg/topup' } }],
+    [
+      'a web_app button on our website (not the Mini App)',
+      { web_app: { url: 'https://site.test/' } },
+    ],
+    ['a web_app button on another port', { web_app: { url: 'https://shop.test:8443/tg' } }],
+    ['a url button on a foreign host', { url: 'https://evil.test/' }],
+    ['a look-alike subdomain', { url: 'https://shop.test.evil.test/' }],
+    // WHATWG reads `\` as `/` (host shop.test); an RFC 3986 client may read evil.test as the host.
+    ['a backslash before userinfo', { web_app: { url: 'https://shop.test\\@evil.test/tg' } }],
+    ['userinfo on our own host', { web_app: { url: 'https://x@shop.test/tg/topup' } }],
+    ['a non-canonical spelling of our host', { url: 'https://SHOP.test/tg' }],
+  ])('never sends %s (unrecoverable, logged)', async (_name, button) => {
+    const t = setup();
+    await expect(t.consumer.handle(t.job(keyboard(button)), 'tok')).rejects.toBeInstanceOf(
+      UnrecoverableError,
+    );
+    expect(t.send).not.toHaveBeenCalled();
+    expect(t.redisSet).not.toHaveBeenCalled();
+    expect(logged.some((line) => line.includes('outcome=foreign-button-origin'))).toBe(true);
   });
 
   it('delays a second message to the same chat by about 1 s and does not send it', async () => {
@@ -119,6 +165,19 @@ describe('TgOutboxConsumer', () => {
       UnrecoverableError,
     );
     expect(t.markBotBlocked).not.toHaveBeenCalled();
+  });
+
+  // D-53: a partner who never pressed /start gets a 403 on his own outbox job; the other
+  // partner's job (a separate job with his own chat id) is untouched.
+  it('a 403 for one partner does not stop the other partner from receiving the alert', async () => {
+    const t = setup();
+    const partner = { chatId: '2222222222', text: 'alert' };
+    t.send.mockRejectedValueOnce(grammyError(403, "Forbidden: bot can't initiate conversation"));
+    await expect(
+      t.consumer.handle(t.job({ ...partner, chatId: CHAT_ID }), 'tok'),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
+    await expect(t.consumer.handle(t.job(partner), 'tok')).resolves.toBeUndefined();
+    expect(t.send).toHaveBeenLastCalledWith(partner);
   });
 
   it('400 chat not found is unrecoverable', async () => {
@@ -167,6 +226,31 @@ describe('TgOutboxConsumer', () => {
       expect(output).not.toContain('inline_keyboard');
     });
 
+    // D-53: owner-alert and webhook-alert job ids END with the recipient's chat id.
+    it.each([
+      ['owner alert', `alert-chainBreak-r9-${CHAT_ID}`],
+      ['bot-lifecycle alert', `alert-webhookFailed-abc12x3-${CHAT_ID}`],
+    ])(
+      '%s job id: the full chat id never reaches the log (sent, retry, 403)',
+      async (_name, id) => {
+        const t = setup();
+        const job = (data: unknown): Job => ({ ...t.job(data), id }) as unknown as Job;
+        await t.consumer.handle(job(payload), 'tok'); // sent
+        t.send.mockRejectedValueOnce(new Error('network down'));
+        await expect(t.consumer.handle(job(payload), 'tok')).rejects.toThrow('network down'); // retry
+        t.send.mockRejectedValueOnce(grammyError(403, 'Forbidden: bot was blocked by the user'));
+        await expect(t.consumer.handle(job(payload), 'tok')).rejects.toBeInstanceOf(
+          UnrecoverableError,
+        ); // blocked
+        const output = logged.join('\n');
+        for (const outcome of ['sent', 'retry', 'blocked-by-user']) {
+          expect(output).toContain(`outcome=${outcome}`);
+        }
+        expect(output).toContain(`job=${id.slice(0, -CHAT_ID.length)}${maskChatId(CHAT_ID)}`);
+        expect(output).not.toContain(CHAT_ID);
+      },
+    );
+
     it('scrubs a bot token quoted inside a network error message', async () => {
       const t = setup();
       const url = `https://api.telegram.org/bot${TEST_BOT_TOKEN}/sendMessage`;
@@ -184,5 +268,24 @@ describe('maskChatId', () => {
   it('keeps only the last 4 digits', () => {
     expect(maskChatId('1234567890')).toBe('***7890');
     expect(maskChatId('42')).toBe('***42');
+  });
+});
+
+describe('maskChatInJobId', () => {
+  it('masks the trailing segment equal to the chat id and leaves other ids alone', () => {
+    expect(maskChatInJobId('alert-chainBreak-r9-1234567890', '1234567890')).toBe(
+      'alert-chainBreak-r9-***7890',
+    );
+    expect(maskChatInJobId('order-abc-delivered', '1234567890')).toBe('order-abc-delivered');
+    expect(maskChatInJobId('topup-p1')).toBe('topup-p1');
+  });
+
+  it('without a known chat id an id-like trailing segment is still masked', () => {
+    expect(maskChatInJobId('alert-webhookFailed-abc12x3-555000')).toBe(
+      'alert-webhookFailed-abc12x3-***5000',
+    );
+    expect(maskChatInJobId('alert-webhookFailed-abc12x3-1234')).toBe(
+      'alert-webhookFailed-abc12x3-1234',
+    );
   });
 });

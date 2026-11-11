@@ -1,4 +1,4 @@
-import { TG_USER_CHAT_ID_PATTERN, TOPUP_DEFAULTS, testModeOutsideJestProblem } from '@repo/shared';
+import { TOPUP_DEFAULTS, parseOwnerAlertChatIds, testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import {
   duplicateSecretProblems,
@@ -8,7 +8,7 @@ import {
   telegramModeProblems,
   workerSecretProblems,
 } from './env-security';
-import { topupEnvProblems } from './topup-env';
+import { topupEnvProblems, topupTuningProblems, topupTuningShape } from './topup-env';
 import { parseTrustedProxies } from './trust-proxy';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
@@ -116,15 +116,21 @@ const EnvSchema = z
     TELEGRAM_NEWS_CHANNEL_URL: z.url({ protocol: /^https$/, hostname: /^t\.me$/ }).optional(),
 
     // ---- Optional now; the named phase makes them required (and checks them at boot). ----
-    // Chat that receives operational alerts (low TON balance, NEEDS_REVIEW orders, bank-feed
-    // events). Alerts travel through tg-outbox, which writes to user chats only (positive ids), so
-    // a group or channel id (negative) is refused here instead of failing silently when it matters.
+    // Chats that receive operational alerts (low TON balance, NEEDS_REVIEW orders, bank-feed
+    // events); required in production since phase 4 (checked below). A comma-separated list of 1-5
+    // user ids (D-53, the partners): every alert goes to each, the FIRST is the primary (the owner's
+    // one-time code goes only there). Kept as the normalised string (deduped, order kept); read it
+    // with ownerAlertChatIds(). Alerts travel through tg-outbox, which writes to user chats only
+    // (positive ids), so a group or channel id (negative) is refused here instead of failing
+    // silently when it matters.
     OWNER_ALERT_CHAT_ID: z
       .string()
-      .regex(
-        TG_USER_CHAT_ID_PATTERN,
-        'must be the numeric id of a user chat (positive digits; group ids are not supported)',
-      )
+      .transform((value, ctx) => {
+        const parsed = parseOwnerAlertChatIds(value);
+        if (parsed.ok) return parsed.ids.join(',');
+        ctx.addIssue({ code: 'custom', message: parsed.problem });
+        return z.NEVER;
+      })
       .optional(),
     // Phase 9 (admin): allowlist and money-action thresholds.
     ADMIN_TELEGRAM_IDS: telegramIdList,
@@ -148,6 +154,11 @@ const EnvSchema = z
     TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN: bigintString(
       String(TOPUP_DEFAULTS.NEW_ACCOUNT_DAILY_MAX_TIYIN),
     ),
+    // Suffix range, TTL, grace, new-account age and bank-feed heartbeat age (topup-env.ts).
+    ...topupTuningShape,
+    // Keys the HMAC of the pay-link capability token (D-39). API-only; rotating it kills every
+    // open pay link (docs/05 runbook). Production strength: env-security.ts.
+    PAY_TOKEN_PEPPER: z.string(),
     CLICK_SERVICE_ID: z.string().optional(),
     CLICK_MERCHANT_ID: z.string().optional(),
     CLICK_SECRET_KEY: z.string().optional(),
@@ -169,6 +180,16 @@ const EnvSchema = z
       env.TOPUP_DAILY_MAX_TIYIN,
       env.TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN,
     ];
+    const tuning = [
+      env.TOPUP_LATE_GRACE_SEC,
+      env.TOPUP_CAPACITY_HOLD_SEC,
+      env.TOPUP_INTENT_TTL_SEC,
+    ];
+    if (tuning.every((value) => typeof value === 'number')) {
+      for (const { name, message } of topupTuningProblems(env)) {
+        ctx.addIssue({ code: 'custom', path: [name], message });
+      }
+    }
     if (!values.every((value) => typeof value === 'bigint')) return;
     for (const { name, message } of topupEnvProblems(env)) {
       ctx.addIssue({ code: 'custom', path: [name], message });
@@ -249,6 +270,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
     // The Mini App button and bot links cannot work without it; dev may leave it empty.
     if (clean.MINI_APP_URL === undefined) problems.push('MINI_APP_URL: is required in production');
+    // Bank-feed alerts (reviews, DEBITs, chain breaks) are the owner's only signal that money
+    // waits for a decision: without the chat the notify jobs fail instead of vanishing (M2).
+    if (clean.OWNER_ALERT_CHAT_ID === undefined) {
+      problems.push('OWNER_ALERT_CHAT_ID: is required in production');
+    }
   }
 
   // The production check above already names a placeholder; do not report it twice.

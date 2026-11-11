@@ -193,7 +193,10 @@ describe('referral from start_param (real Postgres)', () => {
 });
 
 describe('rate limits on the webapp login (real Postgres and Redis)', () => {
-  const t = useAuthE2e();
+  // A 429 is only provable when the limiter answers: under load a Redis round trip can outlast
+  // the 300 ms production bound and the login fails open (200) by design, so give it room here.
+  // The fail-open path itself is unit-tested in mini-app-auth.service.spec.ts.
+  const t = useAuthE2e({ accountLimitTimeoutMs: 10_000 });
   const track = (telegramId: number): number => {
     t.trackRedisKey(webappLimitKey(telegramId));
     return telegramId;

@@ -13,11 +13,13 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PricingModule } from './modules/pricing/pricing.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { RecipientsModule } from './modules/recipients/recipients.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { UsersModule } from './modules/users/users.module';
+import { WalletModule } from './modules/wallet/wallet.module';
 
 export interface AppModuleOptions {
   /** Overrides the default per-IP limit; tests use a tiny window instead of 120 requests. */
@@ -42,6 +44,8 @@ export class AppModule {
         QueueModule,
         HealthModule,
         UsersModule,
+        WalletModule,
+        PaymentsModule,
         PricingModule,
         CatalogModule,
         RecipientsModule,

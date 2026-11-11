@@ -1,4 +1,18 @@
-import { ORDER_STATUSES } from '@repo/shared';
+import {
+  BANK_DIRECTIONS,
+  BANK_FEED_SOURCES,
+  BANK_OUTCOMES,
+  BANK_PARSE_STATUSES,
+  CARD_BANKS,
+  CHAIN_STATUSES,
+  INTENT_STATUSES,
+  ORDER_STATUSES,
+  PAYMENT_REVIEW_RESOLUTIONS,
+  PAYMENT_REVIEW_STATUSES,
+  REVIEW_KINDS,
+  TOPUP_CARD_STATUSES,
+  TOPUP_PROVIDER,
+} from '@repo/shared';
 import { describe, expect, it } from 'vitest';
 import { db } from './client';
 
@@ -10,6 +24,45 @@ describe('migrated database', () => {
       SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
       WHERE t.typname = 'OrderStatus' ORDER BY e.enumsortorder`;
     expect(rows.map((r) => r.enumlabel)).toEqual([...ORDER_STATUSES]);
+  });
+
+  // What is deployed, not what schema.prisma says: a migration that forgot an ADD VALUE (or a
+  // rename) passes the schema-level test but fails here. Sets, not order: Postgres keeps the
+  // order values were added in, which carries no meaning for these enums.
+  it.each([
+    ['CardBank', CARD_BANKS],
+    ['TopupCardStatus', TOPUP_CARD_STATUSES],
+    ['BankFeedSource', BANK_FEED_SOURCES],
+    ['BankParseStatus', BANK_PARSE_STATUSES],
+    ['BankDirection', BANK_DIRECTIONS],
+    ['ChainStatus', CHAIN_STATUSES],
+    ['BankOutcome', BANK_OUTCOMES],
+    ['PaymentReviewKind', REVIEW_KINDS],
+    ['PaymentReviewStatus', PAYMENT_REVIEW_STATUSES],
+    ['PaymentReviewResolution', PAYMENT_REVIEW_RESOLUTIONS],
+    ['IntentStatus', INTENT_STATUSES],
+  ] as const)('%s enum in Postgres equals its shared list', async (typname, list) => {
+    const rows = await db.$queryRaw<{ enumlabel: string }[]>`
+      SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typname = ${typname}`;
+    expect(rows.map((r) => r.enumlabel).sort()).toEqual([...list].sort());
+  });
+
+  it('PaymentProviderCode in Postgres contains the P2P provider code', async () => {
+    const rows = await db.$queryRaw<{ enumlabel: string }[]>`
+      SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typname = 'PaymentProviderCode'`;
+    expect(rows.map((r) => r.enumlabel)).toContain(TOPUP_PROVIDER);
+  });
+
+  it('the foreign keys added in review have their indexes', async () => {
+    const rows = await db.$queryRaw<{ indexname: string }[]>`
+      SELECT indexname FROM pg_indexes WHERE schemaname = 'public'
+        AND indexname IN ('BankMessageOutcome_reviewId_idx', 'PaymentReview_resolvedAuditLogId_idx')`;
+    expect(rows.map((r) => r.indexname).sort()).toEqual([
+      'BankMessageOutcome_reviewId_idx',
+      'PaymentReview_resolvedAuditLogId_idx',
+    ]);
   });
 
   it('append-only tables have no updatedAt column', async () => {

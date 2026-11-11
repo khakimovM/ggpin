@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
@@ -13,6 +13,7 @@ import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import type { Env } from '../../../config/env';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { RedisService } from '../../../infra/redis/redis.service';
+import { ACCOUNT_LIMIT_TIMEOUT } from '../mini-app-auth.service';
 import { newLoginJobId } from '../new-login-notice.service';
 import { TokenCodec } from '../token-codec';
 import { buildInitData } from './init-data.fixtures';
@@ -69,7 +70,13 @@ export interface AuthE2e {
 // Registers beforeAll/afterAll for the calling describe: boots the real app on the `*_test`
 // database (fresh in-memory throttler per call, so each describe has its own 5/min budget) with a
 // movable clock, and deletes only the rows it created. Contains no test.
-export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}): AuthE2e {
+export function useAuthE2e(
+  options: {
+    readonly logs?: DestinationStream;
+    /** Overrides the 300 ms fail-open bound of the per-account limiter (see ACCOUNT_LIMIT_TIMEOUT). */
+    readonly accountLimitTimeoutMs?: number;
+  } = {},
+): AuthE2e {
   const base = buildE2eEnv();
   const env = options.logs === undefined ? base : { ...base, LOG_LEVEL: 'info' as const };
   const clock: MutableClock = (() => {
@@ -94,12 +101,17 @@ export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}):
   let codec: TokenCodec;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
+    let builder = Test.createTestingModule({
       imports: [AppModule.register(env, { logDestination: options.logs })],
     })
       .overrideProvider(CLOCK)
-      .useValue(clock)
-      .compile();
+      .useValue(clock);
+    if (options.accountLimitTimeoutMs !== undefined) {
+      builder = builder
+        .overrideProvider(ACCOUNT_LIMIT_TIMEOUT)
+        .useValue(options.accountLimitTimeoutMs);
+    }
+    const moduleRef = await builder.compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(createHttpAdapter(env), {
       logger: false,
     });
@@ -171,7 +183,7 @@ export function useAuthE2e(options: { readonly logs?: DestinationStream } = {}):
     // test database never collide.
     newTelegramId: () => {
       for (;;) {
-        const id = Date.now() * 4000 + (randomBytes(2).readUInt16BE() % 4000);
+        const id = nextTestTelegramId();
         if (!used.has(id)) {
           used.add(id);
           return id;

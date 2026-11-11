@@ -182,6 +182,7 @@ audit log, adminlar.
 - [ ] Har bir amal audit log yozadi (test)
 - [ ] Katta pul amallarida qo‘shimcha kod so‘raladi
 - [ ] Ruxsatsiz → 404
+- [ ] Admin bitta `@repo/ui/styles.css` kirish faylini import qiladi (tokenlar, `theme.css`, `dark` varianti); `dark:` klasslari (danger tugma, premium badge) ikkala mavzuda ishlaydi
 - [ ] `security-auditor` — admin bo‘yicha critical/high yo‘q
 
 ---

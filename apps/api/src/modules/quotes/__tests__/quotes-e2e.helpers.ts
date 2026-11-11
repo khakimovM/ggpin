@@ -1,3 +1,4 @@
+import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
 import { randomBytes } from 'node:crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
@@ -63,6 +64,18 @@ export interface QuotesE2eOptions {
   readonly config?: Partial<Env>;
 }
 
+/**
+ * A suite whose config says NODE_ENV=production still runs on the *_test database on purpose, so
+ * the production database identity check (D-52 r2: a production process refuses *_dev/*_test or
+ * dev-marked databases) is skipped for it, and only for it. The check itself is proven in
+ * infra/prisma/__tests__/prisma.service.spec.ts and packages/db/test/database-identity.e2e.test.ts.
+ */
+class TestDatabasePrismaService extends PrismaService {
+  override onModuleInit(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
 // Boots the real app on the *_test database with a movable clock. The suite creates its own
 // users, tokens and (through `fixtures`) catalog rows, and removes exactly those in afterAll:
 // quotes first, because Quote references users, products, FX rates and cost snapshots with
@@ -100,10 +113,13 @@ export function useQuotesE2e<F>(
   };
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule.register(env)] })
+    const builder = Test.createTestingModule({ imports: [AppModule.register(env)] })
       .overrideProvider(CLOCK)
-      .useValue({ now: () => now })
-      .compile();
+      .useValue({ now: () => now });
+    if (env.NODE_ENV === 'production') {
+      builder.overrideProvider(PrismaService).useClass(TestDatabasePrismaService);
+    }
+    const moduleRef = await builder.compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(createHttpAdapter(env), {
       logger: false,
     });
@@ -142,8 +158,8 @@ export function useQuotesE2e<F>(
   const csrfHeaders = { 'x-csrf-token': 'e2e', origin: env.WEB_URL };
 
   const newUser = async (): Promise<TestUser> => {
-    // Under 2^53 and random enough that other suites on the shared database never collide.
-    const telegramId = Date.now() * 4000 + (randomBytes(2).readUInt16BE() % 4000);
+    // Unique across files, runs and jest workers (test-telegram-id.ts), under 2^53.
+    const telegramId = nextTestTelegramId();
     const { user } = await app
       .get(UsersService)
       .ensureTelegramUser({ telegramId: BigInt(telegramId), firstName: 'Quote' }, { now });

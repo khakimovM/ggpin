@@ -126,6 +126,13 @@
   "alerts": {
     "bankFeed": {
       "unrecognized": "⚠️ Bank xabari tanilmadi. Ko‘rib chiqish: {reviewId}",
+      "titleUnknown": "⚠️ {bank} kartasi ***{last4} ga {amount} tushdi va so‘rovga aynan mos keldi, lekin xabar sarlavhasi tanilmadi: avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}",
+      "integrityAnomaly": "🚨 XAVFSIZLIK ({reason}): {bank} kartasi ***{last4} uchun saqlangan bank xabari tekshiruvdan o‘tmadi — qotirilgan bank botidan emas yoki matni o‘zgargan. Kartada avtomatik yozish to‘xtatildi. Worker sozlamasidagi bot id (BANK_FEED_*_BOT_ID) va ishchi akkauntni tekshiring. Ko‘rib chiqish: {reviewId}",
+      "foreignChat": "🚨 XAVFSIZLIK: {bank} bot manbasiga boshqa chatdagi xabar keldi. U saqlanmadi va pulga aylanmaydi. Listener chat filtrini va ishchi akkauntning chatlarini tekshiring.",
+      "processingFailed": "⛔ {bank} kartasi ***{last4}: bank xabarini birorta urinishda ham ishlab bo‘lmadi. Kartada avtomatik yozish to‘xtatildi. Ko‘rib chiqish: {reviewId}",
+      "amountReallocated": "⚠️ {bank} kartasi ***{last4} ga {amount} kech keldi, lekin bu summa allaqachon boshqa so‘rovga berilgan: kimniki ekanini aniqlab, qo‘lda yozing. Ko‘rib chiqish: {reviewId}",
+      "lateStored": "⚠️ {bank} kartasi ***{last4} ga kelgan {amount} haqidagi bank xabari kech saqlandi (tarixdan topildi yoki listener uzilishdan keyin oldi), so‘rov esa endi kutilmayapti: avtomatik yozilmadi. Bu pulni qo‘lda bermaganingizni tekshirib, keyin hal qiling. Ko‘rib chiqish: {reviewId}",
+      "manualCreditSeen": "⚠️ {bank} kartasi ***{last4} ga {amount} keldi va so‘rovga mos tushdi, lekin foydalanuvchiga bu so‘rovdan keyin qo‘lda pul berilgan: avtomatik yozilmadi. Ikki marta yozmaslik uchun tekshiring, keyin hal qiling. Ko‘rib chiqish: {reviewId}",
       "rejected": "🚫 Bank xabari rad etildi ({reason}). Ko‘rib chiqish: {reviewId}",
       "edited": "✏️ Bank xabari tahrirlandi: {messageId}. Avvalgi yozuv o‘zgarmadi.",
       "cardUnknown": "❓ Nomaʼlum kartaga pul tushdi. Ko‘rib chiqish: {reviewId}",
@@ -139,24 +146,43 @@
       "cardVerified": "✅ {bank} kartasi ***{last4} tasdiqlandi va faollashtirildi.",
       "cardNearLimit": "📈 {bank} kartasi ***{last4}: limit {percent}% to‘ldi.",
       "cardFull": "🈵 {bank} kartasi ***{last4} limiti to‘ldi, unga yangi so‘rovlar berilmaydi.",
+      "cardReservedHigh": "⏳ {bank} kartasi ***{last4}: to‘lanmagan band so‘rovlar qolgan limitning {percent}% ini egallab turibdi. Sig‘imni card:limit buyrug‘i bilan oshiring yoki shubhali akkauntlarni tekshiring.",
+      "lateOverLimit": "🚨 {bank} kartasi ***{last4}: kech kelgan {amount} to‘lov kartani qabul limitidan oshirdi. Bank chegarasini tekshiring va card:limit ni ko‘rib chiqing.",
       "listenerDown": "🔴 Bank xabarlari tinglovchisi {minutes} daqiqadan beri ishlamayapti. Yangi to‘ldirish so‘rovlari to‘xtatildi.",
       "sessionRevoked": "🔴 Bank xabarlari sessiyasi bekor qilingan, tinglovchi to‘xtadi. Qayta kirish kerak.",
       "newAuthorization": "🚨 Ishchi akkauntga nomaʼlum yangi qurilma kirdi. Barcha kartalarda avtomatik yozish to‘xtatildi. Sessiyalarni tekshiring.",
-      "reconcileOk": "✅ Kunlik solishtirishda farq yo‘q. Tekshirilgan xabarlar: {count}. Chiqimlar: {debits}",
-      "reconcileMismatch": "⚠️ Kunlik solishtirishda farqlar topildi. Farqlar soni: {count}. Chiqimlar: {debits}",
+      "authorizationsBaseline": "🚨 Ishchi akkaunt sessiyalari ro‘yxati bazada yo‘q edi va hozir yozildi. Barcha kartalarda avtomatik yozish to‘xtatildi. Telegram → Devices bo‘limida faqat sizlarning (ega va sherik) qurilmalaringiz va worker sessiyasi borligini tekshirib, har bir karta uchun card:resume qiling.",
+      "listenerStopped": "🔴 Bank xabarlari tinglovchisi butunlay to‘xtadi, sabab: {reason}. Yangi to‘ldirish so‘rovlari to‘xtatildi. Runbook bo‘yicha harakat qiling.",
+      "bankChatAnomaly": "🚨 {bank} boti chatida begona xabar topildi ({reason}): ishchi akkaunt faqat o‘qishi kerak. Barcha kartalarda avtomatik yozish to‘xtatildi. Akkauntni tekshiring.",
+      "accountBound": "ℹ️ Bank xabarlari tinglovchisi ishchi akkauntga birinchi marta bog‘landi. Endi faqat shu akkaunt ishlaydi; boshqa akkaunt sessiyasi bilan tinglovchi to‘xtaydi. Buni siz kutmagan bo‘lsangiz, runbook bo‘yicha harakat qiling.",
+      "reconcileOk": "✅ Kunlik solishtirishda farq yo‘q. Tekshirilgan xabarlar: {count}. Chiqimlar: {debits}. Ochiq ko‘rib chiqishlar: {openReviews}. Tarix qayta skani: {history}.",
+      "reconcileMismatch": "⚠️ Kunlik solishtirish: farq yoki tekshirilmagan qism bor. Farqlar soni: {count} ({details}). Chiqimlar: {debits}. Ochiq ko‘rib chiqishlar: {openReviews}. Tarix qayta skani: {history}.",
+      "reconcileFailed": "⛔ {day} kungi solishtirish barcha urinishlarda xato bilan tugadi: farqlar tekshirilmadi. Worker loglarini ko‘ring; ertangi solishtirish yana oxirgi 48 soatni qamraydi.",
       "walletFrozen": "🧊 Foydalanuvchi {userId} hamyoni manfiy balans tufayli xaridlar uchun muzlatildi.",
+      "limitCheckFailed": "⚠️ {bank} kartasi ***{last4} limitini tekshirib bo‘lmadi (barcha urinishlar xato bilan tugadi). Karta holatini qo‘lda tekshiring. Xabar: {messageId}",
+      "messageStuck": "⛔ Bank xabari {messageId} barcha urinishlarda xato bilan tugadi va oxirigacha ishlanmadi: ko‘rib chiqish yozuvi yoki ogohlantirishlar bo‘lmasligi mumkin. Qo‘lda tekshiring. Xabar 30 daqiqadan keyin avtomatik qayta ishlanadi va pul allaqachon yozilgan bo‘lishi mumkin. Qo‘lda berishdan oldin foydalanuvchining oxirgi to‘ldirishini tekshiring.",
+      "effectsFailed": "⛔ Bank xabari {messageId} bo‘yicha qaror saqlangan, lekin undan keyingi amallar xato bilan tugadi; bu xabar avtomatik qayta ishlanmaydi. Foydalanuvchiga bildirishnoma, ogohlantirishlar yoki karta limiti tekshiruvi bormagan bo‘lishi mumkin. review:list va foydalanuvchining oxirgi to‘ldirishini tekshiring.",
       "cancelledLate": "🚫 Bekor qilingan so‘rovga {amount} tushdi, avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}",
       "possibleReversal": "↩️ Karta ***{last4} dan {amount} yechildi: yaqinda yozilgan to‘lov qaytarib olingan bo‘lishi mumkin. Ko‘rib chiqish: {reviewId}",
       "userBlocked": "⛔ {amount} bloklangan foydalanuvchining so‘roviga tushdi, avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}",
       "debit": "➖ Karta ***{last4} dan {amount} yechildi.",
       "cardSilent": "🔇 {bank} kartasi ***{last4} ga uzoq vaqt pul tushmadi. Soatlar: {hours}. Tinglovchi va botni tekshiring.",
       "cardDraining": "🚰 {bank} kartasi ***{last4} yopilmoqda: yangi so‘rovlar berilmaydi, mavjudlari muddatigacha yoziladi.",
+      "cardDrained": "🔒 {bank} kartasi ***{last4} ishdan chiqarildi: undagi barcha band summalar muddati tugadi.",
       "adminAction": "🛠 Ega amali: {action} ({ref}).",
       "dailyLimit": "🛑 {amount} kunlik limitdan oshadi ({limit}), avtomatik yozilmadi. Ko‘rib chiqish: {reviewId}"
     },
     "bot": {
       "webhookFailed": "🔴 Bot webhook o‘rnatilmadi (urinish: {attempt}). API ishlayapti, fonda qayta uriniladi.",
       "setupFailed": "🟠 Bot sozlamalari (buyruqlar, menyu) o‘rnatilmadi (urinish: {attempt}). Webhook o‘rnatilgan, sozlash fonda qayta uriniladi."
+    },
+    "ownerConfirm": {
+      "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
+    },
+    "reconcileHistory": {
+      "ok": "bajarildi",
+      "unavailable": "bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan yoki bu worker hozir lider emas",
+      "failed": "bajarilmadi, xato bilan tugadi"
     },
     "limitReason": {
       "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",

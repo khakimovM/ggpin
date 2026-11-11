@@ -138,6 +138,7 @@ describe('order and quote amounts', () => {
       db.payment.create({
         data: {
           intentId: intent.id,
+          userId: user.id,
           provider: 'CLICK',
           providerTxnId: 't0',
           amountTiyin: -1n,

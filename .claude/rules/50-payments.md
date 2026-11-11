@@ -19,7 +19,7 @@ paths:
   automatically: it becomes a `PaymentReview` and an owner alert. Only an EXPIRED intent inside its grace window
   (and a PENDING one) is credited without a human.
 - Exact amount match in tiyin. Every amount is reserved on its card until `reservedUntil` (`expiresAt + grace`, or
-  `paidAt + grace` once PAID), enforced by a DB exclusion constraint; take ONE per-card advisory lock at a time
+  `GREATEST(reservedUntil, paidAt + grace)` once PAID, never shorter; the DB refuses any other value), enforced by a DB exclusion constraint; take ONE per-card advisory lock at a time
   (never hold two). Per user: one PENDING, at most 3 UNPAID reserved (PENDING, or EXPIRED/CANCELLED with `reservedUntil > now`; PAID does
   not count), 5 requests / 10 min and 10 / 24 h.
 - Idempotency: unique `(senderId, tgMessageId)`, `Payment.bankMessageId`, `BankMessageOutcome.bankMessageId`,

@@ -85,7 +85,7 @@ describe('BotLifecycleService webhook mode', () => {
     expect(fake.callsOf('setWebhook')).toHaveLength(3);
     expect(enqueue).toHaveBeenCalledTimes(1);
     const [jobId, job] = enqueue.mock.calls[0] as [string, { chatId: string; text: string }];
-    expect(jobId).toMatch(/^alert-webhookFailed-[a-z0-9]+x3$/);
+    expect(jobId).toMatch(/^alert-webhookFailed-[a-z0-9]+x3-555000$/);
     expect(job.chatId).toBe('555000');
     expect(job.text).toContain('3'); // the attempt number
     expect(job.text).toContain('webhook');
@@ -102,6 +102,42 @@ describe('BotLifecycleService webhook mode', () => {
     await service.beforeApplicationShutdown();
   });
 
+  // D-53: every partner is told, one outbox job each, and one failing queue write does not
+  // stop the next one.
+  it('the failure alert goes to every partner, with the chat id in each job id', async () => {
+    const { fake, enqueue, service } = setup({
+      ...WEBHOOK_CONFIG,
+      OWNER_ALERT_CHAT_ID: '555000,666000',
+    });
+    fake.failMethod('setWebhook');
+    await bootstrap(service);
+    await jest.advanceTimersByTimeAsync(3 * WEBHOOK_RETRY_FIRST_DELAY_MS);
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    const calls = enqueue.mock.calls as [string, { chatId: string; text: string }][];
+    expect(calls.map(([, job]) => job.chatId)).toEqual(['555000', '666000']);
+    expect(calls[0]?.[0]).toMatch(/^alert-webhookFailed-[a-z0-9]+x3-555000$/);
+    expect(calls[1]?.[0]).toMatch(/^alert-webhookFailed-[a-z0-9]+x3-666000$/);
+    expect(calls[0]?.[1].text).toBe(calls[1]?.[1].text);
+    await service.beforeApplicationShutdown();
+  });
+
+  it('a queue failure for the first partner still queues the second', async () => {
+    const { fake, enqueue, service } = setup({
+      ...WEBHOOK_CONFIG,
+      OWNER_ALERT_CHAT_ID: '555000,666000',
+    });
+    enqueue.mockRejectedValueOnce(new Error('redis down'));
+    fake.failMethod('setWebhook');
+    await bootstrap(service);
+    await jest.advanceTimersByTimeAsync(3 * WEBHOOK_RETRY_FIRST_DELAY_MS);
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    const second = enqueue.mock.calls[1] as [string, { chatId: string }];
+    expect(second[1].chatId).toBe('666000');
+    expect(second[0]).toMatch(/-666000$/);
+    expect(printed(logged.mock.calls)).toContain('could not queue the webhook alert');
+    await service.beforeApplicationShutdown();
+  });
+
   it('keeps alerting about once an hour while the webhook keeps failing', async () => {
     const { fake, enqueue, service } = setup();
     fake.failMethod('setWebhook');
@@ -109,7 +145,7 @@ describe('BotLifecycleService webhook mode', () => {
     // Delays: 30 s, 60 s, 120 s, 240 s, 480 s, then 10 minutes: failure 9 is at about 45 minutes.
     await jest.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
     const ids = enqueue.mock.calls.map((call: [string]) => call[0]);
-    expect(ids.slice(0, 3).map((id) => /x(\d+)$/.exec(id)?.[1])).toEqual(['3', '9', '15']);
+    expect(ids.slice(0, 3).map((id) => /x(\d+)-555000$/.exec(id)?.[1])).toEqual(['3', '9', '15']);
     await service.beforeApplicationShutdown();
   });
 

@@ -4,7 +4,7 @@ import { RedisService } from './redis.service';
 export interface WindowHit {
   /** Hits in the current window, this one included. */
   readonly count: number;
-  /** Seconds until the window ends (always > 0). */
+  /** Seconds until the window ends: 1..windowSec. */
   readonly ttlSec: number;
 }
 
@@ -38,6 +38,9 @@ export class FixedWindowCounter {
     if (typeof count !== 'number' || typeof ttl !== 'number') {
       throw new Error('redis hit script returned an unexpected result');
     }
-    return { count, ttlSec: Math.max(1, ttl) };
+    // Never longer than the window: after a VM or NTP clock jump Redis may report a TTL above it
+    // (seen as Retry-After 602 for a 600 s window under load), and a Retry-After longer than the
+    // window it describes would be a lie to the client.
+    return { count, ttlSec: Math.min(windowSec, Math.max(1, ttl)) };
   }
 }

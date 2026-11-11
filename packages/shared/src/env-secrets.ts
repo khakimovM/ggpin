@@ -19,6 +19,9 @@ export const WORKER_ONLY_SECRETS = [
   'BANK_FEED_API_HASH',
   'BANK_FEED_SESSION_ENC',
   'BANK_FEED_ENC_KEY',
+  // D-52 D3: the Docker-secret file holding BANK_FEED_ENC_KEY in production (a path, but where
+  // the key lives is the worker's business only).
+  'BANK_FEED_ENC_KEY_FILE',
 ] as const;
 
 // Secrets that only apps/api may hold. The worker refuses to boot with one: a worker that

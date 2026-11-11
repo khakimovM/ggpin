@@ -1,1 +1,5 @@
 * text=auto eol=lf
+
+# Byte-exact bank message fixture: the test needs its CRLF line endings, so Git must not
+# normalise it (eol=lf above would store and check it out with LF only).
+apps/worker/src/bank-feed/parsers/__fixtures__/*crlf* -text
