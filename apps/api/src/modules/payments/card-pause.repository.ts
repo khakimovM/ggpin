@@ -51,8 +51,7 @@ export class CardPauseRepository {
       id: r.id,
       what: r.note === null ? r.kind : `${r.kind}/${r.note}`,
     }));
-    const decision = await this.pauseDecision(tx, cardId);
-    return decision === null ? found : [...found, decision];
+    return [...found, ...(await this.pauseDecisions(tx, cardId))];
   }
 
   /** Live (not RETIRED) cards other than this one with auto-credit paused (D-52 D2). */
@@ -62,22 +61,33 @@ export class CardPauseRepository {
     });
   }
 
-  // The latest pause/resume decision, however old (S8 R1: a pause made before the chain broke must
-  // not be lifted by accepting that break). A CARD_PAUSE (the owner's, or the worker's SYSTEM
+  // Every pause decision still standing, however old (S8 R1: a pause made before the chain broke
+  // must not be lifted by accepting that break). A CARD_PAUSE (the owner's, or the worker's SYSTEM
   // security pause) stands until a CARD_RESUME: accept-chain never switches a card back on over
-  // it; only card:resume does.
-  private async pauseDecision(tx: Db, cardId: string): Promise<PauseReason | null> {
-    const last = await tx.auditLog.findFirst({
-      where: {
-        targetType: 'TopupCard',
-        targetId: cardId,
-        action: { in: ['CARD_PAUSE', 'CARD_RESUME'] },
-      },
+  // it; only card:resume does. ALL of them, oldest first, not only the latest: the owner's
+  // card:pause on top of a security pause must not hide it from card:resume (final review N1/R-1).
+  // Same rule as @repo/db's security-pause predicate: a resume closes only the pauses strictly
+  // older than it; one in the very same millisecond stays open (fail closed).
+  private async pauseDecisions(tx: Db, cardId: string): Promise<PauseReason[]> {
+    const card = { targetType: 'TopupCard', targetId: cardId } as const;
+    const resume = await tx.auditLog.findFirst({
+      where: { ...card, action: 'CARD_RESUME' },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, action: true, actorType: true, reason: true },
+      select: { createdAt: true },
     });
-    if (last?.action !== 'CARD_PAUSE') return null;
-    const security = last.actorType === 'SYSTEM';
-    return { id: last.id, what: security ? `SECURITY_PAUSE/${last.reason}` : 'CARD_PAUSE' };
+    const pauses = await tx.auditLog.findMany({
+      where: {
+        ...card,
+        action: 'CARD_PAUSE',
+        ...(resume === null ? {} : { createdAt: { gte: resume.createdAt } }),
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 100,
+      select: { id: true, actorType: true, reason: true },
+    });
+    return pauses.map((p) => ({
+      id: p.id,
+      what: p.actorType === 'SYSTEM' ? `SECURITY_PAUSE/${String(p.reason)}` : 'CARD_PAUSE',
+    }));
   }
 }

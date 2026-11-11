@@ -7,8 +7,9 @@ import { WalletController } from './wallet.controller';
 import { WalletRepository } from './wallet.repository';
 import { WalletService } from './wallet.service';
 
-// Redis, Clock, Prisma, config and the queues come from global modules. The admin service is
-// exported for the owner CLI (phase 4 S8); it has no controller.
+// Redis, Clock, Prisma, config and the queues come from global modules. The admin service has no
+// controller and no route. The owner CLI does NOT use this module: it registers its own providers
+// (cli/ops-cli.module.ts). The service is exported here only so the API e2e suites can reach it.
 //
 // SECURITY: WalletAdminService does NO role check of its own. Call it only from the owner CLI
 // (a process the operator starts on the server) or from a handler behind an OWNER guard; never

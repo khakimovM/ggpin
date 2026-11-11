@@ -19,8 +19,9 @@ import { TopupLimits } from './topup-limits';
 
 // P2P card top-ups, API side (docs/05): card choice, unique amounts, intents and the pay page.
 // Crediting is the worker's (bank-feed). Prisma, Redis (FixedWindowCounter), Clock, config and
-// the queues come from global modules. CardAdminService is exported for the owner CLI (S8); it
-// has no controller.
+// the queues come from global modules. CardAdminService has no controller and no route. The owner
+// CLI does NOT use this module: it registers its own providers (cli/ops-cli.module.ts). The
+// service is exported here only so the API e2e suites can reach it.
 @Module({
   controllers: [PaymentsController, PayLinkController],
   providers: [

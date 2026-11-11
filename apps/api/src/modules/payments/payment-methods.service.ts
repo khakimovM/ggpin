@@ -3,6 +3,7 @@ import {
   CARD_BANKS,
   PaymentMethodsResponseSchema,
   TOPUP_PROVIDER,
+  scrubSecretsInText,
   type PaymentMethodsResponse,
 } from '@repo/shared';
 import { CLOCK, type Clock } from '../../common/clock/clock';
@@ -94,7 +95,8 @@ export class PaymentMethodsService {
   }
 
   private miss(op: string, error: unknown): void {
-    const reason = error instanceof Error ? error.message : 'unknown error';
+    const reason =
+      error instanceof Error ? scrubSecretsInText(error.message).slice(0, 200) : 'unknown error';
     this.logger.warn(`payment methods cache ${op} skipped: ${reason}`);
   }
 }

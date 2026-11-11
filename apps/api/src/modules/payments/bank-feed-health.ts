@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { BANK_FEED_HEARTBEAT_KEY } from '@repo/shared';
+import { BANK_FEED_HEARTBEAT_KEY, scrubSecretsInText } from '@repo/shared';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { RedisService } from '../../infra/redis/redis.service';
@@ -30,7 +30,8 @@ export class BankFeedHealth {
     try {
       raw = await this.readWithTimeout();
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'unknown error';
+      const reason =
+        error instanceof Error ? scrubSecretsInText(error.message).slice(0, 200) : 'unknown error';
       this.logger.warn(`bank-feed heartbeat unreadable: ${reason}`);
       return false;
     }

@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto';
 import { validationError } from '../admin-input';
 
 // The owner's one-time code for money actions above ADMIN_CONFIRM_THRESHOLD_TIYIN (D-46). The
-// owner CLI asks for it, the bot sends it to OWNER_ALERT_CHAT_ID, the money service checks it
-// BEFORE its transaction and writes `after.otpVerified` in the AuditLog. Phase 2 OTP pattern:
-// HMAC(OTP_PEPPER) hash only, constant-time compare, attempts counter; the code itself is never
-// stored, logged or printed.
+// owner CLI asks for it, the bot sends it to the primary (first) OWNER_ALERT_CHAT_ID only, never
+// to the other partners (D-53), the money service checks it BEFORE its transaction and writes
+// `after.otpVerified` in the AuditLog. Phase 2 OTP pattern: HMAC(OTP_PEPPER) hash only,
+// constant-time compare, attempts counter; the code itself is never stored, logged or printed.
 
 export const OWNER_OTP_ACTIONS = ['review:credit', 'wallet:adjust', 'payment:reverse'] as const;
 export type OwnerOtpAction = (typeof OWNER_OTP_ACTIONS)[number];

@@ -9,6 +9,7 @@ import { ACTOR, useOpsE2e } from './ops-e2e.harness';
 // touches is RETIRED at the end: an open security pause on a live card would make every later
 // card:add on this database create its card paused.
 const t = useOpsE2e();
+const SECURITY_OK = '--confirm-security-pause';
 const WHO = ['--reason', 'checked the account sessions', '--operator', ACTOR.operator];
 
 async function freshPan(): Promise<string> {
@@ -77,7 +78,9 @@ describe('owner CLI under a security pause (D-52 r2)', () => {
       expect(fields(added.out)['autoCreditPaused']).toBe('true');
       const warning = added.out.find((l) => l.startsWith('warning: the card is born paused'));
       expect(warning).toContain('Telegram -> Devices');
-      expect(warning).toContain(`card:resume ${bornId} BEFORE sending the verify transfer`);
+      expect(warning).toContain(
+        `card:resume ${bornId} --confirm-security-pause BEFORE sending the verify transfer`,
+      );
       expect(await paused(bornId)).toBe(true);
       const born = await t.db().auditLog.findFirstOrThrow({
         where: { targetId: bornId, action: 'CARD_PAUSE' },
@@ -101,8 +104,9 @@ describe('owner CLI under a security pause (D-52 r2)', () => {
       expect(await paused(card.id)).toBe(true);
 
       // card:resume is the owner's decision: it lifts the security pause (CARD_RESUME row) and
-      // warns that other cards are paused too.
-      const resumed = await t.run(['card:resume', card.id, ...WHO]);
+      // warns that other cards are paused too. A security pause needs --confirm-security-pause
+      // (L-1: its own test below).
+      const resumed = await t.run(['card:resume', card.id, SECURITY_OK, ...WHO]);
       expect(resumed.code).toBe(0);
       expect(resumed.out.some((l) => l.includes('other card(s) are paused too'))).toBe(true);
       expect(await paused(card.id)).toBe(false);
@@ -110,7 +114,7 @@ describe('owner CLI under a security pause (D-52 r2)', () => {
         where: { id: fields(resumed.out)['audit'] ?? '' },
       });
       expect(resumeAudit).toMatchObject({ action: 'CARD_RESUME', actorType: 'CLI' });
-      expect((await t.run(['card:resume', bornId, ...WHO])).code).toBe(0);
+      expect((await t.run(['card:resume', bornId, SECURITY_OK, ...WHO])).code).toBe(0);
       expect(await paused(bornId)).toBe(false);
 
       // Lifted on both: the next card:add is born running again (unless one was open before).
@@ -125,6 +129,60 @@ describe('owner CLI under a security pause (D-52 r2)', () => {
       );
     } finally {
       await retire(touched.filter((id) => id !== ''));
+    }
+  });
+});
+
+describe('card:resume names the pause it lifts (security audit L-1)', () => {
+  const resumeRows = (cardId: string) =>
+    t.db().auditLog.count({ where: { targetId: cardId, action: 'CARD_RESUME' } });
+
+  it('refuses a SECURITY pause without --confirm-security-pause and writes nothing; with it, the audit names the lifted pause', async () => {
+    const card = await t.card();
+    try {
+      const pauseId = await securityPause(card.id);
+      const lifted = `SECURITY/NEW_AUTHORIZATION:${pauseId}`;
+
+      const refused = await t.run(['card:resume', card.id, ...WHO]);
+      expect(refused.code).toBe(1);
+      expect(fields(refused.out)['liftsPause']).toBe(lifted);
+      expect(refused.out.join('\n')).toContain('--confirm-security-pause');
+      expect(refused.err[0]).toContain('SECURITY_PAUSE_OPEN');
+      // --confirm-override is about open reviews: it does not confirm a security pause.
+      const overridden = await t.run(['card:resume', card.id, '--confirm-override', ...WHO]);
+      expect(overridden.code).toBe(1);
+      expect(overridden.err[0]).toContain('SECURITY_PAUSE_OPEN');
+      expect(await paused(card.id)).toBe(true);
+      expect(await resumeRows(card.id)).toBe(0);
+
+      const resumed = await t.run(['card:resume', card.id, SECURITY_OK, ...WHO]);
+      expect(resumed.code).toBe(0);
+      expect(fields(resumed.out)['liftsPause']).toBe(lifted);
+      expect(await paused(card.id)).toBe(false);
+      const audit = await t.db().auditLog.findUniqueOrThrow({
+        where: { id: fields(resumed.out)['audit'] ?? '' },
+      });
+      expect(audit.after).toMatchObject({ liftedPause: lifted, override: false });
+    } finally {
+      await retire([card.id]);
+    }
+  });
+
+  it("the owner's own card:pause is lifted without the flag, and the audit names it", async () => {
+    const card = await t.card();
+    try {
+      const pause = await t.run(['card:pause', card.id, ...WHO]);
+      const pauseId = fields(pause.out)['audit'] ?? '?';
+      const resumed = await t.run(['card:resume', card.id, ...WHO]);
+      expect(resumed.code).toBe(0);
+      expect(fields(resumed.out)['liftsPause']).toBe(`OWNER/CARD_PAUSE:${pauseId}`);
+      expect(await paused(card.id)).toBe(false);
+      const audit = await t.db().auditLog.findUniqueOrThrow({
+        where: { id: fields(resumed.out)['audit'] ?? '' },
+      });
+      expect(audit.after).toMatchObject({ liftedPause: `OWNER/CARD_PAUSE:${pauseId}` });
+    } finally {
+      await retire([card.id]);
     }
   });
 });

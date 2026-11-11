@@ -1,7 +1,12 @@
 import { checkedBank, checkedHolderName } from '../../modules/payments/card-admin.input';
 import { CardAdminService, type CardChange } from '../../modules/payments/card-admin.service';
 import { isPauseDecision } from '../../modules/payments/card-pause.repository';
-import { CardPauseService, reasonsText } from '../../modules/payments/card-pause.service';
+import {
+  CardPauseService,
+  isSecurityPause,
+  liftedText,
+  reasonsText,
+} from '../../modules/payments/card-pause.service';
 import { CardListing } from '../card-listing';
 import {
   ACTOR_OPTIONS,
@@ -81,7 +86,7 @@ const add: CliCommand = {
       ctx.io.out(
         'warning: the card is born paused: a security pause is open on the other cards. Check ' +
           'Telegram -> Devices of the bank-feed account (docs/05 runbook), then run ' +
-          `card:resume ${added.cardId} BEFORE sending the verify transfer.`,
+          `card:resume ${added.cardId} --confirm-security-pause BEFORE sending the verify transfer.`,
       );
     }
   },
@@ -164,17 +169,38 @@ const pause: CliCommand = {
 
 const resume: CliCommand = {
   name: 'card:resume',
-  summary: 'resume auto-credit on a card (lists the open pause reasons first)',
+  summary: 'resume auto-credit on a card (lists the pause it lifts and the open reasons first)',
   usage:
-    `card:resume <cardId> [--confirm-override] ${ACTOR_USAGE}` +
-    '   (--confirm-override: resume although a chain break, integrity or failure review is open; ' +
-    'a bare flag, no value; wallet:adjust takes --confirm-override=<set> instead)',
+    `card:resume <cardId> [--confirm-security-pause] [--confirm-override] ${ACTOR_USAGE}` +
+    "   (--confirm-security-pause: lift the worker's security pause after the bank-feed account " +
+    'was checked; --confirm-override: resume although a chain break, integrity or failure ' +
+    'review is open; both are bare flags, no value; wallet:adjust takes --confirm-override=<set> ' +
+    'instead)',
   async run(ctx, argv) {
-    const p = parse(argv, { ...ACTOR_OPTIONS, 'confirm-override': { type: 'boolean' } }, 1);
+    const p = parse(
+      argv,
+      {
+        ...ACTOR_OPTIONS,
+        'confirm-override': { type: 'boolean' },
+        'confirm-security-pause': { type: 'boolean' },
+      },
+      1,
+    );
     const { reason, actor } = actorOf(ctx, p);
     const id = positional(p, 0);
     const pauses = ctx.app.get(CardPauseService);
-    const open = (await pauses.openReasons(id)).filter((r) => !isPauseDecision(r));
+    const reasons = await pauses.openReasons(id);
+    const lifts = reasons.filter(isPauseDecision);
+    const open = reasons.filter((r) => !isPauseDecision(r));
+    const confirmSecurityPause = flag(p, 'confirm-security-pause');
+    if (lifts.length > 0) report(ctx, { liftsPause: liftedText(lifts) });
+    if (lifts.some(isSecurityPause) && !confirmSecurityPause) {
+      // L-1: the service refuses it too (under the card lock); this says why, and what to do.
+      ctx.io.out(
+        'a SECURITY pause is open: read its alert and check Telegram -> Devices of the bank-feed ' +
+          'account (docs/05 runbook 3a), then resume with --confirm-security-pause',
+      );
+    }
     if (open.length > 0) {
       report(ctx, { openPauseReviews: reasonsText(open) });
       ctx.io.out(
@@ -193,7 +219,13 @@ const resume: CliCommand = {
       );
     }
     const override = flag(p, 'confirm-override');
-    changed(ctx, await pauses.resumeAutoCredit(id, reason, actor, { confirmOverride: override }));
+    changed(
+      ctx,
+      await pauses.resumeAutoCredit(id, reason, actor, {
+        confirmOverride: override,
+        confirmSecurityPause,
+      }),
+    );
   },
 };
 

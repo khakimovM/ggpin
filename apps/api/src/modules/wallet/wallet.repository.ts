@@ -97,7 +97,6 @@ export class WalletRepository {
     return db.payment.findUnique({ where: { id: paymentId } });
   }
 
-  /** One entry by its idempotency key, scoped to the owner. */
   /**
    * The user's automatic P2P top-ups confirmed since `since` (Payment CONFIRMED without a
    * review: the matcher's), newest first. Decides only when read under the Wallet lock.
@@ -117,6 +116,7 @@ export class WalletRepository {
     });
   }
 
+  /** One entry by its idempotency key, scoped to the owner. */
   findEntry(tx: Db, key: EntryKey): Promise<LedgerEntry | null> {
     return tx.ledgerEntry.findFirst({
       where: { userId: key.userId, refType: key.refType, refId: key.refId, kind: key.kind },

@@ -201,7 +201,9 @@ describe('OwnerAlertRenderer', () => {
       };
       const text = await run(after).render('reconcileMismatch', '20300504');
       expect(text).toContain('Farqlar soni: 3 (recovered=2, lateOverLimit=1)');
-      expect(text).toContain('bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan');
+      expect(text).toContain(
+        'bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan yoki bu worker hozir lider emas',
+      );
       const none = await run({ ...clean, historyScan: 'failed' }).render('reconcileMismatch', 'd');
       expect(none).toContain('Farqlar soni: 12 (-)');
       expect(none).toContain('xato bilan tugadi');
