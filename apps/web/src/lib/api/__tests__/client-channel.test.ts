@@ -1,7 +1,7 @@
 import { PAY_TOKEN_HEADER } from '@repo/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MOCK_PAY_TOKEN, mockPayView } from '../mock/fixtures/payments';
 import { ME } from './helpers';
+import { INTENT_ID, PAY_TOKEN, payView } from './payment-fixtures';
 
 // Same approach as client.test.ts: the real app-wide client over a stubbed `fetch`.
 
@@ -55,13 +55,11 @@ describe('request hardening', () => {
   });
 
   it('the pay view is requested with no-store, a token header and nothing else sensitive', async () => {
-    const seen = stubFetch(() => ok(mockPayView('PENDING', new Date())));
+    const seen = stubFetch(() => ok(payView('PENDING')));
     const { getPayView } = await import('../payments');
-    await getPayView('intent_mock_1', MOCK_PAY_TOKEN);
+    await getPayView(INTENT_ID, PAY_TOKEN);
     expect(seen[0]?.init.cache).toBe('no-store');
-    expect((seen[0]?.init.headers as Record<string, string>)[PAY_TOKEN_HEADER]).toBe(
-      MOCK_PAY_TOKEN,
-    );
+    expect((seen[0]?.init.headers as Record<string, string>)[PAY_TOKEN_HEADER]).toBe(PAY_TOKEN);
   });
 
   it('session requests default to no-store; only the catalog opts in to caching', async () => {
@@ -102,7 +100,7 @@ describe('ids that become path segments', () => {
     await expect(getProduct('A B/c', 'uz')).rejects.toMatchObject({ status: 404 });
     await expect(revokeSession('a/b')).rejects.toMatchObject({ status: 404 });
     await expect(getLoginStatus('short')).rejects.toMatchObject({ status: 404 });
-    await expect(getPayView('../x', MOCK_PAY_TOKEN)).rejects.toMatchObject({ status: 404 });
+    await expect(getPayView('../x', PAY_TOKEN)).rejects.toMatchObject({ status: 404 });
     expect(seen).toHaveLength(0);
   });
 

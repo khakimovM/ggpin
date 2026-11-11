@@ -37,15 +37,15 @@ describe('parseClientEnv', () => {
 
   it('allows a mock list outside production', () => {
     const env = parseClientEnv(
-      { ...valid, NEXT_PUBLIC_API_MOCKS: 'wallet, orders' },
+      { ...valid, NEXT_PUBLIC_API_MOCKS: 'quotes, orders' },
       { production: false },
     );
-    expect(env.NEXT_PUBLIC_API_MOCKS).toEqual(['wallet', 'orders']);
+    expect(env.NEXT_PUBLIC_API_MOCKS).toEqual(['quotes', 'orders']);
   });
 
   it('fails a production build when any mock group is enabled', () => {
     expect(() =>
-      parseClientEnv({ ...valid, NEXT_PUBLIC_API_MOCKS: 'wallet' }, { production: true }),
+      parseClientEnv({ ...valid, NEXT_PUBLIC_API_MOCKS: 'orders' }, { production: true }),
     ).toThrow(/NEXT_PUBLIC_API_MOCKS must be empty/);
   });
 
@@ -121,6 +121,18 @@ describe('parseClientEnv', () => {
         { production: true },
       );
       expect(env.NEXT_PUBLIC_BOT_USERNAME).toBe(name);
+    },
+  );
+
+  // Phase 4 is real: these two names no longer exist, and a leftover in an env file must fail loudly.
+  it.each(['wallet', 'payments', 'orders,wallet'])(
+    'rejects the removed mock group %s and names the valid ones',
+    (list) => {
+      for (const production of [true, false]) {
+        expect(() =>
+          parseClientEnv({ ...valid, NEXT_PUBLIC_API_MOCKS: list }, { production }),
+        ).toThrow(/Invalid option: expected one of .*recipients.*quotes.*orders.*referrals/s);
+      }
     },
   );
 

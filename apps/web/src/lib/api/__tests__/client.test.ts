@@ -1,13 +1,10 @@
 import { CSRF_HEADER, PAY_TOKEN_HEADER } from '@repo/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MOCK_PAY_TOKEN, mockIntentCreated, mockPayView } from '../mock/fixtures/payments';
 import { ME, TEST_IDEMPOTENCY_KEY } from './helpers';
+import { INTENT_ID, PAY_TOKEN, intentCreated, payView } from './payment-fixtures';
 
 // The app-wide client, end to end through its real transport (a stubbed `fetch`), so the
 // feature modules' choices (credentials, headers, channel) are checked as the browser sends them.
-
-const SITE = 'http://localhost:3000';
-const NOW = new Date('2026-11-05T10:00:00.000Z');
 
 interface Seen {
   url: string;
@@ -48,7 +45,7 @@ afterEach(() => {
 
 describe('payments API functions', () => {
   it('createTopupIntent sends the idempotency key, the CSRF header and cookies', async () => {
-    const seen = stubFetch(() => envelope(mockIntentCreated({ siteUrl: SITE, now: NOW }), 201));
+    const seen = stubFetch(() => envelope(intentCreated('uz'), 201));
     const { createTopupIntent } = await import('../payments');
 
     const created = await createTopupIntent(
@@ -69,15 +66,15 @@ describe('payments API functions', () => {
   });
 
   it('getPayView sends the capability token in X-Pay-Token only: no cookies, no referrer, token not in the URL', async () => {
-    const seen = stubFetch(() => envelope(mockPayView('PENDING', NOW)));
+    const seen = stubFetch(() => envelope(payView('PENDING')));
     const { getPayView } = await import('../payments');
 
-    await getPayView('intent_mock_1', MOCK_PAY_TOKEN);
+    await getPayView(INTENT_ID, PAY_TOKEN);
 
     const [request] = seen;
-    expect(request?.url).toBe('http://localhost:5000/api/v1/payments/pay/intent_mock_1');
-    expect(request?.url).not.toContain(MOCK_PAY_TOKEN);
-    expect(request && headersOf(request)[PAY_TOKEN_HEADER]).toBe(MOCK_PAY_TOKEN);
+    expect(request?.url).toBe(`http://localhost:5000/api/v1/payments/pay/${INTENT_ID}`);
+    expect(request?.url).not.toContain(PAY_TOKEN);
+    expect(request && headersOf(request)[PAY_TOKEN_HEADER]).toBe(PAY_TOKEN);
     expect(request?.init.credentials).toBe('omit');
     expect(request?.init.referrerPolicy).toBe('no-referrer');
   });
@@ -85,7 +82,7 @@ describe('payments API functions', () => {
   it('getPayView refuses a malformed token locally with the same NOT_FOUND the server uses', async () => {
     const seen = stubFetch(() => envelope({}));
     const { getPayView } = await import('../payments');
-    await expect(getPayView('intent_mock_1', 'short')).rejects.toMatchObject({
+    await expect(getPayView(INTENT_ID, 'short')).rejects.toMatchObject({
       code: 'NOT_FOUND',
       status: 404,
     });
@@ -110,12 +107,13 @@ describe('mock transport', () => {
   });
 
   it('answers a mocked group from fixtures without touching fetch, and leaves other groups on the network', async () => {
-    vi.stubEnv('NEXT_PUBLIC_API_MOCKS', 'wallet');
+    vi.stubEnv('NEXT_PUBLIC_API_MOCKS', 'orders');
     const seen = stubFetch(() => envelope(ME));
-    const { getWallet, getMe } = await import('../me');
+    const { getOrder } = await import('../orders');
+    const { getMe } = await import('../me');
 
-    const wallet = await getWallet();
-    expect(wallet).toMatchObject({ currency: 'UZS', balanceTiyin: '12550000' });
+    const order = await getOrder('order_1');
+    expect(order).toMatchObject({ id: 'order_1', status: 'PROCESSING' });
     expect(seen).toHaveLength(0);
 
     await getMe();

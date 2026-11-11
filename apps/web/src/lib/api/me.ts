@@ -29,7 +29,7 @@ export function updateMe(body: UpdateMeBody): Promise<Me> {
 
 /** Balance and coins exactly as the server computed them; the browser never adds or subtracts. */
 export function getWallet(signal?: AbortSignal): Promise<WalletResponse> {
-  return apiFetch({ path: '/me/wallet', group: 'wallet', signal }, WalletResponseSchema);
+  return apiFetch({ path: '/me/wallet', signal }, WalletResponseSchema);
 }
 
 export function getLedger(
@@ -38,7 +38,7 @@ export function getLedger(
 ): Promise<{ items: LedgerItem[]; meta: PageMeta }> {
   const { kind, page, limit } = filters;
   return apiFetchList(
-    { path: '/me/ledger', query: { kind, page, limit }, group: 'wallet', signal },
+    { path: '/me/ledger', query: { kind, page, limit }, signal },
     LedgerItemSchema,
   );
 }

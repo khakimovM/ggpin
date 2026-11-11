@@ -25,10 +25,7 @@ import { resourceId } from './path';
 export type IntentFilters = Partial<Pick<IntentListQuery, 'status'>> & { limit?: number };
 
 export function getPaymentMethods(signal?: AbortSignal): Promise<PaymentMethodsResponse> {
-  return apiFetch(
-    { path: '/payments/methods', group: 'payments', signal },
-    PaymentMethodsResponseSchema,
-  );
+  return apiFetch({ path: '/payments/methods', signal }, PaymentMethodsResponseSchema);
 }
 
 /** One `idempotencyKey` per top-up attempt: a retry must return the same request, not a second. */
@@ -38,7 +35,7 @@ export function createTopupIntent(
   signal?: AbortSignal,
 ): Promise<TopupIntentCreated> {
   return apiFetch(
-    { method: 'POST', path: '/payments/intents', body, idempotencyKey, group: 'payments', signal },
+    { method: 'POST', path: '/payments/intents', body, idempotencyKey, signal },
     TopupIntentCreatedSchema,
   );
 }
@@ -49,16 +46,13 @@ export function listTopupIntents(
   signal?: AbortSignal,
 ): Promise<TopupIntent[]> {
   return apiFetch(
-    { path: '/payments/intents', query: { ...filters }, group: 'payments', signal },
+    { path: '/payments/intents', query: { ...filters }, signal },
     TopupIntentSchema.array(),
   );
 }
 
 export async function getTopupIntent(id: string, signal?: AbortSignal): Promise<TopupIntent> {
-  return apiFetch(
-    { path: `/payments/intents/${resourceId(id)}`, group: 'payments', signal },
-    TopupIntentSchema,
-  );
+  return apiFetch({ path: `/payments/intents/${resourceId(id)}`, signal }, TopupIntentSchema);
 }
 
 export async function cancelTopupIntent(id: string): Promise<CancelTopupIntentResponse> {
@@ -67,7 +61,6 @@ export async function cancelTopupIntent(id: string): Promise<CancelTopupIntentRe
       method: 'POST',
       path: `/payments/intents/${resourceId(id)}/cancel`,
       body: {},
-      group: 'payments',
     },
     CancelTopupIntentResponseSchema,
   );
@@ -80,7 +73,6 @@ export async function createPayLink(id: string): Promise<PayLinkResponse> {
       method: 'POST',
       path: `/payments/intents/${resourceId(id)}/pay-link`,
       body: {},
-      group: 'payments',
     },
     PayLinkResponseSchema,
   );
@@ -118,7 +110,6 @@ export async function getPayView(
       path: PAY_DISPLAY_PATH(intentId),
       headers: { [PAY_TOKEN_HEADER]: payToken },
       session: 'anonymous',
-      group: 'payments',
       // Per-request state behind a capability token: never from, or into, an HTTP cache.
       cache: 'no-store',
       signal,

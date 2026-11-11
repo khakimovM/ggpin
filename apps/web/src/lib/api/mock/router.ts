@@ -9,7 +9,6 @@ export const MOCK_SCENARIOS = [
   'recipientNotFound',
   'priceUnavailable',
   'orderFailed',
-  'intentExpired',
 ] as const;
 export type MockScenario = (typeof MOCK_SCENARIOS)[number];
 

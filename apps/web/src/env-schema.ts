@@ -1,14 +1,9 @@
 import { z } from 'zod';
 
 // Groups of API endpoints that may be served by the in-browser mock transport (phase 7 only).
-export const MOCK_GROUP_NAMES = [
-  'recipients',
-  'quotes',
-  'wallet',
-  'orders',
-  'payments',
-  'referrals',
-] as const;
+// `wallet` and `payments` are gone (phase 4 is merged: those endpoints are real); naming them in
+// NEXT_PUBLIC_API_MOCKS is a configuration error, not a silent no-op.
+export const MOCK_GROUP_NAMES = ['recipients', 'quotes', 'orders', 'referrals'] as const;
 export type MockGroupName = (typeof MOCK_GROUP_NAMES)[number];
 
 // Local-development fallbacks. Production never uses them: a missing value fails the build.

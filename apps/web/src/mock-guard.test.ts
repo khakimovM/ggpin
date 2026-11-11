@@ -9,7 +9,7 @@ import { assertNoMocksInProduction, isProductionRun } from './mock-guard';
 
 describe('assertNoMocksInProduction', () => {
   it('stops a production build that has mock groups', () => {
-    expect(() => assertNoMocksInProduction({ isProduction: true, mocks: ['wallet'] })).toThrow(
+    expect(() => assertNoMocksInProduction({ isProduction: true, mocks: ['orders'] })).toThrow(
       /NEXT_PUBLIC_API_MOCKS/,
     );
   });
@@ -20,7 +20,7 @@ describe('assertNoMocksInProduction', () => {
 
   it('lets development use mocks', () => {
     expect(() =>
-      assertNoMocksInProduction({ isProduction: false, mocks: ['wallet', 'payments'] }),
+      assertNoMocksInProduction({ isProduction: false, mocks: ['quotes', 'orders'] }),
     ).not.toThrow();
   });
 });
@@ -56,7 +56,7 @@ describe('next.config.ts with mocks enabled', () => {
   });
 
   function loadConfig(phase: string, command: string) {
-    vi.stubEnv('NEXT_PUBLIC_API_MOCKS', 'wallet');
+    vi.stubEnv('NEXT_PUBLIC_API_MOCKS', 'orders');
     process.argv = [...NEXT, command];
     return () => config(phase);
   }

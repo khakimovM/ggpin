@@ -19,7 +19,7 @@ describe('env module', () => {
   });
 
   it('throws on import in production when any mock group is enabled', async () => {
-    stubEnv('production', 'wallet');
+    stubEnv('production', 'orders');
     await expect(import('./env')).rejects.toThrow(/NEXT_PUBLIC_API_MOCKS must be empty/);
   });
 
@@ -30,8 +30,8 @@ describe('env module', () => {
   });
 
   it('allows mocks outside production', async () => {
-    stubEnv('development', 'wallet,orders');
+    stubEnv('development', 'quotes,orders');
     const { env } = await import('./env');
-    expect(env.NEXT_PUBLIC_API_MOCKS).toEqual(['wallet', 'orders']);
+    expect(env.NEXT_PUBLIC_API_MOCKS).toEqual(['quotes', 'orders']);
   });
 });

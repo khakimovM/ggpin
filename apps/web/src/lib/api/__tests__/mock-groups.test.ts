@@ -4,15 +4,15 @@ import { isMockedWith } from '../mock-groups';
 
 describe('isMockedWith', () => {
   it('mocks only the groups on the list, outside production', () => {
-    const source = { production: false, groups: ['wallet', 'payments'] } as const;
-    expect(isMockedWith('wallet', source)).toBe(true);
-    expect(isMockedWith('payments', source)).toBe(true);
-    expect(isMockedWith('orders', source)).toBe(false);
+    const source = { production: false, groups: ['quotes', 'orders'] } as const;
+    expect(isMockedWith('quotes', source)).toBe(true);
+    expect(isMockedWith('orders', source)).toBe(true);
+    expect(isMockedWith('recipients', source)).toBe(false);
     expect(isMockedWith(undefined, source)).toBe(false);
   });
 
   it('is always false in production, whatever the list says', () => {
-    expect(isMockedWith('wallet', { production: true, groups: ['wallet'] })).toBe(false);
+    expect(isMockedWith('orders', { production: true, groups: ['orders'] })).toBe(false);
   });
 });
 
@@ -25,7 +25,7 @@ describe('production guard', () => {
 
   it('a production env with a mock list is refused', () => {
     expect(() =>
-      parseClientEnv({ ...PROD_ENV, NEXT_PUBLIC_API_MOCKS: 'wallet' }, { production: true }),
+      parseClientEnv({ ...PROD_ENV, NEXT_PUBLIC_API_MOCKS: 'orders' }, { production: true }),
     ).toThrow(/NEXT_PUBLIC_API_MOCKS/);
   });
 
@@ -57,17 +57,17 @@ describe('production guard', () => {
     });
 
     it('the app refuses to load with mocks configured in production', async () => {
-      stubProduction('wallet,payments');
+      stubProduction('orders,quotes');
       await expect(import('../mock-groups')).rejects.toThrow(/NEXT_PUBLIC_API_MOCKS/);
     });
 
     it('outside production the configured groups are mocked', async () => {
       vi.stubEnv('NODE_ENV', 'development');
-      vi.stubEnv('NEXT_PUBLIC_API_MOCKS', 'wallet');
+      vi.stubEnv('NEXT_PUBLIC_API_MOCKS', 'orders');
       vi.resetModules();
       const { isMocked } = await import('../mock-groups');
-      expect(isMocked('wallet')).toBe(true);
-      expect(isMocked('orders')).toBe(false);
+      expect(isMocked('orders')).toBe(true);
+      expect(isMocked('recipients')).toBe(false);
     });
   });
 });

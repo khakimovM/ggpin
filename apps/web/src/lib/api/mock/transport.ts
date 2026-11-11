@@ -4,11 +4,9 @@ import { CSRF_HEADER, DEFAULT_LOCALE, LOCALES, type Locale } from '@repo/shared'
 import { env } from '../../../env';
 import type { Transport, TransportRequest, TransportResponse } from '../transport';
 import { ordersRoutes } from './handlers/orders';
-import { paymentsRoutes } from './handlers/payments';
 import { quotesRoutes } from './handlers/quotes';
 import { recipientsRoutes } from './handlers/recipients';
 import { referralsRoutes } from './handlers/referrals';
-import { walletRoutes } from './handlers/wallet';
 import {
   fail,
   matchRoute,
@@ -19,8 +17,6 @@ import {
 } from './router';
 
 const ROUTES: readonly MockRoute[] = [
-  ...walletRoutes,
-  ...paymentsRoutes,
   ...quotesRoutes,
   ...recipientsRoutes,
   ...ordersRoutes,
