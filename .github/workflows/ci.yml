@@ -54,8 +54,9 @@ jobs:
         with: { node-version: 24, cache: npm }
       - run: npm ci
       # apps/web imports @repo/shared from dist; Playwright builds and starts apps/web itself.
-      # The API (and what it is built from: shared, db) is built for the real-API journey.
-      - run: npx turbo run build --filter=api...
+      # The API and the worker (and what they are built from: shared, db) are built for the
+      # real-API journeys: the top-up journey starts the worker in BANK_FEED_MODE=fake.
+      - run: npx turbo run build --filter=api... --filter=worker...
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v4
