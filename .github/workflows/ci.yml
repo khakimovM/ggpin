@@ -5,6 +5,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # A green run takes about 7 minutes. The ceiling stops a hung suite (an open handle keeps
+    # Jest alive forever) from holding the PR for the 6-hour default.
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -30,7 +33,8 @@ jobs:
       - run: npx turbo run test:e2e --concurrency=1 --filter="!web"
   e2e-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The full matrix (about 2,500 tests on 2 workers) needs about 35 minutes plus the builds.
+    timeout-minutes: 60
     # Journey 4 runs against the real API: it needs Postgres and Redis. The e2e database is
     # created and migrated by the Playwright setup project (it is not ggpin_test, which the backend
     # suites clear); Redis DB 13 is used by the test API.
