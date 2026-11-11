@@ -9,6 +9,7 @@ import { CLOCK } from '../../../common/clock/clock';
 import { createHttpAdapter } from '../../../common/http/create-http-adapter';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import type { Env } from '../../../config/env';
+import { TestDatabasePrismaService } from '../../../infra/prisma/__tests__/test-database-prisma.service';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { RedisService } from '../../../infra/redis/redis.service';
 import { TokenCodec } from '../../auth/token-codec';
@@ -62,18 +63,6 @@ export interface QuotesE2e<F> {
 export interface QuotesE2eOptions {
   /** Applied after loading, like the price book unit fixtures: lets a suite boot as NODE_ENV=production without the production-only env checks. */
   readonly config?: Partial<Env>;
-}
-
-/**
- * A suite whose config says NODE_ENV=production still runs on the *_test database on purpose, so
- * the production database identity check (D-52 r2: a production process refuses *_dev/*_test or
- * dev-marked databases) is skipped for it, and only for it. The check itself is proven in
- * infra/prisma/__tests__/prisma.service.spec.ts and packages/db/test/database-identity.e2e.test.ts.
- */
-class TestDatabasePrismaService extends PrismaService {
-  override onModuleInit(): Promise<void> {
-    return Promise.resolve();
-  }
 }
 
 // Boots the real app on the *_test database with a movable clock. The suite creates its own

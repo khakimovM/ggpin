@@ -9,6 +9,7 @@ import { configureApp } from '../../../app.setup';
 import { createHttpAdapter } from '../../../common/http/create-http-adapter';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import type { Env } from '../../../config/env';
+import { TestDatabasePrismaService } from '../../../infra/prisma/__tests__/test-database-prisma.service';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { UsersService } from '../../users/users.service';
 import { newLoginJobId } from '../new-login-notice.service';
@@ -48,9 +49,15 @@ function useApp(nodeEnv: 'production' | 'development') {
   let ipSeq = 0;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
+    const builder = Test.createTestingModule({
       imports: [AppModule.register(env, { logDestination: SILENT })],
-    }).compile();
+    });
+    // A production config on the *_test database: skip only the production database identity
+    // check (D-52 r2), as the quotes production suite does.
+    if (nodeEnv === 'production') {
+      builder.overrideProvider(PrismaService).useClass(TestDatabasePrismaService);
+    }
+    const moduleRef = await builder.compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(createHttpAdapter(env), {
       logger: false,
     });
