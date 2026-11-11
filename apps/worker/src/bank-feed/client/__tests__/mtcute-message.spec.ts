@@ -48,6 +48,12 @@ describe('toBankFeedMessage (mtcute raw fields -> BankFeedMessage)', () => {
     expect(reason({ viaBotId: 777 })).toBe('VIA_BOT');
     expect(reason({ viaBusinessBotId: 778 })).toBe('VIA_BOT');
     expect(reason({ out: true, fromId: { _: 'peerUser', userId: SELF } })).toBe('OUTGOING');
+    // Security I-1: another author's forward is FOREIGN_SENDER (an anomaly), not FORWARDED.
+    const someoneElse = { fromId: { _: 'peerUser', userId: 123 } as const };
+    const sender = { type: 'user', id: 123, isBot: true } as const;
+    expect(reason({ fwdFrom: { _: 'messageFwdHeader' }, ...someoneElse, sender })).toBe(
+      'FOREIGN_SENDER',
+    );
   });
 
   it('sender: fromId when present, else the chat user; isBot only from a user sender with that id', () => {

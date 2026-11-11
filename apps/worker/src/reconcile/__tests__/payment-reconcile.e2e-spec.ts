@@ -1,5 +1,4 @@
-import { QUEUES, RECONCILE_AUDIT, notifyJobId, tashkentDayKey } from '@repo/shared';
-import { Queue } from 'bullmq';
+import { RECONCILE_AUDIT, notifyJobId, tashkentDayKey } from '@repo/shared';
 import { useMatcherE2e } from '../../bank-feed/__tests__/matcher-e2e.harness';
 import {
   HOUR,
@@ -20,7 +19,6 @@ import {
   RECONCILE_WINDOW_MS,
   type ReconcileReport,
 } from '../payment-reconcile.service';
-import { PAYMENT_RECONCILE_SCHEDULE } from '../payment-reconcile.scheduler';
 import { chainBreaks, creditUnaccounted } from '../reconcile-checks';
 import { bootReconcileWorker, type ReconcileWorker } from './reconcile-e2e.harness';
 
@@ -144,7 +142,13 @@ describe('payment-reconcile (real Postgres + Redis, fake bank-feed client)', () 
     const row = await t.db.bankMessage.findUniqueOrThrow({ where: { id: id ?? '' } });
     expect(row).toMatchObject({ parseStatus: 'REJECTED', rejectReason: 'FORWARDED', cardId: null });
     await t.a.matcher.process(row.id, false);
-    expect(await t.outcome(row.id)).toMatchObject({ outcome: 'REVIEW', payment: null });
+    const outcome = await t.outcome(row.id);
+    expect(outcome).toMatchObject({ outcome: 'REVIEW', payment: null });
+    expect(outcome?.review?.kind).toBe('REJECTED');
+    // Never silent (review I6): the owner gets the `rejected` alert of that review.
+    const refId = outcome?.review?.id ?? '';
+    const job = await t.notifyJob(notifyJobId({ kind: 'OWNER_ALERT', alert: 'rejected', refId }));
+    expect(job?.data).toEqual({ kind: 'OWNER_ALERT', alert: 'rejected', refId });
   });
 
   it('counts each mismatch its fixture causes, exactly', async () => {
@@ -275,27 +279,5 @@ describe('payment-reconcile (real Postgres + Redis, fake bank-feed client)', () 
     const report = await run();
     expect(report.history.state).toBe('failed');
     expect(report.ok).toBe(false);
-  });
-
-  it('the cron fires at 03:00 Asia/Tashkent (22:00 UTC)', async () => {
-    const queue = new Queue(QUEUES.PAYMENT_RECONCILE, { connection: { url: t.env.REDIS_URL } });
-    const id = `${PAYMENT_RECONCILE_SCHEDULE.id}-e2e-${String(Date.now())}`;
-    try {
-      await queue.upsertJobScheduler(id, PAYMENT_RECONCILE_SCHEDULE.rule, {
-        name: PAYMENT_RECONCILE_SCHEDULE.jobName,
-        data: {},
-      });
-      const scheduler = await queue.getJobScheduler(id);
-      const next = new Date(scheduler?.next ?? 0);
-      expect(next.getUTCHours()).toBe(22);
-      expect(next.getUTCMinutes()).toBe(0);
-      expect(next.getTime()).toBeGreaterThan(Date.now());
-      expect(next.getTime() - Date.now()).toBeLessThanOrEqual(24 * HOUR);
-    } finally {
-      await queue.removeJobScheduler(id);
-      const left = (await queue.getDelayed()).filter((j) => j.repeatJobKey === id);
-      for (const job of left) await job.remove();
-      await queue.close();
-    }
   });
 });

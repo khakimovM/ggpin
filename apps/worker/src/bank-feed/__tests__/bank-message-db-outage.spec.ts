@@ -13,10 +13,10 @@ import type { MatcherService } from '../matcher.service';
 // the message closed; a data error does not wait. Collaborators are plain fakes: no Redis or DB.
 const ID = 'cm3bankmsg0000000000001';
 
-function outage(): Error {
+function outage(code = 'P1001'): Error {
   return Object.assign(new Error('synthetic'), {
     name: 'PrismaClientKnownRequestError',
-    code: 'P1001',
+    code,
   });
 }
 
@@ -63,17 +63,20 @@ function job(data: BankMessageJob, attemptsMade: number) {
 }
 
 describe('BankMessageProcessor database outage window (N5)', () => {
-  it('delays an outage without spending an attempt, even on the last attempt', async () => {
-    const { processor, close } = setup(outage());
-    const j = job({ bankMessageId: ID, dbOutageWaits: 3 }, 4);
-    const before = Date.now();
-    await expect(processor.process(j, 'tok')).rejects.toBeInstanceOf(DelayedError);
-    expect(j.updateData).toHaveBeenCalledWith({ bankMessageId: ID, dbOutageWaits: 4 });
-    const [until, token] = j.moveToDelayed.mock.calls[0] ?? [0, undefined];
-    expect(until).toBeGreaterThanOrEqual(before + DB_OUTAGE_WAIT_MS);
-    expect(token).toBe('tok');
-    expect(close).not.toHaveBeenCalled();
-  });
+  it.each(['P1001', 'P2028'])(
+    'delays an outage (%s) without spending an attempt, even on the last attempt',
+    async (code) => {
+      const { processor, close } = setup(outage(code));
+      const j = job({ bankMessageId: ID, dbOutageWaits: 3 }, 4);
+      const before = Date.now();
+      await expect(processor.process(j, 'tok')).rejects.toBeInstanceOf(DelayedError);
+      expect(j.updateData).toHaveBeenCalledWith({ bankMessageId: ID, dbOutageWaits: 4 });
+      const [until, token] = j.moveToDelayed.mock.calls[0] ?? [0, undefined];
+      expect(until).toBeGreaterThanOrEqual(before + DB_OUTAGE_WAIT_MS);
+      expect(token).toBe('tok');
+      expect(close).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps the predecessor wait count apart from the outage count', async () => {
     const { processor } = setup(outage());

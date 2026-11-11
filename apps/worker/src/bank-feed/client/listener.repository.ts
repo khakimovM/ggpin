@@ -1,7 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { readDatabaseIdentity, type DatabaseIdentity } from '@repo/db';
+import { readDatabaseIdentity, type DatabaseIdentity, type Prisma } from '@repo/db';
 import type { BankFeedSource } from '@repo/shared';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+
+/**
+ * Rows of the source's own chat (the re-scan's OWN_CHAT, reconcile.repository.ts): never an older
+ * FOREIGN_CHAT row (B2). An OR, because `rejectReason <> 'FOREIGN_CHAT'` alone would also drop
+ * every NULL (accepted) row.
+ */
+const OWN_CHAT = {
+  OR: [{ rejectReason: null }, { rejectReason: { not: 'FOREIGN_CHAT' } }],
+} satisfies Prisma.BankMessageWhereInput;
 
 /** The listener's reads (rules/20: Prisma only in repositories). */
 @Injectable()
@@ -39,13 +48,23 @@ export class ListenerRepository {
     return readDatabaseIdentity(this.prisma.client);
   }
 
-  /** The stored row of a bot's message, by the unique (senderId, tgMessageId). */
+  /**
+   * The stored row of a message of the source's own bot chat, by (source, tgMessageId) like the
+   * re-scan's `knownIds`: NOT by the pinned bot as sender, because the account's own (OUTGOING)
+   * message is stored with the account's id as `senderId` (review M1). There is no unique key on
+   * these two columns, hence `findFirst`; at most one row can match: the account has ONE id
+   * sequence for its private chats (BankFeedMessage.id), a private-chat message has exactly one
+   * author, and ingest stores each (senderId, tgMessageId) once. Older FOREIGN_CHAT rows (B2) carry
+   * another chat's numbering and are left out, as in the re-scan. Oldest first only so the answer
+   * stays stable should that reasoning ever fail.
+   */
   async storedMessage(
-    senderId: bigint,
+    source: BankFeedSource,
     tgMessageId: bigint,
   ): Promise<{ readonly id: string; readonly rejectReason: string | null } | null> {
-    return this.prisma.client.bankMessage.findUnique({
-      where: { senderId_tgMessageId: { senderId, tgMessageId } },
+    return this.prisma.client.bankMessage.findFirst({
+      where: { source, tgMessageId, ...OWN_CHAT },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { id: true, rejectReason: true },
     });
   }

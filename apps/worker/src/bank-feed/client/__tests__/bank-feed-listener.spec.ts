@@ -230,8 +230,8 @@ describe('BankFeedListener', () => {
     t.client.emitNew({ source: 'UZCARD_BOT', messageId: 6n });
     expect(t.polls).toEqual(['UZCARD_BOT']);
     t.polls.length = 0;
-    t.stored.set(77n, { id: 'cm3stored77', rejectReason: null });
-    t.stored.set(78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
+    t.storeRow('HUMO_BOT', 77n, { id: 'cm3stored77', rejectReason: null });
+    t.storeRow('HUMO_BOT', 78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
     t.client.emitEdit({ source: 'HUMO_BOT', messageId: 77n });
     t.client.emitEdit({ source: 'HUMO_BOT', messageId: 78n });
     await flush();
@@ -241,8 +241,11 @@ describe('BankFeedListener', () => {
     ]);
     expect(t.anomalies).toEqual([['HUMO_BOT', 'OUTGOING', 78n]]);
     t.client.emitEdit({ source: 'HUMO_BOT', messageId: 79n });
+    // A row is found only in its own source's chat: the other chat's id 78 is not stored.
+    t.client.emitEdit({ source: 'UZCARD_BOT', messageId: 78n });
     await flush();
-    expect(t.polls).toEqual(['HUMO_BOT']);
+    expect(t.polls).toEqual(['HUMO_BOT', 'UZCARD_BOT']);
+    expect(t.alerts).toHaveLength(2);
   });
 
   it('shutdown: disconnect, heartbeat cleared, lock released, client closed', async () => {

@@ -78,9 +78,12 @@ export class ListenerUpdates {
   }
 
   private async edited(nudge: BankFeedNudge): Promise<void> {
-    const bot = this.deps.pinnedBot(nudge.source);
-    const stored =
-      bot === null ? null : await this.deps.messages.storedMessage(bot, nudge.messageId);
+    // Looked up by the source's chat, not by the bot as sender: the account's own (OUTGOING) row
+    // carries the account's id as senderId (review M1). An unpinned source stores nothing.
+    const pinned = this.deps.pinnedBot(nudge.source) !== null;
+    const stored = pinned
+      ? await this.deps.messages.storedMessage(nudge.source, nudge.messageId)
+      : null;
     if (stored === null) {
       this.nudge(nudge);
       return;

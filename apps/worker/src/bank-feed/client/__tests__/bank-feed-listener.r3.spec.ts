@@ -91,8 +91,8 @@ describe('BankFeedListener (D-52 r3)', () => {
     await t.tick();
     expect(t.listener.isLeading()).toBe(true);
     expect(t.listener.mayRead()).toBe(false);
-    t.stored.set(78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
-    t.stored.set(79n, { id: 'cm3stored79', rejectReason: 'OUTGOING' });
+    t.storeRow('HUMO_BOT', 78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
+    t.storeRow('UZCARD_BOT', 79n, { id: 'cm3stored79', rejectReason: 'OUTGOING' });
     t.client.emitEdit({ source: 'HUMO_BOT', messageId: 78n });
     await flush();
     expect(t.alerts).toEqual([['edited', 'cm3stored78']]);
@@ -122,7 +122,7 @@ describe('BankFeedListener (D-52 r3)', () => {
 
   it('I-A: a worker that is not leading handles no edit at all', async () => {
     const t = harness();
-    t.stored.set(78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
+    t.storeRow('HUMO_BOT', 78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
     t.client.emitEdit({ source: 'HUMO_BOT', messageId: 78n });
     await flush();
     expect(t.alerts).toEqual([]);

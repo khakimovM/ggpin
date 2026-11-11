@@ -2,8 +2,20 @@
 // the first may wait: a short Postgres outage must not fail every in-flight message closed and
 // pause its card. Read structurally (no Prisma runtime class imported), as prisma-errors.ts.
 
-/** Prisma engine codes of an unreachable or dropped database, or an exhausted pool. */
-const PRISMA_CONNECTION_CODES = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
+/**
+ * Prisma engine codes of an unreachable or dropped database, or an exhausted pool.
+ *
+ * P2028 (review L1): the interactive transaction did not start within `maxWait`, or ran past its
+ * `timeout` (recorded against the test DB, apps/api db-errors.ts). The matcher's `maxWait` (4 s) is
+ * below the pool's connection timeout (5 s, @repo/db), so an exhausted pool shows up as P2028, not
+ * as P2024. Waiting it out is safe: Prisma rolls the transaction back (and Postgres drops an
+ * uncommitted one with its connection), so nothing of the attempt stays; a COMMIT that did land
+ * anyway is found by the retry, because MatcherService.process starts from the stored outcome
+ * (unique per message, as are the Payment and the ledger key) and only re-runs the idempotent
+ * effects. The delay spends no attempt; after MAX_DB_OUTAGE_WAITS the usual attempts and
+ * fail-closed follow, so even a P2028 that keeps coming never ends silently.
+ */
+const PRISMA_CONNECTION_CODES = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024', 'P2028']);
 
 /** Driver-adapter (`@prisma/adapter-pg`) error kinds of the same situations. */
 const ADAPTER_CONNECTION_KINDS = new Set([

@@ -126,7 +126,7 @@ describe('BankFeedListener (D-52 r2)', () => {
   it('m5: an edit anomaly that could not be raised is raised again on the next lock tick', async () => {
     const t = harness();
     await t.tick();
-    t.stored.set(78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
+    t.storeRow('HUMO_BOT', 78n, { id: 'cm3stored78', rejectReason: 'OUTGOING' });
     t.raiseWith(() => Promise.reject(new Error('card busy')));
     t.client.emitEdit({ source: 'HUMO_BOT', messageId: 78n });
     await flush();

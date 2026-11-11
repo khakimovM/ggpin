@@ -84,14 +84,14 @@ function adjustByHand(userId: string, amountTiyin: bigint, at?: Date) {
 
 /**
  * What review:credit writes for another transfer of the user (a NO_MATCH review on another
- * card): Payment with reviewId + TOPUP PAYMENT/<paymentId>, the review resolved.
+ * card): Payment with reviewId + TOPUP PAYMENT/<paymentId>, the review resolved. Intentless.
  */
-async function reviewCreditByHand(userId: string) {
+async function reviewCreditByHand(userId: string, amount: bigint = uniqueAmount()) {
   const card = await createCard(t.db);
   const other = await insertMessage(t.db, {
     card,
-    amountTiyin: uniqueAmount(),
-    balanceAfterTiyin: 9_000_000n,
+    amountTiyin: amount,
+    balanceAfterTiyin: amount + 4_000_000n,
   });
   await t.a.matcher.process(other.id, false);
   const review = (await t.outcome(other.id))?.review;
@@ -206,6 +206,23 @@ describe('matcher: a hand credit after the request blocks the automatic credit (
     await reviewCreditByHand(s.user.id);
     await t.a.matcher.process(s.message.id, false);
     await expectManualCreditSeen(s);
+    expect(await topups(s.user.id)).toHaveLength(1); // only the hand-credited one
+  });
+
+  it('D-54: an intentless review:credit counts toward the daily cap: DAILY_LIMIT comes first', async () => {
+    // A new account; the owner credits a 460 000 so'm NO_MATCH transfer by hand, then this
+    // ~50 000 so'm request (base 50 000) arrives: 510 000 so'm > the 500 000 so'm cap. Without
+    // D-54 the hand credit would not count and only MANUAL_CREDIT_SEEN would stop it.
+    const s = await scenario('PENDING');
+    await reviewCreditByHand(s.user.id, 46_000_000n);
+    await t.a.matcher.process(s.message.id, false);
+    const outcome = await t.outcome(s.message.id);
+    expect(outcome).toMatchObject({ outcome: 'REVIEW', payment: null });
+    expect(outcome?.review).toMatchObject({
+      kind: 'DAILY_LIMIT',
+      note: 'NEW_ACCOUNT_DAILY_LIMIT',
+      intentId: s.intent.id,
+    });
     expect(await topups(s.user.id)).toHaveLength(1); // only the hand-credited one
   });
 

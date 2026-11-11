@@ -18,6 +18,16 @@ describe('isDbConnectionError', () => {
     expect(isDbConnectionError(prismaError(code))).toBe(true);
   });
 
+  it('review L1: P2028 (transaction not started within maxWait, or past its timeout) is an outage', () => {
+    // The shape recorded against the test DB: a top-level P2028, no adapter cause.
+    const notStarted = Object.assign(
+      new Error('Transaction API error: Unable to start a transaction in the given time.'),
+      { name: 'PrismaClientKnownRequestError', code: 'P2028', meta: {} },
+    );
+    expect(isDbConnectionError(notStarted)).toBe(true);
+    expect(isDbConnectionError(new Error('wrapped', { cause: prismaError('P2028') }))).toBe(true);
+  });
+
   it.each(['DatabaseNotReachable', 'ConnectionClosed', 'SocketTimeout', 'TooManyConnections'])(
     'adapter kind %s is an outage',
     (kind) => {

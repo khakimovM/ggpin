@@ -50,7 +50,7 @@ export function harness(
   // An account bound on an earlier start (the common case); BOUND sends `accountBound`.
   let account: AccountCheck = 'MATCH';
   let raiseResult: () => Promise<void> = () => Promise.resolve();
-  const stored = new Map<bigint, { id: string; rejectReason: string | null }>();
+  const stored = new Map<string, { id: string; rejectReason: string | null }>();
   const anomalies: [string, string, bigint][] = [];
   const check = jest.fn(() => {
     events.push('authorizations');
@@ -89,7 +89,10 @@ export function harness(
     },
     authorizations: { check },
     account: { check: () => Promise.resolve(account) },
-    messages: { storedMessage: (_bot, id) => Promise.resolve(stored.get(id) ?? null) },
+    // Keyed by (source, id) as the real ListenerRepository looks rows up (review M1).
+    messages: {
+      storedMessage: (source, id) => Promise.resolve(stored.get(storedKey(source, id)) ?? null),
+    },
     anomaly: {
       raise: async (source, reason, id) => {
         await raiseResult();
@@ -121,7 +124,12 @@ export function harness(
     beats,
     alerts,
     polls,
-    stored,
+    /** A row stored for this message of this source's chat. */
+    storeRow: (
+      source: BankFeedSource,
+      id: bigint,
+      row: { id: string; rejectReason: string | null },
+    ) => stored.set(storedKey(source, id), row),
     anomalies,
     check,
     tick,
@@ -132,6 +140,8 @@ export function harness(
     accountIs: (value: AccountCheck) => (account = value),
   };
 }
+
+const storedKey = (source: BankFeedSource, id: bigint) => `${source}/${id.toString()}`;
 
 export const flush = () => new Promise((resolve) => setImmediate(resolve));
 export const stopped = (reason: Parameters<typeof alertRef.listenerStopped>[0], ms = 0) =>
