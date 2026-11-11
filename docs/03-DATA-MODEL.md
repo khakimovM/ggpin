@@ -649,7 +649,7 @@ Pul va karta qoidalari bitta joyda — API va worker bir xil so‘rovni ishlatad
   fakt `ledger.e2e.test.ts` da; Prisma yangilansa test yiqiladi. `sumBalance` ildiz klientni ham qabul qiladi.
 - `packages/db/src/payments/`: `lockTopupCard` (karta advisory qulfi, faqat tranzaksiyada), `cardTotals` (karta sig‘imi,
   D-42 (1)), `expireOverdueTopups`, `usedTopupBaseSince` (kunlik limit uchun asosiy summalar: `PAID` — `paidAt` bo‘yicha,
-  `PENDING` — `createdAt` bo‘yicha), `manualCreditsSince` / `hasManualCredit` (D-47 R1: musbat `ADJUSTMENT` va `reviewId` li
+  `PENDING` — `createdAt` bo‘yicha; D-54: so‘rovsiz review credit `Payment` — `confirmedAt` bo‘yicha, to‘liq summa), `manualCreditsSince` / `hasManualCredit` (D-47 R1: musbat `ADJUSTMENT` va `reviewId` li
   to‘lovlarning `TOPUP` yozuvlari), `AUTO_CREDIT_HORIZON_MS` (7 kun).
 
 ### Isbot
@@ -680,13 +680,13 @@ unique'lar; m9: `PENDING` unique yolg‘iz o‘zi `P2002` beradi), `payment-inte
 
 ## Nima qayerda hisoblanadi
 
-| Ko‘rsatkich              | Qayerda                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| Balans                   | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh                         |
-| Keshbek tangalari        | `SUM(CoinEntry.coins)`                                                           |
-| Referal daromadi         | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)`                                     |
-| Buyurtma foydasi (admin) | `priceTiyin − discountTiyin − costMinor × fx` (buyurtmadagi snapshot bilan)      |
-| Hot wallet balansi       | worker, zanjirdan + `WalletSnapshot`                                             |
-| Karta sig‘imi (P2P)      | `cardTotals` (`@repo/db`): `PARSED CREDIT` xabarlar + band to‘lanmagan so‘rovlar |
-| Kunlik to‘ldirish limiti | `usedTopupBaseSince` (`@repo/db`): `baseAmountTiyin` yig‘indisi                  |
-| Qo‘lda berilgan pul      | `manualCreditsSince` (`@repo/db`): musbat `ADJUSTMENT` + review `TOPUP`          |
+| Ko‘rsatkich              | Qayerda                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| Balans                   | `SUM(LedgerEntry.amountTiyin) WHERE userId` + Redis kesh                              |
+| Keshbek tangalari        | `SUM(CoinEntry.coins)`                                                                |
+| Referal daromadi         | `SUM(LedgerEntry WHERE kind=REFERRAL_BONUS)`                                          |
+| Buyurtma foydasi (admin) | `priceTiyin − discountTiyin − costMinor × fx` (buyurtmadagi snapshot bilan)           |
+| Hot wallet balansi       | worker, zanjirdan + `WalletSnapshot`                                                  |
+| Karta sig‘imi (P2P)      | `cardTotals` (`@repo/db`): `PARSED CREDIT` xabarlar + band to‘lanmagan so‘rovlar      |
+| Kunlik to‘ldirish limiti | `usedTopupBaseSince` (`@repo/db`): `baseAmountTiyin` + so‘rovsiz review credit (D-54) |
+| Qo‘lda berilgan pul      | `manualCreditsSince` (`@repo/db`): musbat `ADJUSTMENT` + review `TOPUP`               |

@@ -669,6 +669,9 @@ yaratilmaydi (fail closed). Ikki parallel so‘rov INSERT poygasida ikki marta y
 - _Nima sanaladi:_ **ASOS summa** (`baseAmountTiyin`), tasodifiy 1–999 so‘m qo‘shimcha emas: aks holda aynan 500 000 so‘m so‘rash chekdan oshib ketardi.
   Oxirgi 24 soatdagi `PAID` so‘rovlar (`paidAt` bo‘yicha) va `PENDING` so‘rovlar (`createdAt` bo‘yicha) asos summalari yig‘indisi + yangi so‘rov.
   `EXPIRED` va `CANCELLED` sanalmaydi (pul tushmagan). Aynan 500 000 so‘m — ruxsat; 501 000 so‘m — `422` (yangi akkaunt).
+  **D-54:** egasi `review:credit --user` bilan so‘rovsiz yozgan pul ham sanaladi — `confirmedAt` bo‘yicha, to‘liq summasi bilan (asos summa yo‘q), keyin
+  reversal bo‘lsa ham. `--intent` bilan yozilgan credit shu so‘rovning `PAID` asos summasi orqali sanaladi (ikki marta emas). `wallet:adjust` sanalmaydi
+  (tuzatish, to‘ldirish emas). Bitta formula: `usedTopupBaseSince`; yaratishda, `review:credit` ko‘rinishida va pul yozishda bir xil.
 - _Ikkala chek pul yozilayotganda ham qayta tekshiriladi_ (xuddi shu formula); oshsa pul avtomatik yozilmaydi: review `DAILY_LIMIT` (qaysi chek oshgani
   review ma’lumotida yoziladi).
 - _`details.max` — bugun QOLGAN limit_ (`min`/`step` o‘zgarmaydi). Qolgan limit `min` dan kichik bo‘lsa ham kod shu (`TOPUP_AMOUNT_OUT_OF_RANGE`), `max < min`

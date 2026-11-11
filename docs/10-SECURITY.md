@@ -58,7 +58,7 @@
 ## 4-bosqich: P2P to‘ldirish qoidalari (qisqa, batafsil — `docs/05`)
 
 - **Bank-feed sessiyasi faqat worker’da.** Ishchi Telegram akkauntining MTProto sessiyasi (`BANK_FEED_SESSION_ENC`) AES-256-GCM bilan shifrlangan
-  holda saqlanadi (kalit production’da faqat `BANK_FEED_ENC_KEY_FILE` Docker secret faylidan, 0400/0600, bir marta o‘qiladi va `process.env` dan o‘chiriladi; inline `BANK_FEED_ENC_KEY` production’da rad, D-52 D3), faqat worker xotirasida ochiladi, diskka va log’ga yozilmaydi. Ishchi akkaunt faqat o‘qiydi: bot chatidagi chiquvchi xabar yoki begona jo‘natuvchi — alert va barcha kartalarda pauza; boshqa akkaunt sessiyasi — tinglovchi to‘xtaydi (`ACCOUNT_MISMATCH`).
+  holda saqlanadi (kalit production’da faqat `BANK_FEED_ENC_KEY_FILE` Docker secret faylidan, 0400/0600, bir marta o‘qiladi va `process.env` dan o‘chiriladi; inline `BANK_FEED_ENC_KEY` production’da rad, D-52 D3), faqat worker xotirasida ochiladi, diskka va log’ga yozilmaydi. Ishchi akkaunt faqat o‘qiydi: bot chatidagi chiquvchi xabar yoki begona jo‘natuvchi (forward, tahrir yoki via-bot bo‘lsa ham: filtr avval «kim yozgan»ni, keyin «qanday kelgan»ni tekshiradi) — alert va barcha kartalarda pauza, begona matn saqlanmaydi (faqat xesh); boshqa akkaunt sessiyasi — tinglovchi to‘xtaydi (`ACCOUNT_MISMATCH`).
   `BANK_FEED_*` sirlaridan biri API muhitida bo‘lsa API ishga tushmaydi (`packages/shared/src/env-secrets.ts`). API faqat sir bo‘lmagan
   `BANK_FEED_HEARTBEAT_MAX_AGE_SEC` ni ko‘radi. Log’da bank matni, balans, karta raqami va havola tokeni bo‘lmaydi (docs/05 §4).
 - **Faqat qotirilgan bot chati (FOREIGN_CHAT).** Xabar faqat qotirilgan raqamli bot id’dan, uning shaxsiy chatidan qabul qilinadi. Boshqa chat

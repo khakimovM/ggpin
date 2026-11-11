@@ -142,8 +142,10 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
   (`history-rescan`) faqat lider jarayonda yuradi, aks holda `unavailable` (`NOT_LEADER`).
 - **Qabul filtri (parserdan oldin).** Faqat sozlangan **raqamli bot id** dan, botning shaxsiy chatida, `isBot`, **kiruvchi** (chiquvchi `out` xabar rad
   etiladi), forward emas, tahrirlanmagan (`editDate` bo‘sh), `viaBot` yo‘q xabar. Boshqa chatlar so‘ralmaydi, ularning matni o‘qilmaydi va logga
-  tushmaydi. Tekshiruv tartibi (`ingestRejectReason`): `FOREIGN_CHAT` (chat qotirilgan bot chati emas) **birinchi**, keyin `OUTGOING`, `FORWARDED`,
-  `EDITED`, `VIA_BOT`, `FOREIGN_SENDER`, `NOT_BOT` (jo‘natuvchi bot emas). **Boshqa chat xabari umuman saqlanmaydi** va kursorni siljitmaydi
+  tushmaydi. Tekshiruv tartibi (`ingestRejectReason`): `FOREIGN_CHAT` (chat qotirilgan bot chati emas) **birinchi**, keyin `OUTGOING`,
+  `FOREIGN_SENDER`, `NOT_BOT` (jo‘natuvchi bot emas), so‘ng `FORWARDED`, `EDITED`, `VIA_BOT` — avval «kim yozgan», keyin «qanday kelgan»
+  (yakuniy audit I-1): begona muallifning forward, tahrir yoki via-bot xabari ham `FOREIGN_SENDER`/`NOT_BOT` — alert, barcha kartalarda pauza,
+  matni saqlanmaydi; qotirilgan botning o‘zi tahrir qilgan xabari `EDITED` bo‘lib qoladi. **Boshqa chat xabari umuman saqlanmaydi** va kursorni siljitmaydi
   (S9 B2): uning id’si boshqa chat raqamlanishiga tegishli — kursorni haqiqiy xabarlardan oshirib yuborishi yoki botning o‘z chatidagi keyingi
   haqiqiy xabarga kerak bo‘ladigan `(senderId, tgMessageId)` kalitini egallab qo‘yishi mumkin edi; o‘rniga log (faqat manba va kod) va xavfsizlik
   alerti `foreignChat` (manba bo‘yicha soatiga bitta). Qolgan rad etilganlar — `BankMessage(REJECTED)` (`rejectReason` = `INGEST_REJECT_REASONS`),
@@ -216,7 +218,7 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 **Runbook (VPS, ega ishtirokida — D-37 (14)).**
 
 1. _Login:_ worker konteynerida `npm run -s bank-feed:login -w worker` yoki `node dist/cli/bank-feed-login.js` (faqat TTY; `-s` npm buyruqni
-   ekranga qaytarmasin; kerak: `BANK_FEED_API_ID`, `BANK_FEED_API_HASH`, `BANK_FEED_ENC_KEY_FILE`). Kalitni yaratish (bir marta, 0400 faylga):
+   ekranga qaytarmasin; kerak: `BANK_FEED_API_ID`, `BANK_FEED_API_HASH`, `BANK_FEED_ENC_KEY_FILE`). **Docker orqali** (I8): avval `docker inspect -f '{{.HostConfig.ReadonlyRootfs}} {{json .HostConfig.Tmpfs}}' <worker>` — `true` va `/tmp` tmpfs ekanini tekshiring (aks holda blob xost diskidagi overlay qatlamiga yoziladi va `rm` uni tozalamaydi), keyin `docker exec -it <worker> sh -c 'umask 077; node dist/cli/bank-feed-login.js > /tmp/session.blob'` — yo‘naltirish **konteyner ichida** (`sh -c`), `docker ... > fayl` xostda emas: `-t` bilan Docker stderr’ni stdout’ga qo‘shadi, ya’ni so‘rovlar ham, blob ham bitta oqimda chiqadi va xostdagi `> fayl` blob’ni so‘rov matni bilan aralashtirib buzadi. `-t` kerak (login CLI stdin va stderr TTY emasligini rad etadi), shuning uchun `-i` yolg‘iz (`-t`siz) ishlamaydi. Blob’ni ekranga chiqarmay (SSH scrollback, terminal yozuvi, clipboard) to‘g‘ridan-to‘g‘ri 0600 faylga yozing: `( umask 077; { printf 'BANK_FEED_SESSION_ENC='; docker exec <worker> cat /tmp/session.blob; } > <yangi env fayl> )` — `cat` da `-t` ishlatilmasin (CRLF blob’ni buzadi). Keyin `docker exec <worker> rm /tmp/session.blob` va `docker exec <worker> ls -la /tmp` bilan fayl yo‘qligini tekshiring; eski `BANK_FEED_SESSION_ENC` qiymatini o‘chiring va eski sessiyani Devices’da yoping (yakuniy audit R-3). Kalitni yaratish (bir marta, 0400 faylga):
    `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Telefon, kod (ekranga chiqmaydi, 3 urinish), 2FA paroli
    (ekranga chiqmaydi, 3 urinish); ro‘yxatdan o‘tmagan raqam rad etiladi. stdout’ga **faqat shifrlangan blob** chiqadi — uni
    `BANK_FEED_SESSION_ENC` ga qo‘yish. Ochiq sessiya hech qayerga yozilmaydi (`MemoryStorage`), dev kompyuterda saqlanmaydi; `*.blob`,
@@ -241,13 +243,13 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
    Settings → Devices: noma’lum sessiyani yopish (yuqoridagi ogohlantirishga qarang); (2) 2FA parolini almashtirish; (3) ikkala bot chatida
    **chiquvchi xabarlarni** tekshirish (akkaunt hech narsa yozmasligi kerak); (4) sessiya yoki kalit sizgan deb gumon bo‘lsa — yangi kalit
    (1-banddagi buyruq), yangi login, yangi `BANK_FEED_SESSION_ENC`; (5) shundan keyingina `card:resume` (har karta; buyruq boshqa pauzadagi
-   kartalar sonini aytadi). Pauza paytida kelgan kirimlar review’da (`AUTO_CREDIT_PAUSED`). Kutilgan sessiya (sherikning yangi qurilmasi,
+   kartalar sonini aytadi). **`card:resume` olib tashlanadigan pauzani avval ko‘rsatadi** (`liftsPause=SECURITY/<sabab kodi>:<auditId>` yoki `OWNER/CARD_PAUSE:<auditId>`; faqat id va kodlar). Xavfsizlik pauzasi (`SECURITY/...`) **`--confirm-security-pause`** siz rad etiladi (`VALIDATION_ERROR`, `reason=SECURITY_PAUSE_OPEN`, hech narsa yozilmaydi); bu bayroq `--confirm-override` (ochiq review’lar uchun) bilan almashmaydi. Egasining o‘z `card:pause` pauzasi uchun bayroq kerak emas. `CARD_RESUME` audit’ining `after.liftedPause` maydoniga qaysi pauza olib tashlangani yoziladi. Pauza paytida kelgan kirimlar review’da (`AUTO_CREDIT_PAUSED`); **xavfsizlik pauzasi paytida yuborilgan test (verify) o‘tkazmasi ham shu review’ga tushadi, karta `ACTIVE` bo‘lmaydi — resume’dan keyin test o‘tkazmasini qayta yuboring** (I4). Kutilgan sessiya (sherikning yangi qurilmasi,
    kelishilgan qayta login) bo‘lsa (1)–(4) o‘rniga ikkala sherik qurilmani tasdiqlaydi. `review:accept-chain` xavfsizlik pauzasini olib tashlamaydi.
    **`card:resume` dan oldin pauza boshlangandan beri kelgan BARCHA xavfsizlik alertlarini (yangi avtorizatsiya, bank chati anomaliyasi) ko‘rib
-   chiqing; resume faqat birinchi sababni ko‘rsatadi** (r3 CR-4). Pauza resume yoki retire qilinmaguncha ochiq qoladi: shu davrda qo‘shilgan har
+   chiqing; `liftsPause` oxirgi `card:resume` dan keyingi BARCHA pauza qarorlarini ko‘rsatadi (egasining `card:pause` i xavfsizlik pauzasini yashirmaydi, yakuniy sharh N1), lekin bitta pauza ichidagi har alertni emas — ularni alertlardan bilib oling** (r3 CR-4, L-1). Pauza resume yoki retire qilinmaguncha ochiq qoladi: shu davrda qo‘shilgan har
    karta pauzada tug‘iladi (3b).
    3b. _`card:add` «born paused» ogohlantirishi (r2 I-B):_ karta ochiq xavfsizlik pauzasi paytida qo‘shildi. Avval 3a tekshiruvi, keyin
-   `card:resume <id>` — verify o‘tkazmasini **shundan keyin** yuboring (pauzadagi kartaga kelgan verify o‘tkazmasi review’ga tushadi).
+   `card:resume <id> --confirm-security-pause` — verify o‘tkazmasini **shundan keyin** yuboring (pauzadagi kartaga kelgan verify o‘tkazmasi review’ga tushadi).
 4. _Akkaunt cheklansa:_ tinglovchi to‘xtaydi, heartbeat eskiradi → yangi so‘rovlar avtomatik `503`, ega alert oladi; yo‘ldagi to‘lovlar
    tiklangandan keyin 48 soatlik qayta skan bilan topiladi (10-band). Telegram support orqali tiklanadi yoki yangi akkaunt.
 5. _Karta bloklansa:_ `card:retire <id> --emergency` (PENDING so‘rovlar bekor, tokenlar o‘ladi), kartaga kelgan pulni bank orqali aniqlash, ko‘rib
@@ -386,7 +388,7 @@ o‘sha so‘rovga yoziladi; bunga qarshi — uzun grace va ishlatilmagan qo‘s
    kelmasa — `note = REPARSE_MISMATCH`; matn o‘chirilgan bo‘lsa — `note = TEXT_MISSING` (bu ikkisi alert `unrecognized`; hammasida ledger yo‘q).
    Izoh kodlari: `REVIEW_NOTE_CODES` (`packages/shared/src/payments/bank-parse.ts`). Foydalanuvchi bloklangan bo‘lsa — review `USER_BLOCKED`; **IKKALA kunlik
    chek** (yangi akkaunt 500 000 so‘m va barcha akkaunt 5 000 000 so‘m) yaratishdagi formula bilan qayta tekshiriladi: oxirgi 24 soat (`PAID` — `paidAt`, `PENDING` —
-   `createdAt` bo‘yicha), ASOS summalar, shu so‘rovning o‘zi hisobda ikki marta emas. Oshsa — review `DAILY_LIMIT` (bitta tur); review ma’lumotida qaysi chek oshgani
+   `createdAt` bo‘yicha), ASOS summalar, shu so‘rovning o‘zi hisobda ikki marta emas; so‘rovsiz qo‘lda yozilgan pul (`review:credit --user`) ham to‘liq summasi bilan (D-54). Oshsa — review `DAILY_LIMIT` (bitta tur); review ma’lumotida qaysi chek oshgani
    yoziladi (`DAILY_LIMIT` yoki `NEW_ACCOUNT_DAILY_LIMIT`); alert `dailyLimit` kodni emas, egaga tushunarli matnni ko‘rsatadi: «barcha akkaunt: kuniga 5 000 000 so‘m» yoki
    «yangi akkaunt: kuniga 500 000 so‘m» (`alerts.limitReason.*`, uz va ru).
    **Qo‘lda berilgan pul** (D-47 R1) — yozishdan oldingi **oxirgi** to‘siq (yuqoridagi barcha sabablar o‘z o‘rnida, ular ustun), **har bir** avtomatik
@@ -516,7 +518,7 @@ boshqa qiymatlarda yangi qator ham `\u{A}` bo‘lib chiqadi. Natija: 0 — bajar
 - `wallet:adjust` da `--key <id>` majburiy (AuditLog id): kalitsiz buyruq hech narsa yozmaydi va yangi kalit chiqaradi; xuddi shu kalit + xuddi shu so‘rov →
   `applied=false`, boshqa summa yoki sabab → `IDEMPOTENCY_CONFLICT`. `payment:reverse` va `review:credit` ning tabiiy kalitlari bor.
 - `wallet:adjust`, `payment:reverse`, `user:unfreeze` va har review/karta amalidan keyin egaga `adminAction` alerti.
-- **Kechiktirildi:** CLI orqali yaratilgan pul (musbat ADJUSTMENT + REVIEW_CREDIT) uchun kunlik limit — S11 / 9-bosqich.
+- **Kechiktirildi:** CLI orqali yaratilgan pul uchun alohida kunlik limit — S11 / 9-bosqich. Qisman yopildi (D-54): so‘rovsiz `review:credit --user` foydalanuvchining kunlik to‘ldirish chekiga sanaladi; musbat `ADJUSTMENT` (tuzatish) ongli ravishda sanalmaydi.
 
 ## 8. Havola tokeni (D-39)
 
