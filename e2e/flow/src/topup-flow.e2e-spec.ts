@@ -22,7 +22,8 @@ import { WorkerSide } from './worker-side';
 // The whole P2P top-up in ONE process on the real ggpin_test Postgres and Redis DB 15 (the API
 // and the worker may not import each other, so this neutral workspace hosts both):
 // real Mini App login -> POST /payments/intents -> GET /payments/pay/:id (X-Pay-Token) -> a bank
-// message appears in the FAKE bank chat -> the worker's ingest stores it and queues the
+// message appears in the FAKE bank chat -> (the first test: the worker's listener leads, the
+// update nudges its poll) -> the worker's ingest stores it and queues the
 // `bank-message` job -> the real processor and matcher credit -> `notify` job -> the API's notify
 // consumer -> `tg-outbox` job -> the tg-outbox consumer with a FAKE Telegram sender -> /me/wallet.
 // No BullMQ Worker runs (jobs are read back by id and handed to the consumers), nothing reaches
@@ -71,7 +72,8 @@ describe('P2P top-up, the whole flow (fake bank feed, fake Telegram)', () => {
       card: { number: card.pan },
     });
 
-    const id = storedId(await worker.receive({ last4: card.last4, amountTiyin: amount }));
+    // Through the real listener: leader lock, authorization round, update nudge, poll (L2).
+    const id = await worker.receiveLive({ last4: card.last4, amountTiyin: amount });
     expect(await worker.hasJob(id)).toBe(true);
     expect(await e2e.db().ledgerEntry.count({ where: { userId: user.id } })).toBe(0); // stored, not decided
     await expect(worker.runJob(id)).resolves.toBe('PROCESSED');
