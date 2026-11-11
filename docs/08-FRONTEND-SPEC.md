@@ -7,35 +7,36 @@ Dizayn promptlari: `design/DESIGN-BRIEF.md`.
 
 ### apps/web (Next.js)
 
-| Marshrut | Sahifa | Render |
-|---|---|---|
-| `/[locale]` | Landing | SSG/ISR, SEO |
-| `/[locale]/telegram-stars`, `/[locale]/telegram-premium`, `/[locale]/pubg-mobile-uc` ... | Mahsulot landing sahifalari (SEO) + "Sotib olish" | ISR |
-| `/[locale]/faq`, `/[locale]/terms`, `/[locale]/privacy`, `/[locale]/contacts` | Statik sahifalar | SSG |
-| `/[locale]/login` | Telegram orqali kirish (OTP) | client |
-| `/[locale]/store/...` | Web do‘kon (Mini App bilan bir xil funksiya, desktop layout) | client |
-| `/pay/[intentId]` | To‘lov natijasi / provayderga yo‘naltirish | client |
-| `/tg/...` | Telegram Mini App | client, locale profildan |
+| Marshrut                                                                                                  | Sahifa                                                                                                           | Render                                                               |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `/[locale]`                                                                                               | Landing                                                                                                          | dinamik SSR + nonce CSP, katalog 60 s Next data cache’da; SEO (D-57) |
+| `/[locale]/telegram-stars`, `/[locale]/telegram-premium` (o‘yinlar keyin: `/[locale]/pubg-mobile-uc` ...) | Mahsulot landing sahifalari (SEO) + "Sotib olish"; narx «taxminiy»                                               | dinamik SSR + nonce CSP, 60 s cache (D-57)                           |
+| `/[locale]/faq`, `/[locale]/terms`, `/[locale]/privacy`, `/[locale]/contacts`                             | Statik matnli sahifalar; `terms` va `privacy` yurist matni kelguncha qoralama: `noindex`, sitemap’da yo‘q (D-57) | dinamik SSR + nonce CSP (D-57)                                       |
+| `/[locale]/login`                                                                                         | Telegram orqali kirish (OTP)                                                                                     | client                                                               |
+| `/[locale]/store/...`                                                                                     | Web do‘kon (Mini App bilan bir xil funksiya, desktop layout)                                                     | client                                                               |
+| `/pay/[intentId]`                                                                                         | To‘lov natijasi / provayderga yo‘naltirish                                                                       | client                                                               |
+| `/tg/...`                                                                                                 | Telegram Mini App                                                                                                | client, locale profildan                                             |
 
 `locale` = `uz` (standart, prefikssiz ham ochiladi) yoki `ru`. `hreflang`, `sitemap.xml`, `robots.txt`.
+Sluglar uz va ru da bir xil (D-57). Sayt sahifalari SSG/ISR emas: har so‘rovda yangi nonce bilan qat’iy CSP saqlanadi (D-57).
 
 ### Mini App ekranlari (`/tg`)
 
-| Ekran | Asosiy elementlar |
-|---|---|
-| Splash / kirish | logo, initData bilan avtomatik kirish; xato holatlari |
-| Bosh sahifa | profil qatori (avatar, ism, keshbek tangalari), balans kartasi (to‘ldirish, bonus kod, yordam), kategoriya chiplari, qidiruv, mahsulot grid'i |
-| Mahsulot | sarlavha kartasi, input forma (`inputSchema` bo‘yicha), "Tekshirish" → qabul qiluvchi kartasi, SKU tab'lari va grid'i yoki erkin miqdor + jonli narx, "Qanday topaman?" sheet, MainButton "Sotib olish" |
-| Tasdiqlash sheet | mahsulot, qabul qiluvchi, narx, chegirma kodi, jami, balans, "To‘lash" |
-| Mablag‘ yetarli emas | balans / narx / yetishmaydi; "{shortfall} to‘ldirish va sotib olish", "Hisobni to‘ldirish", "Yopish" |
-| Buyurtma holati | jonli timeline (To‘landi → Navbatda → Bajarilmoqda → Yetkazildi), animatsiya, voucher kodi + Nusxalash, "Yana xarid qilish" |
-| To‘ldirish | usullar grid'i (Click, Payme, Uzum, Rahmat, Stars), qo‘llanma, summa + tez summalar, "Davom etish" → tashqi to‘lov, natija |
-| Tarix | "Buyurtmalar" / "Moliya" tab'lari, holat filtrlari, ro‘yxat, tafsilot |
-| Profil / Sozlamalar | ID, balans, keshbek; telefon ulashish; til (O‘zbekcha / Русский); xizmatlar: do‘stlarni taklif qilish, chegirma kodlari, yordam; animatsiyalarni kamaytirish |
-| Referal | havola (nusxalash, ulashish — `switchInlineQuery`/share), statistik, taklif qilinganlar |
-| Chegirma kodlari | tanga balansi, tier kartalari, "Mening kodlarim" |
-| Bonus kod | kod kiritish, faollashtirish |
-| Yordam | FAQ akkordeon, operatorga yozish |
+| Ekran                | Asosiy elementlar                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Splash / kirish      | logo, initData bilan avtomatik kirish; xato holatlari                                                                                                                                                   |
+| Bosh sahifa          | profil qatori (avatar, ism, keshbek tangalari), balans kartasi (to‘ldirish, bonus kod, yordam), kategoriya chiplari, qidiruv, mahsulot grid'i                                                           |
+| Mahsulot             | sarlavha kartasi, input forma (`inputSchema` bo‘yicha), "Tekshirish" → qabul qiluvchi kartasi, SKU tab'lari va grid'i yoki erkin miqdor + jonli narx, "Qanday topaman?" sheet, MainButton "Sotib olish" |
+| Tasdiqlash sheet     | mahsulot, qabul qiluvchi, narx, chegirma kodi, jami, balans, "To‘lash"                                                                                                                                  |
+| Mablag‘ yetarli emas | balans / narx / yetishmaydi; "{shortfall} to‘ldirish va sotib olish", "Hisobni to‘ldirish", "Yopish"                                                                                                    |
+| Buyurtma holati      | jonli timeline (To‘landi → Navbatda → Bajarilmoqda → Yetkazildi), animatsiya, voucher kodi + Nusxalash, "Yana xarid qilish"                                                                             |
+| To‘ldirish           | usullar grid'i (Click, Payme, Uzum, Rahmat, Stars), qo‘llanma, summa + tez summalar, "Davom etish" → tashqi to‘lov, natija                                                                              |
+| Tarix                | "Buyurtmalar" / "Moliya" tab'lari, holat filtrlari, ro‘yxat, tafsilot                                                                                                                                   |
+| Profil / Sozlamalar  | ID, balans, keshbek; telefon ulashish; til (O‘zbekcha / Русский); xizmatlar: do‘stlarni taklif qilish, chegirma kodlari, yordam; animatsiyalarni kamaytirish                                            |
+| Referal              | havola (nusxalash, ulashish — `switchInlineQuery`/share), statistik, taklif qilinganlar                                                                                                                 |
+| Chegirma kodlari     | tanga balansi, tier kartalari, "Mening kodlarim"                                                                                                                                                        |
+| Bonus kod            | kod kiritish, faollashtirish                                                                                                                                                                            |
+| Yordam               | FAQ akkordeon, operatorga yozish                                                                                                                                                                        |
 
 ### apps/admin — `docs/09-ADMIN-PANEL.md`
 
