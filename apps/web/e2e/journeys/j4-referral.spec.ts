@@ -3,6 +3,7 @@ import { CSRF_HEADER } from '@repo/shared';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { E2E_BOT_TOKEN, installFakeWebApp, signInitData } from '../fixtures/telegram';
 import { API_BASE, dbValue, startRealApi, type RunningApi } from '../support/real-api';
+import { nextTelegramId } from '../support/real-http';
 
 // Journey 4 (phase 7 S4): a referral link opens the Mini App. The page signs in against the REAL
 // API (own database and Redis DB, bot off, synthetic token: see support/real-api.ts); Telegram is
@@ -10,18 +11,21 @@ import { API_BASE, dbValue, startRealApi, type RunningApi } from '../support/rea
 
 test.describe.configure({ mode: 'serial' });
 
-let api: RunningApi;
+let api: RunningApi | undefined;
 test.beforeAll(async () => {
+  // Starting waits for the lock when another spec file holds the stack (as in the other journeys).
+  test.setTimeout(180_000);
   api = await startRealApi();
 });
 test.afterAll(async () => {
+  if (api === undefined) return;
+  const refused = api.guardHits();
   await api.stop();
+  expect(refused).toEqual([]);
 });
 
-// Unique per run: the database keeps users between runs, and a Telegram id is one account.
-const runId = Date.now() % 1_000_000_000;
-let nextId = 700_000_000 + runId;
-const newTelegramId = () => nextId++;
+// Unique per run and never a real person's id (see nextTelegramId).
+const newTelegramId = nextTelegramId;
 
 interface Account {
   telegramId: number;

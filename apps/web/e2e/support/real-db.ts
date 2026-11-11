@@ -1,7 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import pg from 'pg';
-import { checkE2eDatabaseUrl, maintenanceUrl, migrateOutputNamesDatabase } from './db-guard';
+import {
+  checkE2eDatabaseUrl,
+  e2eDatabase,
+  maintenanceUrl,
+  migrateOutputNamesDatabase,
+} from './db-guard';
 
 // Preparing the e2e database for journeys that run against the real API. Only ever creates a
 // database and applies the committed migrations; nothing is dropped, truncated or reset.
@@ -26,6 +31,29 @@ export function minimalEnv(): Record<string, string> {
   return env;
 }
 
+/**
+ * A client on the e2e database, checked AFTER connecting on what Postgres itself reports
+ * (`current_database()`), not on the name in a URL: every SQL the Playwright process sends goes
+ * through here. (db-guard.ts also keeps the host to this machine.)
+ */
+export async function connectE2eClient(): Promise<pg.Client> {
+  const { url, name } = e2eDatabase();
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    const reported = await client.query<{ name: string }>('SELECT current_database() AS name');
+    if (reported.rows[0]?.name !== name) {
+      throw new Error(
+        `The e2e client reached database "${reported.rows[0]?.name ?? '?'}", not "${name}".`,
+      );
+    }
+  } catch (error) {
+    await client.end();
+    throw error;
+  }
+  return client;
+}
+
 /** Creates the database if it does not exist yet. Returns whether it was created. */
 export async function ensureDatabase(databaseUrl: string): Promise<boolean> {
   const { name } = checkE2eDatabaseUrl(databaseUrl);
@@ -48,7 +76,13 @@ export function migrateDatabase(databaseUrl: string): void {
   const prismaCli = require.resolve('prisma/build/index.js', { paths: [DB_PACKAGE] });
   const result = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
     cwd: DB_PACKAGE,
-    env: { ...minimalEnv(), NODE_ENV: 'development', DATABASE_URL: databaseUrl },
+    env: {
+      ...minimalEnv(),
+      NODE_ENV: 'development',
+      DATABASE_URL: databaseUrl,
+      // No call home: Prisma's update check and telemetry.
+      CHECKPOINT_DISABLE: '1',
+    },
     encoding: 'utf8',
   });
   if (result.status !== 0) {

@@ -16,6 +16,8 @@ const APP_ENV = {
   NEXT_PUBLIC_SUPPORT_URL: '',
   // Enables the token-probe fixture page; it is a 404 in every real build.
   E2E_PROBES: '1',
+  // No call home from the build.
+  NEXT_TELEMETRY_DISABLED: '1',
 };
 
 const desktopChrome = devices['Desktop Chrome'];
@@ -24,9 +26,10 @@ const HTTP_SPECS = /http\.spec\.ts/;
 // Behaviour that differs by layout: sheets are bottom sheets below 768px and modals from 768px.
 const MOBILE_ONLY = /\.mobile\.spec\.ts/;
 const DESKTOP_ONLY = /\.desktop\.spec\.ts/;
-// Journeys that run against the real API (its own database, Redis DB and port 5000). They start
-// that API themselves, so they run once, in their own project, never in the viewport ones.
-const REAL_API_SPECS = /j4-referral\.spec\.ts/;
+// Journeys that run against the real API (its own database, Redis DB and port 5000), and since
+// phase 7 S12-a the real worker too. They start those themselves, take turns on the one stack
+// (e2e/support/real-lock.ts), so they run once, in their own project, never in the viewport ones.
+const REAL_API_SPECS = /(?:j4-referral|j5-topup|contract-[\w-]+)\.(?:real\.)?spec\.ts/;
 // The S11 QA specs (e2e/qa). The cheap ones run in the ordinary suite, in the three width projects
 // only: a11y-targets (the pressable area of every control) and a11y-keyboard. The heavy sweeps (the
 // 396-cell screenshot matrix, focus and motion on every screen) run only with
@@ -66,7 +69,17 @@ const config = defineConfig({
       name: 'real-api',
       testMatch: REAL_API_SPECS,
       dependencies: ['real-api-setup'],
-      use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
+      // One real stack (API port 5000, one database, Redis DB 13): the spec files take turns. The
+      // lock in e2e/support/real-lock.ts is the second line; with one worker no file waits for it.
+      workers: 1,
+      use: {
+        ...devices['Pixel 7'],
+        viewport: { width: 390, height: 844 },
+        // The real journeys carry real session and pay tokens (headers, URLs): no trace of them is
+        // kept, and a screenshot is pixels only.
+        trace: 'off',
+        screenshot: 'only-on-failure',
+      },
     },
     {
       name: 'mobile-390',

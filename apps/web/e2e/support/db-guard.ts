@@ -9,6 +9,9 @@ export const DEFAULT_E2E_DATABASE_URL =
 // different database than the one the guard approved. 58 + `_test` (5) = 63.
 const DATABASE_NAME = /^[a-z0-9_]{1,58}_test$/;
 
+// Parsed `URL.hostname` values: an IPv6 address keeps its brackets.
+const LOCAL_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]']);
+
 // The database the backend e2e suites clear on every run.
 const BACKEND_SHARED_DATABASES: ReadonlySet<string> = new Set(['ggpin_test']);
 
@@ -31,6 +34,10 @@ export function checkE2eDatabaseUrl(url: string): E2eDatabase {
   }
   if (parsed.protocol !== 'postgresql:' && parsed.protocol !== 'postgres:') {
     throw new Error('E2E_DATABASE_URL must be a postgresql:// URL.');
+  }
+  // The journeys write to this database directly (cards, reads): only ever on this machine.
+  if (!LOCAL_HOSTS.has(parsed.hostname)) {
+    throw new Error('E2E_DATABASE_URL must point at this machine (localhost, 127.0.0.1 or ::1).');
   }
   let name: string;
   try {

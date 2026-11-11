@@ -6,6 +6,10 @@ import {
 } from '../../e2e/support/db-guard';
 
 const url = (name: string) => `postgresql://ggpin:ggpin@localhost:5432/${name}`;
+// The same URL on another host and port. Built by replacing the host, so the only credentials in
+// this file stay those of the local docker-compose database on localhost (gitleaks allowlist).
+const onHost = (host: string, port: string) =>
+  url('ggpin_web_e2e_test').replace('@localhost:5432/', `@${host}:${port}/`);
 
 describe('checkE2eDatabaseUrl', () => {
   it.each(['ggpin_web_e2e_test', 'ggpin_web_e2e_ci_test', 'x1_test'])('accepts %s', (name) => {
@@ -26,6 +30,18 @@ describe('checkE2eDatabaseUrl', () => {
   ])('refuses %s', (_label, name) => {
     expect(() => checkE2eDatabaseUrl(url(name))).toThrow();
   });
+
+  it.each(['localhost', '127.0.0.1', '[::1]'])('accepts the host %s (this machine)', (host) => {
+    const local = onHost(host, '5433');
+    expect(checkE2eDatabaseUrl(local).name).toBe('ggpin_web_e2e_test');
+  });
+
+  it.each(['db.example.com', '10.0.0.5', '192.0.2.1', 'localhost.evil.test', '[2001:db8::1]'])(
+    'refuses the host %s: the journeys write there directly, so it must be this machine',
+    (host) => {
+      expect(() => checkE2eDatabaseUrl(onHost(host, '5432'))).toThrow('this machine');
+    },
+  );
 
   it('refuses a URL that is not postgres', () => {
     expect(() => checkE2eDatabaseUrl('http://localhost/x_test')).toThrow('postgresql');
