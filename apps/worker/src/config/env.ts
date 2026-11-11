@@ -1,6 +1,9 @@
-import { TG_USER_CHAT_ID_PATTERN, testModeOutsideJestProblem } from '@repo/shared';
+import { testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
+import { workerBankFeedProblems, workerBankFeedShape } from './bank-feed-env';
+import { bankFeedKeySource, forgetBankFeedKey, type SecretFileReader } from './secret-file';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
+import { workerTopupProblems, workerTopupShape } from './topup-env';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
@@ -25,13 +28,6 @@ const EnvSchema = z.object({
     .string()
     .regex(/^[A-Za-z0-9_]{5,32}$/, 'must be a Telegram bot username without "@"')
     .optional(),
-  OWNER_ALERT_CHAT_ID: z
-    .string()
-    .regex(
-      TG_USER_CHAT_ID_PATTERN,
-      'must be the numeric id of a user chat (positive digits; group ids are not supported)',
-    )
-    .optional(),
 
   // Real money moves only when this is false. Defaults to true outside production (see
   // loadEnv); in production it must be set explicitly.
@@ -53,6 +49,11 @@ const EnvSchema = z.object({
   FRAGMENT_SESSION_ENC_KEY: z.string().optional(),
   RESELLER_STARS_API_URL: z.url({ protocol: /^https?$/ }).optional(),
   RESELLER_STARS_API_KEY: z.string().optional(),
+
+  // Phase 4 (P2P top-ups): matcher knobs, equal to the API's (topup-env.ts).
+  ...workerTopupShape,
+  // Phase 4: pinned bank-bot ids and the matcher's lock wait (bank-feed-env.ts).
+  ...workerBankFeedShape,
 });
 
 export type Env = Readonly<z.infer<typeof EnvSchema>>;
@@ -76,7 +77,10 @@ function withoutBlanks(source: NodeJS.ProcessEnv): Record<string, string | undef
   return Object.fromEntries(Object.entries(source).filter(([, v]) => !isBlank(v)));
 }
 
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+export function loadEnv(
+  source: NodeJS.ProcessEnv = process.env,
+  readSecret?: SecretFileReader,
+): Env {
   const clean = withoutBlanks(source);
   const production = clean.NODE_ENV === 'production';
   // Safe-by-default: dry-run unless the operator says otherwise, and in production the
@@ -101,9 +105,17 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   // worker-secret check): refused in every environment, not only production.
   problems.push(...apiSecretProblems(clean));
   if (production) problems.push(...productionSecretProblems(clean));
+  // D-52 D3: the session key comes from its Docker-secret file (or inline outside production).
+  const key = bankFeedKeySource(clean, production, readSecret);
+  problems.push(...key.problems);
+  const data = parsed.success ? { ...parsed.data, BANK_FEED_ENC_KEY: key.key } : null;
+  if (data !== null) {
+    problems.push(...workerTopupProblems(data));
+    problems.push(...workerBankFeedProblems(data, production));
+  }
 
-  if (!parsed.success || problems.length > 0) throw new EnvValidationError(problems);
-  return Object.freeze(parsed.data);
+  if (data === null || problems.length > 0) throw new EnvValidationError(problems);
+  return Object.freeze(data);
 }
 
 /**
@@ -113,7 +125,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
  * parse the schema directly with NODE_ENV=test.
  */
 export function loadProcessEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const problem = testModeOutsideJestProblem(source);
-  if (problem !== null) throw new EnvValidationError([problem]);
-  return loadEnv(source);
+  try {
+    const problem = testModeOutsideJestProblem(source);
+    if (problem !== null) throw new EnvValidationError([problem]);
+    return loadEnv(source);
+  } finally {
+    // Read once (also when the config is refused); from here on only the frozen config holds
+    // the key (D-52 D3).
+    forgetBankFeedKey(source);
+  }
 }

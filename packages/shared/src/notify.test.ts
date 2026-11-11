@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { alertRef, notifyJobId, notifyJobSchema } from './notify';
+import {
+  LISTENER_STOP_REASONS,
+  alertRef,
+  notifyJobId,
+  notifyJobSchema,
+  ownerAlertOutboxJobId,
+  parseBankChatAnomalyRef,
+  parseForeignChatAlertRef,
+  parseListenerDownRef,
+  parseListenerStoppedRef,
+} from './notify';
 
 describe('notifyJobSchema', () => {
   it('accepts the three shapes', () => {
@@ -72,5 +82,84 @@ describe('notifyJobId', () => {
         notifyJobSchema.safeParse({ kind: 'OWNER_ALERT', alert: 'noMatch', refId }).success,
       ).toBe(false);
     }
+  });
+});
+
+describe('foreignChat alert ref (B2)', () => {
+  it('one ref per source per hour, read back to its source', () => {
+    const at = new Date('2030-05-03T10:59:59.999Z');
+    const ref = alertRef.foreignChat('HUMO_BOT', at);
+    expect(ref).toBe(`HUMO_BOT_${String(Math.floor(at.getTime() / 3_600_000))}`);
+    expect(alertRef.foreignChat('HUMO_BOT', new Date('2030-05-03T10:00:00.000Z'))).toBe(ref);
+    expect(parseForeignChatAlertRef(ref)).toBe('HUMO_BOT');
+    expect(parseForeignChatAlertRef(alertRef.foreignChat('UZCARD_BOT', at))).toBe('UZCARD_BOT');
+  });
+
+  it('anything else is not a foreignChat ref', () => {
+    for (const ref of ['HUMO_BOT_', 'OTHER_BOT_1', 'HUMO_BOT_1x', 'cm3abc']) {
+      expect(parseForeignChatAlertRef(ref)).toBeNull();
+    }
+  });
+});
+
+describe('listener alert refs (D-52)', () => {
+  const at = new Date('2030-05-03T10:30:00.000Z');
+  const hour = String(Math.floor(at.getTime() / 3_600_000));
+
+  it('listenerDown carries the outage start and the hour; read back to the start', () => {
+    const since = new Date('2030-05-03T10:20:00.000Z');
+    const ref = alertRef.listenerDown(since, at);
+    expect(ref).toBe(`${String(since.getTime())}_${hour}`);
+    expect(
+      notifyJobSchema.safeParse({ kind: 'OWNER_ALERT', alert: 'listenerDown', refId: ref }).success,
+    ).toBe(true);
+    expect(parseListenerDownRef(ref)).toEqual(since);
+    expect(parseListenerDownRef(hour)).toBeNull();
+  });
+
+  it('listenerStopped: one per reason per hour', () => {
+    for (const reason of LISTENER_STOP_REASONS) {
+      expect(parseListenerStoppedRef(alertRef.listenerStopped(reason, at))).toBe(reason);
+    }
+    for (const ref of ['OTHER_1', 'REVOKED_', 'REVOKED_1x', hour]) {
+      expect(parseListenerStoppedRef(ref)).toBeNull();
+    }
+  });
+
+  it('bankChatAnomaly: source, reason and the hour (one alert an hour per source and reason, M-B)', () => {
+    const ref = alertRef.bankChatAnomaly('UZCARD_BOT', 'FOREIGN_SENDER', at);
+    expect(ref).toBe(`UZCARD_BOT_FOREIGN_SENDER_${hour}`);
+    const sameHour = new Date(at.getTime() + 29 * 60_000);
+    expect(alertRef.bankChatAnomaly('UZCARD_BOT', 'FOREIGN_SENDER', sameHour)).toBe(ref);
+    expect(parseBankChatAnomalyRef(ref)).toEqual({
+      source: 'UZCARD_BOT',
+      reason: 'FOREIGN_SENDER',
+    });
+    for (const bad of ['HUMO_BOT_EDITED_1', 'X_OUTGOING_1', 'HUMO_BOT_OUTGOING_']) {
+      expect(parseBankChatAnomalyRef(bad)).toBeNull();
+    }
+  });
+
+  it('accountBound: the hour of the first binding (D-52 r2, L-B)', () => {
+    expect(alertRef.accountBound(at)).toBe(hour);
+    const job = { kind: 'OWNER_ALERT', alert: 'accountBound', refId: hour };
+    expect(notifyJobSchema.safeParse(job).success).toBe(true);
+  });
+});
+
+describe('ownerAlertOutboxJobId (D-53)', () => {
+  const job = { kind: 'OWNER_ALERT', alert: 'chainBreak', refId: 'r9' } as const;
+
+  it('is the alert id plus the recipient: stable, one per partner', () => {
+    expect(ownerAlertOutboxJobId(job, '111111111')).toBe('alert-chainBreak-r9-111111111');
+    expect(ownerAlertOutboxJobId(job, '111111111')).toBe(ownerAlertOutboxJobId(job, '111111111'));
+    expect(ownerAlertOutboxJobId(job, '222222222')).not.toBe(
+      ownerAlertOutboxJobId(job, '111111111'),
+    );
+  });
+
+  it('fits the longest ref and the longest chat id', () => {
+    const long = { ...job, refId: 'a'.repeat(64) };
+    expect(() => ownerAlertOutboxJobId(long, '9'.repeat(20))).not.toThrow();
   });
 });

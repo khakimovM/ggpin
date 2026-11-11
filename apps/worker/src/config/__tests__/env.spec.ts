@@ -84,20 +84,43 @@ describe('worker loadEnv', () => {
     }
   });
 
-  describe('OWNER_ALERT_CHAT_ID', () => {
-    it('accepts the numeric id of a user chat', () => {
-      expect(buildTestEnv({ OWNER_ALERT_CHAT_ID: '555000' }).OWNER_ALERT_CHAT_ID).toBe('555000');
+  describe('bank-feed settings', () => {
+    const bots = { BANK_FEED_HUMO_BOT_ID: '111000111', BANK_FEED_UZCARD_BOT_ID: '222000222' };
+
+    it('parses the pinned bot ids as BigInt and defaults the lock wait', () => {
+      const env = buildTestEnv(bots);
+      expect(env.BANK_FEED_HUMO_BOT_ID).toBe(111000111n);
+      expect(env.BANK_FEED_UZCARD_BOT_ID).toBe(222000222n);
+      expect(env.BANK_FEED_LOCK_TIMEOUT_MS).toBe(3_000);
+      expect(buildTestEnv().BANK_FEED_HUMO_BOT_ID).toBeUndefined();
     });
 
-    // alerts leave through tg-outbox, which writes to user chats only
-    it.each(['-100123456', '-1', 'abc', '12 3', '+5', '1.5', '0', '012', '1'.repeat(21)])(
-      'refuses %j at boot',
-      (bad) => {
-        expect(messageOf({ ...TEST_ENV_SOURCE, OWNER_ALERT_CHAT_ID: bad })).toContain(
-          'OWNER_ALERT_CHAT_ID',
-        );
-      },
-    );
+    it.each(['-1', '0', '012', 'abc', '1.5', '1'.repeat(21)])('refuses the bot id %j', (bad) => {
+      expect(messageOf({ ...TEST_ENV_SOURCE, BANK_FEED_HUMO_BOT_ID: bad })).toContain(
+        'BANK_FEED_HUMO_BOT_ID',
+      );
+    });
+
+    it.each(['99', '10001', 'x'])('refuses the lock wait %j', (bad) => {
+      expect(messageOf({ ...TEST_ENV_SOURCE, BANK_FEED_LOCK_TIMEOUT_MS: bad })).toContain(
+        'BANK_FEED_LOCK_TIMEOUT_MS',
+      );
+    });
+
+    it('requires both bot ids in production', () => {
+      const prod = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', FULFILLMENT_DRY_RUN: 'true' };
+      const message = messageOf(prod);
+      expect(message).toContain('BANK_FEED_HUMO_BOT_ID: is required in production');
+      expect(message).toContain('BANK_FEED_UZCARD_BOT_ID: is required in production');
+      expect(() => loadEnv({ ...prod, ...bots })).not.toThrow();
+    });
+
+    // The owner alerts leave through the API (notify consumer): the worker has no use for it.
+    it('does not declare OWNER_ALERT_CHAT_ID', () => {
+      expect(buildTestEnv({ OWNER_ALERT_CHAT_ID: '555000' })).not.toHaveProperty(
+        'OWNER_ALERT_CHAT_ID',
+      );
+    });
   });
 
   describe('API-only secrets', () => {
@@ -142,7 +165,13 @@ describe('worker loadEnv', () => {
   });
 
   describe('secrets', () => {
-    const prod = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', FULFILLMENT_DRY_RUN: 'true' };
+    const prod = {
+      ...TEST_ENV_SOURCE,
+      NODE_ENV: 'production',
+      FULFILLMENT_DRY_RUN: 'true',
+      BANK_FEED_HUMO_BOT_ID: '111000111',
+      BANK_FEED_UZCARD_BOT_ID: '222000222',
+    };
 
     it('are optional, and empty values are treated as unset', () => {
       const source = Object.fromEntries(

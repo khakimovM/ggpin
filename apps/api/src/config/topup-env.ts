@@ -1,4 +1,39 @@
-import { TOPUP_BASE_UNIT_TIYIN } from '@repo/shared';
+import { BANK_FEED_DEFAULTS, TOPUP_BASE_UNIT_TIYIN, TOPUP_DEFAULTS } from '@repo/shared';
+import { z } from 'zod';
+
+const seconds = (fallback: number, min: number, max: number) =>
+  z.coerce.number().int().min(min).max(max).default(fallback);
+
+const DAY_SEC = 86_400;
+
+/**
+ * Top-up tunables that are not money (docs/04 §4.5 of the phase-4 plan). Part of EnvSchema.
+ * The grace must equal the worker's TOPUP_LATE_GRACE_SEC: the API writes `reservedUntil` with
+ * it and the worker's matcher reads that column, so a mismatch only shifts where the window is
+ * stored, never doubles it. A grace under an hour would hand an amount to a second user while a
+ * slow bank transfer for the first one may still arrive.
+ */
+export const topupTuningShape = {
+  // The unique extra is 1..N whole so'm. Below 999 only to make exhaustion testable.
+  TOPUP_SUFFIX_MAX_SOM: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(TOPUP_DEFAULTS.SUFFIX_MAX_SOM)
+    .default(TOPUP_DEFAULTS.SUFFIX_MAX_SOM),
+  TOPUP_INTENT_TTL_SEC: seconds(TOPUP_DEFAULTS.INTENT_TTL_SEC, 60, DAY_SEC),
+  TOPUP_LATE_GRACE_SEC: seconds(TOPUP_DEFAULTS.LATE_GRACE_SEC, 3_600, 7 * DAY_SEC),
+  TOPUP_NEW_ACCOUNT_AGE_SEC: seconds(TOPUP_DEFAULTS.NEW_ACCOUNT_AGE_SEC, 0, 90 * DAY_SEC),
+  // How long an UNPAID expired or cancelled request still counts against its card's limit (D-42
+  // (1)): `LEAST(reservedUntil, expiresAt + hold)`. The amount itself stays reserved for the whole
+  // grace; only the capacity is released early, so create-and-cancel cannot block cards for a day.
+  TOPUP_CAPACITY_HOLD_SEC: seconds(TOPUP_DEFAULTS.CAPACITY_HOLD_SEC, 1, 7 * DAY_SEC),
+  // Not a secret (no secret-shaped suffix), so the BANK_FEED_ prefix rule lets the API read it.
+  BANK_FEED_HEARTBEAT_MAX_AGE_SEC: seconds(BANK_FEED_DEFAULTS.HEARTBEAT_MAX_AGE_SEC, 10, 3_600),
+} as const;
+
+// The cross-field rules of these knobs are shared with the worker (@repo/shared).
+export { topupTuningProblems, type TopupTuning } from '@repo/shared';
 
 export interface TopupEnvLimits {
   readonly TOPUP_MIN_TIYIN: bigint;

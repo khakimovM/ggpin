@@ -1,5 +1,5 @@
 import { REDACTED } from '@repo/shared';
-import { loggablePath, redactLoginNonce, serializeRequest } from '../serializers';
+import { MAX_PATH_LENGTH, loggablePath, redactLoginNonce, serializeRequest } from '../serializers';
 
 const NONCE = 'n0nce-VALUE_abcdef123456';
 const PREFIX = '/api/v1/auth/telegram/status';
@@ -85,5 +85,12 @@ describe('serializeRequest', () => {
     });
     expect(out).toMatchObject({ method: 'GET', path: `${PREFIX}/${REDACTED}` });
     expect(JSON.stringify(out)).not.toContain(NONCE);
+  });
+
+  it('cuts the path at 128 characters (an over-long id must not bloat the log, R-6)', () => {
+    const url = `/api/v1/payments/pay/${'a'.repeat(8_000)}`;
+    const out = serializeRequest({ id: 'req-2', method: 'GET', url, headers: {} });
+    expect(MAX_PATH_LENGTH).toBe(128);
+    expect(out).toMatchObject({ path: url.slice(0, 128) });
   });
 });

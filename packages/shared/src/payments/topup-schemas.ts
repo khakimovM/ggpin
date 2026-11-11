@@ -31,6 +31,9 @@ export const TOPUP_DEFAULTS = {
   // The quick-amount buttons of the top-up form, whole so'm; the form keeps those the limits allow.
   QUICK_AMOUNTS_SOM: ['20000', '50000', '100000', '200000'],
   LATE_GRACE_SEC: 86_400, // the amount stays reserved 24 h after expiry (or after payment)
+  // An UNPAID request (pending, expired or cancelled) counts against its card's limit only this
+  // long after expiresAt (D-42 (1)); its amount stays reserved for the whole grace.
+  CAPACITY_HOLD_SEC: 3_600,
   NEW_ACCOUNT_AGE_SEC: 604_800, // accounts younger than 7 days are "new"
   NEW_ACCOUNT_DAILY_MAX_TIYIN: 50_000_000n, // 500 000 so'm per 24 h for a new account
   // Daily caps count the BASE amounts (see topup-limits.ts), never the random 1-999 so'm extra.

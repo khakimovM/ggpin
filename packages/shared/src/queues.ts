@@ -9,6 +9,7 @@ export const QUEUES = {
   TG_OUTBOX: 'tg-outbox',
   PAYMENT_RECONCILE: 'payment-reconcile',
   BANK_MESSAGE: 'bank-message',
+  CARD_LIMIT: 'card-limit',
   TOPUP_EXPIRE: 'topup-expire',
   NOTIFY: 'notify',
 } as const;
@@ -30,6 +31,15 @@ export interface QueueJobDefaults {
 
 const HOUR_SEC = 60 * 60;
 const DAY_SEC = 24 * HOUR_SEC;
+
+/**
+ * How long a finished `notify` job is kept, and so how long its job id (`topup-<paymentId>`,
+ * `alert-<kind>-<refId>`) deduplicates a repeated add. The worker re-derives notifications from
+ * a stored outcome on every replay; it adds them only while the outcome is younger than this
+ * (BankFeedEffects), so a replay can never tell a user or the owner the same thing twice.
+ * The jobs carry ids only (notify.ts), so keeping them long holds no amounts or text in Redis.
+ */
+export const NOTIFY_DEDUPE_SEC = 30 * DAY_SEC;
 
 // Cron-driven jobs: the next tick is the retry, so a failure is not re-run on its own.
 const CRON_DEFAULTS: QueueJobDefaults = {
@@ -69,7 +79,9 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
   [QUEUES.PRICE_SYNC]: CRON_DEFAULTS,
   [QUEUES.FRAGMENT_KEEPALIVE]: CRON_DEFAULTS,
   [QUEUES.RECONCILE]: CRON_DEFAULTS,
-  [QUEUES.PAYMENT_RECONCILE]: CRON_DEFAULTS,
+  // The daily reconciliation retries twice (a re-run only re-reads and writes another audit
+  // row); after the last failure the owner gets `reconcileFailed` (docs/05 §10).
+  [QUEUES.PAYMENT_RECONCILE]: { ...CRON_DEFAULTS, attempts: 3 },
   [QUEUES.TOPUP_EXPIRE]: CRON_DEFAULTS,
   // One job per stored bank message (jobId `bm-<id>`), consumed by the worker with
   // concurrency 1 so the balance chain is checked in message order. A retry is safe: the
@@ -81,20 +93,37 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
     removeOnComplete: { age: 3 * DAY_SEC, count: 10_000 },
     removeOnFail: { age: 30 * DAY_SEC, count: 10_000 },
   },
+  // One job per received CREDIT on a card (jobId `cl-<bankMessageId>`), added after the message's
+  // decision committed: the card-limit check (80 % / FULL, docs/05 §2) under the card lock. Its
+  // own attempts, so a busy card (55P03) never costs the message's alerts or attempts; after the
+  // last one the owner gets `limitCheckFailed`. Re-running it is safe (FULL is a state, the
+  // alert ids are stable).
+  [QUEUES.CARD_LIMIT]: {
+    attempts: 8,
+    backoff: { type: 'exponential', delay: 2_000 },
+    removeOnComplete: { age: 3 * DAY_SEC, count: 10_000 },
+    removeOnFail: { age: 30 * DAY_SEC, count: 10_000 },
+  },
   // Worker -> api: "tell this user / the owner something happened" (notify.ts). The api renders
-  // the text and hands it to tg-outbox, so the worker never holds the bot token.
+  // the text and hands it to tg-outbox, so the worker never holds the bot token. Completed jobs
+  // stay NOTIFY_DEDUPE_SEC (ids only) with a count far above the expected volume, so the age,
+  // not the count, decides when an id stops deduplicating.
   [QUEUES.NOTIFY]: {
     attempts: 5,
     backoff: { type: 'exponential', delay: 2_000 },
-    removeOnComplete: { age: DAY_SEC, count: 1_000 },
+    removeOnComplete: { age: NOTIFY_DEDUPE_SEC, count: 200_000 },
     removeOnFail: { age: 7 * DAY_SEC, count: 5_000 },
   },
   // Telegram 429s are handled by the processor with `retry_after`; these attempts cover
-  // transient network errors only.
+  // transient network errors only. Kept short on purpose, completed AND failed: these jobs hold
+  // the rendered text (amounts, balances) and the chat id. Deduplication of top-up and alert messages is the notify job's
+  // (NOTIFY_DEDUPE_SEC); a top-up's outbox id equals the notify id as a second line, an owner
+  // alert's is the notify id plus the recipient's chat id (D-53: one message per partner).
   [QUEUES.TG_OUTBOX]: {
     attempts: 5,
     backoff: { type: 'exponential', delay: 2_000 },
     removeOnComplete: { age: DAY_SEC, count: 1_000 },
-    removeOnFail: { age: 7 * DAY_SEC, count: 5_000 },
+    // Failed ones too (a 403 / 400 keeps the text and the chat id): one day, not a week (N4).
+    removeOnFail: { age: DAY_SEC, count: 5_000 },
   },
 };

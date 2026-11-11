@@ -1,5 +1,5 @@
-import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common';
-import { createPrismaClient, type PrismaClient } from '@repo/db';
+import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { assertProductionDatabase, createPrismaClient, type PrismaClient } from '@repo/db';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 
 // Repositories are the only consumers (rules/20-database-prisma.md): they use `prisma.client`.
@@ -7,11 +7,21 @@ import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 // the driver adapter. The connection is lazy (pg connects on the first query), so booting a
 // module graph in unit tests needs no database.
 @Injectable()
-export class PrismaService implements OnApplicationShutdown {
+export class PrismaService implements OnModuleInit, OnApplicationShutdown {
   readonly client: PrismaClient;
+  private readonly production: boolean;
 
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
     this.client = createPrismaClient(config.DATABASE_URL);
+    this.production = config.NODE_ENV === 'production';
+  }
+
+  // D-52 r2 (symmetric to the dev-tool guard): a production process refuses to boot on a database
+  // named *_dev / *_test or carrying the dev marker ggpin.env = dev, so a production container
+  // pointed at a dev/test database (or the reverse mix-up) fails loudly at boot. Only production
+  // connects here; dev and test keep the lazy connection.
+  async onModuleInit(): Promise<void> {
+    if (this.production) await assertProductionDatabase(this.client);
   }
 
   // onApplicationShutdown, not onModuleDestroy: Nest calls onModuleDestroy FIRST, while the HTTP

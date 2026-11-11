@@ -18,6 +18,13 @@ export const WEBAPP_ACCOUNT_LIMIT = { max: 10, windowSec: 60 } as const;
 /** Longest the limiter may delay a login before it is skipped (fail open). */
 export const ACCOUNT_LIMIT_TIMEOUT_MS = 300;
 
+/**
+ * DI token for that bound. Production always gets ACCOUNT_LIMIT_TIMEOUT_MS (auth.module); the e2e
+ * suites that assert a 429 raise it, because on a loaded test machine a Redis round trip can
+ * outlast 300 ms and the login then (correctly) fails open with a 200.
+ */
+export const ACCOUNT_LIMIT_TIMEOUT = Symbol('ACCOUNT_LIMIT_TIMEOUT');
+
 export const webappLimitKey = (telegramId: number | bigint): string =>
   `rl:webapp:${telegramId.toString()}`;
 
@@ -31,6 +38,8 @@ export class MiniAppAuthService {
     private readonly codec: TokenCodec,
     private readonly counter: FixedWindowCounter,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(ACCOUNT_LIMIT_TIMEOUT)
+    private readonly limitTimeoutMs: number = ACCOUNT_LIMIT_TIMEOUT_MS,
   ) {}
 
   /** Mini App login: verified initData -> find-or-create user -> short-lived bearer token. */
@@ -71,7 +80,7 @@ export class MiniAppAuthService {
     try {
       hit = await withTimeout(
         this.counter.hit(webappLimitKey(telegramId), WEBAPP_ACCOUNT_LIMIT.windowSec),
-        ACCOUNT_LIMIT_TIMEOUT_MS,
+        this.limitTimeoutMs,
       );
     } catch (error) {
       // initData is already verified and the per-IP throttle still applies: an outage (or a

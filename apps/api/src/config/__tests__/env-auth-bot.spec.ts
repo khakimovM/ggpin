@@ -24,6 +24,7 @@ describe('auth and bot settings (phase 2)', () => {
     TELEGRAM_BOT_MODE: 'webhook',
     TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
     TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+    OWNER_ALERT_CHAT_ID: '555000',
   };
 
   it.each([
@@ -219,6 +220,7 @@ describe('auth and bot settings (phase 2)', () => {
       TELEGRAM_BOT_MODE: 'webhook',
       TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
       TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+      OWNER_ALERT_CHAT_ID: '555000',
     };
 
     it('accepts the complete configuration', () => {
@@ -231,6 +233,12 @@ describe('auth and bot settings (phase 2)', () => {
       expect(messageOf({ ...prod, MINI_APP_URL: 'http://ggpin.uz/tg' })).toContain(
         'MINI_APP_URL: must use https in production',
       );
+    });
+
+    it('requires OWNER_ALERT_CHAT_ID (bank-feed alerts must reach the owner)', () => {
+      const { OWNER_ALERT_CHAT_ID: _removed, ...without } = prod;
+      expect(messageOf(without)).toContain('OWNER_ALERT_CHAT_ID: is required in production');
+      expect(buildTestEnv().OWNER_ALERT_CHAT_ID).toBeUndefined();
     });
 
     it('does not need MINI_APP_URL outside production', () => {

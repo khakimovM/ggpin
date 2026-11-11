@@ -61,7 +61,7 @@ describe('BotLifecycleService webhook mode: timeouts, alerts and shutdown', () =
     await jest.advanceTimersByTimeAsync(WEBHOOK_SETUP_TIMEOUT_MS);
     expect(enqueue).toHaveBeenCalledTimes(1);
     const [jobId, job] = enqueue.mock.calls[0] as [string, { chatId: string; text: string }];
-    expect(jobId).toMatch(/^alert-setupFailed-[a-z0-9]+x3$/);
+    expect(jobId).toMatch(/^alert-setupFailed-[a-z0-9]+x3-555000$/);
     expect(job.text).toContain('3');
     // never re-registered the webhook
     expect(fake.callsOf('setWebhook')).toHaveLength(1);
@@ -88,8 +88,8 @@ describe('BotLifecycleService webhook mode: timeouts, alerts and shutdown', () =
       ids.push((enqueue.mock.calls[0] as [string])[0]);
       await service.beforeApplicationShutdown();
     }
-    expect(ids[0]).toMatch(/^alert-webhookFailed-[a-z0-9]+x3$/);
-    expect(ids[1]).toMatch(/^alert-webhookFailed-[a-z0-9]+x3$/);
+    expect(ids[0]).toMatch(/^alert-webhookFailed-[a-z0-9]+x3-555000$/);
+    expect(ids[1]).toMatch(/^alert-webhookFailed-[a-z0-9]+x3-555000$/);
     expect(ids[0]).not.toBe(ids[1]);
   });
 

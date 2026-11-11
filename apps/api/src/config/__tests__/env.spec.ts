@@ -226,6 +226,7 @@ describe('loadEnv', () => {
       TELEGRAM_BOT_MODE: 'webhook',
       TELEGRAM_WEBHOOK_URL: 'https://api.ggpin.uz/api/v1/telegram/webhook',
       TELEGRAM_WEBHOOK_SECRET: TEST_WEBHOOK_SECRET,
+      OWNER_ALERT_CHAT_ID: '555000',
     };
 
     it('accepts a strong configuration', () => {

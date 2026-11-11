@@ -11,6 +11,7 @@ import { WorkerConfigModule } from '../../config/config.module';
 import { buildE2eEnv } from '../../config/__tests__/e2e-env';
 import type { Env } from '../../config/env';
 import { PrismaModule } from '../../infra/prisma/prisma.module';
+import { withoutPaymentCrons } from '../../__tests__/payment-cron-isolation';
 import { WorkerModule } from '../../worker.module';
 import { CostSyncService } from '../cost-sync.service';
 import { FxSyncService } from '../fx-sync.service';
@@ -193,9 +194,9 @@ describe('price sync on the real database (dry-run simulator)', () => {
     const simulatorRows = () => prisma.fxRate.count({ where: { source: 'simulator' } });
     const before = await simulatorRows();
     for (let boot = 0; boot < 2; boot += 1) {
-      const worker = await Test.createTestingModule({
-        imports: [WorkerModule.register(env)],
-      }).compile();
+      const worker = await withoutPaymentCrons(
+        Test.createTestingModule({ imports: [WorkerModule.register(env)] }),
+      ).compile();
       worker.useLogger(false);
       await worker.init();
       try {

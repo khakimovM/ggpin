@@ -144,6 +144,7 @@ describe('other topup shapes', () => {
     expect(TOPUP_DEFAULTS.SUFFIX_MAX_SOM).toBe(999);
     expect(TOPUP_DEFAULTS.INTENT_TTL_SEC).toBe(30 * 60);
     expect(TOPUP_DEFAULTS.LATE_GRACE_SEC).toBe(24 * 60 * 60);
+    expect(TOPUP_DEFAULTS.CAPACITY_HOLD_SEC).toBe(60 * 60); // D-42 (1)
     expect(TOPUP_DEFAULTS.NEW_ACCOUNT_AGE_SEC).toBe(7 * 24 * 60 * 60);
     expect(TOPUP_DEFAULTS.NEW_ACCOUNT_DAILY_MAX_TIYIN).toBe(50_000_000n);
     expect(TOPUP_DEFAULTS.DAILY_MAX_TIYIN).toBe(500_000_000n);

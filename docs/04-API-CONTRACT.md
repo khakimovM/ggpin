@@ -39,6 +39,17 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                                                                                                                                                      |
 | 503  | `PAYMENT_METHOD_UNAVAILABLE`                                                   | to‘ldirish usuli hozir yo‘q (sig‘imli karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti)                                                                                                  |
 
+Buzilgan percent-kodlashli URL (masalan `%ZZ`) marshrutlashdan oldin HTTP qatlamida standart shaklsiz xom `400` oladi (D-42 (3)); bizning havolalarimiz (id va token base64url) buni hech qachon keltirib chiqarmaydi.
+
+Kodlar va HTTP holatlari ro‘yxati — `packages/shared/src/errors.ts` (`ERROR_CODES`, `ERROR_HTTP_STATUS`); bu jadval u bilan aynan mos turadi.
+
+- `details.fields` — `[{ path, code }]`: faqat maydon yo‘li va Zod xato kodi; rad etilgan qiymatning o‘zi javobga chiqmaydi.
+- Kodsiz framework xatolari holat bo‘yicha xaritalanadi: `415` (qo‘llab-quvvatlanmaydigan `Content-Type`) — `400 VALIDATION_ERROR`;
+  umumiy `403` (guard, rol yoki CSRF/Origin rad etgani) — `404 NOT_FOUND` (D-26); jadvalda kodi yo‘q boshqa holat — `500 INTERNAL_ERROR`.
+  Biznes `403` lari (`USER_BLOCKED`, `PURCHASE_FROZEN`) o‘z kodini saqlaydi.
+- `429 RATE_LIMITED` javobida `Retry-After` (soniya) sarlavhasi bor: throttler limitlarida ham, servis limitlarida ham (servisda ko‘pi
+  bilan 86 400).
+
 ## Auth
 
 | Metod | Yo‘l                                           | Tavsif                                                                     |
@@ -143,7 +154,8 @@ Ikkala yo‘l ham sessiya talab qiladi, javoblari `Cache-Control: no-store`. Pul
 
 **`GET /me/ledger?kind=&page=1&limit=20`** — moliya tarixi, eng yangisi birinchi. `kind` ixtiyoriy
 (`TOPUP`, `TOPUP_REVERSAL`, `PURCHASE`, `REFUND`, `REFERRAL_BONUS`, `REFERRAL_BONUS_REVERSAL`, `ADJUSTMENT`); noma’lum qiymat,
-noma’lum kalit yoki `limit` > 100 — `400 VALIDATION_ERROR`. Faqat o‘zining yozuvlari.
+noma’lum kalit, `limit` 1..100 dan yoki `page` 1..10 000 dan tashqari — `400 VALIDATION_ERROR`. Faqat o‘zining yozuvlari
+(`createdAt`, keyin `id` bo‘yicha kamayish tartibida).
 
 ```json
 {
@@ -173,6 +185,8 @@ noma’lum kalit yoki `limit` > 100 — `400 VALIDATION_ERROR`. Faqat o‘zining
 - `amountTiyin` ishorali: kirim musbat, chiqim manfiy.
 - `orderId` faqat buyurtmadan kelgan yozuvda (`PURCHASE`, `REFUND`), `paymentId` faqat to‘lovdan kelganida (`TOPUP`,
   `TOPUP_REVERSAL`); qolganlarida (`REFERRAL_BONUS*`, `ADJUSTMENT`) ikkalasi `null` — ichki audit id ko‘rsatilmaydi.
+  Havola faqat yozuv turi **va** manba turi (`refType` `ORDER` / `PAYMENT`) mos kelganda beriladi: masalan admin qisman
+  qaytargan `REFUND` (`ADMIN_ACTION` manbali) da `orderId` ham `null`. `refType`/`refId` javobga chiqmaydi.
 
 ## Katalog
 
@@ -572,6 +586,9 @@ bo‘yicha topiladi (`docs/05-PAYMENTS.md`). Click, Payme, Uzum va Rahmat — ke
 
 Cookie sessiyali yozuv so‘rovlarida (`POST`) `X-CSRF-Token` va ruxsat etilgan `Origin` kerak (D-26); Bearer tokenli Mini App
 so‘rovida kerak emas. Hamma javoblar `Cache-Control: no-store`. Boshqa foydalanuvchining so‘rovi — `404 NOT_FOUND`.
+Sessiyali yo‘llarda (`/payments/intents/:id`, `…/cancel`, `…/pay-link`) noto‘g‘ri shakldagi `:id` (1–64 belgi `A–Z a–z 0–9 _ -` emas)
+— `400 VALIDATION_ERROR`; sessiyasiz `GET /payments/pay/:intentId` da esa xuddi shu holat `404` (quyida, D-39, D-42 (2)).
+Bloklangan foydalanuvchi har bir sessiyali yo‘lda `403 USER_BLOCKED` oladi.
 
 **`Idempotency-Key`** (buyurtma va to‘lov so‘rovi yaratishda majburiy): 8–128 belgi, faqat `A–Z a–z 0–9 _ -` (UUID mos keladi);
 foydalanuvchi bo‘yicha noyob. Yo‘q yoki shakli noto‘g‘ri — `400 VALIDATION_ERROR`.
@@ -597,8 +614,12 @@ foydalanuvchi bo‘yicha noyob. Yo‘q yoki shakli noto‘g‘ri — `400 VALIDA
 }
 ```
 
-- `minTiyin` 5 000 so‘m, `maxTiyin` 2 000 000 so‘m (bitta so‘rov), `stepTiyin` 1 000 so‘m: klient chegaralarni qattiq yozmaydi, shu yerdan oladi.
-- `available: false` — faol karta sig‘imi yo‘q yoki bank xabarlari tinglovchisi javob bermayapti; bank bo‘yicha alohida ko‘rsatiladi.
+- `minTiyin` 5 000 so‘m, `maxTiyin` 2 000 000 so‘m (bitta so‘rov), `stepTiyin` 1 000 so‘m — standart qiymatlar (`TOPUP_MIN_TIYIN`,
+  `TOPUP_MAX_TIYIN`, `TOPUP_STEP_TIYIN` env’dan): klient chegaralarni qattiq yozmaydi, shu yerdan oladi.
+- `available: false` — faol karta sig‘imi yo‘q yoki bank xabarlari tinglovchisi javob bermayapti; bank bo‘yicha alohida ko‘rsatiladi
+  (`banks` da har doim ikkala bank: `HUMO`, `UZCARD`). Tinglovchi javob bermasa hammasi `false`. Yuqoridagi `available` — kamida bitta bank `true`.
+- Javobda foydalanuvchi ma’lumoti yo‘q, shuning uchun server uni Redis’da 5 soniya keshlaydi: holat 5 soniyagacha eskirgan bo‘lishi mumkin;
+  `POST /payments/intents` hammasini qayta tekshiradi.
 
 ### `POST /payments/intents`
 
@@ -645,7 +666,7 @@ So‘rov (`.strict()`; noma’lum kalit, jumladan `quoteId` — `400`):
   (shunda to‘langandan keyin yana shu summa kelsa u begona pul emas, `DUPLICATE` deb taniladi). DB’da exclusion constraint bilan
   himoyalangan.
 - Hisobga xabardagi **to‘liq tushgan summa** (`payAmountTiyin`) yoziladi, asos summa emas.
-- `expiresAt` — yaratilgandan 30 daqiqa. Muddat tugagach (`EXPIRED`) kelgan pul 24 soat ichida, bitta nomzod bo‘lsa, baribir avtomatik yoziladi
+- `expiresAt` — yaratilgandan 30 daqiqa (standart, `TOPUP_INTENT_TTL_SEC`). Muddat tugagach (`EXPIRED`) kelgan pul 24 soat ichida, bitta nomzod bo‘lsa, baribir avtomatik yoziladi
   va foydalanuvchiga «kech tushdi» xabari boradi. **Bekor qilingan** (`CANCELLED`) so‘rovga kelgan pul avtomatik yozilmaydi: egaga
   ko‘rib chiqishga tushadi (`CANCELLED_LATE`). Grace’dan keyingi pul ham ko‘rib chiqishga tushadi.
 - `card.number` — 16 raqam, ajratgichsiz (klient formatlaydi). Bu **bizning** qabul qiluvchi kartamiz; u faqat shu so‘rov egasiga
@@ -663,18 +684,25 @@ Tekshiruv tartibi: tezlik limiti (5 so‘rov / 10 daqiqa va 10 so‘rov / 24 soa
 validatsiya (`400`) → idempotentlik → kutilayotgan so‘rov (`409 TOPUP_ALREADY_PENDING`) → band so‘rovlar soni (quyida; `429 RATE_LIMITED`) → summa
 chegaralari va kunlik cheklar (`422`) → tinglovchi holati va karta sig‘imi (`503 PAYMENT_METHOD_UNAVAILABLE`). Foydalanuvchida bir vaqtda faqat
 **bitta** `PENDING` so‘rov bo‘ladi (DB’da `UNIQUE (userId) WHERE status = 'PENDING'`; poygada buzilsa ham `409 TOPUP_ALREADY_PENDING`,
-`details.intentId` faqat `WHERE userId = sessiya` bilan topiladi).
+`details.intentId` faqat `WHERE userId = sessiya` bilan topiladi). Tezlik limiti validatsiyadan **oldin** sanaladi, shuning uchun noto‘g‘ri
+body ham va idempotent takror ham 5 / 10 daqiqa limitiga kiradi. Redis ishlamasa limitni sanab bo‘lmaydi — `500 INTERNAL_ERROR`, so‘rov
+yaratilmaydi (fail closed). Ikki parallel so‘rov INSERT poygasida ikki marta yutqazsa — `503 PAYMENT_METHOD_UNAVAILABLE` (xom `500` emas).
 
 **Band so‘rovlar cheki.** Bir vaqtda ko‘pi bilan **3 ta TO‘LANMAGAN** band so‘rov: `PENDING` va `reservedUntil > now` bo‘lgan `EXPIRED`/`CANCELLED`.
 `PAID` sanalmaydi: chek «yarat → bekor qil» orqali summalarni egallash fermasiga qarshi, to‘langan so‘rov esa haqiqiy pul. Oshsa
 `429 RATE_LIMITED` va `Retry-After` = shu band so‘rovlarning eng yaqin `reservedUntil`i.
 
 **Kunlik to‘ldirish cheklari** (`422 TOPUP_AMOUNT_OUT_OF_RANGE`, `details.reason`): **barcha** akkauntlarga 24 soatda 5 000 000 so‘m
-(`TOPUP_DAILY_MAX_TIYIN`, `reason: "DAILY_LIMIT"`); 7 kundan yosh akkauntga 500 000 so‘m (`reason: "NEW_ACCOUNT_DAILY_LIMIT"`).
+(`TOPUP_DAILY_MAX_TIYIN`, `reason: "DAILY_LIMIT"`); 7 kundan (`TOPUP_NEW_ACCOUNT_AGE_SEC`) yosh akkauntga 500 000 so‘m
+(`TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN`, `reason: "NEW_ACCOUNT_DAILY_LIMIT"`). Avval bitta so‘rov chegarasi va qadami tekshiriladi
+(`reason` yo‘q), keyin kunlik cheklar.
 
 - _Nima sanaladi:_ **ASOS summa** (`baseAmountTiyin`), tasodifiy 1–999 so‘m qo‘shimcha emas: aks holda aynan 500 000 so‘m so‘rash chekdan oshib ketardi.
   Oxirgi 24 soatdagi `PAID` so‘rovlar (`paidAt` bo‘yicha) va `PENDING` so‘rovlar (`createdAt` bo‘yicha) asos summalari yig‘indisi + yangi so‘rov.
   `EXPIRED` va `CANCELLED` sanalmaydi (pul tushmagan). Aynan 500 000 so‘m — ruxsat; 501 000 so‘m — `422` (yangi akkaunt).
+  **D-54:** egasi `review:credit --user` bilan so‘rovsiz yozgan pul ham sanaladi — `confirmedAt` bo‘yicha, to‘liq summasi bilan (asos summa yo‘q), keyin
+  reversal bo‘lsa ham. `--intent` bilan yozilgan credit shu so‘rovning `PAID` asos summasi orqali sanaladi (ikki marta emas). `wallet:adjust` sanalmaydi
+  (tuzatish, to‘ldirish emas). Bitta formula: `usedTopupBaseSince`; yaratishda, `review:credit` ko‘rinishida va pul yozishda bir xil.
 - _Ikkala chek pul yozilayotganda ham qayta tekshiriladi_ (xuddi shu formula); oshsa pul avtomatik yozilmaydi: review `DAILY_LIMIT` (qaysi chek oshgani
   review ma’lumotida yoziladi).
 - _`details.max` — bugun QOLGAN limit_ (`min`/`step` o‘zgarmaydi). Qolgan limit `min` dan kichik bo‘lsa ham kod shu (`TOPUP_AMOUNT_OUT_OF_RANGE`), `max < min`
@@ -684,7 +712,9 @@ chegaralari va kunlik cheklar (`422`) → tinglovchi holati va karta sig‘imi (
 
 ### `GET /payments/intents/:id` va `GET /payments/intents?status=&limit=`
 
-`status`: `PENDING | PAID | CANCELLED | EXPIRED`; `limit` ≤ 100 (standart 20); ro‘yxat sahifalanmaydi (`meta` yo‘q), eng yangisi birinchi.
+`status` (ixtiyoriy, bitta qiymat): `PENDING | PAID | CANCELLED | EXPIRED`; `limit` 1..100 (standart 20); noma’lum kalit yoki qiymat —
+`400 VALIDATION_ERROR`. Ro‘yxat sahifalanmaydi (`meta` yo‘q), eng yangisi birinchi; `data` — quyidagi obyektlar massivi. Bitta so‘rov:
+`data` — bitta obyekt. O‘qishdan oldin foydalanuvchining muddati o‘tgan `PENDING` so‘rovlari `EXPIRED` ga o‘tkaziladi (worker sweep’ini kutmasdan).
 
 ```json
 {
@@ -711,8 +741,8 @@ chegaralari va kunlik cheklar (`422`) → tinglovchi holati va karta sig‘imi (
 
 ### `POST /payments/intents/:id/cancel`
 
-Body `{}` (`.strict()`). `200`: `{ "intentId": "…", "status": "CANCELLED" }`. Faqat o‘ziniki va faqat `PENDING` bo‘lsa; aks holda
-`404 NOT_FOUND`. Bekor qilingan so‘rovning summasi baribir 24 soat band turadi; shu vaqt ichida unga pul kelsa avtomatik yozilmaydi,
+Body `{}` (`.strict()`). `200`: `{ "intentId": "…", "status": "CANCELLED" }`. Faqat o‘ziniki, `PENDING` va `now < expiresAt` bo‘lsa;
+aks holda `404 NOT_FOUND` (muddati o‘tgan so‘rov avval `EXPIRED` bo‘ladi). Bekor qilinganda havola tokeni o‘chadi. Bekor qilingan so‘rovning summasi baribir 24 soat band turadi; shu vaqt ichida unga pul kelsa avtomatik yozilmaydi,
 egaga ko‘rib chiqishga tushadi (`CANCELLED_LATE`), shuning uchun foydalanuvchi bekor qilingan so‘rovga o‘tkazma qilmasligi kerak.
 
 ### `POST /payments/intents/:id/pay-link`
@@ -759,7 +789,8 @@ X-Pay-Token: <43 belgili token>
 ```
 
 - Javobda foydalanuvchi id’si, username, balans, ledger va boshqa so‘rovlar **yo‘q**. `card` faqat `PENDING` da; `PAID` bo‘lgach
-  `expiresAt` gacha `card: null` bilan o‘qiladi (sahifa «to‘landi» ko‘rsatadi).
+  `expiresAt` gacha `card: null` bilan o‘qiladi (sahifa «to‘landi» ko‘rsatadi). `expiresAt` dan keyin (holatidan qat’i nazar) — `404`,
+  shuning uchun amalda `status` faqat `PENDING` yoki `PAID` bo‘ladi.
 - **`ownerHint`** — havola kimning hisobini to‘ldirishini ko‘rsatuvchi yashirilgan belgi: begona odam yuborgan havolani to‘lovchi
   darhol payqashi uchun. Qoida (`maskOwnerHint(firstName, username)`): faqat **harf va raqamlar** qoladi (bo‘shliq, boshqaruv, bidi va nol kenglikli belgilar,
   combining belgilar, «ko‘rinmas ism» belgilari U+3164, U+115F, U+2800 va shunga o‘xshashlar olib tashlanadi); birinchi va oxirgi belgi, o‘rtasida `***`
@@ -770,12 +801,14 @@ X-Pay-Token: <43 belgili token>
 - Token faqat **o‘qish** huquqi beradi, bitta so‘rovga bog‘langan va `expiresAt` gacha amal qiladi; shu vaqt ichida ko‘p marta
   o‘qiladi (sahifa polling qiladi, kamida 5 s). «Bir martalik» — qayta berilganda eskisi o‘lishi va bekor qilinganda
   (`CANCELLED`) token o‘chishi ma’nosida.
-- **Har qanday xato bir xil `404 NOT_FOUND`** (javob tanasi va vaqti bir xil): noma’lum yoki **noto‘g‘ri shakldagi `intentId`** (Fastify `maxParamLength` 100: undan uzun
-  parametrni router o‘zi 404 qiladi, javob konverti bir xil; sxemadagi `.max(128)` faqat zaxira), token yo‘q
-  yoki noto‘g‘ri shaklda, boshqa so‘rovniki, muddati o‘tgan, **bekor qilingan**. Sahifa shunda «havola eskirgan yoki bekor qilingan» deydi.
+- **Har qanday xato bir xil `404 NOT_FOUND`** (javob tanasi va vaqti bir xil): noma’lum yoki **noto‘g‘ri shakldagi `intentId`** (Fastify `maxParamLength` 16 384: uzun
+  parametr ham odatdagi yo‘ldan o‘tadi va shakl tekshiruvi uni xuddi shu 404 ga aylantiradi), token yo‘q
+  yoki noto‘g‘ri shaklda, boshqa so‘rovniki, muddati o‘tgan, **bekor qilingan**, so‘rov egasi bloklangan. Sahifa shunda «havola eskirgan yoki bekor qilingan» deydi.
   Token mavjudligini aniqlab bo‘lmaydi; `intentId` shakli ham `400` bermaydi.
-- `@Public` (sessiya shart emas), `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. CORS — faqat `WEB_URL`.
-  Limit: IP’ga 300/daqiqa (IPv6 /64) va so‘rovga 30/daqiqa; oshsa `429 RATE_LIMITED` + `Retry-After`.
+- `@Public` (sessiya shart emas), `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. CORS — faqat `WEB_URL`, credentials’siz,
+  `GET`, ruxsat etilgan sarlavha faqat `X-Pay-Token`; javobdan `Retry-After` va `X-Request-Id` o‘qiladi. Boshqa yo‘llarning CORS siyosati
+  `X-Pay-Token` sarlavhasiga ruxsat bermaydi.
+  Limit: IP’ga 300/daqiqa (IPv6 /64) va so‘rovga 30/daqiqa (so‘rov limiti faqat token to‘g‘ri chiqqandan keyin sanaladi); oshsa `429 RATE_LIMITED` + `Retry-After`.
 
 **Frontend talablari (`/pay/[intentId]`, `/topup`, Mini App; 7-bosqich):**
 
@@ -804,14 +837,16 @@ X-Pay-Token: <43 belgili token>
 
 ### Xatolar (to‘ldirish)
 
-| HTTP | Kod                          | `details`                     | Qachon                                                                                                                                                |
-| ---- | ---------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | `VALIDATION_ERROR`           | `fields`                      | shakl noto‘g‘ri; `purpose: "TOPUP_AND_BUY"`; `Idempotency-Key` yo‘q                                                                                   |
-| 409  | `TOPUP_ALREADY_PENDING`      | `{ intentId }`                | foydalanuvchida kutilayotgan so‘rov bor                                                                                                               |
-| 409  | `IDEMPOTENCY_CONFLICT`       | `{ intentId }`                | bir xil kalit, boshqa body; yoki bir xil body, lekin so‘rov endi `PENDING`/muddatli emas                                                              |
-| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE`  | `{ min, max, step, reason? }` | chegaradan tashqari yoki qadamga karrali emas; `reason`: `DAILY_LIMIT` (barcha), `NEW_ACCOUNT_DAILY_LIMIT`; kunlik limitda `max` = bugun QOLGAN limit |
-| 429  | `RATE_LIMITED`               | —                             | 5 so‘rov / 10 daqiqa, 10 so‘rov / 24 soat, bir vaqtda 3 TO‘LANMAGAN band so‘rov; pay endpoint limitlari (`Retry-After`)                               |
-| 503  | `PAYMENT_METHOD_UNAVAILABLE` | —                             | sig‘imli faol karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti                                                                            |
+| HTTP | Kod                          | `details`                     | Qachon                                                                                                                                                 |
+| ---- | ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 400  | `VALIDATION_ERROR`           | `fields`                      | shakl noto‘g‘ri; `purpose: "TOPUP_AND_BUY"`; `Idempotency-Key` yo‘q yoki noto‘g‘ri; sessiyali yo‘lda noto‘g‘ri `:id`                                   |
+| 403  | `USER_BLOCKED`               | —                             | bloklangan foydalanuvchi (sessiyali yo‘llar; `purchaseFrozen` to‘ldirishga to‘sqinlik qilmaydi)                                                        |
+| 404  | `NOT_FOUND`                  | —                             | boshqa foydalanuvchining yoki noma’lum so‘rov; `cancel`/`pay-link` da `PENDING` va muddatli emas; `GET /payments/pay/:intentId` ning har qanday xatosi |
+| 409  | `TOPUP_ALREADY_PENDING`      | `{ intentId }`                | foydalanuvchida kutilayotgan so‘rov bor                                                                                                                |
+| 409  | `IDEMPOTENCY_CONFLICT`       | `{ intentId }`                | bir xil kalit, boshqa body; yoki bir xil body, lekin so‘rov endi `PENDING`/muddatli emas                                                               |
+| 422  | `TOPUP_AMOUNT_OUT_OF_RANGE`  | `{ min, max, step, reason? }` | chegaradan tashqari yoki qadamga karrali emas; `reason`: `DAILY_LIMIT` (barcha), `NEW_ACCOUNT_DAILY_LIMIT`; kunlik limitda `max` = bugun QOLGAN limit  |
+| 429  | `RATE_LIMITED`               | —                             | 5 so‘rov / 10 daqiqa, 10 so‘rov / 24 soat, bir vaqtda 3 TO‘LANMAGAN band so‘rov; pay endpoint limitlari (`Retry-After`)                                |
+| 503  | `PAYMENT_METHOD_UNAVAILABLE` | —                             | sig‘imli faol karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti; INSERT poygasi ikki marta yutqazilganda                                    |
 
 `409 TOPUP_ALREADY_PENDING`:
 
@@ -866,6 +901,10 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
 `payments` (+ reconcile hisobotlari), `suppliers` (balanslar, holat), `wallet` (TON balans, limitlar),
 `fragment/session` (holat, yangilash), `bonus-codes`, `discount-tiers`, `broadcasts`, `audit-log`,
 `settings`, `admins` (faqat OWNER).
+
+4-bosqichda hamyon va to‘ldirish bo‘yicha ega amallari (`review:credit`, `wallet:adjust`, `payment:reverse`, kartalar) uchun **HTTP yo‘li yo‘q**:
+ular faqat VPS’dagi ega CLI orqali (`docs/05-PAYMENTS.md` 7- va 9-bo‘limlar, D-46). Yuqoridagi `payments`, `users` (+ `adjust-wallet`)
+yo‘llari admin panel bosqichida (9) shu servislar ustiga quriladi.
 
 ## Health
 

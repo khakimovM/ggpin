@@ -2,6 +2,33 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './generated/prisma/client.js';
 
 export * from './generated/prisma/client.js';
+export * from './ledger/index.js';
+export { lockTopupCard } from './payments/card-lock.js';
+export { cardTotals } from './payments/card-totals.js';
+export type { CardTotals, CardTotalsQuery } from './payments/card-totals.js';
+export { expireOverdueTopups } from './payments/topup-expire.js';
+export type { TopupExpireScope } from './payments/topup-expire.js';
+export { AUTO_CREDIT_HORIZON_MS } from './payments/auto-credit-horizon.js';
+export { hasManualCredit, manualCreditsSince } from './payments/manual-credits.js';
+export type { CreditSum, ManualCredits } from './payments/manual-credits.js';
+export { usedTopupBaseSince } from './payments/topup-usage.js';
+export {
+  hasOpenSecurityPause,
+  liveCardsWithoutSecurityPause,
+  lockBankFeedPause,
+  openSecurityPause,
+} from './payments/security-pause.js';
+export type { OpenSecurityPause } from './payments/security-pause.js';
+export {
+  DEV_DATABASE_MARKER,
+  NonProductionDatabaseError,
+  assertProductionDatabase,
+  devToolDatabaseRefusal,
+  markDevDatabase,
+  productionDatabaseRefusal,
+  readDatabaseIdentity,
+} from './database-identity.js';
+export type { DatabaseIdentity } from './database-identity.js';
 
 /** How long a query waits for a pooled connection before it fails. */
 export const CONNECTION_TIMEOUT_MS = 5_000;

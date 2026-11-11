@@ -4,8 +4,9 @@
 // - Money is BigInt in minor units, unit in the column name (Tiyin / MicroUsdt / NanoTon / Minor).
 // - ids are cuid2. Table names are the model names (PascalCase), so raw SQL uses "Wallet" etc.
 // - `updatedAt` exists only on tables whose rows are mutated. Append-only tables never get it:
-//   LedgerEntry, CoinEntry, AuditLog, OrderEvent (plus the immutable snapshots FxRate,
-//   WalletSnapshot, BonusRedemption and the insert-only Wallet lock row).
+//   LedgerEntry, CoinEntry, AuditLog, OrderEvent, BankMessage, BankMessageText,
+//   BankMessageOutcome (plus the immutable snapshots FxRate, WalletSnapshot, BonusRedemption
+//   and the insert-only Wallet lock row).
 // - onDelete policy: Restrict on every relation, so money/audit history can never be
 //   cascade-deleted. The only exception is Cascade on credential tables (WebSession,
 //   AdminSession), which hold no history. SetNull is never used: it would silently rewrite
@@ -13,8 +14,11 @@
 // - Beyond what Prisma can express, the migrations add raw SQL that is the real money
 //   guardrail and is NOT visible in this file: CHECK constraints (ledger sign per kind,
 //   amounts > 0, bps 0..10000, usedCount <= maxUses, no self-referral ...) and BEFORE UPDATE/
-//   DELETE triggers that make LedgerEntry, CoinEntry, OrderEvent and AuditLog append-only.
-//   See docs/03-DATA-MODEL.md "Migratsiya 2".
+//   DELETE triggers that make LedgerEntry, CoinEntry, OrderEvent and AuditLog append-only,
+//   and (phase 4) the P2P guards: BankMessage / BankMessageOutcome / BankMessageText
+//   append-only, TopupCard identity immutable, PaymentIntent transition guard, the
+//   reservation EXCLUDE constraint, Payment <-> bank message / intent consistency.
+//   See docs/03-DATA-MODEL.md "Migratsiya 2" and "Migratsiya 9".
 // - Polymorphic references have no FK by nature: LedgerEntry/CoinEntry (refType, refId),
 //   AuditLog (actorId, targetType, targetId), Setting.updatedBy.
 
@@ -66,6 +70,7 @@ model User {
   bonusRedemptions BonusRedemption[]
   discountCodes    DiscountCode[]
   webSessions      WebSession[]
+  payments         Payment[]
 
   @@index([referredById])
 }
@@ -433,6 +438,7 @@ enum PaymentProviderCode {
   UZUM
   RAHMAT
   TG_STARS
+  P2P_CARD
 }
 
 enum IntentStatus {
@@ -443,26 +449,48 @@ enum IntentStatus {
 }
 
 model PaymentIntent {
-  id             String              @id @default(cuid(2))
-  userId         String
-  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
-  provider       PaymentProviderCode
-  amountTiyin    BigInt
-  status         IntentStatus        @default(PENDING)
-  purpose        String // TOPUP | TOPUP_AND_BUY
-  quoteId        String? // TOPUP_AND_BUY bo‘lsa
-  quote          Quote?              @relation(fields: [quoteId], references: [id], onDelete: Restrict)
-  idempotencyKey String
-  requestHash    String // same key + different body → 409 IDEMPOTENCY_CONFLICT
-  expiresAt      DateTime
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  payments       Payment[]
+  id              String              @id @default(cuid(2))
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  provider        PaymentProviderCode
+  amountTiyin     BigInt
+  status          IntentStatus        @default(PENDING)
+  purpose         String // TOPUP | TOPUP_AND_BUY
+  quoteId         String? // TOPUP_AND_BUY bo‘lsa
+  quote           Quote?              @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  idempotencyKey  String
+  requestHash     String // same key + different body → 409 IDEMPOTENCY_CONFLICT
+  expiresAt       DateTime
+  // P2P_CARD only (a CHECK requires cardId + baseAmountTiyin for that provider). amountTiyin is
+  // then base + unique suffix: the exact amount the user must transfer.
+  cardId          String?
+  card            TopupCard?          @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  baseAmountTiyin BigInt? // the amount the user asked for, without the suffix
+  paidAt          DateTime? // set exactly when status = PAID (CHECK)
+  // The unique amount stays taken on the card until here. Set at creation to expiresAt + grace,
+  // set to exactly GREATEST(old, paidAt + (old - expiresAt)) when the intent becomes PAID (the
+  // grace is the gap fixed at creation; the writer computes it, the BEFORE UPDATE trigger only
+  // refuses any other value), left unchanged on CANCELLED / EXPIRED. The same trigger enforces
+  // the status graph and bounds paidAt to createdAt - 5 min .. now + 5 min.
+  // Required for P2P_CARD (CHECK). The one place the grace window is stored: allocator and
+  // matcher read it instead of recomputing. A GiST EXCLUDE (raw SQL, migration 9) makes two
+  // overlapping reservations of one amount on one card impossible.
+  reservedUntil   DateTime?
+  payTokenHash    String?             @unique // HMAC-SHA256 of the pay-link capability token (D-39)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  payments        Payment[]
+  reviews         PaymentReview[]
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([quoteId])
   @@index([status, createdAt])
+  // Allocator: taken amounts of a card = cardId = ? AND reservedUntil > now(), read from this
+  // index alone (amountTiyin is the last column). Matcher: same prefix, reservedUntil >= tgDate.
+  @@index([cardId, reservedUntil, amountTiyin])
+  // Per-user count of reservations still held (S4 anti-abuse limits).
+  @@index([userId, reservedUntil])
 }
 
 enum PaymentStatus {
@@ -473,13 +501,22 @@ enum PaymentStatus {
 
 model Payment {
   id            String              @id @default(cuid(2))
-  intentId      String
-  intent        PaymentIntent       @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  // NULL for a payment credited from a review (no intent matched); a CHECK requires an intent
+  // or a review.
+  intentId      String?
+  intent        PaymentIntent?      @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
   provider      PaymentProviderCode
-  providerTxnId String
+  providerTxnId String // P2P_CARD: "<senderId>:<tgMessageId>"
   amountTiyin   BigInt
   status        PaymentStatus
   raw           Json // redakt qilingan
+  bankMessageId String?             @unique // P2P_CARD: the bank message this payment came from
+  bankMessage   BankMessage?        @relation(fields: [bankMessageId], references: [id], onDelete: Restrict)
+  reviewId      String?             @unique // set when the owner credited it from a review
+  review        PaymentReview?      @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  outcome       BankMessageOutcome?
   confirmedAt   DateTime?
   cancelledAt   DateTime?
   createdAt     DateTime            @default(now())
@@ -488,6 +525,232 @@ model Payment {
   @@unique([provider, providerTxnId])
   @@index([intentId])
   @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ---------- P2P karta orqali to‘ldirish (D-31/D-32) ----------
+enum CardBank {
+  HUMO
+  UZCARD
+}
+
+enum TopupCardStatus {
+  VERIFYING
+  ACTIVE
+  DRAINING
+  FULL
+  RETIRED
+}
+
+enum BankFeedSource {
+  HUMO_BOT
+  UZCARD_BOT
+}
+
+enum BankParseStatus {
+  PARSED
+  UNRECOGNIZED
+  REJECTED
+}
+
+enum BankDirection {
+  CREDIT
+  DEBIT
+}
+
+enum ChainStatus {
+  FIRST
+  OK
+  BREAK
+  NOT_APPLICABLE
+}
+
+enum BankOutcome {
+  CREDITED
+  CARD_VERIFIED
+  DEBIT_RECORDED
+  REVIEW
+}
+
+enum PaymentReviewKind {
+  UNRECOGNIZED
+  REJECTED
+  CARD_UNKNOWN
+  CARD_RETIRED
+  CHAIN_BREAK
+  AUTO_CREDIT_PAUSED
+  NO_MATCH
+  AMBIGUOUS
+  DUPLICATE
+  TIME_SKEW
+  CANCELLED_LATE
+  DAILY_LIMIT
+  POSSIBLE_REVERSAL
+  USER_BLOCKED
+}
+
+enum PaymentReviewStatus {
+  OPEN
+  RESOLVED
+}
+
+enum PaymentReviewResolution {
+  CREDITED_USER
+  IGNORED
+  RETURNED_OFFLINE
+  CHAIN_ACCEPTED
+}
+
+// bank, pan, last4 and holderName never change after INSERT (trigger, GG001); status, limits and
+// the pause flag do. pan is our own receiving card (E-13), shown only to the owner of a pending
+// intent. DRAINING: no new requests, existing ones are still credited until their reservedUntil.
+// CHECKs fix the pan/last4/limits shape and RETIRED <=> retiredAt; a partial unique keeps
+// (bank, last4) unique among non-retired cards.
+model TopupCard {
+  id                String          @id @default(cuid(2))
+  bank              CardBank
+  pan               String
+  last4             String
+  holderName        String
+  status            TopupCardStatus @default(VERIFYING)
+  receiveLimitTiyin BigInt // required at card:add (E-9), no global default
+  monthlyLimitTiyin BigInt? // optional monthly cap
+  verifyAmountTiyin BigInt // test transfer that moves VERIFYING -> ACTIVE
+  verifiedAt        DateTime?
+  retiredAt         DateTime?
+  autoCreditPaused  Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  intents           PaymentIntent[]
+  bankMessages      BankMessage[]
+  reviews           PaymentReview[]
+
+  @@index([status, bank])
+}
+
+// Append-only (trigger). The raw text is in BankMessageText (kept 1 year, E-25; never logged).
+model BankMessage {
+  id                String              @id @default(cuid(2))
+  source            BankFeedSource
+  senderId          BigInt
+  tgMessageId       BigInt
+  tgDate            DateTime
+  textSha256        String // sha256 of the raw text; the text itself lives in BankMessageText
+  parseStatus       BankParseStatus
+  rejectReason      String?
+  parserVersion     Int
+  direction         BankDirection?
+  amountTiyin       BigInt?
+  balanceAfterTiyin BigInt?
+  last4             String?
+  cardId            String?
+  card              TopupCard?          @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  bankTxnAt         DateTime?
+  channel           String?
+  createdAt         DateTime            @default(now())
+  outcome           BankMessageOutcome?
+  rawText           BankMessageText?
+  payment           Payment?
+  reviews           PaymentReview[]
+
+  @@unique([senderId, tgMessageId])
+  @@index([cardId, tgMessageId])
+  // Card capacity (`cardTotals`, @repo/db): PARSED CREDIT sums per card since verifiedAt / month
+  // start, read by the API allocator and the worker after every credit (D-42, D-43).
+  @@index([cardId, tgDate])
+  @@index([createdAt])
+}
+
+// The raw bank text, kept apart from the append-only BankMessage so it can be erased after the
+// retention period (E-25: 1 year). A trigger allows exactly one change: text -> NULL once
+// purgeAfter has passed; any other UPDATE and every DELETE is rejected (GG001). No updatedAt.
+model BankMessageText {
+  bankMessageId String      @id
+  bankMessage   BankMessage @relation(fields: [bankMessageId], references: [id], onDelete: Restrict)
+  text          String? // NULL after the purge
+  purgeAfter    DateTime
+  createdAt     DateTime    @default(now())
+
+  @@index([purgeAfter])
+}
+
+// Insert-once (trigger forbids UPDATE/DELETE): the processing result of one bank message.
+// CHECKs: CREDITED <=> paymentId, REVIEW => reviewId.
+model BankMessageOutcome {
+  id            String         @id @default(cuid(2))
+  bankMessageId String         @unique
+  bankMessage   BankMessage    @relation(fields: [bankMessageId], references: [id], onDelete: Restrict)
+  chainStatus   ChainStatus
+  outcome       BankOutcome
+  paymentId     String?        @unique
+  payment       Payment?       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  reviewId      String?
+  review        PaymentReview? @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  createdAt     DateTime       @default(now())
+
+  @@index([reviewId])
+}
+
+model PaymentReview {
+  id                 String                   @id @default(cuid(2))
+  kind               PaymentReviewKind
+  status             PaymentReviewStatus      @default(OPEN)
+  // Every review kind comes out of processing one bank message (docs/05 section 6), so the
+  // message is required and (bankMessageId, kind) is the idempotency key of the review.
+  bankMessageId      String
+  bankMessage        BankMessage              @relation(fields: [bankMessageId], references: [id], onDelete: Restrict)
+  cardId             String?
+  card               TopupCard?               @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  intentId           String?
+  intent             PaymentIntent?           @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  resolution         PaymentReviewResolution?
+  // RESOLVED <=> resolution, resolvedAt and the audit row of the owner's decision (CHECKs).
+  resolvedAuditLogId String?
+  resolvedAuditLog   AuditLog?                @relation(fields: [resolvedAuditLogId], references: [id], onDelete: Restrict)
+  resolvedAt         DateTime?
+  note               String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  payment            Payment?
+  outcomes           BankMessageOutcome[]
+
+  @@unique([bankMessageId, kind])
+  @@index([resolvedAuditLogId])
+  @@index([status, createdAt])
+  @@index([cardId])
+  @@index([intentId])
+}
+
+// The last bank-bot message id stored per source; the listener's poll resumes from here.
+model BankFeedCursor {
+  source        BankFeedSource @id
+  lastMessageId BigInt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// D-52 D1/D4: the Telegram account the bank-feed session belongs to, bound at the first start
+// (getMe). At most one row (`slot` = 1, CHECK in the migration). The listener refuses to lead
+// with a session of another account (fail closed); switching accounts is not supported yet.
+model BankFeedAccount {
+  id             String   @id @default(cuid(2))
+  slot           Int      @unique @default(1)
+  telegramUserId BigInt
+  createdAt      DateTime @default(now())
+}
+
+// D-52 D1: the working account's authorizations (sessions) seen so far. A hash not here is a new
+// device: auto-credit is paused on ALL cards. An empty table pauses everything too (never a
+// silent baseline). Never the IP, country or region of a session.
+model BankFeedAuthorization {
+  id            String    @id @default(cuid(2))
+  // Telegram's authorization hash as an unsigned decimal (the alert refId).
+  hash          String    @unique
+  appName       String?
+  deviceModel   String?
+  // Telegram's date_created of the session (null when the server gave none).
+  authCreatedAt DateTime?
+  createdAt     DateTime  @default(now())
 }
 
 // ---------- Promo ----------
@@ -659,6 +922,8 @@ model AuditLog {
   reason     String?
   ip         String?
   createdAt  DateTime @default(now())
+
+  paymentReviews PaymentReview[]
 
   @@index([targetType, targetId])
   @@index([createdAt])

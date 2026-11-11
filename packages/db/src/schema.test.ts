@@ -31,14 +31,21 @@ describe('schema.prisma', () => {
     expect(modelBlocks().size).toBeGreaterThanOrEqual(30);
   });
 
-  it.each(['LedgerEntry', 'CoinEntry', 'AuditLog', 'OrderEvent', 'FxRate', 'CostSnapshot'])(
-    'append-only / immutable %s has no updatedAt',
-    (model) => {
-      const body = modelBlocks().get(model);
-      expect(body).toBeDefined();
-      expect(fieldNames(body ?? '')).not.toContain('updatedAt');
-    },
-  );
+  it.each([
+    'LedgerEntry',
+    'CoinEntry',
+    'AuditLog',
+    'OrderEvent',
+    'FxRate',
+    'CostSnapshot',
+    'BankMessage',
+    'BankMessageText',
+    'BankMessageOutcome',
+  ])('append-only / immutable %s has no updatedAt', (model) => {
+    const body = modelBlocks().get(model);
+    expect(body).toBeDefined();
+    expect(fieldNames(body ?? '')).not.toContain('updatedAt');
+  });
 
   it('every model has createdAt (rules/20-database-prisma.md)', () => {
     for (const [name, body] of modelBlocks()) {
@@ -53,6 +60,20 @@ describe('schema.prisma', () => {
     expect(order).toContain('@@index([fxRateId])');
   });
 
+  it('P2P: one payment per bank message, one outcome per message, reservation indexes', () => {
+    const models = modelBlocks();
+    expect(models.get('Payment')).toMatch(/bankMessageId\s+String\?\s+@unique/);
+    expect(models.get('BankMessageOutcome')).toMatch(/bankMessageId\s+String\s+@unique/);
+    const intent = models.get('PaymentIntent') ?? '';
+    expect(intent).toContain('@@index([cardId, reservedUntil, amountTiyin])');
+    expect(intent).toContain('@@index([userId, reservedUntil])');
+  });
+
+  it('keeps the raw bank text out of the append-only BankMessage', () => {
+    expect(fieldNames(modelBlocks().get('BankMessage') ?? '')).not.toContain('text');
+    expect(fieldNames(modelBlocks().get('BankMessageText') ?? '')).toContain('text');
+  });
+
   it('uses no Decimal or Float column anywhere (money is BigInt minor units)', () => {
     expect(schema).not.toMatch(/^\s+\w+\s+(Decimal|Float)\b/m);
   });
@@ -61,6 +82,8 @@ describe('schema.prisma', () => {
     const models = modelBlocks();
     const expectations: Record<string, string> = {
       Payment: '@@unique([provider, providerTxnId])',
+      BankMessage: '@@unique([senderId, tgMessageId])',
+      PaymentReview: '@@unique([bankMessageId, kind])',
       Order: '@@unique([userId, idempotencyKey])',
       PaymentIntent: '@@unique([userId, idempotencyKey])',
       FulfillmentAttempt: '@@unique([orderId, attemptNo])',

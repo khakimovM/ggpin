@@ -20,4 +20,24 @@ describe('GrammyTgOutboxSender', () => {
       sendMessage.mockRestore();
     }
   });
+
+  it('passes a web_app inline keyboard through as reply_markup', async () => {
+    const sendMessage = jest.spyOn(Api.prototype, 'sendMessage').mockResolvedValue({} as never);
+    try {
+      const sender = new GrammyTgOutboxSender({ TELEGRAM_BOT_TOKEN: TEST_BOT_TOKEN } as AppConfig);
+      const replyMarkup = {
+        inline_keyboard: [
+          [{ text: 'Top up', web_app: { url: 'https://app.ggpin.test/tg/topup' } }],
+        ],
+      };
+      await sender.send({ chatId: '777', text: 'ok', replyMarkup });
+      expect(sendMessage).toHaveBeenCalledWith('777', 'ok', {
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+        reply_markup: replyMarkup,
+      });
+    } finally {
+      sendMessage.mockRestore();
+    }
+  });
 });

@@ -14,6 +14,10 @@ e2e/__screens__/
 *.pem
 *.key
 secrets/
+# Telegram sessions and their stores (bank-feed login, mtcute): never committed (D-52)
+*.blob
+*.session*
+*.sqlite*
 .claude/settings.local.json
 CLAUDE.local.md
 .DS_Store

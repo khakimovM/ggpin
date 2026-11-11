@@ -5,7 +5,7 @@ import {
   type BeforeApplicationShutdown,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
-import { TG_USER_CHAT_ID_PATTERN, tgOutboxJobId } from '@repo/shared';
+import { ownerAlertChatIds, tgOutboxJobId } from '@repo/shared';
 import { translate } from '../../common/i18n/translate';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { TgOutboxEnqueuer } from '../notifications/tg-outbox.enqueuer';
@@ -173,21 +173,26 @@ export class BotLifecycleService implements OnApplicationBootstrap, BeforeApplic
     ) {
       return;
     }
-    const chatId = this.config.OWNER_ALERT_CHAT_ID;
-    // The outbox only writes to user chats (positive ids); a group id would be rejected.
-    if (chatId === undefined || !TG_USER_CHAT_ID_PATTERN.test(chatId)) {
+    // Every partner gets it (D-53). The outbox only writes to user chats (positive ids); a group
+    // id is refused at boot, and an unusable value here (tests) means nobody to tell.
+    const chatIds = ownerAlertChatIds(this.config.OWNER_ALERT_CHAT_ID);
+    if (chatIds.length === 0) {
       this.logger.warn(
         `${kind} keeps repeating but OWNER_ALERT_CHAT_ID is not a usable user chat id`,
       );
       return;
     }
-    try {
-      await this.outbox.enqueue(tgOutboxJobId('alert', kind, `${this.bootId}x${failures}`), {
-        chatId,
-        text: translate('uz', `alerts.bot.${kind}`, { attempt: failures }),
-      });
-    } catch (error) {
-      this.logger.error(`could not queue the webhook alert: ${safeErrorText(error)}`);
+    const text = translate('uz', `alerts.bot.${kind}`, { attempt: failures });
+    // One recipient's queue failure must not keep the others from being told.
+    for (const chatId of chatIds) {
+      try {
+        await this.outbox.enqueue(
+          tgOutboxJobId('alert', kind, `${this.bootId}x${failures}`, chatId),
+          { chatId, text },
+        );
+      } catch (error) {
+        this.logger.error(`could not queue the webhook alert: ${safeErrorText(error)}`);
+      }
     }
   }
 

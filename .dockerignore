@@ -1,0 +1,51 @@
+# Docker build context hygiene (shared by every image built from the repo root): nothing
+# secret, local or generated may enter a build, so it cannot end up in a layer.
+
+# VCS, tooling, agent and doc folders
+.git
+.gitattributes
+.github
+.husky
+.claude
+.playwright-mcp
+.mcp.json
+.turbo
+design
+docs
+
+# Dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+packages/db/src/generated
+
+# Test artefacts and logs
+**/*.log
+e2e/__screens__
+**/playwright-report
+**/test-results
+**/blob-report
+
+# Secrets: every env file except the committed examples
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/secrets
+**/.secrets
+
+# Telegram / mtcute sessions and their stores (D-52), local databases, spike leftovers
+**/*.session
+**/*.session*
+**/*.blob
+**/*.sqlite*
+**/*.db
+**/mtcute-test.json
+
+# Local OS noise and compose files (the image does not need them)
+**/.DS_Store
+docker-compose*.yml

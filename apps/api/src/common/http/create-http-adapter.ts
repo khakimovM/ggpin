@@ -1,7 +1,7 @@
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { AppConfig } from '../../config/config.module';
 import { generateRequestId } from '../logging/request-id';
-import { BODY_LIMIT_BYTES } from './http-limits';
+import { BODY_LIMIT_BYTES, MAX_PARAM_LENGTH } from './http-limits';
 
 // Used by main.ts and by the e2e tests, so the adapter options that shape behaviour
 // (proxy trust => request.ip => rate-limit key, body limit => 413) are the shipped ones.
@@ -17,6 +17,7 @@ export function createHttpAdapter(config: AppConfig): FastifyAdapter {
   return new FastifyAdapter({
     trustProxy,
     bodyLimit: BODY_LIMIT_BYTES,
+    routerOptions: { maxParamLength: MAX_PARAM_LENGTH },
     genReqId: generateRequestId,
   });
 }
