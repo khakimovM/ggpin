@@ -4,6 +4,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 import { parseClientEnv } from './src/env-schema';
 import { assertNoMocksInProduction, isProductionRun } from './src/mock-guard';
 import { buildHeaderRules } from './src/security-headers';
+import { parseServerEnv } from './src/server-env';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
@@ -17,6 +18,7 @@ export default function config(phase: string): NextConfig {
       NEXT_PUBLIC_BOT_USERNAME: process.env.NEXT_PUBLIC_BOT_USERNAME,
       NEXT_PUBLIC_API_MOCKS: process.env.NEXT_PUBLIC_API_MOCKS,
       NEXT_PUBLIC_SUPPORT_URL: process.env.NEXT_PUBLIC_SUPPORT_URL,
+      NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL,
     },
     { production: false },
   );
@@ -26,6 +28,10 @@ export default function config(phase: string): NextConfig {
     isProduction: isProductionRun(phase, process.argv),
     mocks: env.NEXT_PUBLIC_API_MOCKS,
   });
+
+  // The server-only API URL is checked at start-up too, so a typo fails the deploy instead of
+  // silently turning every server-rendered price off.
+  parseServerEnv({ API_INTERNAL_URL: process.env.API_INTERNAL_URL });
 
   const nextConfig: NextConfig = {
     reactStrictMode: true,

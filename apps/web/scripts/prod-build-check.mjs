@@ -12,6 +12,8 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+// A host name nothing else in the app contains, so finding it in the browser bundle is conclusive.
+const INTERNAL_API = 'http://internal-api.example.test:5000/api/v1';
 const ENV = {
   ...process.env,
   NODE_ENV: 'production',
@@ -19,6 +21,9 @@ const ENV = {
   NEXT_PUBLIC_SITE_URL: 'https://example.test',
   NEXT_PUBLIC_BOT_USERNAME: 'ggpin_e2e_bot',
   NEXT_PUBLIC_SUPPORT_URL: '',
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: 'https://t.me/ggpin_e2e_channel',
+  // Server-only: must never reach a browser bundle (check below).
+  API_INTERNAL_URL: INTERNAL_API,
   NEXT_TELEMETRY_DISABLED: '1',
 };
 const FORBIDDEN = [
@@ -61,9 +66,9 @@ function* files(dir) {
   }
 }
 
-function hits(needle) {
+function hits(needle, roots = ['.next/static', '.next/server']) {
   const found = [];
-  for (const root of ['.next/static', '.next/server']) {
+  for (const root of roots) {
     for (const file of files(root)) {
       if (readFileSync(file, 'latin1').includes(needle)) found.push(file);
     }
@@ -106,6 +111,25 @@ if (empty.code === 0) {
       `no "${needle}" in .next/static or .next/server${found.length ? `: ${found.slice(0, 3).join(', ')}` : ''}`,
     );
   }
+
+  // NOTE (phase 8 S0-A): catalog-server.ts is not yet imported by any route, so for now this check
+  // proves little beyond "the variable is not NEXT_PUBLIC". It becomes meaningful in S2, which
+  // wires the module into the landing: add then a control that the module IS in .next/server (for
+  // example its "[site-catalog]" log prefix), so a leak search over a build that lacks the module
+  // cannot pass by accident.
+  // API_INTERNAL_URL is read by the server at run time; it must not be inlined into a browser
+  // bundle the way NEXT_PUBLIC_* values are. The public API URL is searched as the control: it IS
+  // inlined, so finding it proves the search works.
+  const PUBLIC_API = ENV.NEXT_PUBLIC_API_URL;
+  check(
+    hits(PUBLIC_API, ['.next/static']).length > 0,
+    `control: the public API URL is found in .next/static (search works)`,
+  );
+  const leaked = hits(new URL(INTERNAL_API).host, ['.next/static']);
+  check(
+    leaked.length === 0,
+    `API_INTERNAL_URL is not in .next/static (server-only)${leaked.length ? `: ${leaked.slice(0, 3).join(', ')}` : ''}`,
+  );
 }
 
 console.log(failures.length === 0 ? 'ALL CHECKS PASSED' : `${failures.length} CHECK(S) FAILED`);

@@ -25,7 +25,7 @@ const httpUrl = z.url({ protocol: /^https?$/ });
 // The API and site URLs are joined with paths all over the app (`${base}/auth/refresh`, cookie
 // path `/api/v1/auth`), so they are normalised here, once: no trailing slash (it would produce
 // `//auth/refresh`), and no query, hash or credentials (they would be glued into every request).
-const baseUrl = httpUrl
+export const baseUrl = httpUrl
   .refine(
     (value) => {
       if (/[?#]/.test(value)) return false;
@@ -41,6 +41,32 @@ const baseUrl = httpUrl
     { message: 'must not contain a query, a hash or credentials' },
   )
   .transform((value) => value.replace(/\/+$/, ''));
+
+// A public Telegram channel or invite link. Only https://t.me/<something>: the footer and the contacts
+// page link to it from our own domain, so nothing else (a look-alike host, a javascript: URL) may
+// get in through configuration.
+const channelUrl = z.union([
+  z.literal(''),
+  z.url({ protocol: /^https$/ }).refine(
+    (value) => {
+      try {
+        const url = new URL(value);
+        return (
+          url.hostname === 't.me' &&
+          url.username === '' &&
+          url.password === '' &&
+          url.port === '' &&
+          url.pathname.length > 1 &&
+          url.search === '' &&
+          url.hash === ''
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: 'must look like https://t.me/<channel>' },
+  ),
+]);
 
 const mockList = z
   .string()
@@ -59,6 +85,8 @@ const schema = z.object({
   NEXT_PUBLIC_API_MOCKS: mockList,
   // Empty means "no support link": the UI hides the "write to operator" entry.
   NEXT_PUBLIC_SUPPORT_URL: z.union([z.literal(''), httpUrl]),
+  // Empty means "no channel": the footer and contacts hide the Channel link.
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: channelUrl,
 });
 
 export type ClientEnv = z.infer<typeof schema>;
@@ -71,7 +99,8 @@ export type RawClientEnv = Partial<
     | 'NEXT_PUBLIC_SITE_URL'
     | 'NEXT_PUBLIC_BOT_USERNAME'
     | 'NEXT_PUBLIC_API_MOCKS'
-    | 'NEXT_PUBLIC_SUPPORT_URL',
+    | 'NEXT_PUBLIC_SUPPORT_URL'
+    | 'NEXT_PUBLIC_TELEGRAM_CHANNEL_URL',
     string | undefined
   >
 >;
@@ -103,6 +132,7 @@ export function parseClientEnv(raw: RawClientEnv, mode: { production: boolean })
     NEXT_PUBLIC_BOT_USERNAME: raw.NEXT_PUBLIC_BOT_USERNAME ?? defaults.NEXT_PUBLIC_BOT_USERNAME,
     NEXT_PUBLIC_API_MOCKS: raw.NEXT_PUBLIC_API_MOCKS ?? '',
     NEXT_PUBLIC_SUPPORT_URL: raw.NEXT_PUBLIC_SUPPORT_URL ?? '',
+    NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: raw.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL ?? '',
   });
   if (mode.production) assertSecureUrls(parsed);
   // Mocks must never reach production: a mocked wallet/order would show money that does not exist.
