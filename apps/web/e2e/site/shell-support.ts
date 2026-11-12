@@ -3,6 +3,7 @@ import uz from '@repo/i18n/uz.json';
 import { BRAND } from '@repo/shared';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
+import { settle } from '../support/settle';
 
 // The site shell (phase 8 S1): header, mobile menu, footer, language switch and the error page.
 // The pages under test are the marketing home (`/`, `/ru`) and the two e2e-only pages that throw
@@ -45,7 +46,7 @@ export const focusedName = (page: Page) =>
 
 // Critical and serious findings of the WCAG A/AA rules, as `id: first target`.
 export async function seriousViolations(page: Page): Promise<string[]> {
-  await page.evaluate(() => document.fonts.ready);
+  await settle(page);
   const scan = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();

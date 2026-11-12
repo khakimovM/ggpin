@@ -43,6 +43,15 @@ export default function config(phase: string): NextConfig {
     experimental: { optimizePackageImports: ['@repo/ui'] },
     // Linting runs once, from the root flat config (`npm run lint`, CI), not again inside builds.
     eslint: { ignoreDuringBuilds: true },
+    // Next.js streams a page's metadata AFTER the first chunk of the body (the <title> and the meta
+    // tags land in <body>) for every client it does not know as a crawler. Lighthouse reads only
+    // <head> for its meta-description audit, and some link-preview fetchers read no further than the
+    // head. Matching every user agent makes the metadata part of <head> for everyone; the landing's
+    // metadata is built from texts (no API call), so nothing is waited for.
+    // RULE: `generateMetadata` never goes to the network or to the API: metadata comes from i18n and
+    // static data only. With this setting the first byte waits for the metadata, so a fetch there
+    // would delay every visitor's TTFB (a unit test guards it: metadata-no-network.test.ts).
+    htmlLimitedBots: /.*/,
     headers: () => Promise.resolve(buildHeaderRules({ isDev: phase === PHASE_DEVELOPMENT_SERVER })),
   };
   return withNextIntl(nextConfig);

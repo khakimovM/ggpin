@@ -25,6 +25,12 @@
     }
   },
   "site": {
+    "meta": {
+      "home": {
+        "title": "{brand} — Telegram Stars, Premium va o‘yin donatlari",
+        "description": "Telegram Stars va Premium — Humo yoki Uzcard kartasidan o‘tkazma bilan to‘lang, buyurtma 1–2 daqiqada avtomatik yetkaziladi. O‘yin donatlari tez orada."
+      }
+    },
     "nav": {
       "main": "Asosiy",
       "home": "{brand} — bosh sahifa",
@@ -61,6 +67,121 @@
       "title": "Xatolik yuz berdi",
       "body": "Sahifani ochib bo‘lmadi. Buyurtma va hamyoningiz xavfsiz — sahifani yangilab ko‘ring.",
       "reload": "Sahifani yangilash"
+    },
+    "hero": {
+      "badge": "Avto",
+      "channels": "Telegram bot · Mini App · sayt",
+      "title": "Telegram Stars, Premium va o‘yin donatlari —",
+      "titleAccent": "bir necha daqiqada",
+      "lead": "Hamyonni Humo yoki Uzcard kartasidan o‘tkazma bilan to‘ldiring, mahsulotni tanlang — buyurtma avtomatik yetkaziladi, holatini esa jonli kuzatasiz.",
+      "trust": {
+        "fast": "1–2 daqiqada yetkaziladi",
+        "secure": "Xavfsiz to‘lov",
+        "refund": "Bajarilmasa — pul qaytadi"
+      },
+      "mock": {
+        "close": "Yopish",
+        "botSuffix": "bot",
+        "userName": "Ism",
+        "userHandle": "@username",
+        "coins": "120",
+        "balance": "Balans",
+        "topup": "To‘ldirish",
+        "history": "Tarix",
+        "products": "Mahsulotlar",
+        "region": "Global",
+        "tabHome": "Bosh sahifa",
+        "tabProfile": "Profil",
+        "delivered": "500 ⭐ yetkazildi",
+        "deliveredMeta": "@username · 1 daq 12 son",
+        "premium": "Premium 3 oylik",
+        "processing": "Bajarilmoqda"
+      }
+    },
+    "products": {
+      "title": "Mahsulotlar",
+      "lead": "Bitta hamyon — barcha raqamli xaridlar.",
+      "all": "Katalogga o‘tish",
+      "fromPrice": "{price} <muted>dan boshlab</muted>",
+      "soon": "Tez orada",
+      "soonNote": "Ishga tushganda xabar beramiz",
+      "empty": "Mahsulotlar tez orada qo‘shiladi.",
+      "loading": "Mahsulotlar yuklanmoqda…",
+      "names": {
+        "stars": "Telegram Stars",
+        "premium": "Telegram Premium",
+        "pubg": "PUBG Mobile",
+        "mlbb": "Mobile Legends",
+        "steam": "Steam",
+        "roblox": "Roblox"
+      }
+    },
+    "how": {
+      "title": "Qanday ishlaydi",
+      "lead": "Uch qadam. Ro‘yxatdan o‘tish shart emas — Telegram orqali kirasiz.",
+      "steps": {
+        "s1": "Hisobni to‘ldiring",
+        "s2": "Mahsulotni tanlang va username yoki ID kiriting",
+        "s3": "Bir necha daqiqada oling — holatini jonli kuzating"
+      },
+      "anyBank": "Istalgan bank ilovasi",
+      "mock": {
+        "handle": "username",
+        "name": "Ism F."
+      },
+      "status": {
+        "processing": "Bajarilmoqda",
+        "delivered": "Yetkazildi"
+      },
+      "methods": {
+        "title": "To‘lov usullari",
+        "humo": "Humo",
+        "uzcard": "Uzcard"
+      }
+    },
+    "why": {
+      "title": "Nega biz?",
+      "items": {
+        "auto": {
+          "title": "Avtomatik yetkazish",
+          "text": "Buyurtma to‘lovdan so‘ng darhol bajariladi — odatda 1–2 daqiqa. Operator kutish shart emas."
+        },
+        "status": {
+          "title": "Shaffof holat",
+          "text": "Har bir bosqichni ko‘rasiz: navbatda, bajarilmoqda, yetkazildi. Bot ham xabar beradi."
+        },
+        "refund": {
+          "title": "Pul qaytarish kafolati",
+          "text": "Buyurtma bajarilmasa, pul avtomatik ravishda hamyoningizga qaytadi."
+        },
+        "support": {
+          "title": "O‘zbek va rus tilida yordam",
+          "text": "Savolingiz bo‘lsa, Telegramʼda yozing — o‘zingizga qulay tilda javob beramiz."
+        }
+      }
+    },
+    "faq": {
+      "title": "Savollar",
+      "lead": "Javob topmadingizmi? Telegramʼda yozing.",
+      "support": "Yordamga yozish",
+      "items": {
+        "q1": "Qancha vaqtda yetkaziladi?",
+        "a1": "Odatda 1–2 daqiqa. Buyurtma holatini “Tarix” bo‘limida jonli ko‘rib turasiz; promokodli mahsulotlarda kod shu yerda chiqadi.",
+        "q2": "Usernameʼni noto‘g‘ri yozsam nima bo‘ladi?",
+        "a2": "To‘lovdan oldin biz tasdiqlash uchun akkauntning ismi va rasmini ko‘rsatamiz. U siz kutgan odam bo‘lmasa, “O‘zgartirish”ni bosing — pul yechilmaydi.",
+        "q3": "Buyurtma bajarilmasa pulim nima bo‘ladi?",
+        "a3": "Pul avtomatik ravishda balansingizga qaytadi. Buyurtma “Bajarilmadi — pul qaytarildi” holatida ko‘rinadi.",
+        "q4": "Qaysi to‘lov usullari bor?",
+        "a4": "Humo yoki Uzcard kartasiga istalgan bank ilovasidan o‘tkazma. Hamyon so‘mda to‘ldiriladi, xaridlar hamyondan to‘lanadi.",
+        "q5": "Telegram Premium sovg‘a qilsam bo‘ladimi?",
+        "a5": "Ha. Qabul qiluvchi sifatida do‘stingizning usernameʼini kiriting — Premium uning akkauntiga ulanadi."
+      }
+    },
+    "cta": {
+      "title": "Birinchi buyurtma — bir necha daqiqada",
+      "lead": "Botni oching yoki saytda Telegram orqali kiring. Parol kerak emas.",
+      "telegram": "Telegramʼda ochish",
+      "store": "Saytda xarid qilish"
     }
   },
   "store": {

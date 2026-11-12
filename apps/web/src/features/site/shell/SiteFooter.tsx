@@ -19,7 +19,10 @@ const LINK_CLASS = cn(
 
 function Column({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <nav aria-label={title} className="flex flex-col gap-0.5">
+    // The links are 32 px high with a 2 px gap. On a touch screen their invisible pressable area
+    // is 44 px (--hit-min), which would overlap the next link's by 10 px: there the gap grows to
+    // the difference, so the areas touch and do not overlap. The drawn links keep their size.
+    <nav aria-label={title} className="flex flex-col gap-[max(2px,calc(var(--hit-min,24px)-32px))]">
       <span className="mb-2 text-xs leading-4 font-bold tracking-[.06em] text-foreground-muted uppercase">
         {title}
       </span>

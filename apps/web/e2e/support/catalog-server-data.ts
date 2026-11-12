@@ -29,7 +29,13 @@ export const categories = (locale: FixtureLocale): CatalogCategory[] =>
     productCount: PRODUCTS.filter((product) => product.categorySlug === category.slug).length,
   }));
 
-export const productList = (): CatalogProductListItem[] => PRODUCTS;
+// The seed pictures (/assets/products/*.svg) are not files of a build, so a browser would report each
+// one as a 404 in its console. The fixture sends a value that is not a local path: the site draws the
+// empty picture slot of the design and makes no request.
+const NO_PICTURE = 'fixture-no-picture';
+
+export const productList = (): CatalogProductListItem[] =>
+  PRODUCTS.map((item) => ({ ...item, imageUrl: NO_PICTURE }));
 
 export function productDetail(slug: string, locale: FixtureLocale): CatalogProductDetail | null {
   const item = PRODUCTS.find((product) => product.slug === slug);
@@ -38,7 +44,7 @@ export function productDetail(slug: string, locale: FixtureLocale): CatalogProdu
     id: item.id,
     slug: item.slug,
     name: item.name,
-    imageUrl: item.imageUrl,
+    imageUrl: NO_PICTURE,
     deliveryType: item.deliveryType,
     regionBadge: item.regionBadge,
     isAuto: item.isAuto,

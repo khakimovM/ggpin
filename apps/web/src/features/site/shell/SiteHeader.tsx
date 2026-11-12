@@ -63,6 +63,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
           <SiteLangSwitch labels={langLabels} />
           <Link
             href={login.href}
+            prefetch={false}
             className={cn(
               'relative flex h-11 items-center rounded-control px-4 text-sm font-bold whitespace-nowrap text-foreground no-underline hover:bg-muted',
               LINK_FOCUS,

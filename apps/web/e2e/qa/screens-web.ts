@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { openPay } from '../pay/pay-support';
+import { openLanding } from '../site/landing-support';
 import { installFakeApi } from '../support/fake-api';
 import { openStoreAccount } from '../store/account-support';
 import { openStore } from '../store/catalog-support';
@@ -11,6 +12,14 @@ import { dialogUp, h1, PRESET, type Screen } from './screens-mini';
 // The web half of the S11 matrix screen list: the store, the pay page, the login and the 404.
 
 export const WEB: Screen[] = [
+  {
+    // The landing (phase 8 S2), served by the main fixture catalog (all products live).
+    name: 'site-landing',
+    open: async ({ page, lang, scheme }) => {
+      await page.addInitScript((s) => window.localStorage.setItem('ggpin-theme', s), scheme);
+      await openLanding(page, lang);
+    },
+  },
   {
     name: 'store-catalog',
     open: async ({ page, lang, scheme }) => {

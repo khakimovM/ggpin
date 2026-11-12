@@ -177,11 +177,22 @@ test.describe('every sitemap URL: canonical, hreflang, language, Open Graph', ()
 });
 
 test.describe('home page head', () => {
-  test('has the brand title and the application name', async ({ request }) => {
+  test('has the landing title and the application name', async ({ request }) => {
     const html = await (await request.get('/')).text();
-    expect(html).toMatch(/<title>ggpin<\/title>/);
+    // The landing's own title; it names the brand itself, so the layout's template is not added.
+    expect(html).toContain(`<title>${uz.site.meta.home.title.replace('{brand}', 'ggpin')}</title>`);
     expect(metaContent(html, 'name', 'application-name')).toEqual(['ggpin']);
     expect(metaContent(html, 'name', 'format-detection')).toEqual(['telephone=no']);
+  });
+
+  test('the title and the description are inside <head> (not streamed into the body)', async ({
+    request,
+  }) => {
+    const html = await (await request.get('/')).text();
+    const head = html.slice(0, html.indexOf('</head>'));
+    expect(head).toContain('<title>');
+    expect(head).toContain('name="description"');
+    expect(head).toContain('rel="canonical"');
   });
 
   test('JSON-LD: parseable, carries the response nonce, names the bot and the channel', async ({

@@ -70,6 +70,7 @@ export function SiteMobileMenu({
     <div ref={root} className={cn('ml-auto items-center gap-1.5', className)}>
       <Link
         href={login.href}
+        prefetch={false}
         className={cn(
           'relative flex h-11 items-center rounded-control px-3 text-sm font-bold text-foreground no-underline',
           LINK_FOCUS,

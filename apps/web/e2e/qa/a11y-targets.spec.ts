@@ -1,7 +1,8 @@
 import { expect, test, type TestInfo } from '@playwright/test';
 import { appendFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { QA_DIR, settle } from './qa-support';
+import { settle } from '../support/settle';
+import { QA_DIR } from './qa-support';
 import { DESKTOP_MIN, TOUCH_BELOW, TOUCH_MIN, targetProblems } from './qa-targets';
 import { MINI, type Lang, type Scheme } from './screens-mini';
 import { WEB } from './screens-web';

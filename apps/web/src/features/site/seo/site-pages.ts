@@ -23,11 +23,11 @@ export interface SitePage {
 }
 
 export const SITE_PAGES: readonly SitePage[] = [
-  // Temporary home of phase 7; the landing (phase 8 S2) replaces its content.
+  // The landing (phase 8 S2).
   {
     path: '/',
     indexable: true,
-    lastModified: '2026-11-11',
+    lastModified: '2026-11-12',
     changeFrequency: 'weekly',
     priority: 1,
   },

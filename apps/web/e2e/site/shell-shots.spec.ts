@@ -1,7 +1,8 @@
 import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { saveShot } from '../store/shot-file';
+import { settle } from '../support/settle';
 
 // Screenshots of the site shell (phase 8 S1, QA material to set beside Site.dc.html): one file per
 // screen, width, theme and language, written into $SHOTS_DIR. Without the variable the file
@@ -9,20 +10,6 @@ import { saveShot } from '../store/shot-file';
 
 const DIR = process.env.SHOTS_DIR;
 const LANGS = { uz: { copy: uz.site, prefix: '' }, ru: { copy: ru.site, prefix: '/ru' } } as const;
-
-// Fonts loaded and every finite animation finished; no fixed sleep.
-async function settle(page: Page) {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    const finite = document
-      .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
-    await Promise.race([
-      Promise.all(finite.map((animation) => animation.finished.catch(() => undefined))),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]);
-  });
-}
 
 if (DIR !== undefined && DIR !== '') {
   for (const lang of ['uz', 'ru'] as const) {

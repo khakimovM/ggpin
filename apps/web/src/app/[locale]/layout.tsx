@@ -1,7 +1,7 @@
 import { BRAND } from '@repo/shared';
 import { ThemeProvider } from '@repo/ui';
 import type { Metadata } from 'next';
-import { hasLocale, NextIntlClientProvider } from 'next-intl';
+import { hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -9,6 +9,7 @@ import { ThemeScript } from '../../csp/ThemeScript';
 import { AuthSync } from '../../features/auth/AuthSync';
 import { env } from '../../env';
 import { TITLE_TEMPLATE } from '../../features/site/seo/page-metadata';
+import { RootIntlProvider } from '../../i18n/RootIntlProvider';
 import { rootMessages } from '../../i18n/root-messages';
 import { routing } from '../../i18n/routing';
 import { FONT_CLASSES } from '../fonts';
@@ -44,13 +45,13 @@ export default async function LocaleLayout({
         <ThemeScript variant="web" />
       </head>
       <body>
-        <NextIntlClientProvider locale={locale} messages={rootMessages(locale)}>
+        <RootIntlProvider locale={locale} messages={rootMessages(locale)}>
           <ThemeProvider variant="web">
             {/* Cheap: the cross-tab handler is only loaded when another tab signs in or out. */}
             <AuthSync />
             {children}
           </ThemeProvider>
-        </NextIntlClientProvider>
+        </RootIntlProvider>
       </body>
     </html>
   );

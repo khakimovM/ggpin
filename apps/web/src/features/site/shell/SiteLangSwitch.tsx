@@ -1,9 +1,10 @@
 'use client';
 
-import { LOCALES, type Locale } from '@repo/shared';
+import type { Locale } from '@repo/shared';
 import { cn, HIT_AREA_44 } from '@repo/ui';
 import { useLocale } from 'next-intl';
 import { usePathname } from 'next/navigation';
+import { LOCALES_CLIENT } from '../../../i18n/client-locales';
 import { stripLocale } from '../../../i18n/locale-path';
 import { localizedPath } from '../../../i18n/paths';
 import { LINK_FOCUS } from './nav-config';
@@ -40,7 +41,7 @@ export function SiteLangSwitch({
       aria-label={labels.group}
       className={cn('inline-flex gap-0.5 rounded-full bg-muted p-[3px]', className)}
     >
-      {LOCALES.map((code) => {
+      {LOCALES_CLIENT.map((code) => {
         const current = code === locale;
         return (
           <a

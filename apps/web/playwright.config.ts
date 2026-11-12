@@ -1,6 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 import {
   E2E_BOT_USERNAME,
+  E2E_DEGRADED_CATALOG_API_URL,
+  E2E_DEGRADED_CATALOG_ORIGIN,
+  E2E_DEGRADED_CATALOG_PORT,
+  E2E_DEGRADED_SITE_PORT,
+  E2E_DEGRADED_SITE_URL,
   E2E_CATALOG_API_URL,
   E2E_CATALOG_ORIGIN,
   E2E_CATALOG_PORT,
@@ -128,6 +133,26 @@ const config = defineConfig({
       env: APP_ENV,
       reuseExistingServer: !process.env.CI,
       timeout: 300_000,
+    },
+    // The degraded pair (landing-degraded.spec.ts): a catalog that always answers 500 and a second
+    // `next start` of the same build that reads it. Started after the main pair is up, so the build
+    // exists.
+    {
+      command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
+      url: `${E2E_DEGRADED_CATALOG_ORIGIN}/health`,
+      env: {
+        FIXTURE_CATALOG_PORT: String(E2E_DEGRADED_CATALOG_PORT),
+        FIXTURE_MODE: 'error',
+      },
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: `npx next start --port ${E2E_DEGRADED_SITE_PORT}`,
+      url: E2E_DEGRADED_SITE_URL,
+      env: { ...APP_ENV, API_INTERNAL_URL: E2E_DEGRADED_CATALOG_API_URL },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
     },
   ],
 });

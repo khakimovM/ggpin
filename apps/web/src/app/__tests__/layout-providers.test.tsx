@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AuthGuard } from '../../features/auth/AuthGuard';
 import { AuthSync } from '../../features/auth/AuthSync';
 import { MESSAGES } from '../../i18n/messages';
+import { RootIntlProvider } from '../../i18n/RootIntlProvider';
 import { LOGIN_NAMESPACES, STORE_NAMESPACES } from '../../i18n/namespaces';
 import { AppClientShell } from '../AppClientShell';
 import LocaleLayout from '../[locale]/layout';
@@ -34,8 +35,8 @@ const params = (locale: string) => Promise.resolve({ locale });
 const child = <p>page</p>;
 
 // The first provider that carries `messages`, as the keys it would serialise into the page.
-function messageKeys(tree: ReactNode): string[] {
-  const provider = find(tree, NextIntlClientProvider);
+function messageKeys(tree: ReactNode, wanted: unknown = NextIntlClientProvider): string[] {
+  const provider = find(tree, wanted);
   expect(provider).not.toBeNull();
   const messages: unknown = provider?.props && Reflect.get(provider.props, 'messages');
   expect(typeof messages).toBe('object');
@@ -47,8 +48,9 @@ describe('[locale]/layout (the root of every website page)', () => {
     'serialises only `common` and the error page texts into the page (%s), never the whole catalog',
     async (locale) => {
       const tree = await LocaleLayout({ children: child, params: params(locale) });
-      expect(messageKeys(tree)).toEqual(['common', 'site']);
-      const provider = find(tree, NextIntlClientProvider);
+      // The root has its own provider module (see RootIntlProvider.tsx for why).
+      expect(messageKeys(tree, RootIntlProvider)).toEqual(['common', 'site']);
+      const provider = find(tree, RootIntlProvider);
       expect(Reflect.get(provider?.props ?? {}, 'messages')).toEqual({
         common: MESSAGES[locale].common,
         // Only the error page's three texts of `site`: the landing's copy stays on the server.

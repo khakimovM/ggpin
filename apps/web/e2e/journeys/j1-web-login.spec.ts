@@ -1,8 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
 import { expect, test, type Page } from '@playwright/test';
 import { watchPage } from '../support/gallery';
+import { CATALOGS, openLogin, startFromLanding, type Lang } from './j1-support';
 import {
   BAD_CODE,
   BOT_URL,
@@ -15,18 +15,6 @@ import {
 // Journey 1: web sign-in through the bot (phase 7 S3). The API is faked with `page.route`; the
 // bot, the OTP and the cookies are not real. Each run covers one language and one theme; the
 // per-viewport projects (375 / 390 / 768 / 1440) repeat it.
-
-const CATALOGS = {
-  uz: { text: uz.web, path: '/login', store: '/store' },
-  ru: { text: ru.web, path: '/ru/login', store: '/ru/store' },
-} as const;
-type Lang = keyof typeof CATALOGS;
-
-async function openLogin(page: Page, lang: Lang, theme: 'light' | 'dark', query = '') {
-  await page.addInitScript((stored) => window.localStorage.setItem('ggpin-theme', stored), theme);
-  await page.goto(`${CATALOGS[lang].path}${query}`);
-  await expect(page.locator('html')).toHaveAttribute('data-theme', theme, { timeout: 15_000 });
-}
 
 const box = (page: Page, lang: Lang, position: number) =>
   page.getByRole('textbox', {
@@ -68,7 +56,7 @@ test.describe('journey 1: sign in through Telegram', () => {
       page.on('request', (request) => urls.push(request.url()));
       const api = await installFakeApi(page);
       const t = CATALOGS[lang].text;
-      await openLogin(page, lang, theme);
+      await startFromLanding(page, lang, theme);
 
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
         t.login.title.replace('{brand}', 'ggpin'),

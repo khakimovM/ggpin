@@ -8,6 +8,10 @@
 // max-age=60` on a 200, a strict query (an unknown key is a 400), a 404 for an unknown product.
 // `POST /__fixture/mode {"mode":"ok|error|slow|drop"}` breaks it on purpose (degradation specs),
 // `GET /__fixture/stats` counts the catalog requests it has served (cache specs).
+// `FIXTURE_MODE=error` starts it already broken: the site keeps a catalog answer in its data cache
+// for 60 s, so a spec cannot switch ONE server from ok to error and expect the page to follow. A
+// scenario that needs a broken API gets its own fixture (own port, own cache key) and, with it, its
+// own site server (see playwright.config.ts).
 import { ProductListQuerySchema, SlugSchema } from '@repo/shared';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import {
@@ -27,7 +31,8 @@ const MODES = ['ok', 'error', 'slow', 'drop'] as const;
 type Mode = (typeof MODES)[number];
 const isMode = (value: unknown): value is Mode => MODES.some((mode) => mode === value);
 
-let mode: Mode = 'ok';
+const initialMode: unknown = process.env.FIXTURE_MODE;
+let mode: Mode = isMode(initialMode) ? initialMode : 'ok';
 const stats = { catalog: 0, products: 0, details: 0 };
 
 assertFixturesMatchContract();

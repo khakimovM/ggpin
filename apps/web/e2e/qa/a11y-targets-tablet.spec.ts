@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { settle } from './qa-support';
+import { settle } from '../support/settle';
 import { TOUCH_MIN, targetProblems } from './qa-targets';
 import { WEB } from './screens-web';
 

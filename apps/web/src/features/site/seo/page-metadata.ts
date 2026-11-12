@@ -6,6 +6,11 @@ import { localizedPath } from '../../../i18n/paths';
 // Metadata of a marketing page, built in one place so that every page gets the same canonical,
 // hreflang and Open Graph rules. The URLs are absolute: crawlers and link previews do not resolve
 // a relative one reliably, and `x-default` must be a full URL.
+//
+// RULE: `generateMetadata` never goes to the network or to the API: metadata is built from i18n and
+// static data only. `htmlLimitedBots` (next.config.ts) puts the metadata into <head> for every
+// client, so the first byte of every page waits for it; a fetch here would hold up all visitors'
+// TTFB. A unit test (metadata-no-network.test.ts) reads the pages' sources to keep it so.
 
 export const TITLE_SEPARATOR = ' — ';
 
