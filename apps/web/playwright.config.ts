@@ -48,10 +48,10 @@ export const QA_ALL = /e2e[\\/]qa[\\/]/;
 export const QA_HEAVY = /e2e[\\/]qa[\\/](?:matrix|a11y-focus-motion)\.spec\.ts/;
 const QA_TABLET = /e2e[\\/]qa[\\/]a11y-targets-tablet\.spec\.ts/;
 
-// WebKit (the Safari engine Telegram on iOS uses) runs the component gallery locally. CI installs
-// chromium only, to keep that job small and fast (the public pay page, which people open in
-// Safari from the Mini App, runs on WebKit too); WebKit joins CI in phase 7 S12, when the full
-// journeys run on it too, together with the browser download in the workflow cache key.
+// WebKit (the Safari engine Telegram on iOS uses) runs the component gallery and the public pay
+// page, which people open in Safari from the Mini App. Locally it is always a project. In CI it
+// is a project only when PW_WEBKIT=1: the `e2e-webkit` job sets it and runs `--project=webkit-390`;
+// the `e2e-web` job installs chromium only and must not see this project.
 const webkitProject = {
   name: 'webkit-390',
   testMatch: /(?:ui-gallery.*|pay-page|pay-ends)\.spec\.ts/,
@@ -111,7 +111,7 @@ const config = defineConfig({
       testIgnore: [HTTP_SPECS, REAL_API_SPECS, MOBILE_ONLY, QA_HEAVY],
       use: { ...desktopChrome, viewport: { width: 1440, height: 900 } },
     },
-    ...(process.env.CI ? [] : [webkitProject]),
+    ...(process.env.CI && process.env.PW_WEBKIT !== '1' ? [] : [webkitProject]),
   ],
   webServer: [
     // The fixture catalog (no database, no Redis): started first, the site's server reads it.
