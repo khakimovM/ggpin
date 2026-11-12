@@ -108,7 +108,7 @@ describe('fragment-record: arguments', () => {
     ).toThrow(/--confirm-no-payment needs --wallet/);
   });
 
-  it('R-2: --confirm-no-payment needs --name (or a --redact file)', () => {
+  it('R-2, M-1: --confirm-no-payment needs --name; a --redact file is not enough', () => {
     expect(() =>
       parseFragmentRecordArgs([...BASE, '--confirm-no-payment', '--wallet', OWNER_WALLET], CTX),
     ).toThrow(/--confirm-no-payment needs --name/);
@@ -120,7 +120,9 @@ describe('fragment-record: arguments', () => {
       '--redact',
       'r.txt',
     ];
-    expect(parseFragmentRecordArgs(withRedact, CTX).names).toEqual([]);
+    expect(() => parseFragmentRecordArgs(withRedact, CTX)).toThrow(
+      /--confirm-no-payment needs --name/,
+    );
   });
 });
 

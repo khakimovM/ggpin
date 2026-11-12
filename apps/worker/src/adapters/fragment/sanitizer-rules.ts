@@ -1,5 +1,6 @@
 import { NAME_CLASS } from './fragment-page';
 import { BOUNDARY_BEFORE } from './secret-forms';
+import { COOKIE_SHAPES, HASH_SHAPE, PHONE_SHAPES, PHOTO_DATA } from './secret-shapes';
 import { parseTonAddress } from './ton-address-forms';
 
 // Pattern rules of the fixture sanitizer: what can be recognised without knowing the value
@@ -118,10 +119,6 @@ const FRIENDLY_ADDRESS = new RegExp(
 // F-4): redacted, nothing can be kept.
 const SHORT_ADDRESS =
   /(?<![A-Za-z0-9_-])[EUk0][Qf][A-Za-z0-9_-]{2,6}\s*(?:…|\.\.\.?|\*{2,})\s*[A-Za-z0-9_-]{4,8}(?![A-Za-z0-9_-])/g;
-// A bare Uzbek mobile number right after a phone word (F-3); not a bare number elsewhere, so an
-// amount or an id stays (`"id": …` numbers are zeroed by an early rule anyway).
-const PHONE_CONTEXT_9 =
-  /(?<=(?:tel|phone|mobile|телефон|номер|raqam)[^\d<>"]{0,12})(?<!\d)9\d{8}(?!\d)/gi;
 // Tried at every position (audit E: `%220:<hex>`); the hash decides, the workchain digits do not.
 const RAW_ADDRESS = /-?\d{0,3}(?::|%3[Aa])([0-9a-fA-F]{64})(?![0-9a-fA-F])/g;
 
@@ -207,16 +204,15 @@ export function patternRules(keep: readonly string[]): PatternRule[] {
     {
       name: 'cookie',
       apply: (part) =>
-        part
-          .replace(/\b(stel_[A-Za-z0-9_]+)=([^;\s"'&<>,\\]+)/g, `$1=${placeholder('cookie')}`)
-          .replace(
-            /("stel_[A-Za-z0-9_]+"\s*:\s*")((?:[^"\\]|\\.)+)(")/g,
-            `$1${placeholder('cookie')}$3`,
-          ),
+        COOKIE_SHAPES.reduce(
+          (text, re) => text.replace(re, (_m, keep: string) => `${keep}${placeholder('cookie')}`),
+          part,
+        ),
     },
     {
       name: 'hash',
-      apply: (part) => part.replace(/\b(hash=)([0-9a-fA-F]{6,})/g, `$1${placeholder('hash')}`),
+      apply: (part) =>
+        part.replace(HASH_SHAPE, (_m, keep: string) => `${keep}${placeholder('hash')}`),
     },
     {
       name: 'photo-url',
@@ -225,7 +221,7 @@ export function patternRules(keep: readonly string[]): PatternRule[] {
           .replace(/(?:https?:)?(?:\\?\/){2}[^\s"'<>()]+/gi, (m) =>
             isPhotoUrl(m) ? placeholder('photo-url') : m,
           )
-          .replace(/data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, placeholder('photo-data')),
+          .replace(PHOTO_DATA, placeholder('photo-data')),
     },
     {
       name: 'email',
@@ -246,18 +242,7 @@ export function patternRules(keep: readonly string[]): PatternRule[] {
     {
       name: 'phone',
       apply: (part) =>
-        part
-          .replace(/(?<![\w+])\+\d[\d\s().-]{7,18}\d(?!\d)/g, placeholder('phone'))
-          .replace(/(?<![\w+])998\d{9}(?!\d)/g, placeholder('phone'))
-          // R-9 shapes: `998 90 123 45 67`, `8 (916) 123-45-67`, `90 123 45 67`.
-          .replace(
-            /(?<!\d)998[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)/g,
-            placeholder('phone'),
-          )
-          .replace(/(?<!\d)8\s?\(\d{3}\)\s?\d{3}-?\d{2}-?\d{2}(?!\d)/g, placeholder('phone'))
-          .replace(/(?<![\d+])\d{2} \d{3} \d{2} \d{2}(?!\d)/g, placeholder('phone'))
-          .replace(/(?<![\d-])\d{2}-\d{3}-\d{2}-\d{2}(?![\d-])/g, placeholder('phone'))
-          .replace(PHONE_CONTEXT_9, placeholder('phone')),
+        PHONE_SHAPES.reduce((text, re) => text.replace(re, placeholder('phone')), part),
     },
     {
       // Long hex is never kept (R-7), except a kept raw address hash.

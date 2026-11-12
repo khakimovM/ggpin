@@ -113,8 +113,8 @@ export function parseFragmentRecordArgs(
   if (confirmNoPayment && wallet === null) {
     throw new RecordUsageError('--confirm-no-payment needs --wallet (your wallet, to redact it)');
   }
-  // R-2: the name too; --redact text lines also count (checked once the file is read).
-  if (confirmNoPayment && names.length === 0 && values.redact === undefined) {
+  // R-2, M-1: the name too, always as --name (a --redact line is not checked against answers).
+  if (confirmNoPayment && names.length === 0) {
     throw new RecordUsageError(
       '--confirm-no-payment needs --name (your display name, to redact it)',
     );

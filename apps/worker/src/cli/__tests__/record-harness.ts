@@ -63,6 +63,8 @@ export interface RunOptions {
   readonly dirs?: string[];
   /** Replaces the default `--telegram-id <fake id>`. */
   readonly idArgs?: string[];
+  /** Node command-line options the run pretends to have (I-4); none by default. */
+  readonly execArgv?: string[];
 }
 
 export async function runRecorder(
@@ -97,6 +99,7 @@ export async function runRecorder(
       stdout: (line) => stdout.push(line),
       stderr: (line) => stderr.push(line),
       env: options.env ?? { NODE_ENV: 'development' },
+      execArgv: options.execArgv ?? [],
     },
   );
   return { code, stdout, stderr, sleeps, fake };

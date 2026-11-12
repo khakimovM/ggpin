@@ -124,12 +124,16 @@ ikki holatni ajratishi yozuvdan keyin tanlanadi.
 
 - Fayllar: `apps/worker/src/cli/fragment-record*.ts`; sanitizer —
   `apps/worker/src/adapters/fragment/fixture-sanitizer.ts` (+ `sanitizer-rules.ts`,
-  `secret-forms.ts`, `payload-scan.ts`); mustaqil leak-tekshiruv — `leak-check.ts` +
-  `leak-views.ts` (sanitizer qoidalarini ishlatmaydi).
+  `secret-forms.ts`, `payload-scan.ts`); leak-tekshiruv — `leak-check.ts` + `leak-probes.ts` +
+  `leak-views.ts`. Ma’lum sirlar bo‘yicha probe’lar va dekodlash sanitizer naqshlarini
+  ishlatmaydi (mustaqil); noma’lum qiymatning umumiy shakllari (cookie juftligi, API hash, base64
+  rasm, telefon) esa `secret-shapes.ts` da, ikkala qatlam uchun BIR XIL — bu qism mustaqil ikkinchi
+  fikr emas.
 - Faqat ega o‘z kompyuterida ishga tushiradi. Rad etiladi (exit 2, hech narsa o‘qilmaydi):
   `NODE_ENV=production`, `NODE_TLS_REJECT_UNAUTHORIZED=0`, bo‘sh bo‘lmagan `NODE_OPTIONS`,
   `NODE_EXTRA_CA_CERTS`, `NODE_USE_SYSTEM_CA`, `NODE_DEBUG`, `NODE_USE_ENV_PROXY`, `HTTP_PROXY`,
-  `HTTPS_PROXY`, `ALL_PROXY` (kichik harfli shakllari ham). **Cheklov:** `NODE_OPTIONS` tekshiruvi Node
+  `HTTPS_PROXY`, `ALL_PROXY` (kichik harfli shakllari ham), hamda `node` ning har qanday buyruq
+  qatori opsiyasi (`node --inspect …`, `process.execArgv` bo‘sh emas). **Cheklov:** `NODE_OPTIONS` tekshiruvi Node
   `--require`/`--import` preload’laridan KEYIN ishlaydi — preload kod bu tekshiruvdan oldin
   bajarilib bo‘ladi; shuning uchun vositani faqat toza terminalda ishga tushiring. `.env`
   o‘qilmaydi. TON kutubxonasi, imzo yoki yuborish kodi yo‘q; faqat `searchStarsRecipient`,
@@ -137,14 +141,17 @@ ikki holatni ajratishi yozuvdan keyin tanlanadi.
   `--confirm-no-payment` bilan). npm orqali ishga tushirilsa (`npm_lifecycle_event` bor), stderr’ga
   qiymatsiz ogohlantirish chiqadi: npm buyruq qatorini konsolga va o‘z log fayliga yozadi.
 - Majburiy bayroqlar: `--cookies`, `--username`, `--telegram-id` (har doim; id faqat yashirish
-  uchun). `--confirm-no-payment` bilan yana `--wallet <manzil>` (egasining hamyoni) va kamida
-  bitta `--name "<ko‘rinadigan ism>"` (takrorlanadi) yoki `--redact` faylidagi matn qatori, hamda
-  `--phone <raqam>` (takrorlanadi) yoki `--redact` faylidagi telefon qatori majburiy, aks holda
-  exit 2. Yozuv oxirida birorta ism ma’lum bo‘lmasa (`nothing staged: no display name is known`)
-  yoki `--name` so‘zlarining birortasi ham javoblarda uchramasa
-  (`nothing staged: name not found in responses`), staging’ga hech narsa yozilmaydi, exit 1.
-  Apostrof shakllari (`'`, `` ` ``, `´`, `‘`, `’`, `ʻ`, `ʼ`) bir xil hisoblanadi. `--ton-connect <fayl>` faqat bosh sessiya ko‘rsatmasi
-  bilan.
+  uchun). `--confirm-no-payment` bilan yana `--wallet <manzil>` (egasining hamyoni), kamida
+  bitta `--name "<ko‘rinadigan ism>"` (takrorlanadi; `--redact` qatori uning o‘rnini bosmaydi)
+  hamda `--phone <raqam>` (takrorlanadi) yoki `--redact` faylidagi telefon qatori majburiy, aks
+  holda exit 2. Yozuv oxirida birorta ism ma’lum bo‘lmasa (`nothing staged: no display name is
+known`), `--name` lardan birortasi ham javoblarda uchramasa (`nothing staged: name not found in
+responses`) yoki biror `--name` ning so‘zlari (≥3 belgi) qisman topilsa (`nothing staged: name N
+partly found` — N tartib raqami, qiymat chiqmaydi; odatda imlo xatosi), staging’ga hech narsa
+  yozilmaydi, exit 1. Apostrof shakllari (`'`, `` ` ``, `´`, `‘`, `’`, `ʹ`, `ʻ`, `ʼ`, `ꞌ`) bir xil
+  hisoblanadi. Sahifada API `hash` topilmasa (`stopped early: no api hash`), sahifa fayllari
+  staging’ga yozilmaydi (`withheld: <fayl> (no api hash)`), faqat `summary.json`, exit 1.
+  `--ton-connect <fayl>` faqat bosh sessiya ko‘rsatmasi bilan.
 - **Vosita repoga umuman yozmaydi va undan o‘qimaydi.** Ikki papka, ikkalasi ham bo‘sh (yoki
   yangi) va bir-birining ichida emas; har tekshiruv HAQIQIY yo‘lda (junction/symlink ochilgan,
   eng yaqin mavjud ota-papka orqali) ishlaydi va `mkdir` dan keyin qayta tekshiriladi:
@@ -179,8 +186,14 @@ ikki holatni ajratishi yozuvdan keyin tanlanadi.
   JSON’dagi raqamli Telegram id / telefon → `0`. BOC payload doim `<REDACTED:payload>`
   (fail-closed); kaliti noma’lum uzun tasodifiy qiymat va saqlanmagan har qanday ≥32 belgili hex →
   `<REDACTED:token>`; qisqartirilgan manzil (`UQAB…wxyz`, `UQAB … wxyz`, `UQABcd***uvwxyz`) →
-  `<REDACTED:address>`; telefon shakllari, jumladan `90-123-45-67` va telefon so‘zidan keyingi
-  `901234567` → `<REDACTED:phone>`.
+  `<REDACTED:address>`; telefon shakllari (`+…`, `998…`, `8 916 …`, `90 123 45 67`,
+  `90-123-45-67`, `(90) 123-45-67`, `90 1234567`, `90.123.45.67`, telefon so‘zidan keyin yoki
+  elementda yolg‘iz turgan `901234567`; operator kodlari 9x, 33, 88, 77, 20, 50, 55) →
+  `<REDACTED:phone>`. Kontekstsiz matn ichidagi yalang‘och 9 raqam (`id`, summa) telefon deb
+  hisoblanmaydi — egasining raqami esa `--phone` orqali har shaklda yashiriladi. Cookie (`stel_x:
+v`, `{'stel_x':'v'}`, `["stel_x","v"]`, `name=stel_x&value=v`, `&equals;` va h.k.), hash
+  (`apiHash=`, `api_hash:`, `"hash":"h"`, `data-hash=`, `/api/hash/h`) va har qanday `data:…;base64,`
+  (qatorlarga bo‘lingan bo‘lsa ham) noma’lum qiymat bilan ham yashiriladi.
 - Staging fayllari: `page-logged-in.json`, `search-stars-recipient.json`, `init-buy-stars.json`,
   `get-buy-stars-link.json`, `page-logged-out.json`, `init-buy-stars-after-10min.json`
   (ixtiyoriy), `summary.json` (`format: 3`, `tonSent: false`, `linkPayloads`).
@@ -198,8 +211,14 @@ boshqa qatorlari. Chatga **faqat** shular yoziladi: `withheld:`, `stopped early:
 2. Brauzer profili kengaytmalarsiz. `ggpin-secrets` va staging OneDrive’ga sinxron qilinmaydi;
    `fragment-raw` AI kengaytmali muharrirda ochilmaydi. Toza PowerShell oynasi (proxy va
    `NODE_*` o‘zgaruvchilarsiz).
-3. fragment.com’ga Telegram akkauntingiz bilan kiring va Tonkeeper hamyonini ulang (o‘sha 0 TON
-   li hamyon).
+3. **Ishchi akkaunt (D-58):** Fragment va bank xabarlari uchun BITTA ishchi Telegram akkaunti
+   ishlatiladi; quyidagi `--username`, `--telegram-id`, `--phone` va `--name` — shu ishchi
+   akkauntniki. fragment.com’ga brauzerda **Telegram orqali** kiring (Log in → Telegram) va
+   Tonkeeper hamyonini ulang (o‘sha 0 TON li hamyon). Ishchi akkauntga **yangi qurilma ulanmaydi**
+   (Telegram Desktop, boshqa telefon, QR-login yo‘q): yangi qurilma bank-feed himoyasini ishga
+   tushirib, barcha kartalarda avtomatik yozishni to‘xtatadi. Kirishni **faqat mavjud telefondagi**
+   Telegram’da tasdiqlang. S0b’dan keyin Telegram → Settings → Privacy and Security → Active
+   Websites ro‘yxatida fragment.com qoladi — bu kutilgan holat (S7 shu sessiyadan foydalanadi).
 4. Cookie olish: DevTools (F12) → Network → sahifani yangilang → `stars/buy` so‘rovi → Request
    Headers → `cookie` → o‘ng tugma → **Copy value**.
 5. Windows’da bulutli clipboard sinxronini o‘chiring (Settings → System → Clipboard → «Sync
@@ -222,7 +241,11 @@ boshqa qatorlari. Chatga **faqat** shular yoziladi: `withheld:`, `stopped early:
      `Oʻ`, `Oʼ`; vosita ularni bir xil deb hisoblaydi, lekin ortiqchasi zarar qilmaydi).
    - `--wallet`: Fragment’ga ulangan **aynan o‘sha** hamyon (Tonkeeper’dan nusxa), unda 0 TON.
      Boshqa hamyon berilsa, haqiqiy hamyon staging’da qolishi mumkin.
-   - `--phone`: Telegram akkauntingiz raqami.
+   - `--phone`: ishchi akkaunt raqami; `--telegram-id` va `--username` ham ishchi akkauntniki.
+   - `--name` majburiy (`--redact` qatori yetmaydi). `nothing staged: name N partly found`
+     chiqsa, N-chi `--name` dagi so‘zlardan biri profildagidan farq qiladi (imlo, H/X, ortiqcha
+     harf): profildan qayta nusxalab, yana ishga tushiring.
+   - `node` ga opsiya bermang (`node --inspect …` rad etiladi, exit 2).
    - `--ton-connect` faqat bosh sessiya aytsa qo‘shiladi.
    - Muqobil (tavsiya etilmaydi): `npm run -s fragment:record -w worker --logs-max=0 -- …`;
      vosita npm orqali ishga tushganini sezsa, qiymatsiz ogohlantirish chiqaradi.
@@ -239,6 +262,8 @@ boshqa qatorlari. Chatga **faqat** shular yoziladi: `withheld:`, `stopped early:
 11. Hodisa yuz bersa (sir staging’ga yoki boshqa joyga tushdi): fragment.com’da **Log out**;
     Telegram → Settings → Privacy and Security → Active Websites → Fragment → **Disconnect**;
     Tonkeeper’da Fragment ulanishini uzing; `fragment-raw` va staging papkalarini o‘chiring.
+    (Hodisa bo‘lmasa, Active Websites dagi Fragment uzilmaydi — 3-band.) Qayta kirish ham
+    brauzerda Telegram orqali, faqat mavjud telefonda tasdiqlanadi.
 
 ## Manbalar (rasmiy emas, ishonchsiz)
 

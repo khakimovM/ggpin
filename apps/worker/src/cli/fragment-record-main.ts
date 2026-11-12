@@ -2,8 +2,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createFixtureSanitizer, type SecretValue } from '../adapters/fragment/fixture-sanitizer';
 import { createLeakCheck } from '../adapters/fragment/leak-check';
+import { namePresence } from '../adapters/fragment/name-presence';
 import {
   fragmentRecordEnvRefusal,
+  fragmentRecordExecArgvRefusal,
   fragmentRecordOneDriveRoots,
   fragmentRecordViaNpm,
 } from '../config/fragment-record-env';
@@ -46,6 +48,8 @@ export interface RecordMainDeps {
   readonly stderr: (line: string) => void;
   /** Defaults to the process environment (read in config/ only). */
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Defaults to the process's own Node command-line options (I-4). */
+  readonly execArgv?: readonly string[];
 }
 
 export const NO_TON_SENT =
@@ -76,10 +80,6 @@ async function loadInputs(args: FragmentRecordArgs, policy: PathPolicy): Promise
     args.redactFile === null
       ? { texts: [], addresses: [], phones: [] }
       : parseRedactFile(await readInput(args.redactFile, '--redact', policy));
-  // R-2: with the purchase steps, at least one name (--name or a --redact text line).
-  if (args.confirmNoPayment && args.names.length === 0 && redact.texts.length === 0) {
-    throw new RecordUsageError('--confirm-no-payment needs --name (or a name line in --redact)');
-  }
   if (args.confirmNoPayment && args.phones.length === 0 && redact.phones.length === 0) {
     throw new RecordUsageError('--confirm-no-payment needs --phone (or a phone line in --redact)');
   }
@@ -105,13 +105,19 @@ async function loadInputs(args: FragmentRecordArgs, policy: PathPolicy): Promise
 
 const NAME_KINDS = new Set(['name', 'secret']);
 
-/** True when any answer shows a word of any --name, in any encoding the leak check decodes. */
-function namesSeen(names: readonly string[], steps: readonly RecordedStep[]): boolean {
-  const check = createLeakCheck({
-    secrets: names.map((value) => ({ kind: 'name' as const, value })),
-    keepAddresses: [],
-  });
-  return steps.some((s) => check(s.exchange.response.body).includes('name'));
+/**
+ * Why nothing may be staged for the --name values (F-5, M-1), or null: no answer shows any of
+ * them, or one is only partly shown (a typo or another transliteration). Never names a value.
+ */
+function nameProblem(names: readonly string[], steps: readonly RecordedStep[]): string | null {
+  if (names.length === 0) return null;
+  const presence = namePresence(
+    names,
+    steps.map((s) => s.exchange.response.body),
+  );
+  if (presence.every((p) => p.found === 0)) return 'name not found in responses (check --name)';
+  const partly = presence.findIndex((p) => p.found > 0 && p.found < p.total);
+  return partly === -1 ? null : `name ${partly + 1} partly found (check --name)`;
 }
 
 async function record(
@@ -143,8 +149,9 @@ async function record(
     return 1;
   }
   // F-5: a --name that no answer shows is likely mistyped; the real name would then go unredacted.
-  if (args.names.length > 0 && !namesSeen(args.names, result.steps)) {
-    say('nothing staged: name not found in responses (check --name)');
+  const problem = nameProblem(args.names, result.steps);
+  if (problem !== null) {
+    say(`nothing staged: ${problem}`);
     if (result.stoppedBy !== null) say(`stopped early: ${result.stoppedBy}`);
     return 1;
   }
@@ -152,8 +159,16 @@ async function record(
   const leakCheck = createLeakCheck({ secrets, keepAddresses: result.keepAddresses });
   let withheld = 0;
   const at = deps.now();
+  // L-1: with no API hash found, its unknown value cannot be redacted: only the summary is staged.
+  const hashKnown = result.apiHashLength !== null;
+  if (!hashKnown) {
+    for (const s of result.steps) {
+      withheld += 1;
+      say(`withheld: ${s.step}.json (no api hash)`);
+    }
+  }
   const outputs = [
-    ...result.steps.map((s) => ({
+    ...(hashKnown ? result.steps : []).map((s) => ({
       file: `${s.step}.json`,
       staged: fixtureOf(s, at, (text) => sanitizer.sanitizeText(text)),
     })),
@@ -177,7 +192,8 @@ export async function fragmentRecordMain(
   deps: RecordMainDeps,
 ): Promise<number> {
   try {
-    const refusal = fragmentRecordEnvRefusal(deps.env);
+    const refusal =
+      fragmentRecordEnvRefusal(deps.env) ?? fragmentRecordExecArgvRefusal(deps.execArgv);
     if (refusal !== null) {
       deps.stderr(`fragment-record: refused, ${refusal}`);
       return 2;

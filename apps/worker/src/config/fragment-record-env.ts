@@ -48,3 +48,13 @@ export function fragmentRecordOneDriveRoots(source: Source = process.env): strin
 export function fragmentRecordViaNpm(source: Source = process.env): boolean {
   return (source['npm_lifecycle_event'] ?? '') !== '';
 }
+
+/**
+ * Node options given on the command line (I-4: `--require`, `--inspect`, `--use-system-ca`, …) can
+ * load code or open a debugger before the tool runs, like NODE_OPTIONS: refused. Names no value.
+ */
+export function fragmentRecordExecArgvRefusal(
+  execArgv: readonly string[] = process.execArgv,
+): string | null {
+  return execArgv.length > 0 ? 'node command-line options are set' : null;
+}

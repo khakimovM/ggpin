@@ -3,7 +3,8 @@ import type { SecretValue } from './secret-forms';
 import { parseTonAddress, tonAddressForms, type TonAccountId } from './ton-address-forms';
 
 // What the leak check looks for, per known secret (S-1, R-1, R-6, N3, N4). Every probe runs on
-// lower-cased decoded views. Independent of the sanitizer: no pattern is shared with it.
+// lower-cased decoded views. These per-secret probes share no pattern with the sanitizer's
+// secret-forms.ts; only the generic shapes (secret-shapes.ts, used by leak-check.ts) are shared.
 
 export interface Probe {
   readonly rule: string;
@@ -11,8 +12,10 @@ export interface Probe {
 }
 
 const MIN: Readonly<Record<string, number>> = { cookie: 8, hash: 6, tg_id: 5, phone: 7 };
-/** Cookie, hash and recipient values are also searched by every 12-character piece (R-1). */
+/** Hash and recipient values are also searched by every 12-character piece (R-1); a cookie by
+ * every 8-character piece, so a cut-off echo (`first 11 characters`, R3 audit E20) is found. */
 const PIECE = 12;
+const COOKIE_PIECE = 8;
 const WINDOW = 10;
 
 const includesAny =
@@ -52,12 +55,12 @@ function decoded(value: string): string {
 }
 
 /** The value, its URL-decoded form (N4) and, when long, every 12-character piece of both. */
-function pieces(value: string): string[] {
+function pieces(value: string, size = PIECE): string[] {
   const out = new Set<string>();
   for (const v of [value, decoded(value)].map((x) => x.toLowerCase())) {
     out.add(v);
-    if (v.length > PIECE)
-      for (let i = 0; i + PIECE <= v.length; i += 1) out.add(v.slice(i, i + PIECE));
+    if (v.length > size)
+      for (let i = 0; i + size <= v.length; i += 1) out.add(v.slice(i, i + size));
   }
   return [...out];
 }
@@ -65,6 +68,19 @@ function pieces(value: string): string[] {
 const nfc = (s: string): string[] => [
   ...new Set([s, s.normalize('NFC'), s.normalize('NFKC')].map((x) => x.toLowerCase())),
 ];
+
+/** Space-separated pieces of a name, apostrophes unified, 3+ characters (L-2, M-1). */
+export function namePieces(name: string): string[] {
+  return unifyApostrophes(name.trim())
+    .split(/\s+/)
+    .filter((p) => [...p].length >= 3);
+}
+
+/** One name piece as a whole word, in any apostrophe and NFC/NFKC form (M-1). */
+export function pieceProbe(piece: string): (view: string) => boolean {
+  const tests = nfc(unifyApostrophes(piece)).map(wordIn);
+  return (view) => tests.some((test) => test(view));
+}
 
 function words(value: string): string[] {
   return value.split(/[^\p{L}\p{N}_]+/u).filter((w) => [...w].length >= 3);
@@ -115,7 +131,7 @@ export function secretProbes(secret: SecretValue, accounts: TonAccountId[]): Pro
     case 'name':
     case 'secret': {
       const unified = unifyApostrophes(value);
-      return [unified, ...words(unified)]
+      return [unified, ...namePieces(value), ...words(unified)]
         .flatMap(nfc)
         .map((w) => ({ rule: kind, test: wordIn(w) }));
     }
@@ -148,6 +164,8 @@ export function secretProbes(secret: SecretValue, accounts: TonAccountId[]): Pro
       const needles = urls.map((u) => u.replace(/^https?:/, '').toLowerCase());
       return needles.length === 0 ? [] : [{ rule: kind, test: includesAny(needles) }];
     }
+    case 'cookie':
+      return [{ rule: kind, test: includesAny(pieces(value, COOKIE_PIECE)) }];
     default:
       return [{ rule: kind, test: includesAny(pieces(value)) }];
   }

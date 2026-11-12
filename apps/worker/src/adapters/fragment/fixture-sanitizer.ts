@@ -106,8 +106,16 @@ export function createFixtureSanitizer(input: SanitizerInput): FixtureSanitizer 
     }
     if (Array.isArray(value)) return value.map((item) => walk(item, key));
     if (value !== null && typeof value === 'object') {
+      const entries = Object.entries(value);
+      // {"name": "stel_x", "value": v} (L-1): the value next to a cookie name is the cookie.
+      const cookieNamed = entries.some(([, v]) => typeof v === 'string' && /^stel_\w+$/i.test(v));
       return Object.fromEntries(
-        Object.entries(value).map(([k, v]) => [sanitizeText(k), walk(v, k)]),
+        entries.map(([k, v]) => [
+          sanitizeText(k),
+          cookieNamed && /^(value|val|v)$/i.test(k) && typeof v === 'string' && v !== ''
+            ? placeholder('cookie')
+            : walk(v, k),
+        ]),
       );
     }
     return value;

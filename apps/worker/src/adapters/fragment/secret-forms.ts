@@ -52,7 +52,7 @@ function hex(n: number, width: number): string {
  * Apostrophe look-alikes (F-2): Uzbek o‘/g‘ and the tutuq belgisi are typed with any of them, so a
  * name given with one is matched in a page that shows another.
  */
-const APOSTROPHES = [0x27, 0x60, 0xb4, 0x2018, 0x2019, 0x2bb, 0x2bc].map((c) =>
+const APOSTROPHES = [0x27, 0x60, 0xb4, 0x2018, 0x2019, 0x2b9, 0x2bb, 0x2bc, 0xa78c].map((c) =>
   String.fromCharCode(c),
 );
 
@@ -68,6 +68,9 @@ function charAlternatives(ch: string): string[] {
   alternatives.add(units.map((u) => `\\\\u${hex(u, 4)}`).join(''));
   alternatives.add(`&#0*${code};`);
   alternatives.add(`&#x0*${hex(code, 1)};`);
+  // JS escapes (I-2): `\x66`, `\u{1f3ae}`.
+  if (code < 0x100) alternatives.add(`\\\\x${hex(code, 2)}`);
+  alternatives.add(`\\\\u\\{0*${hex(code, 1)}\\}`);
   return [...alternatives];
 }
 
@@ -152,7 +155,9 @@ export function exactPatterns(secret: SecretValue): ExactPattern[] {
   if (kind === 'name' || kind === 'secret') {
     // NFC and NFD spellings both (audit NFD1, NFD2).
     const forms = new Set<string>();
-    for (const v of [value, ...nameWords(value)]) {
+    // Space-separated pieces too (L-2): `Roʻzi` splits into words shorter than 3 at the apostrophe.
+    const pieces = value.split(/\s+/).filter((p) => [...p].length >= 3);
+    for (const v of [value, ...pieces, ...nameWords(value)]) {
       for (const n of [v, v.normalize('NFC'), v.normalize('NFD')]) forms.add(n);
     }
     const values = [...forms].sort((a, b) => b.length - a.length);

@@ -30,6 +30,8 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   zwj: '',
   zwnj: '',
   wbr: '',
+  equals: '=',
+  colon: ':',
 };
 
 function htmlDecode(text: string): string {
@@ -42,17 +44,25 @@ function htmlDecode(text: string): string {
 const BS = String.fromCharCode(92);
 
 function jsonUnescape(text: string): string {
-  return text
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
-    .replace(/\\\//g, '/')
-    .replace(/\\"/g, '"')
-    .replace(/\\[nrt]/g, ' ')
-    .split(`${BS}${BS}`)
-    .join(BS);
+  return (
+    text
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
+      // JS escapes too (I-2): `\x66`, `\u{1F3AE}`.
+      .replace(/\\x([0-9a-fA-F]{2})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/\\u\{([0-9a-fA-F]{1,6})\}/g, (_m, h: string) => codePoint(parseInt(h, 16)))
+      .replace(/\\\//g, '/')
+      .replace(/\\"/g, '"')
+      .replace(/\\[nrt]/g, ' ')
+      .split(`${BS}${BS}`)
+      .join(BS)
+  );
 }
 
 const ch = (...codes: number[]): string => String.fromCharCode(...codes);
-const APOSTROPHE_LOOKALIKES = new RegExp(`[${ch(0x60, 0xb4, 0x2018, 0x2019, 0x2bb, 0x2bc)}]`, 'g');
+const APOSTROPHE_LOOKALIKES = new RegExp(
+  `[${ch(0x60, 0xb4, 0x2018, 0x2019, 0x2b9, 0x2bb, 0x2bc, 0xa78c)}]`,
+  'g',
+);
 
 /** Every apostrophe look-alike as `'` (F-2), on both the secret and the views. */
 export function unifyApostrophes(text: string): string {
@@ -171,4 +181,16 @@ export function allViews(text: string): AllViews {
     level = next;
   }
   return { text: views, decoded: [...decoded], bytes };
+}
+
+/** The views the probes run on: text and decoded views, lower-cased, also apostrophes unified. */
+export function loweredViews(views: AllViews): string[] {
+  return [
+    ...new Set(
+      [...views.text, ...views.decoded].flatMap((v) => {
+        const lower = v.toLowerCase();
+        return [lower, unifyApostrophes(lower)];
+      }),
+    ),
+  ];
 }

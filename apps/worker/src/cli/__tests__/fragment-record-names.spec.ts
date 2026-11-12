@@ -47,14 +47,17 @@ describe('F-5: a --name that no answer shows', () => {
   it('accepts a --name spelled with another apostrophe than the page (F-2)', async () => {
     const page = (call: Parameters<Override>[0]): Response | null =>
       call.method === 'GET' && call.cookie !== null
-        ? new Response(`<b>G${String.fromCharCode(0x2018)}ayrat</b>`, {
-            headers: { 'content-type': 'text/html' },
-          })
+        ? new Response(
+            `<b>G${String.fromCharCode(0x2018)}ayrat To${String.fromCharCode(0x2019)}lqinov</b>`,
+            {
+              headers: { 'content-type': 'text/html' },
+            },
+          )
         : null;
     const name = `G${String.fromCharCode(0x2bb)}ayrat To${String.fromCharCode(0x2bb)}lqinov`;
     const args = [...CONFIRM.slice(0, -2), '--name', name];
     const { stdout } = await runRecorder(h, args, { override: page });
-    expect(stdout.some((l) => l.includes('name not found'))).toBe(false);
+    expect(stdout.some((l) => l.includes('nothing staged'))).toBe(false);
   });
 });
 
