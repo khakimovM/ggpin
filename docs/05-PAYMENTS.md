@@ -124,8 +124,8 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 > S7 review tuzatishlari (D-52): akkaunt va avtorizatsiyalar asosi Postgres’da, kalit fayldan (`BANK_FEED_ENC_KEY_FILE`), lider lease,
 > watchdog, to‘xtash sababli alertlar, bank chatidagi anomaliya pauzasi — quyida.
 
-- **Manba.** Ikki bot: @HUMOcardbot (Humo) va @CardXabarBot (Uzcard). Ularning xabarlarini **bitta alohida ishchi Telegram akkaunti**
-  (alohida SIM, 2FA, faqat shu ikki bot, D-37 (1)) oladi; worker shu akkauntning MTProto foydalanuvchi sessiyasi bilan (`@mtcute/node`, D-37 (13))
+- **Manba.** Ikki bot: @HUMOcardbot (Humo) va @CardXabarBot (Uzcard). Ularning xabarlarini **bitta ishchi Telegram akkaunti**
+  (alohida SIM, 2FA; shu ikki bot va Fragment’ga faqat brauzer orqali Telegram login, D-37 (1), D-58 (5)) oladi; worker shu akkauntning MTProto foydalanuvchi sessiyasi bilan (`@mtcute/node`, D-37 (13))
   botlarning shaxsiy chatini o‘qiydi. Telegram akkauntni cheklash xavfi qabul qilingan; shuning uchun faqat o‘qiladi, chastota past.
 - **Ikki kanal.** Yangi xabar update’i faqat «turtki»; asosiy manba — har `BANK_FEED_POLL_SEC` (20 s) dagi `getHistory(minId = kursor)`.
   Kursor `BankFeedCursor` da, `BankMessage` INSERT bilan **bitta tranzaksiyada** suriladi: update yo‘qolsa ham poll topadi.
