@@ -96,12 +96,19 @@ RUN npm run build -w @repo/shared \
 # The inject CLI writes synthetic bank notifications as if the bank bot sent them (D-52): it must
 # not exist in a production image. Drop its compiled files, then fail the build if any trace stays
 # (a file name, or any remaining module that still requires one of them).
+# The same for the owner-only Fragment recorder (plan S0b, S-9): cli/fragment-record* and its env
+# guard config/fragment-record-env.*. adapters/fragment/* stays (the S8 adapter needs it).
 RUN cd apps/worker/dist \
  && find . \( -name 'bank-feed-inject.*' -o -name 'inject-args.*' -o -name 'inject-text.*' \
-      -o -name 'inject-guard.*' \) -type f -delete \
+      -o -name 'inject-guard.*' -o -path './cli/fragment-record*' \
+      -o -path './config/fragment-record-env.*' \) -type f -delete \
  && if [ -n "$(find . -name '*inject*' -type f)" ]; then echo 'inject files left in dist' >&2; exit 1; fi \
+ && if [ -n "$(find . -name '*fragment-record*' -type f)" ]; then \
+      echo 'fragment-record files left in dist' >&2; exit 1; fi \
  && if grep -rIl -e 'bank-feed-inject' -e 'inject-args' -e 'inject-text' -e 'inject-guard' . ; then \
       echo 'dist still references the inject CLI' >&2; exit 1; fi \
+ && if grep -rIl -e 'fragment-record' . ; then \
+      echo 'dist still references the fragment recorder' >&2; exit 1; fi \
  && test -f main.js && test -f cli/bank-feed-login.js && test -f healthcheck/healthcheck.js
 
 # ---------------------------------------------------------------------------------------------
@@ -164,9 +171,10 @@ COPY --from=deps-prod /app /app
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/db/dist packages/db/dist
 COPY --from=build /app/apps/worker/dist apps/worker/dist
-# Defence in depth: the runtime image must not contain the inject CLI, a secret-looking file
-# outside node_modules, typescript or the prisma CLI; the build fails otherwise.
-RUN if find /app -path '*/node_modules' -prune -o \( -name '*inject*' -o -name '.env' -o -name '.env.*' \
+# Defence in depth: the runtime image must not contain the inject CLI, the Fragment recorder, a
+# secret-looking file outside node_modules, typescript or the prisma CLI; the build fails otherwise.
+RUN if find /app -path '*/node_modules' -prune -o \( -name '*inject*' -o -name '*fragment-record*' \
+      -o -name '.env' -o -name '.env.*' \
       -o -name '*.pem' -o -name '*.key' -o -name '*.session*' -o -name '*.sqlite*' -o -name '*.blob' \
       -o -name 'mtcute-test.json' \) -print | grep . ; then \
       echo 'forbidden file in runtime image' >&2; exit 1; fi \
