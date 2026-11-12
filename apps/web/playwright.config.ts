@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
-import { E2E_BOT_USERNAME } from './e2e/support/app-env';
+import {
+  E2E_BOT_USERNAME,
+  E2E_CATALOG_API_URL,
+  E2E_CATALOG_ORIGIN,
+  E2E_CATALOG_PORT,
+  E2E_CHANNEL_URL,
+} from './e2e/support/app-env';
 
 const PORT = 3100;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -14,6 +20,10 @@ const APP_ENV = {
   NEXT_PUBLIC_BOT_USERNAME: E2E_BOT_USERNAME,
   NEXT_PUBLIC_API_MOCKS: '',
   NEXT_PUBLIC_SUPPORT_URL: '',
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: E2E_CHANNEL_URL,
+  // Where the Next.js SERVER reads the catalog from (the website's server-side rendering): the
+  // fixture catalog server below, not the real API.
+  API_INTERNAL_URL: E2E_CATALOG_API_URL,
   // Enables the token-probe fixture page; it is a 404 in every real build.
   E2E_PROBES: '1',
   // No call home from the build.
@@ -103,13 +113,23 @@ const config = defineConfig({
     },
     ...(process.env.CI ? [] : [webkitProject]),
   ],
-  webServer: {
-    command: `npm run build && npx next start --port ${PORT}`,
-    url: BASE_URL,
-    env: APP_ENV,
-    reuseExistingServer: !process.env.CI,
-    timeout: 300_000,
-  },
+  webServer: [
+    // The fixture catalog (no database, no Redis): started first, the site's server reads it.
+    {
+      command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
+      url: `${E2E_CATALOG_ORIGIN}/health`,
+      env: { FIXTURE_CATALOG_PORT: String(E2E_CATALOG_PORT) },
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: `npm run build && npx next start --port ${PORT}`,
+      url: BASE_URL,
+      env: APP_ENV,
+      reuseExistingServer: !process.env.CI,
+      timeout: 300_000,
+    },
+  ],
 });
 
 export default config;
