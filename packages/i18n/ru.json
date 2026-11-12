@@ -24,6 +24,45 @@
       "stars": "{amount} Stars"
     }
   },
+  "site": {
+    "nav": {
+      "main": "Основное",
+      "home": "{brand} — главная",
+      "products": "Товары",
+      "how": "Как это работает",
+      "faq": "Вопросы",
+      "login": "Войти",
+      "openTelegram": "Открыть в Telegram",
+      "menu": "Меню",
+      "language": "Язык",
+      "skip": "Перейти к основному содержимому",
+      "langUz": "O‘zbekcha",
+      "langRu": "Русский"
+    },
+    "footer": {
+      "tagline": "Telegram Stars, Premium и игровой донат.",
+      "products": "Товары",
+      "info": "Информация",
+      "telegram": "Telegram",
+      "channel": "Канал",
+      "copyright": "© {year} {brand}",
+      "productLinks": {
+        "stars": "Telegram Stars",
+        "premium": "Telegram Premium"
+      },
+      "infoLinks": {
+        "faq": "Частые вопросы",
+        "terms": "Публичная оферта",
+        "privacy": "Политика конфиденциальности",
+        "contacts": "Контакты"
+      }
+    },
+    "error": {
+      "title": "Произошла ошибка",
+      "body": "Не удалось открыть страницу. Ваши заказы и кошелёк в безопасности — обновите страницу.",
+      "reload": "Обновить страницу"
+    }
+  },
   "store": {
     "catalog": {
       "title": "Каталог",

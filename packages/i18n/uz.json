@@ -24,6 +24,45 @@
       "stars": "{amount} Stars"
     }
   },
+  "site": {
+    "nav": {
+      "main": "Asosiy",
+      "home": "{brand} — bosh sahifa",
+      "products": "Mahsulotlar",
+      "how": "Qanday ishlaydi",
+      "faq": "Savollar",
+      "login": "Kirish",
+      "openTelegram": "Telegramʼda ochish",
+      "menu": "Menyu",
+      "language": "Til",
+      "skip": "Asosiy mazmunga o‘tish",
+      "langUz": "O‘zbekcha",
+      "langRu": "Русский"
+    },
+    "footer": {
+      "tagline": "Telegram Stars, Premium va o‘yin donatlari.",
+      "products": "Mahsulotlar",
+      "info": "Maʼlumot",
+      "telegram": "Telegram",
+      "channel": "Kanal",
+      "copyright": "© {year} {brand}",
+      "productLinks": {
+        "stars": "Telegram Stars",
+        "premium": "Telegram Premium"
+      },
+      "infoLinks": {
+        "faq": "Ko‘p beriladigan savollar",
+        "terms": "Ommaviy oferta",
+        "privacy": "Maxfiylik siyosati",
+        "contacts": "Aloqa"
+      }
+    },
+    "error": {
+      "title": "Xatolik yuz berdi",
+      "body": "Sahifani ochib bo‘lmadi. Buyurtma va hamyoningiz xavfsiz — sahifani yangilab ko‘ring.",
+      "reload": "Sahifani yangilash"
+    }
+  },
   "store": {
     "catalog": {
       "title": "Katalog",

@@ -44,13 +44,15 @@ function messageKeys(tree: ReactNode): string[] {
 
 describe('[locale]/layout (the root of every website page)', () => {
   it.each(['uz', 'ru'] as const)(
-    'serialises only `common` into the page (%s), never the whole catalog',
+    'serialises only `common` and the error page texts into the page (%s), never the whole catalog',
     async (locale) => {
       const tree = await LocaleLayout({ children: child, params: params(locale) });
-      expect(messageKeys(tree)).toEqual(['common']);
+      expect(messageKeys(tree)).toEqual(['common', 'site']);
       const provider = find(tree, NextIntlClientProvider);
       expect(Reflect.get(provider?.props ?? {}, 'messages')).toEqual({
         common: MESSAGES[locale].common,
+        // Only the error page's three texts of `site`: the landing's copy stays on the server.
+        site: { error: MESSAGES[locale].site.error },
       });
     },
   );

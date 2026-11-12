@@ -29,7 +29,7 @@ export default async function HomePage({ params }: Props) {
   const channel = env.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL;
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+    <main className="flex min-h-[60dvh] flex-col items-center justify-center gap-3 bg-background px-6 text-center">
       <JsonLd
         nonce={nonce}
         data={organizationLd({
