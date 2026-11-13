@@ -61,59 +61,46 @@ describe('CoinEntry sign per kind', () => {
   });
 });
 
+// Since phase 5 the purchase columns of Order and Quote are immutable (GG001 triggers), so these
+// CHECKs are exercised on INSERT: the same constraints, the same bad values, a new row each time.
+// The triggers have their own matrix in check-constraints-orders.e2e.test.ts.
 describe('order and quote amounts', () => {
-  const orderData = async () => {
-    const order = await createOrder(await createUser());
-    return { order, quote: await createQuote(order.userId) };
-  };
+  const PRICE = 5_000_000n; // the factory's priceTiyin
+  const COST = 1_000_000_000n; // the factory's costMinor
 
   it('Order rejects zero quantity, non-positive price/cost and maxCost below cost', async () => {
-    const { order } = await orderData();
+    const user = await createUser();
     for (const bad of [
       { quantity: 0 },
       { priceTiyin: 0n },
       { costMinor: 0n },
       { costMinor: 10n, maxCostMinor: 9n },
     ]) {
+      // Unguarded: an order that differs from its quote is refused by the order guard first (Z4).
       await expectCheck(
-        db.order.update({ where: { id: order.id }, data: bad }),
+        createOrder(user, undefined, bad, { unguarded: true }),
         'Order_amounts_check',
       );
     }
   });
 
   it('Order discount must be below the price: a 100% discount cannot write its PURCHASE entry', async () => {
-    const { order } = await orderData();
-    await db.order.update({
-      where: { id: order.id },
-      data: { discountTiyin: order.priceTiyin - 1n },
-    });
-    await expectCheck(
-      db.order.update({ where: { id: order.id }, data: { discountTiyin: order.priceTiyin } }),
-      'Order_discount_check',
-    );
-    await expectCheck(
-      db.order.update({ where: { id: order.id }, data: { discountTiyin: order.priceTiyin + 1n } }),
-      'Order_discount_check',
-    );
-    await expectCheck(
-      db.order.update({ where: { id: order.id }, data: { discountTiyin: -1n } }),
-      'Order_discount_check',
-    );
+    const user = await createUser();
+    await createOrder(user, undefined, { discountTiyin: PRICE - 1n });
+    for (const discountTiyin of [PRICE, PRICE + 1n, -1n]) {
+      await expectCheck(createOrder(user, undefined, { discountTiyin }), 'Order_discount_check');
+    }
   });
 
   it('Quote rejects zero quantity, non-positive price and maxCost below cost', async () => {
-    const { quote } = await orderData();
+    const user = await createUser();
     for (const bad of [
       { quantity: 0 },
       { priceTiyin: 0n },
       { costMinor: 0n },
-      { maxCostMinor: quote.costMinor - 1n },
+      { maxCostMinor: COST - 1n },
     ]) {
-      await expectCheck(
-        db.quote.update({ where: { id: quote.id }, data: bad }),
-        'Quote_amounts_check',
-      );
+      await expectCheck(createQuote(user.id, bad), 'Quote_amounts_check');
     }
   });
 

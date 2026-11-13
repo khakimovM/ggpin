@@ -18,7 +18,9 @@
 //   and (phase 4) the P2P guards: BankMessage / BankMessageOutcome / BankMessageText
 //   append-only, TopupCard identity immutable, PaymentIntent transition guard, the
 //   reservation EXCLUDE constraint, Payment <-> bank message / intent consistency.
-//   See docs/03-DATA-MODEL.md "Migratsiya 2" and "Migratsiya 9".
+//   (phase 5) the order/fulfillment guards: TonTransfer, Order and Quote immutability, one live
+//   attempt per order, one unresolved TON message per wallet, one ACTIVE Fragment session.
+//   See docs/03-DATA-MODEL.md "Migratsiya 2", "Migratsiya 9" and "Migratsiya 10".
 // - Polymorphic references have no FK by nature: LedgerEntry/CoinEntry (refType, refId),
 //   AuditLog (actorId, targetType, targetId), Setting.updatedBy.
 
@@ -279,6 +281,9 @@ model Quote {
   product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity       Int
   recipient      Json // tekshirilgan qabul qiluvchi: {username, displayName, ...}
+  // The recipient's id on the provider side (Telegram user id, ...), confirmed by the validate call.
+  // Internal: never in an API response or a log. Immutable (migration 10, owner decision R3).
+  providerRef    String?
   costCurrency   String // TON | USDT
   costMinor      BigInt // nanoTON yoki microUSDT
   fxRateId       String
@@ -357,6 +362,8 @@ model Order {
   sku            Sku?                 @relation(fields: [skuId], references: [id], onDelete: Restrict)
   quantity       Int
   recipient      Json
+  // Copied from the quote at creation (the id the validate call resolved); immutable, internal.
+  providerRef    String?
   priceTiyin     BigInt // chegirmadan oldingi narx; to‘langan summa = priceTiyin − discountTiyin
   discountTiyin  BigInt               @default(0)
   costCurrency   String
@@ -392,7 +399,7 @@ model OrderEvent {
   order     Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
   from      OrderStatus?
   to        OrderStatus
-  actor     String // SYSTEM | WORKER | ADMIN:<id>
+  actor     String // SYSTEM | RECONCILER | ADMIN | ADMIN:<id> (transitionOrder, @repo/db)
   note      String?
   createdAt DateTime     @default(now())
 
@@ -421,6 +428,7 @@ model FulfillmentAttempt {
   error       String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  tonTransfer TonTransfer? // the TON message that paid for this attempt (FRAGMENT adapter)
 
   @@unique([orderId, attemptNo])
   // One external payout (TON message hash / supplier order id) belongs to exactly one attempt;
@@ -658,6 +666,8 @@ model BankMessage {
   // Card capacity (`cardTotals`, @repo/db): PARSED CREDIT sums per card since verifiedAt / month
   // start, read by the API allocator and the worker after every credit (D-42, D-43).
   @@index([cardId, tgDate])
+  // storedMessage lookups by (source, tgMessageId) (phase 4 N3); the unique above leads with senderId.
+  @@index([source, tgMessageId])
   @@index([createdAt])
 }
 
@@ -821,9 +831,53 @@ model FragmentSession {
   pageHash   String?
   status     String // ACTIVE | DEAD
   lastOkAt   DateTime?
+  deadAt     DateTime? // when the keep-alive declared the session DEAD (one alert per death)
   lastError  String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+}
+
+// TON payout lifecycle (phase 5, docs/06 "Phase 5 majburiy talablari"). One row per signed
+// external message of the hot wallet: it is written (SIGNED) and committed BEFORE the message is
+// broadcast, so "did it go out?" is always answerable from the chain, never from memory. Mutable
+// (status, tx data), but the identity of the message never changes (trigger, Migration 10).
+// Partial unique indexes in the migration (invisible here): at most one unresolved message
+// (SIGNED/BROADCAST) per wallet, and one live message per (wallet, seqno).
+enum TonTransferStatus {
+  SIGNED
+  BROADCAST
+  CONFIRMED
+  ONCHAIN_FAILED
+  EXPIRED
+  CONSUMED_UNMATCHED
+  // Our message was executed and sent, the destination aborted it and the value came back to the
+  // wallet in a bounce transaction (D-59 A1). Final; its txHash/txLt are our transaction.
+  BOUNCED
+}
+
+model TonTransfer {
+  id            String              @id @default(cuid(2))
+  purpose       String // ORDER | SELFTEST (CHECK)
+  attemptId     String?             @unique // required for ORDER, NULL for SELFTEST (CHECK)
+  attempt       FulfillmentAttempt? @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  network       String // mainnet | testnet (CHECK)
+  walletAddress String
+  seqno         Int
+  validUntil    DateTime
+  toAddress     String
+  amountNanoTon BigInt
+  payloadHash   String // sha256 hex of the payload Fragment asked us to send
+  extMsgHash    String              @unique // normalized external message hash
+  bocBase64     String // the signed message (not a secret: proof instead of re-signing)
+  status        TonTransferStatus
+  txHash        String?             @unique
+  txLt          BigInt?
+  feeNanoTon    BigInt?
+  confirmedAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([walletAddress, createdAt]) // rolling 24 h limit sum
 }
 
 // Hot wallet balansi tarixi (admin grafik uchun). Append-only.
