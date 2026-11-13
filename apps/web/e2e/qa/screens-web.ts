@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { openPay } from '../pay/pay-support';
+import { INFO_PAGES, openInfo } from '../site/info-support';
 import { openLanding } from '../site/landing-support';
 import { installFakeApi } from '../support/fake-api';
 import { openStoreAccount } from '../store/account-support';
@@ -9,7 +10,8 @@ import { confirmRecipient } from '../store/product-support';
 import { openModal } from '../store/topup-support';
 import { dialogUp, h1, PRESET, type Screen } from './screens-mini';
 
-// The web half of the S11 matrix screen list: the store, the pay page, the login and the 404.
+// The web half of the S11 matrix screen list: the site pages, the store, the pay page, the login
+// and the 404.
 
 export const WEB: Screen[] = [
   {
@@ -20,6 +22,14 @@ export const WEB: Screen[] = [
       await openLanding(page, lang);
     },
   },
+  // The information pages (phase 8 S4): the FAQ, the contacts and the two legal drafts.
+  ...INFO_PAGES.map((which): Screen => ({
+    name: `site-${which}`,
+    open: async ({ page, lang, scheme }) => {
+      await page.addInitScript((s) => window.localStorage.setItem('ggpin-theme', s), scheme);
+      await openInfo(page, which, lang);
+    },
+  })),
   {
     name: 'store-catalog',
     open: async ({ page, lang, scheme }) => {

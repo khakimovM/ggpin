@@ -46,9 +46,15 @@ test.describe('the error page', () => {
   test('a short page leaves the footer at the bottom edge of the window, not under the content', async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
+    // The page's own height, measured in a window shorter than it (the document then scrolls), so
+    // the test does not depend on how tall the header, the error view and the footer happen to be.
+    await page.setViewportSize({ width: 768, height: 400 });
     await page.goto('/e2e-probe-error');
     await expect(page.getByRole('contentinfo')).toBeVisible({ timeout: 15_000 });
+    const contentHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(contentHeight).toBeGreaterThan(400);
+    // Then a window clearly taller than the page: the footer must sit at its bottom edge.
+    await page.setViewportSize({ width: 768, height: Math.ceil(contentHeight) + 300 });
     const { footerBottom, viewport } = await page.evaluate(() => ({
       footerBottom: document.querySelector('footer')?.getBoundingClientRect().bottom ?? 0,
       viewport: window.innerHeight,

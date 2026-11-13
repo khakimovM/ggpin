@@ -215,8 +215,8 @@ test.describe('home page head', () => {
     expect(organization).toMatchObject({ name: 'ggpin', url: SITE });
     expect(organization?.['sameAs']).toEqual([E2E_BOT_URL, E2E_CHANNEL_URL]);
     expect(documents.find((doc) => doc['@type'] === 'WebSite')).toMatchObject({ inLanguage: 'uz' });
-    // No priced Product/Offer markup.
-    expect(JSON.stringify(documents)).not.toMatch(/"(Product|Offer)"/);
+    // No priced Product/Offer markup, and no FAQPage: that is on /faq only.
+    expect(JSON.stringify(documents)).not.toMatch(/"(Product|Offer|FAQPage)"/);
   });
 
   test('the Russian home says so in its WebSite document', async ({ request }) => {

@@ -71,7 +71,7 @@ for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
             (script) => (JSON.parse(script.textContent ?? '{}') as { '@type': string })['@type'],
           ),
         );
-      expect(types).toEqual(['Organization', 'WebSite', 'FAQPage']);
+      expect(types).toEqual(['Organization', 'WebSite']);
       await expect(page.locator('meta[name="description"]')).toHaveAttribute(
         'content',
         copy.meta.home.description,

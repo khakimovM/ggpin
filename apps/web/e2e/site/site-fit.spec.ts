@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { INFO_LANGS, openInfo } from './info-support';
 import { LANDING, openLanding } from './landing-support';
 import { openProduct, PRODUCTS, productCopy, productPath } from './product-support';
 
@@ -180,6 +181,23 @@ for (const lang of ['uz', 'ru'] as const) {
       }
       await openLanding(page, lang);
       await expectJoinedAtEveryWidth(page, 'landing');
+    });
+
+    test('"1–2" stays on one line on the FAQ page: the landing’s answer and the help screen’s', async ({
+      page,
+    }) => {
+      const { copy } = INFO_LANGS[lang];
+      await openInfo(page, 'faq', lang);
+      // The first question is open: the landing's "Odatda 1–2 daqiqa".
+      await expectJoinedAtEveryWidth(page, 'faq, the first answer');
+      // The help screen's wallet top-up answer ("1–2 daqiqada tushadi"); opening it closes the first.
+      const topUp = page
+        .getByRole('main')
+        .locator('details')
+        .filter({ hasText: copy.account.help.faq.q4 });
+      await topUp.locator('summary').click();
+      await expect(topUp).toHaveAttribute('open', '');
+      await expectJoinedAtEveryWidth(page, 'faq, the top-up answer');
     });
 
     test('a product page: the placeholders take the room of the answer, nothing moves when it comes', async ({

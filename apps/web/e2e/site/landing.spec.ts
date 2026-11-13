@@ -147,37 +147,22 @@ for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
       await expect(items.nth(1)).not.toHaveAttribute('open', '');
     });
 
-    test('structured data: Organization, WebSite and FAQPage (no Product), with the nonce', async ({
+    test('structured data: Organization and WebSite only (no FAQPage, no Product), with the nonce', async ({
       page,
     }) => {
       const blocks = await jsonLdBlocks(page);
-      expect(blocks.map((block) => block.data['@type'])).toEqual([
-        'Organization',
-        'WebSite',
-        'FAQPage',
-      ]);
+      // FAQPage is on /faq only (it asks these questions too): one page per question set.
+      expect(blocks.map((block) => block.data['@type'])).toEqual(['Organization', 'WebSite']);
       const nonces = new Set(blocks.map((block) => block.nonce));
       expect(nonces.size).toBe(1);
       expect([...nonces][0]).not.toBe('');
-      const [organization, website, faq] = blocks.map((block) => block.data);
+      const [organization, website] = blocks.map((block) => block.data);
       expect(organization?.name).toBe(BRAND.name);
       // No logo asset exists yet, so the field is absent rather than a dead URL.
       expect(organization).not.toHaveProperty('logo');
       expect(organization?.sameAs).toEqual([E2E_BOT_URL, E2E_CHANNEL_URL]);
       expect(website?.inLanguage).toBe(lang);
-      const entities = (faq?.mainEntity ?? []) as {
-        name: string;
-        acceptedAnswer: { text: string };
-      }[];
-      expect(entities.map((entity) => entity.name)).toEqual([
-        copy.faq.items.q1,
-        copy.faq.items.q2,
-        copy.faq.items.q3,
-        copy.faq.items.q4,
-        copy.faq.items.q5,
-      ]);
-      expect(entities[0]?.acceptedAnswer.text).toBe(copy.faq.items.a1);
-      expect(JSON.stringify(blocks)).not.toMatch(/"Product"|"Offer"|"price"/);
+      expect(JSON.stringify(blocks)).not.toMatch(/"Product"|"Offer"|"price"|"FAQPage"/);
     });
 
     test('metadata: title, description, canonical and the language pair', async ({ page }) => {
