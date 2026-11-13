@@ -17,3 +17,12 @@ export const E2E_DEGRADED_CATALOG_ORIGIN = `http://localhost:${E2E_DEGRADED_CATA
 export const E2E_DEGRADED_CATALOG_API_URL = `${E2E_DEGRADED_CATALOG_ORIGIN}/api/v1`;
 export const E2E_DEGRADED_SITE_PORT = 3101;
 export const E2E_DEGRADED_SITE_URL = `http://localhost:${E2E_DEGRADED_SITE_PORT}`;
+
+// The thin pair (phase 8 S3): a catalog that is up but has nothing to list (Stars without packages,
+// Premium a 404), and the site server that reads it. Same reason as the degraded pair: the answer
+// is cached for 60 s, so the states of a product page need servers of their own.
+export const E2E_SPARSE_CATALOG_PORT = 5102;
+export const E2E_SPARSE_CATALOG_ORIGIN = `http://localhost:${E2E_SPARSE_CATALOG_PORT}`;
+export const E2E_SPARSE_CATALOG_API_URL = `${E2E_SPARSE_CATALOG_ORIGIN}/api/v1`;
+export const E2E_SPARSE_SITE_PORT = 3102;
+export const E2E_SPARSE_SITE_URL = `http://localhost:${E2E_SPARSE_SITE_PORT}`;

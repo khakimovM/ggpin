@@ -13,8 +13,9 @@ import { seriousViolations } from './shell-support';
 
 const SITE = 'http://localhost:3100';
 
-// How a tile's price line reads: "5 500 so‘m dan boshlab" / "от 5 500 сум". The amounts are the
-// fixture catalog's (550000 tiyin = 5 500 so'm, 16500000 tiyin = 165 000 so'm).
+// How a tile's price line reads: "11 000 so‘m dan boshlab" / "от 11 000 сум". The amounts are the
+// fixture catalog's (1100000 tiyin = 11 000 so'm, the cheapest Stars package; 16500000 tiyin =
+// 165 000 so'm, the cheapest Premium plan).
 const PRICE_LINE: Record<LandingLang, (amount: string) => RegExp> = {
   uz: (amount) => new RegExp(`${amount}\\s${uz.common.currency.uzs}\\sdan\\sboshlab`),
   ru: (amount) => new RegExp(`от\\s${amount}\\s${ru.common.currency.uzs}`),
@@ -22,6 +23,7 @@ const PRICE_LINE: Record<LandingLang, (amount: string) => RegExp> = {
 
 for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
   const { copy, catalog, path, store } = LANDING[lang];
+  const prefix = lang === 'uz' ? '' : '/ru';
   const unit = lang === 'uz' ? uz.common.currency.uzs : ru.common.currency.uzs;
 
   test.describe(`${lang}: the landing`, () => {
@@ -103,12 +105,12 @@ for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
     }) => {
       const products = page.locator('#products');
       const stars = products.getByRole('link', { name: /Telegram Stars/ });
-      // The SEO pages of phase 8 S3 are not in the site registry yet: tiles lead into the store.
-      await expect(stars).toHaveAttribute('href', `${store}/products/telegram-stars`);
-      await expect(stars).toContainText(PRICE_LINE[lang]('5\\s500'));
-      await expect(products.getByRole('link', { name: /Telegram Premium/ })).toContainText(
-        PRICE_LINE[lang]('165\\s000'),
-      );
+      // Stars and Premium have a page of their own (phase 8 S3); the other tiles lead into the store.
+      await expect(stars).toHaveAttribute('href', `${prefix}/telegram-stars`);
+      await expect(stars).toContainText(PRICE_LINE[lang]('11\\s000'));
+      const premium = products.getByRole('link', { name: /Telegram Premium/ });
+      await expect(premium).toContainText(PRICE_LINE[lang]('165\\s000'));
+      await expect(premium).toHaveAttribute('href', `${prefix}/telegram-premium`);
       // A product with no fresh price shows none, and its sold-out chip says why it is idle.
       const freeFire = products.getByRole('link', { name: /Free Fire/ });
       await expect(freeFire).toContainText(catalog.soldOut);
@@ -119,7 +121,9 @@ for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
         .locator('ul a')
         .evaluateAll((links) => links.map((link) => link.getAttribute('href')));
       expect(hrefs.length).toBeGreaterThanOrEqual(2);
-      for (const href of hrefs) expect(href).toMatch(/\/store\/products\/[a-z0-9-]+$/);
+      for (const href of hrefs) {
+        expect(href).toMatch(/\/(?:store\/products\/[a-z0-9-]+|telegram-(?:stars|premium))$/);
+      }
     });
 
     test('the FAQ: the first answer is open, one at a time, and the keyboard works', async ({

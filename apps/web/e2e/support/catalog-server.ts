@@ -6,12 +6,14 @@
 //
 // Answers like the real API: the `{ success, data, meta }` envelope, `Cache-Control: public,
 // max-age=60` on a 200, a strict query (an unknown key is a 400), a 404 for an unknown product.
-// `POST /__fixture/mode {"mode":"ok|error|slow|drop"}` breaks it on purpose (degradation specs),
+// `POST /__fixture/mode {"mode":"ok|error|slow|drop|sparse"}` breaks it on purpose (degradation specs),
 // `GET /__fixture/stats` counts the catalog requests it has served (cache specs).
 // `FIXTURE_MODE=error` starts it already broken: the site keeps a catalog answer in its data cache
 // for 60 s, so a spec cannot switch ONE server from ok to error and expect the page to follow. A
 // scenario that needs a broken API gets its own fixture (own port, own cache key) and, with it, its
 // own site server (see playwright.config.ts).
+// `sparse` is a catalog that is up but thin: the list is whole, the Stars detail has no packages and
+// the Premium detail is a 404 (the product pages' "no packages" and "not for sale" states).
 import { ProductListQuerySchema, SlugSchema } from '@repo/shared';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import {
@@ -27,7 +29,7 @@ const PREFIX = '/api/v1/catalog';
 // Longer than the site's 3 s limit for the API, so `slow` proves the timeout.
 const SLOW_MS = 6_000;
 
-const MODES = ['ok', 'error', 'slow', 'drop'] as const;
+const MODES = ['ok', 'error', 'slow', 'drop', 'sparse'] as const;
 type Mode = (typeof MODES)[number];
 const isMode = (value: unknown): value is Mode => MODES.some((mode) => mode === value);
 
@@ -107,8 +109,10 @@ async function catalog(req: IncomingMessage, res: ServerResponse, url: URL): Pro
   const slug = /^\/products\/([^/]+)$/.exec(route)?.[1];
   if (slug !== undefined) {
     stats.details += 1;
-    const detail = SlugSchema.safeParse(slug).success ? productDetail(slug, locale) : null;
-    if (detail === null) return send(res, 404, failure('NOT_FOUND'));
+    const found = SlugSchema.safeParse(slug).success ? productDetail(slug, locale) : null;
+    const gone = mode === 'sparse' && slug === 'telegram-premium';
+    if (found === null || gone) return send(res, 404, failure('NOT_FOUND'));
+    const detail = mode === 'sparse' && slug === 'telegram-stars' ? { ...found, skus: [] } : found;
     return send(res, 200, { success: true, data: detail }, true);
   }
   return send(res, 404, failure('NOT_FOUND'));

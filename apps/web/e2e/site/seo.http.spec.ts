@@ -1,5 +1,7 @@
+import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { BRAND } from '@repo/shared';
 import { SITE_PAGES } from '../../src/features/site/seo/site-pages';
 import {
   E2E_BOT_URL,
@@ -221,6 +223,29 @@ test.describe('home page head', () => {
     const html = await (await request.get('/ru')).text();
     expect(html).toContain('"inLanguage":"ru"');
   });
+});
+
+test.describe('product pages head (phase 8 S3)', () => {
+  for (const [lang, path, copy] of [
+    ['uz', '/telegram-stars', uz.site.product.stars],
+    ['ru', '/ru/telegram-stars', ru.site.product.stars],
+    ['uz', '/telegram-premium', uz.site.product.premium],
+    ['ru', '/ru/telegram-premium', ru.site.product.premium],
+  ] as const) {
+    test(`${path}: the title and the description are inside <head>, in the page's language`, async ({
+      request,
+    }) => {
+      const response = await request.get(path);
+      expect(response.status()).toBe(200);
+      const html = await response.text();
+      const head = html.slice(0, html.indexOf('</head>'));
+      expect(head).toContain(`<title>${copy.meta.title} — ${BRAND.name}</title>`);
+      expect(metaContent(head, 'name', 'description')).toEqual([copy.meta.description]);
+      expect(head).toContain('rel="canonical"');
+      expect(Object.keys(hreflangs(head)).sort()).toEqual(['ru', 'uz', 'x-default']);
+      expect(html).toContain(`<html lang="${lang}"`);
+    });
+  }
 });
 
 test.describe('areas that must stay out of search keep saying so', () => {

@@ -10,6 +10,11 @@ import {
   E2E_CATALOG_ORIGIN,
   E2E_CATALOG_PORT,
   E2E_CHANNEL_URL,
+  E2E_SPARSE_CATALOG_API_URL,
+  E2E_SPARSE_CATALOG_ORIGIN,
+  E2E_SPARSE_CATALOG_PORT,
+  E2E_SPARSE_SITE_PORT,
+  E2E_SPARSE_SITE_URL,
 } from './e2e/support/app-env';
 
 const PORT = 3100;
@@ -134,9 +139,9 @@ const config = defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 300_000,
     },
-    // The degraded pair (landing-degraded.spec.ts): a catalog that always answers 500 and a second
-    // `next start` of the same build that reads it. Started after the main pair is up, so the build
-    // exists.
+    // The degraded pair (landing-degraded.spec.ts, and the "catalog is down" half of
+    // product-states.spec.ts): a catalog that always answers 500 and a second `next start` of the
+    // same build that reads it. Started after the main pair is up, so the build exists.
     {
       command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
       url: `${E2E_DEGRADED_CATALOG_ORIGIN}/health`,
@@ -151,6 +156,25 @@ const config = defineConfig({
       command: `npx next start --port ${E2E_DEGRADED_SITE_PORT}`,
       url: E2E_DEGRADED_SITE_URL,
       env: { ...APP_ENV, API_INTERNAL_URL: E2E_DEGRADED_CATALOG_API_URL },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    // The thin pair (the "thin catalog" half of product-states.spec.ts): a catalog that is up with
+    // Stars empty and Premium gone, and a third `next start` of the same build that reads it.
+    {
+      command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
+      url: `${E2E_SPARSE_CATALOG_ORIGIN}/health`,
+      env: {
+        FIXTURE_CATALOG_PORT: String(E2E_SPARSE_CATALOG_PORT),
+        FIXTURE_MODE: 'sparse',
+      },
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: `npx next start --port ${E2E_SPARSE_SITE_PORT}`,
+      url: E2E_SPARSE_SITE_URL,
+      env: { ...APP_ENV, API_INTERNAL_URL: E2E_SPARSE_CATALOG_API_URL },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

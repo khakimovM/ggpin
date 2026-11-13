@@ -12,6 +12,7 @@ test.use({ baseURL: E2E_DEGRADED_SITE_URL });
 
 for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
   const { copy, path, store } = LANDING[lang];
+  const prefix = lang === 'uz' ? '' : '/ru';
   const unit = lang === 'uz' ? 'so‘m' : 'сум';
 
   test.describe(`${lang}: the landing with the API down`, () => {
@@ -29,14 +30,14 @@ for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
 
       const products = page.locator('#products');
       await expect(products.locator('ul[data-state="unavailable"]')).toBeVisible();
-      // Stars and Premium stay, and still lead to the store; no price anywhere in the block.
+      // Stars and Premium stay, and still lead to their pages; no price anywhere in the block.
       await expect(products.getByRole('link', { name: copy.products.names.stars })).toHaveAttribute(
         'href',
-        `${store}/products/telegram-stars`,
+        `${prefix}/telegram-stars`,
       );
       await expect(
         products.getByRole('link', { name: copy.products.names.premium }),
-      ).toHaveAttribute('href', `${store}/products/telegram-premium`);
+      ).toHaveAttribute('href', `${prefix}/telegram-premium`);
       await expect(products).not.toContainText(unit);
     });
 

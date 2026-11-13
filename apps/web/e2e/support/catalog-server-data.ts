@@ -34,8 +34,17 @@ export const categories = (locale: FixtureLocale): CatalogCategory[] =>
 // empty picture slot of the design and makes no request.
 const NO_PICTURE = 'fixture-no-picture';
 
+// The list's "from" price is the cheapest package of the detail, as the real API's is, so a tile and
+// the product page it leads to never disagree. Stars is priced by the star here; Premium's cheapest
+// is its 3-month plan, which the shared list fixture already carries.
+const STARS_FROM_TIYIN = String(Math.min(...STAR_PACKS) * STAR_TIYIN);
+
 export const productList = (): CatalogProductListItem[] =>
-  PRODUCTS.map((item) => ({ ...item, imageUrl: NO_PICTURE }));
+  PRODUCTS.map((item) => ({
+    ...item,
+    imageUrl: NO_PICTURE,
+    fromPriceTiyin: item.slug === 'telegram-stars' ? STARS_FROM_TIYIN : item.fromPriceTiyin,
+  }));
 
 export function productDetail(slug: string, locale: FixtureLocale): CatalogProductDetail | null {
   const item = PRODUCTS.find((product) => product.slug === slug);
