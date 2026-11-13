@@ -120,6 +120,7 @@ describe('CreateQuoteBodySchema', () => {
       userId: 'u1',
       productId: 'p1',
       recipient: { username: 'aziz_k', displayName: 'Aziz' },
+      providerRef: 'x7Gq-2',
       issuedAt: '2026-11-03T10:00:00.000Z',
     };
     expect(RecipientTokenRecordSchema.safeParse(record).success).toBe(true);
@@ -129,6 +130,27 @@ describe('CreateQuoteBodySchema', () => {
     expect(RecipientTokenRecordSchema.safeParse({ ...record, userId: 'u\u00001' }).success).toBe(
       false,
     );
+  });
+
+  it('the recipient token record REQUIRES the internal providerRef (a token without one is fail-open)', () => {
+    const record = {
+      userId: 'u1',
+      productId: 'p1',
+      recipient: { username: 'aziz_k', displayName: 'Aziz' },
+      issuedAt: '2026-11-03T10:00:00.000Z',
+    };
+    expect(RecipientTokenRecordSchema.safeParse(record).success).toBe(false);
+    expect(RecipientTokenRecordSchema.safeParse({ ...record, providerRef: 'x7Gq-2' }).success).toBe(
+      true,
+    );
+    for (const providerRef of ['', 'a'.repeat(257), 'a\nb']) {
+      expect(RecipientTokenRecordSchema.safeParse({ ...record, providerRef }).success).toBe(false);
+    }
+    // The quote response is built from `pick`, so the ref cannot leak into it by accident.
+    expect(Object.keys(QuoteResponseSchema.shape.recipient.shape)).toEqual([
+      'username',
+      'displayName',
+    ]);
   });
 
   it('ids are bounded strings', () => {
@@ -221,6 +243,7 @@ describe('RecipientTokenRecordSchema', () => {
     userId: 'u1',
     productId: 'p1',
     recipient: { username: 'aziz_k', displayName: 'Aziz' },
+    providerRef: 'x7Gq-2',
     issuedAt: '2026-11-03T10:00:00.000Z',
   };
 

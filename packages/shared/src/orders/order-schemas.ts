@@ -1,10 +1,9 @@
-// LOYIHA (DRAFT) — phase 5 shapes of docs/04 ("Qabul qiluvchi va kotirovka", "Buyurtmalar"),
-// written ahead of the implementation so the frontend can build mocks against them
-// (contract-first, D-37 (17)). They are confirmed (or changed) in the phase 5 plan; until then
-// nothing here is a final contract. These describe the `data` payload; the envelope is in the
-// API. Every field is derived from the Order/Quote models and the sentences already in docs/04
-// and docs/06; the owner decisions the docs do not settle carry the recommendation made in
-// docs/04 ("5-bosqich shakllari: tavsiyalar").
+// Wire shapes of docs/04 ("Qabul qiluvchi va kotirovka", "Buyurtmalar"). Final since the owner
+// accepted the phase 5 plan without changes (D-56 (1)): the frontend builds against them and the
+// orders API (phase 5 S2) answers with exactly these. They describe the `data` payload; the
+// envelope is added by the API. Every field is derived from the Order/Quote models and the
+// sentences already in docs/04 and docs/06; `Order.statusReason`, cost, margin, fx and attempts
+// are internal and have no field here.
 import { z } from 'zod';
 import { DEFAULT_LOCALE, LOCALES } from '../auth/locale';
 import { SlugSchema } from '../catalog/catalog-schemas';

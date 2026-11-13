@@ -111,6 +111,10 @@ export interface MaxCostInput {
  * minus the minimum margin, converted back and rounded DOWN). Both caps round down so the
  * ceiling is never generous. Throws if the result would be below the quoted cost: that means
  * the price cannot cover its own cost plus margin and must not become a quote.
+ *
+ * Called ONLY when a quote is issued. The result is stored (`Quote.maxCostMinor`, copied to
+ * `Order.maxCostMinor`) and is the single ceiling fulfillment uses; the worker never recomputes
+ * it and never reads PRICE_TOLERANCE_BPS (see `StoredCostCeiling` in fulfillment/cost-ceiling.ts).
  */
 export function maxCostFor(input: MaxCostInput): bigint {
   const { costMinor, costCurrency, rate, priceTiyin, discountTiyin, minMarginTiyin } = input;

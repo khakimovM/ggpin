@@ -6,11 +6,33 @@
 // deduplication. The rendered text (with the amount and balance) exists only in the tg-outbox
 // job, which is kept one day.
 import { z } from 'zod';
+import { FulfillmentAlertKindSchema } from './fulfillment/fulfillment-alerts';
 import { BankFeedAlertKindSchema, type BankFeedSource } from './payments/bank-feed';
 import { tgOutboxJobId } from './tg-outbox';
 
-export const NOTIFY_KINDS = ['TOPUP_CREDITED', 'TOPUP_LATE_CREDITED', 'OWNER_ALERT'] as const;
+/** The BullMQ job name of every `notify` job: one copy, so a producer cannot misspell it (N5). */
+export const NOTIFY_JOB_NAME = 'notify';
+
+/** Order events the customer hears about (phase 5): `refId` is the order id. */
+export const ORDER_NOTIFY_KINDS = [
+  'ORDER_ACCEPTED',
+  'ORDER_DELIVERED',
+  'ORDER_REVIEW',
+  'ORDER_REFUNDED',
+] as const;
+export type OrderNotifyKind = (typeof ORDER_NOTIFY_KINDS)[number];
+
+export const NOTIFY_KINDS = [
+  'TOPUP_CREDITED',
+  'TOPUP_LATE_CREDITED',
+  ...ORDER_NOTIFY_KINDS,
+  'OWNER_ALERT',
+] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
+
+/** Every alert the owner can receive: the bank-feed ones and the fulfillment ones. */
+export const OwnerAlertKindSchema = z.union([BankFeedAlertKindSchema, FulfillmentAlertKindSchema]);
+export type OwnerAlertKind = z.infer<typeof OwnerAlertKindSchema>;
 
 // Ids end up in BullMQ job ids, which cannot take ':' or '-' segments (see tgOutboxJobId), so the
 // schema rejects what the id builder would reject. Prisma cuid ids always fit.
@@ -23,14 +45,26 @@ const topupNotifySchema = z.strictObject({
   refId: IdSegmentSchema,
 });
 
+// No userId either: the API reads the order's owner and language from the Order row, so a job can
+// never address another user. No amount: the API reads it from the database (ids only, above).
+const orderNotifySchema = z.strictObject({
+  kind: z.enum(ORDER_NOTIFY_KINDS),
+  /** The Order the customer is told about. */
+  refId: IdSegmentSchema,
+});
+
 const ownerAlertSchema = z.strictObject({
   kind: z.literal('OWNER_ALERT'),
-  alert: BankFeedAlertKindSchema,
+  alert: OwnerAlertKindSchema,
   /** The row the alert is about (review, card, message...). Part of the job id. */
   refId: IdSegmentSchema,
 });
 
-export const notifyJobSchema = z.discriminatedUnion('kind', [topupNotifySchema, ownerAlertSchema]);
+export const notifyJobSchema = z.discriminatedUnion('kind', [
+  topupNotifySchema,
+  orderNotifySchema,
+  ownerAlertSchema,
+]);
 export type NotifyJob = z.infer<typeof notifyJobSchema>;
 
 /**
@@ -124,15 +158,34 @@ export function refIdSubject(refId: string): string | null {
   return match?.[1] ?? null;
 }
 
+/** The id suffix of each order notification: one message per order and event. */
+const ORDER_NOTIFY_SUFFIX: Readonly<Record<OrderNotifyKind, string>> = Object.freeze({
+  ORDER_ACCEPTED: 'accepted',
+  ORDER_DELIVERED: 'delivered',
+  ORDER_REVIEW: 'review',
+  ORDER_REFUNDED: 'refunded',
+});
+
 /**
- * Stable per logical notification: `topup-<paymentId>` and `alert-<alert>-<refId>`. BullMQ
- * drops an `add()` whose id still exists, so a retried producer notifies once. An alert that
- * must repeat for the same row (listener still down an hour later) puts a time bucket in `refId`.
+ * Stable per logical notification: `topup-<paymentId>`, `order-<orderId>-<event>` and
+ * `alert-<alert>-<refId>`. BullMQ drops an `add()` whose id still exists, so a retried producer
+ * notifies once. An alert that must repeat for the same row (listener still down an hour later)
+ * puts a time bucket in `refId`. An order is told about each event once: a second HELD of the
+ * same order does not send a second "being checked" message.
  */
 export function notifyJobId(job: NotifyJob): string {
-  return job.kind === 'OWNER_ALERT'
-    ? tgOutboxJobId('alert', job.alert, job.refId)
-    : tgOutboxJobId('topup', job.refId);
+  switch (job.kind) {
+    case 'OWNER_ALERT':
+      return tgOutboxJobId('alert', job.alert, job.refId);
+    case 'TOPUP_CREDITED':
+    case 'TOPUP_LATE_CREDITED':
+      return tgOutboxJobId('topup', job.refId);
+    case 'ORDER_ACCEPTED':
+    case 'ORDER_DELIVERED':
+    case 'ORDER_REVIEW':
+    case 'ORDER_REFUNDED':
+      return tgOutboxJobId('order', job.refId, ORDER_NOTIFY_SUFFIX[job.kind]);
+  }
 }
 
 /**
