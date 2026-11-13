@@ -7,7 +7,7 @@ import { getTranslations } from 'next-intl/server';
 // tokens' reduced-motion rules and `data-reduced` stop the animation; `motion-reduce:animate-none`
 // also removes the entrance delay, so under reduced motion the cards are simply there.
 const CARD =
-  'flex items-center gap-2.5 rounded-2xl border border-border bg-elevated py-2.5 pr-3.5 pl-2.5 shadow-lg';
+  'flex items-center gap-2.5 rounded-tile border border-border bg-elevated py-2.5 pr-3.5 pl-2.5 shadow-lg';
 
 /**
  * The two floating cards of the classic hero (Stars delivered, Premium in progress). Decorative:

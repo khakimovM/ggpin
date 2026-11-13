@@ -9,8 +9,9 @@ import { describe, expect, it } from 'vitest';
 
 const APP_DIR = join(__dirname, '..', '..', '..', 'app');
 const FORBIDDEN_IMPORT =
-  /from\s+['"][^'"]*(catalog-server|lib\/api\/|api-client|server-fetch)[^'"]*['"]/;
-const FORBIDDEN_CALL = /\bfetch\s*\(|catalogServer|getCatalog|fetchCatalog|apiClient/;
+  /from\s+['"][^'"]*(catalog-server|product-data|lib\/api\/|api-client|server-fetch)[^'"]*['"]/;
+const FORBIDDEN_CALL =
+  /\bfetch\s*\(|catalogServer|getCatalog|fetchCatalog|apiClient|loadProduct|lookupSiteProduct|getSiteProduct/;
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -36,7 +37,7 @@ const withMetadata = sourceFiles(APP_DIR).filter((file) =>
 
 describe('generateMetadata stays off the network', () => {
   it('finds the pages that export it (a guard against the test going blind)', () => {
-    expect(withMetadata.length).toBeGreaterThanOrEqual(2);
+    expect(withMetadata.length).toBeGreaterThanOrEqual(3);
   });
 
   it.each(withMetadata.map((file) => [file.slice(APP_DIR.length)]))(
@@ -53,9 +54,13 @@ describe('generateMetadata stays off the network', () => {
     },
   );
 
-  it('the shared metadata helper imports no fetcher either', () => {
-    const helper = readFileSync(join(__dirname, 'page-metadata.ts'), 'utf8');
-    expect(helper).not.toMatch(FORBIDDEN_IMPORT);
-    expect(helper).not.toMatch(FORBIDDEN_CALL);
-  });
+  // The helpers a page's generateMetadata delegates to: the shared one, and the product pages'.
+  it.each([['page-metadata.ts'], [join('..', 'product', 'product-metadata.ts')]])(
+    'the metadata helper %s imports no fetcher either',
+    (file) => {
+      const helper = readFileSync(join(__dirname, file), 'utf8');
+      expect(helper).not.toMatch(FORBIDDEN_IMPORT);
+      expect(helper).not.toMatch(FORBIDDEN_CALL);
+    },
+  );
 });

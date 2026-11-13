@@ -28,7 +28,7 @@
     "meta": {
       "home": {
         "title": "{brand} — Telegram Stars, Premium va o‘yin donatlari",
-        "description": "Telegram Stars va Premium — Humo yoki Uzcard kartasidan o‘tkazma bilan to‘lang, buyurtma 1–2 daqiqada avtomatik yetkaziladi. O‘yin donatlari tez orada."
+        "description": "Telegram Stars va Premium — Humo yoki Uzcard kartasidan o‘tkazma bilan to‘lang, buyurtma 1⁠–⁠2 daqiqada avtomatik yetkaziladi. O‘yin donatlari tez orada."
       }
     },
     "nav": {
@@ -75,7 +75,7 @@
       "titleAccent": "bir necha daqiqada",
       "lead": "Hamyonni Humo yoki Uzcard kartasidan o‘tkazma bilan to‘ldiring, mahsulotni tanlang — buyurtma avtomatik yetkaziladi, holatini esa jonli kuzatasiz.",
       "trust": {
-        "fast": "1–2 daqiqada yetkaziladi",
+        "fast": "1⁠–⁠2 daqiqada yetkaziladi",
         "secure": "Xavfsiz to‘lov",
         "refund": "Bajarilmasa — pul qaytadi"
       },
@@ -144,7 +144,7 @@
       "items": {
         "auto": {
           "title": "Avtomatik yetkazish",
-          "text": "Buyurtma to‘lovdan so‘ng darhol bajariladi — odatda 1–2 daqiqa. Operator kutish shart emas."
+          "text": "Buyurtma to‘lovdan so‘ng darhol bajariladi — odatda 1⁠–⁠2 daqiqa. Operator kutish shart emas."
         },
         "status": {
           "title": "Shaffof holat",
@@ -166,7 +166,7 @@
       "support": "Yordamga yozish",
       "items": {
         "q1": "Qancha vaqtda yetkaziladi?",
-        "a1": "Odatda 1–2 daqiqa. Buyurtma holatini “Tarix” bo‘limida jonli ko‘rib turasiz; promokodli mahsulotlarda kod shu yerda chiqadi.",
+        "a1": "Odatda 1⁠–⁠2 daqiqa. Buyurtma holatini “Tarix” bo‘limida jonli ko‘rib turasiz; promokodli mahsulotlarda kod shu yerda chiqadi.",
         "q2": "Usernameʼni noto‘g‘ri yozsam nima bo‘ladi?",
         "a2": "To‘lovdan oldin biz tasdiqlash uchun akkauntning ismi va rasmini ko‘rsatamiz. U siz kutgan odam bo‘lmasa, “O‘zgartirish”ni bosing — pul yechilmaydi.",
         "q3": "Buyurtma bajarilmasa pulim nima bo‘ladi?",
@@ -182,6 +182,142 @@
       "lead": "Botni oching yoki saytda Telegram orqali kiring. Parol kerak emas.",
       "telegram": "Telegramʼda ochish",
       "store": "Saytda xarid qilish"
+    },
+    "product": {
+      "common": {
+        "breadcrumb": {
+          "label": "Sahifa yo‘li",
+          "home": "Bosh sahifa",
+          "products": "Mahsulotlar"
+        },
+        "facts": {
+          "unitPrice": {
+            "label": "Narx"
+          },
+          "min": {
+            "label": "Minimal"
+          },
+          "delivery": {
+            "label": "Yetkazish",
+            "value": "1⁠–⁠2 daqiqa"
+          },
+          "plans": {
+            "label": "Variantlar",
+            "value": "{count, number} ta muddat"
+          },
+          "recipient": {
+            "label": "Qabul qiluvchi",
+            "value": "Username orqali"
+          }
+        },
+        "packages": {
+          "price": "Narx",
+          "approxNote": "Narx taxminiy, aniq narx xarid paytida.",
+          "noPackages": "Paketlar hozircha ko‘rsatilmayapti. Tanlovni xarid sahifasida qilasiz.",
+          "noPrices": "Narxlar hozir ko‘rsatilmayapti. Aniq narx xarid sahifasida ko‘rinadi."
+        },
+        "buy": {
+          "label": "Sotib olish",
+          "withPrice": "Sotib olish · {price}"
+        },
+        "telegram": "Telegramʼda",
+        "unavailable": {
+          "title": "Hozircha mavjud emas",
+          "body": "Bu mahsulot hozir sotuvda yo‘q. Quyidagi boshqa mahsulotlarni ko‘rib chiqing."
+        },
+        "loading": "Mahsulot maʼlumoti yuklanmoqda…",
+        "related": {
+          "title": "Boshqa mahsulotlar"
+        }
+      },
+      "stars": {
+        "meta": {
+          "title": "Telegram Stars sotib olish",
+          "description": "Telegram Stars sotib oling: username kiriting, Humo yoki Uzcard kartasidan o‘tkazma bilan to‘lang — Stars 1⁠–⁠2 daqiqada akkauntga tushadi."
+        },
+        "lead": "Telegramʼda sovg‘alar, reaksiyalar, kanal obunalari va botlar uchun ishlatiladigan yulduzlar. O‘zingizga yoki do‘stingizga username orqali yuboring — 1⁠–⁠2 daqiqada akkauntga tushadi.",
+        "packages": {
+          "label": "Stars miqdori",
+          "amount": "Miqdor",
+          "customQty": "Boshqa miqdor kerakmi? Xarid sahifasida {min, number} ⭐ dan istalgan sonni kiriting.",
+          "noPackagesMin": "Paketlar hozircha ko‘rsatilmayapti. Miqdorni xarid sahifasida tanlang: {min, number} ⭐ dan."
+        },
+        "how": {
+          "title": "Telegram Stars qanday sotib olinadi",
+          "s1": {
+            "title": "Usernameʼni kiriting",
+            "text": "Stars kimga borishini yozing. Ism va rasmni ko‘rib, tasdiqlaysiz."
+          },
+          "s2": {
+            "title": "Miqdorni tanlang",
+            "text": "Tayyor paketlardan tanlang yoki o‘zingizga kerak miqdorni kiriting."
+          },
+          "s3": {
+            "title": "Hamyondan to‘lang",
+            "text": "Stars 1⁠–⁠2 daqiqada tushadi. Holatini “Tarix”da kuzatasiz."
+          }
+        },
+        "faq": {
+          "title": "Telegram Stars bo‘yicha savollar",
+          "items": {
+            "q1": "Stars qayerda ko‘rinadi?",
+            "a1": "Telegram → Sozlamalar → “Telegram Stars” bo‘limida. Yetkazilgach, bot ham xabar yuboradi.",
+            "q2": "Do‘stimga yuborsam bo‘ladimi?",
+            "a2": "Ha, uning usernameʼini kiriting. To‘lovdan oldin ism va rasmini ko‘rsatamiz.",
+            "q3": "Buyurtma bajarilmasa-chi?",
+            "a3": "Pul avtomatik ravishda balansingizga qaytadi.",
+            "q4": "Qaysi to‘lov usullari bor?",
+            "a4": "Humo yoki Uzcard kartasiga istalgan bank ilovasidan o‘tkazma. Hamyon so‘mda to‘ldiriladi, xaridlar hamyondan to‘lanadi."
+          }
+        },
+        "facts": {
+          "unitPrice": {
+            "value": "1 ⭐ = {price}"
+          },
+          "min": {
+            "value": "{min, number} ⭐"
+          }
+        }
+      },
+      "premium": {
+        "meta": {
+          "title": "Telegram Premium sotib olish",
+          "description": "Telegram Premium sotib oling yoki do‘stingizga sovg‘a qiling: username kiriting, Humo yoki Uzcard kartasidan o‘tkazma bilan to‘lang — 1⁠–⁠2 daqiqada ulanadi."
+        },
+        "lead": "Telegram Premium obunasi. O‘zingizga yoki do‘stingizga sovg‘a qiling: username kiriting — 1⁠–⁠2 daqiqada akkauntga ulanadi.",
+        "packages": {
+          "label": "Premium muddati",
+          "amount": "Muddat"
+        },
+        "how": {
+          "title": "Telegram Premium qanday sotib olinadi",
+          "s1": {
+            "title": "Usernameʼni kiriting",
+            "text": "Premium kimga ulanishini yozing. Ism va rasmni ko‘rib, tasdiqlaysiz."
+          },
+          "s2": {
+            "title": "Muddatni tanlang",
+            "text": "Tayyor muddatlardan birini tanlang."
+          },
+          "s3": {
+            "title": "Hamyondan to‘lang",
+            "text": "Premium 1⁠–⁠2 daqiqada ulanadi. Holatini “Tarix”da kuzatasiz."
+          }
+        },
+        "faq": {
+          "title": "Telegram Premium bo‘yicha savollar",
+          "items": {
+            "q1": "Telegram Premium sovg‘a qilsam bo‘ladimi?",
+            "a1": "Ha. Qabul qiluvchi sifatida do‘stingizning usernameʼini kiriting — Premium uning akkauntiga ulanadi.",
+            "q2": "Qancha vaqtda yetkaziladi?",
+            "a2": "Odatda 1⁠–⁠2 daqiqa. Buyurtma holatini “Tarix” bo‘limida jonli ko‘rib turasiz.",
+            "q3": "Usernameʼni noto‘g‘ri yozsam nima bo‘ladi?",
+            "a3": "To‘lovdan oldin biz tasdiqlash uchun akkauntning ismi va rasmini ko‘rsatamiz. U siz kutgan odam bo‘lmasa, “O‘zgartirish”ni bosing — pul yechilmaydi.",
+            "q4": "Buyurtma bajarilmasa pulim nima bo‘ladi?",
+            "a4": "Pul avtomatik ravishda balansingizga qaytadi. Buyurtma “Bajarilmadi — pul qaytarildi” holatida ko‘rinadi."
+          }
+        }
+      }
     }
   },
   "store": {

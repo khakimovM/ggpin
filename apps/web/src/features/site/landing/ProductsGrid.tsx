@@ -16,7 +16,17 @@ import { SiteProductCard } from './SiteProductCard';
  * document for a crawler, and a visitor still reaches the store); only "Tez orada" with a way into
  * the bot when the catalog is empty. The loading state is `ProductsSkeleton`.
  */
-export async function ProductsGrid({ locale }: { locale: Locale }) {
+export async function ProductsGrid({
+  locale,
+  exclude,
+  limit,
+}: {
+  locale: Locale;
+  /** Slug of a product to leave out (the product page shows the OTHER products). */
+  exclude?: string;
+  /** At most this many tiles. */
+  limit?: number;
+}) {
   const [t, catalog, money, cta] = await Promise.all([
     getTranslations({ locale, namespace: 'site.products' }),
     getTranslations({ locale, namespace: 'store.catalog' }),
@@ -24,6 +34,7 @@ export async function ProductsGrid({ locale }: { locale: Locale }) {
     getTranslations({ locale, namespace: 'site.cta' }),
   ]);
   const view = buildLandingProducts(await getSiteProducts(locale));
+  const tiles = view.tiles.filter((tile) => tile.slug !== exclude).slice(0, limit);
   const links = siteLinks();
 
   const labels = {
@@ -50,7 +61,7 @@ export async function ProductsGrid({ locale }: { locale: Locale }) {
   return (
     <>
       <ul className={PRODUCT_GRID} data-state={view.state}>
-        {view.tiles.map((tile) => (
+        {tiles.map((tile) => (
           <SiteProductCard
             key={tile.slug}
             tile={tile}

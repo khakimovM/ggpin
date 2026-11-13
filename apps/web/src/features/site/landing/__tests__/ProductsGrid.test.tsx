@@ -66,14 +66,18 @@ describe('ProductsGrid (the four states of the products block)', () => {
     expect(screen.getAllByText('Скоро')).toHaveLength(4);
   });
 
-  it('error: no price anywhere, no banner, Stars and Premium still lead to the store', async () => {
+  it('error: no price anywhere, no banner, Stars and Premium still lead to their pages', async () => {
     catalog.answer = null;
     const { container } = await draw('uz');
     expect(screen.getByRole('link', { name: /Telegram Stars/ })).toHaveAttribute(
       'href',
-      '/store/products/telegram-stars',
+      // Phase 8 S3: each has a page of its own in the site registry.
+      '/telegram-stars',
     );
-    expect(screen.getByRole('link', { name: /Telegram Premium/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Telegram Premium/ })).toHaveAttribute(
+      'href',
+      '/telegram-premium',
+    );
     expect(screen.getAllByText('Tez orada')).toHaveLength(4);
     expect(container.textContent).not.toMatch(/so‘m|dan boshlab/);
     expect(screen.queryByRole('alert')).toBeNull();

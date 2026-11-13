@@ -19,7 +19,7 @@ export async function PayMethodsStrip({ locale }: { locale: Locale }) {
         {methods.map((name) => (
           <li
             key={name}
-            className="flex min-h-14 items-center gap-2.5 rounded-2xl border border-border bg-card py-2 pr-[18px] pl-2"
+            className="flex min-h-14 items-center gap-2.5 rounded-tile border border-border bg-card py-2 pr-[18px] pl-2"
           >
             <span
               aria-hidden="true"

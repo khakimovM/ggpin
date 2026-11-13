@@ -22,6 +22,16 @@ type Namespace =
   | 'site.faq'
   | 'site.faq.items'
   | 'site.cta'
+  // The product pages (phase 8 S3).
+  | 'site.product.common'
+  | 'site.product.common.breadcrumb'
+  | 'site.product.common.facts'
+  | 'site.product.common.related'
+  | `site.product.${'stars' | 'premium'}`
+  | `site.product.${'stars' | 'premium'}.how`
+  | `site.product.${'stars' | 'premium'}.faq`
+  | `site.product.${'stars' | 'premium'}.faq.items`
+  | `site.product.${'stars' | 'premium'}.meta`
   | 'store.catalog'
   | 'common.money'
   | 'common.currency';

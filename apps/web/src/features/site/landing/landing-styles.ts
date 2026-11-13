@@ -22,19 +22,23 @@ export const LANDING_H2 =
 
 export const LANDING_LEAD = 'm-0 text-base leading-6 font-medium text-foreground-secondary';
 
-// Not buttonVariants(): it lives in a client module and cannot be called on the server. Labels may
-// wrap (Round 9 - Russian QA: no fixed height on a button), hence min-height and text-balance.
-const CTA_BASE =
-  'flex min-h-14 items-center justify-center gap-2.5 rounded-2xl px-4 py-2 text-center text-base leading-5 font-extrabold text-balance no-underline';
+/**
+ * The box of a landing button (size, padding, text) without its colours: the two buttons below add
+ * theirs, and a placeholder that stands in for a button takes the box alone to take the same room.
+ * Not buttonVariants(): it lives in a client module and cannot be called on the server. Labels may
+ * wrap (Round 9 - Russian QA: no fixed height on a button), hence min-height and text-balance.
+ */
+export const LANDING_CTA_BOX =
+  'flex min-h-14 items-center justify-center gap-2.5 rounded-tile px-4 py-2 text-center text-base leading-5 font-extrabold text-balance no-underline';
 
 export const LANDING_CTA_PRIMARY = cn(
-  CTA_BASE,
+  LANDING_CTA_BOX,
   'bg-primary text-primary-foreground shadow-glow transition-[background-color,transform] duration-fast hover:bg-primary-hover hover:text-primary-foreground active:scale-[.98] active:duration-instant',
   LINK_FOCUS,
 );
 
 export const LANDING_CTA_SECONDARY = cn(
-  CTA_BASE,
+  LANDING_CTA_BOX,
   'border-[1.5px] border-border bg-card text-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground',
   LINK_FOCUS,
 );

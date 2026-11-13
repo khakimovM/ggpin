@@ -34,7 +34,7 @@ const GLYPH: Record<string, { icon: typeof Star; box: string; glyph: string }> =
 };
 
 const CHIP =
-  'inline-flex h-5 items-center gap-1 self-start rounded-md px-1.5 text-[10px] leading-5 font-extrabold whitespace-nowrap';
+  'inline-flex h-5 items-center gap-1 self-start rounded-xs px-1.5 text-[10px] leading-5 font-extrabold whitespace-nowrap';
 
 function Art({ tile, name }: { tile: LandingTile; name: string }) {
   if (tile.kind === 'soon') {
@@ -90,25 +90,22 @@ export function SiteProductCard({ tile, name, href, price, labels }: SiteProduct
     <>
       <span className="relative block aspect-square overflow-hidden rounded-[14px] bg-muted">
         <Art tile={tile} name={name} />
-        {tile.featured ? (
-          <Badge
-            variant="popular"
-            size="sm"
-            icon={<Icon icon={Flame} size={11} />}
-            className="pointer-events-none absolute top-2 left-2"
-          >
-            {labels.popular}
-          </Badge>
+        {tile.featured || tile.regionBadge !== null ? (
+          // One flex row for both badges: on a narrow tile (a long Russian label, two columns on a
+          // phone) the region badge drops to its own line instead of covering the first one.
+          <span className="pointer-events-none absolute inset-x-2 top-2 flex flex-wrap items-start gap-1">
+            {tile.featured ? (
+              <Badge variant="popular" size="sm" icon={<Icon icon={Flame} size={11} />}>
+                {labels.popular}
+              </Badge>
+            ) : null}
+            {tile.regionBadge === null ? null : (
+              <Badge variant="regionOnImage" size="sm" className="ml-auto">
+                {tile.regionBadge}
+              </Badge>
+            )}
+          </span>
         ) : null}
-        {tile.regionBadge === null ? null : (
-          <Badge
-            variant="regionOnImage"
-            size="sm"
-            className="pointer-events-none absolute top-2 right-2"
-          >
-            {tile.regionBadge}
-          </Badge>
-        )}
       </span>
       <span className="flex min-w-0 flex-col gap-1.5 px-1.5">
         <span className="text-[15px] leading-5 font-extrabold break-words">{name}</span>

@@ -117,7 +117,7 @@ export async function HeroPhone({ locale }: { locale: Locale }) {
               <span key={key} className="flex flex-col gap-1">
                 <span
                   className={cn(
-                    'relative grid aspect-square place-items-center overflow-hidden rounded-xl border border-border',
+                    'relative grid aspect-square place-items-center overflow-hidden rounded-control border border-border',
                     box,
                     glyph,
                   )}

@@ -54,7 +54,8 @@ describe('buildLandingProducts', () => {
       name: 'telegram-stars',
       fromPriceTiyin: '550000',
       delivery: 'auto',
-      path: '/store/products/telegram-stars',
+      // The product's own page (phase 8 S3), as it is in the site registry.
+      path: '/telegram-stars',
     });
   });
 
@@ -100,7 +101,8 @@ describe('buildLandingProducts', () => {
     expect(view.tiles.every((tile) => tile.fromPriceTiyin === null)).toBe(true);
     expect(view.tiles[0]).toMatchObject({
       nameKey: 'stars',
-      path: '/store/products/telegram-stars',
+      // The product's own page (phase 8 S3), as it is in the site registry.
+      path: '/telegram-stars',
     });
   });
 

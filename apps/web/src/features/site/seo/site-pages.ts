@@ -31,6 +31,22 @@ export const SITE_PAGES: readonly SitePage[] = [
     changeFrequency: 'weekly',
     priority: 1,
   },
+  // The product pages (phase 8 S3). One entry per product of `product/seo-products.ts`: a test
+  // keeps the two lists in step.
+  {
+    path: '/telegram-stars',
+    indexable: true,
+    lastModified: '2026-11-12',
+    changeFrequency: 'weekly',
+    priority: 0.9,
+  },
+  {
+    path: '/telegram-premium',
+    indexable: true,
+    lastModified: '2026-11-12',
+    changeFrequency: 'weekly',
+    priority: 0.9,
+  },
 ];
 
 export function indexablePages(pages: readonly SitePage[] = SITE_PAGES): SitePage[] {
