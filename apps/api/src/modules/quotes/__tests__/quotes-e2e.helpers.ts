@@ -193,7 +193,9 @@ export function useQuotesE2e<F>(
     },
     newUser,
     token: async (userId, productId) => {
-      const token = await app.get(RecipientTokenStore).issue(userId, productId, RECIPIENT);
+      const token = await app
+        .get(RecipientTokenStore)
+        .issue(userId, productId, RECIPIENT, 'fragment-ref-1');
       redisKeys.add(recipientTokenKey(token));
       return token;
     },

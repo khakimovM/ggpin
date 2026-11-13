@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  BankFeedAlertKindSchema,
   notifyJobId,
   notifyJobSchema,
   ownerAlertChatIds,
   ownerAlertOutboxJobId,
+  type BankFeedAlertKind,
   type NotifyJob,
   type TgInlineKeyboard,
 } from '@repo/shared';
@@ -65,9 +67,27 @@ export class NotifyConsumer {
       throw new UnrecoverableError('invalid notify payload');
     }
     const data = parsed.data;
+    // Phase 5 S1 widened the job union (ORDER_* kinds, fulfillment alerts); their renderers and
+    // routing are S6. Until then such a job fails loudly and is never completed as "sent".
+    if (
+      data.kind !== 'OWNER_ALERT' &&
+      data.kind !== 'TOPUP_CREDITED' &&
+      data.kind !== 'TOPUP_LATE_CREDITED'
+    ) {
+      this.logUnrouted(job, 'unrouted-kind');
+      throw new UnrecoverableError('notify kind is not routed yet');
+    }
+    const bankAlert =
+      data.kind === 'OWNER_ALERT' ? BankFeedAlertKindSchema.safeParse(data.alert) : null;
+    if (bankAlert !== null && !bankAlert.success) {
+      this.logUnrouted(job, 'unrouted-alert');
+      throw new UnrecoverableError('owner alert kind is not routed yet');
+    }
     try {
       const outcome =
-        data.kind === 'OWNER_ALERT' ? await this.ownerAlert(data) : await this.topup(data);
+        data.kind === 'OWNER_ALERT'
+          ? await this.ownerAlert({ ...data, alert: BankFeedAlertKindSchema.parse(data.alert) })
+          : await this.topup(data);
       this.log(job, outcome);
       return outcome;
     } catch (error) {
@@ -114,7 +134,7 @@ export class NotifyConsumer {
   }
 
   private async ownerAlert(
-    job: Extract<NotifyJob, { kind: 'OWNER_ALERT' }>,
+    job: Extract<NotifyJob, { kind: 'OWNER_ALERT' }> & { alert: BankFeedAlertKind },
   ): Promise<NotifyOutcome> {
     const chatIds = ownerAlertChatIds(this.config.OWNER_ALERT_CHAT_ID);
     if (chatIds.length === 0) {
@@ -132,6 +152,12 @@ export class NotifyConsumer {
     const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
     if (failed !== undefined) throw failed.reason;
     return 'queued';
+  }
+
+  // An error, not an info line: a job that cannot be routed is a deploy-order mistake (a producer
+  // went live before this consumer learned its kind) and must be visible (review F10, audit L2).
+  private logUnrouted(job: Pick<Job, 'id'>, outcome: string): void {
+    this.logger.error(`job=${job.id ?? '?'} outcome=${outcome}`);
   }
 
   private log(job: Pick<Job, 'id'>, outcome: string): void {

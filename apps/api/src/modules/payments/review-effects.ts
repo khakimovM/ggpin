@@ -1,9 +1,15 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { QUEUES, notifyJobId, notifyJobSchema, scrubSecretsInText } from '@repo/shared';
+import {
+  NOTIFY_JOB_NAME,
+  QUEUES,
+  notifyJobId,
+  notifyJobSchema,
+  scrubSecretsInText,
+} from '@repo/shared';
 import type { Queue } from 'bullmq';
 import { WalletCache } from '../wallet/wallet-cache';
-import { NOTIFY_JOB_NAME, PaymentsAlerts } from './payments-alerts';
+import { PaymentsAlerts } from './payments-alerts';
 
 /**
  * What follows an owner decision on a review, AFTER its transaction committed (never inside:

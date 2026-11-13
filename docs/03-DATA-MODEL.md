@@ -9,7 +9,9 @@
 > `20261103170006_catalog_pricing` ("Migratsiya 7"), `20261104120000_cost_snapshot_window_index` ("Migratsiya 8") va
 > `20261104130000_p4_wallet_p2p` + `20261104130100_p4_wallet_p2p_checks` + `20261104130200_p4_review_kind_daily_limit` +
 > `20261105090000_p4_wallet_p2p_hardening` + `20261105160000_p4_wallet_p2p_guards` +
-> `20261105200000_p4_wallet_p2p_immutables` + `20261107090000_p4_bank_message_card_date_index` ("Migratsiya 9"). Bu hujjat sxemani tushuntiradi, nusxasini
+> `20261105200000_p4_wallet_p2p_immutables` + `20261107090000_p4_bank_message_card_date_index` ("Migratsiya 9") va
+> `20261111100000_p5_orders_fulfillment` + `20261111100100_p5_orders_fulfillment_checks` +
+> `20261111100200_p4_bank_message_source_msg_index` ("Migratsiya 10"). Bu hujjat sxemani tushuntiradi, nusxasini
 > saqlamaydi: ikkalasi farq qilsa, to‘g‘ri bo‘lgani — `schema.prisma`. Sxema o‘zgarsa shu fayl
 > ham o‘sha o‘zgarishda yangilanadi.
 
@@ -23,7 +25,7 @@
   bir xil (DB testi tekshiradi).
 - id — `cuid(2)`; jadval nomlari model nomlari bilan bir xil (`"Wallet"`, `"LedgerEntry"`).
 
-## Modellar (36 ta model, 21 ta enum)
+## Modellar (37 ta model, 22 ta enum)
 
 | Guruh         | Modellar                                                                                                                                           |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -35,28 +37,31 @@
 | To‘lov        | `PaymentIntent`, `Payment`                                                                                                                         |
 | P2P karta     | `TopupCard`, `BankMessage`, `BankMessageText`, `BankMessageOutcome`, `PaymentReview`, `BankFeedCursor`, `BankFeedAccount`, `BankFeedAuthorization` |
 | Promo         | `BonusCode`, `BonusRedemption`, `DiscountTier`, `DiscountCode`                                                                                     |
-| Fragment      | `FragmentSession`, `WalletSnapshot`                                                                                                                |
+| Fragment      | `FragmentSession`, `WalletSnapshot`, `TonTransfer`                                                                                                 |
 | Auth / admin  | `WebSession`, `LoginRequest`, `AdminUser`, `AdminSession`, `AuditLog`, `Broadcast`, `Setting`                                                      |
 
 ## Idempotentlik unique'lari
 
-| Jadval               | Unique                                                                                                                                                                            | Nimani himoya qiladi                                                                                                            |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `Payment`            | `(provider, providerTxnId)`                                                                                                                                                       | provayder callback'i takrorlansa                                                                                                |
-| `Order`              | `(userId, idempotencyKey)`, `quoteId`                                                                                                                                             | buyurtma ikki marta yaratilmasin                                                                                                |
-| `PaymentIntent`      | `(userId, idempotencyKey)`                                                                                                                                                        | intent ikki marta yaratilmasin                                                                                                  |
-| `PaymentIntent`      | `(cardId, amountTiyin)` `WHERE status='PENDING'`; `(userId)` `WHERE status='PENDING' AND provider='P2P_CARD'`; `EXCLUDE (cardId, amountTiyin, tsrange(createdAt, reservedUntil))` | kartada bir xil summa ikki kishiga berilmasin (band summa `reservedUntil` gacha); foydalanuvchida bitta kutilayotgan P2P so‘rov |
-| `PaymentIntent`      | `payTokenHash`                                                                                                                                                                    | pay-link tokeni bitta so‘rovga tegishli                                                                                         |
-| `BankMessage`        | `(senderId, tgMessageId)`                                                                                                                                                         | bir bank xabari qayta o‘qilsa ikki marta saqlanmaydi                                                                            |
-| `BankMessageOutcome` | `bankMessageId`, `paymentId`                                                                                                                                                      | bir xabar — bitta natija; bir to‘lov — bitta natija                                                                             |
-| `Payment`            | `bankMessageId`, `reviewId`                                                                                                                                                       | bir bank xabari bitta to‘lov beradi (P2P idempotentligi); bir review bitta to‘lov beradi                                        |
-| `PaymentReview`      | `(bankMessageId, kind)`                                                                                                                                                           | bir xabar uchun bir turdagi review bitta                                                                                        |
-| `TopupCard`          | `(bank, last4)` `WHERE status<>'RETIRED'`                                                                                                                                         | bank bot kartani faqat `last4` bilan bildiradi, shuning uchun ikki faol karta bir juftlikka ega bo‘lmaydi                       |
-| `FulfillmentAttempt` | `(orderId, attemptNo)`                                                                                                                                                            | urinish raqami bir marta                                                                                                        |
-| `LedgerEntry`        | `(refType, refId, kind)`                                                                                                                                                          | bitta pul harakati bir marta yoziladi                                                                                           |
-| `CoinEntry`          | `(refType, refId, kind)`                                                                                                                                                          | bitta tanga harakati bir marta yoziladi                                                                                         |
-| `BonusRedemption`    | `(codeId, userId)`                                                                                                                                                                | bonus kod foydalanuvchiga bir marta                                                                                             |
-| `FulfillmentAttempt` | `(adapter, externalRef)`                                                                                                                                                          | bitta tashqi to‘lov (TON hash / yetkazib beruvchi buyurtma id) faqat bitta urinishga tegishli; `NULL` ruxsat etiladi            |
+| Jadval               | Unique                                                                                                                                                                            | Nimani himoya qiladi                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `Payment`            | `(provider, providerTxnId)`                                                                                                                                                       | provayder callback'i takrorlansa                                                                                                         |
+| `Order`              | `(userId, idempotencyKey)`, `quoteId`                                                                                                                                             | buyurtma ikki marta yaratilmasin                                                                                                         |
+| `PaymentIntent`      | `(userId, idempotencyKey)`                                                                                                                                                        | intent ikki marta yaratilmasin                                                                                                           |
+| `PaymentIntent`      | `(cardId, amountTiyin)` `WHERE status='PENDING'`; `(userId)` `WHERE status='PENDING' AND provider='P2P_CARD'`; `EXCLUDE (cardId, amountTiyin, tsrange(createdAt, reservedUntil))` | kartada bir xil summa ikki kishiga berilmasin (band summa `reservedUntil` gacha); foydalanuvchida bitta kutilayotgan P2P so‘rov          |
+| `PaymentIntent`      | `payTokenHash`                                                                                                                                                                    | pay-link tokeni bitta so‘rovga tegishli                                                                                                  |
+| `BankMessage`        | `(senderId, tgMessageId)`                                                                                                                                                         | bir bank xabari qayta o‘qilsa ikki marta saqlanmaydi                                                                                     |
+| `BankMessageOutcome` | `bankMessageId`, `paymentId`                                                                                                                                                      | bir xabar — bitta natija; bir to‘lov — bitta natija                                                                                      |
+| `Payment`            | `bankMessageId`, `reviewId`                                                                                                                                                       | bir bank xabari bitta to‘lov beradi (P2P idempotentligi); bir review bitta to‘lov beradi                                                 |
+| `PaymentReview`      | `(bankMessageId, kind)`                                                                                                                                                           | bir xabar uchun bir turdagi review bitta                                                                                                 |
+| `TopupCard`          | `(bank, last4)` `WHERE status<>'RETIRED'`                                                                                                                                         | bank bot kartani faqat `last4` bilan bildiradi, shuning uchun ikki faol karta bir juftlikka ega bo‘lmaydi                                |
+| `FulfillmentAttempt` | `(orderId, attemptNo)`                                                                                                                                                            | urinish raqami bir marta                                                                                                                 |
+| `LedgerEntry`        | `(refType, refId, kind)`                                                                                                                                                          | bitta pul harakati bir marta yoziladi                                                                                                    |
+| `CoinEntry`          | `(refType, refId, kind)`                                                                                                                                                          | bitta tanga harakati bir marta yoziladi                                                                                                  |
+| `BonusRedemption`    | `(codeId, userId)`                                                                                                                                                                | bonus kod foydalanuvchiga bir marta                                                                                                      |
+| `FulfillmentAttempt` | `(orderId)` `WHERE status IN ('SENDING','SENT','UNKNOWN','CONFIRMED')`                                                                                                            | buyurtmada bitta tirik yoki tasdiqlangan urinish (Migratsiya 10)                                                                         |
+| `TonTransfer`        | `(network, walletAddress)` `WHERE status IN ('SIGNED','BROADCAST')`; `(network, walletAddress, seqno)` `WHERE status<>'EXPIRED'`; `attemptId`, `extMsgHash`, `txHash`             | tarmoqda hamyonda bitta hal qilinmagan xabar (Redis qulfidan mustaqil to‘siq); seqno bitta tirik xabarniki; bir urinish — bitta transfer |
+| `FragmentSession`    | `((true))` `WHERE status='ACTIVE'`                                                                                                                                                | bitta faol Fragment sessiyasi                                                                                                            |
+| `FulfillmentAttempt` | `(adapter, externalRef)`                                                                                                                                                          | bitta tashqi to‘lov (TON hash / yetkazib beruvchi buyurtma id) faqat bitta urinishga tegishli; `NULL` ruxsat etiladi                     |
 
 ## D-23 o‘zgarishlari (boshlang‘ich loyihaga nisbatan)
 
@@ -660,6 +665,138 @@ unique'lar; m9: `PENDING` unique yolg‘iz o‘zi `P2002` beradi), `payment-inte
 (review va outcome), `payment-consistency` (m5, N2, Y3, bir xabarga parallel to‘lov, `GG002` qo‘riqchisi),
 `payment-immutables` (Y2), `ledger` (qulf, M1, 2^53 dan katta summa), `schema` (haqiqiy `pg_enum`); unit:
 `src/payments-enums.test.ts`, `src/schema.test.ts`, `src/payments/card-lock.test.ts`.
+
+## Migratsiya 10: 5-faza — buyurtma va yetkazish (D-56 (9))
+
+Uch fayl; hammasi **qo‘shimcha** (ustun o‘chirilmaydi, nomi o‘zgarmaydi). `Order`, `Quote`, `FulfillmentAttempt`,
+`FragmentSession` va `TonTransfer` ga hozircha yozuvchi kod yo‘q (birinchisi — 5-faza), shuning uchun mavjud qator yangi qoidani buzmaydi
+va `GG002` qo‘riqchisi kerak emas. `prisma migrate diff` toza bazaga barcha uch fayl qo‘llangandan keyin "empty migration" beradi (Prisma
+qisman indeks va triggerlarni ko‘rmaydi, shuning uchun ular faqat shu hujjatda).
+
+| #   | Migratsiya                                        | Nima qiladi                                                                                                                                                 |
+| --- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `20261111100000_p5_orders_fulfillment`            | enum `TonTransferStatus`; jadval `TonTransfer`; `FragmentSession.deadAt`; `Quote.providerRef` va `Order.providerRef` (`String?`, R3); oddiy indekslar va FK |
+| 2   | `20261111100100_p5_orders_fulfillment_checks`     | CHECK'lar, qisman unique indekslar va immutables triggerlari (pastda)                                                                                       |
+| 3   | `20261111100200_p4_bank_message_source_msg_index` | 4-faza N3: `BankMessage(source, tgMessageId)` indeksi (`storedMessage` qidiruvi; jadvaldagi unique `senderId` dan boshlanadi). Alohida fayl                 |
+
+**SQLSTATE.** Yangi kod ochilmadi: o‘zgarmaslik buzilishi hammasi `GG001` ("o‘zgarmas qator yoki taqiqlangan holat o‘zgarishi", yuqoridagi jadval).
+Xabar matni qaysi qoida buzilganini aytadi; testlar `expectGuard(..., 'immutable')` bilan tekshiradi.
+
+### `TonTransfer` (hot wallet'ning har imzolangan tashqi xabari)
+
+Maydonlar: `purpose` (`ORDER` | `SELFTEST`), `attemptId?` (unique, FK Restrict → `FulfillmentAttempt`), `network`, `walletAddress`, `seqno`,
+`validUntil`, `toAddress`, `amountNanoTon`, `payloadHash` (sha256 hex), `extMsgHash` (unique, normalized hash), `bocBase64` (imzolangan xabar; sir
+emas — qayta imzolash o‘rniga isbot), `status` (`SIGNED` → `BROADCAST` → `CONFIRMED` | `ONCHAIN_FAILED` | `BOUNCED`; yoki `EXPIRED`, `CONSUMED_UNMATCHED`; `BOUNCED` — manzil xabarni rad etib pul qaytgan, D-59 A1),
+`txHash?` (unique), `txLt?`, `feeNanoTon?`, `confirmedAt?`, `createdAt`, `updatedAt`. Qator **SIGNED holatida commit qilinadi, keyin** xabar
+yuboriladi: "yuborildimi?" savoliga javob xotiradan emas, zanjirdan topiladi.
+
+- **CHECK:** `TonTransfer_purpose_check`, `_network_check` (`mainnet` | `testnet`), `_selftest_network_check` (`SELFTEST` faqat `testnet`),
+  `_attempt_purpose_check` (`(purpose='ORDER') = (attemptId IS NOT NULL)`), `_values_check` (`seqno >= 0`, `amountNanoTon > 0`, `feeNanoTon` NULL yoki `>= 0`),
+  `_chain_tx_check` (`CONFIRMED`/`ONCHAIN_FAILED`/`BOUNCED` ⇒ `txHash IS NOT NULL`), `_chain_lt_check` (xuddi shu uch holat ⇒ `txLt IS NOT NULL`; ilgari `_confirmed_lt_check`, faqat `CONFIRMED`; I4: `ONCHAIN_FAILED` da `txLt` keyin to‘ldirib bo‘lmaydi), `_chain_fields_check` (N7: `txHash`, `txLt`,
+  `feeNanoTon`, `confirmedAt` faqat `CONFIRMED`/`ONCHAIN_FAILED`/`BOUNCED` da; `SIGNED`, `BROADCAST`, `EXPIRED` va `CONSUMED_UNMATCHED` da bo‘sh — `CONSUMED_UNMATCHED` ta’rifi bo‘yicha bizning
+  tranzaksiyamiz topilmagan holat, ma’lumot uni topgan qirrada yoziladi), `_address_format_check` (`walletAddress` va `toAddress` faqat xom shakl
+  `^(0|-1):[0-9a-f]{64}$`: bitta akkaunt uch yozilishda — xom, bounceable, non-bounceable — to‘siqni aylanib o‘tmasin, audit M2; workchain aynan `0` yoki `-1`, `00`/`000`/`-0` rad etiladi, N6),
+  `_hash_format_check` (`extMsgHash`, `payloadHash`, `txHash` faqat `^[0-9a-f]{64}$`). Ishchi kod manzillarni chekkada xom shaklga o‘giradi. Naqshlar `@repo/shared`
+  `RAW_TON_ADDRESS_PATTERN` / `TON_HASH_PATTERN` bilan bir xil (test tengligini tekshiradi); ular isbot sxemasida ham ishlatiladi.
+- **Qisman unique** (har biri `network` bilan, audit F14): `TonTransfer_wallet_unresolved_key` — `(network, walletAddress) WHERE status IN
+('SIGNED','BROADCAST')`: hamyonda bir vaqtda bitta hal qilinmagan xabar (DB to‘sig‘i; Redis qulfi yo‘qolsa ham ikki xabar imzolanmaydi).
+  `TonTransfer_wallet_seqno_live_key` — `(network, walletAddress, seqno) WHERE status <> 'EXPIRED'`: seqno'ni faqat isbotlangan `EXPIRED` xabar bo‘shatadi.
+- **Trigger `TonTransfer_guard`** (`ggpin_ton_transfer_guard()`, `BEFORE INSERT OR UPDATE`, `GG001`): INSERT faqat `SIGNED` va `purpose = ORDER` bo‘lsa — faqat `SENDING` urinishga va `PROCESSING`
+  buyurtmaga (buyurtma qatori, so‘ng urinish qatori `FOR SHARE` bilan qulflanadi: refund'dan keyin uyg‘ongan worker imzolay olmaydi, audit N1 / R1); `createdAt` INSERT'da DB soatidan (`timezone('UTC', now())`) qo‘yiladi, mijoz yuborgani e’tiborsiz (L8); `EXPIRED` ga o‘tish faqat
+  `now() >= validUntil + ggpin_ton_not_sent_margin_ms()` (60 s; `TON_NOT_SENT_MARGIN_MS` bilan bir xil, test tekshiradi, audit N2); imzolangan xabar (`attemptId, purpose,
+network, walletAddress, seqno, validUntil, toAddress, amountNanoTon, payloadHash, extMsgHash, bocBase64`) va `createdAt` o‘zgarmaydi; `txHash`, `txLt`,
+  `feeNanoTon`, `confirmedAt` bir marta yoziladi (bo‘sh bo‘lsa keyin to‘ldirish mumkin, yozilgani o‘zgarmaydi); `status` faqat `ggpin_ton_transfer_edge_allowed`
+  qirralari bo‘yicha: `SIGNED → {BROADCAST, EXPIRED, CONFIRMED, ONCHAIN_FAILED, CONSUMED_UNMATCHED}`, `BROADCAST → {EXPIRED, CONFIRMED, ONCHAIN_FAILED,
+CONSUMED_UNMATCHED, BOUNCED}`, `CONSUMED_UNMATCHED → {CONFIRMED}` (**`ONCHAIN_FAILED` emas**: uydirma muvaffaqiyatsiz tx noma’lum seqno'ni refund qilinadigan holatga aylantirmasin, R2a2), `EXPIRED → {CONFIRMED}` (kech topilgan tranzaksiya),
+  `CONFIRMED → {BOUNCED}` (bounce kech topilgan), `ONCHAIN_FAILED` va `BOUNCED` oxirgi. `BOUNCED` ga o‘tish (ORDER transferi) faqat buyurtma `PROCESSING` yoki `NEEDS_REVIEW` bo‘lganda (buyurtma qatori `FOR SHARE`: parallel `DELIVERED` bilan poyga yo‘q): `BOUNCED` transferli buyurtma hech qachon `DELIVERED` bo‘lmaydi. Trigger `TonTransfer_no_delete` (`BEFORE DELETE`, `GG001`): qator hech qachon o‘chirilmaydi.
+
+### Boshqa jadvallar
+
+Ikkinchi qatlam: quyidagi qoidalarni `@repo/db` yordamchilari ham tekshiradi; DB ular chetlab o‘tilsa ham ushlab turadi. Ruxsat etilgan qirralar uchta
+`IMMUTABLE` SQL funksiyada (`ggpin_order_edge_allowed`, `ggpin_attempt_edge_allowed`, `ggpin_ton_transfer_edge_allowed`); testlar ularni har juftlik bo‘yicha
+`ORDER_TRANSITIONS` (`@repo/shared`) va testdagi jadval bilan solishtiradi (drift bo‘lmasin).
+
+- **`FulfillmentAttempt`:** `FulfillmentAttempt_order_active_key` — `(orderId) WHERE status IN ('SENDING','SENT','UNKNOWN','CONFIRMED')` (buyurtmada bitta tirik
+  yoki tasdiqlangan urinish: tasdiqlangandan keyin yangi to‘lov yo‘q); `FulfillmentAttempt_confirmed_ref_check` — `CONFIRMED` ⇒ `externalRef IS NOT NULL`.
+  Trigger `FulfillmentAttempt_guard` (`ggpin_attempt_guard()`, `BEFORE UPDATE`, `GG001`, audit M5): `orderId, attemptNo, adapter, request, createdAt` o‘zgarmaydi;
+  `externalRef` bir marta yoziladi; `status` faqat oldinga (`SENDING → {SENT, UNKNOWN, CONFIRMED, FAILED}`, `SENT → {UNKNOWN, CONFIRMED, FAILED}`,
+  `UNKNOWN → {CONFIRMED, FAILED}`; `CONFIRMED` va `FAILED` oxirgi); `FAILED` ga faqat transferi yo‘q yoki `EXPIRED` bo‘lsa o‘tadi; **istisno (A4, D-59):** transfer `ONCHAIN_FAILED`/`BOUNCED`/`CONSUMED_UNMATCHED` bo‘lsa — faqat buyurtma `NEEDS_REVIEW` bo‘lganda (ya’ni `resolveNeedsReview` ichida; PROCESSING dan emas). Trigger `INSERT` ga ham ulangan (audit N1 / R1): urinish faqat `SENDING` bilan
+  va faqat `PROCESSING` buyurtma uchun tug‘iladi (buyurtma qatori `FOR SHARE`); `createdAt` DB soatidan (L8); `externalRef` faqat urinish `SENDING`/`SENT`/`UNKNOWN` bo‘lganda yoziladi (`FAILED`/`CONFIRMED` urinishga yozish rad etiladi).
+  `FulfillmentAttempt_no_delete`: `BEFORE DELETE` → `GG001`. **Deferred trigger `FulfillmentAttempt_confirmed_check`** (`COMMIT` da, faqat urinish `CONFIRMED` ga o‘tgan tranzaksiyada; N1, Z3, D-59): urinish `CONFIRMED` bo‘lishi uchun buyurtma shu tranzaksiyada `DELIVERED` bo‘lishi shart («urinish CONFIRMED» = «yetkazish tasdiqlandi»; `DELIVERED → REFUNDED` da urinish `CONFIRMED` qoladi va bu tekshiruvga tushmaydi); urinishning **o‘z** transferi `SIGNED`/`BROADCAST`/`CONSUMED_UNMATCHED`/`BOUNCED` bo‘lsa hech qachon, `EXPIRED`/`ONCHAIN_FAILED` bo‘lsa faqat shu tranzaksiyadagi `ORDER_REVIEW_RESOLVE` audit qatori `after.proof.kind = 'MANUAL'`, `otpVerified = true`, `operator.role = 'OWNER'` bilan (ega tizimdan tashqarida yetkazgan); transfer yo‘q yoki `CONFIRMED` bo‘lsa ruxsat.
+- **`FragmentSession`:** yangi `deadAt`; `FragmentSession_status_check` (`ACTIVE` | `DEAD`); `FragmentSession_single_active_key` — `((true)) WHERE status='ACTIVE'`.
+- **`Order`** (ustun qo‘shilmadi): `Order_delivered_at_check` (`DELIVERED` ⇒ `deliveredAt IS NOT NULL`); `Order_status_reason_check` (`statusReason` NULL yoki
+  `ORDER_STATUS_REASONS` dagi 10 qiymatdan biri; test ro‘yxat bilan sinxronligini tekshiradi, F8); trigger `Order_status_guard` (`ggpin_order_status_guard()`,
+  `BEFORE INSERT OR UPDATE`, `GG001`, F4): INSERT faqat `PAID` va buyurtma kotirovkaning hamma qotirilgan ustunlariga teng: `userId`, `productId`, `skuId`, `quantity`, `recipient`, `providerRef`, `priceTiyin`, `costCurrency`, `costMinor`, `maxCostMinor`, `fxRateId` (Y6, Z4: to‘lov mijoz tasdiqlagan odamga va ko‘rgan narxda ketadi; `Quote` da chegirma summasi yo‘q, faqat `discountCodeId`: kodsiz kotirovkada `discountTiyin` = 0 shart; kodli holat 10-bosqichda hal qilinadi); muddati o‘tgan kotirovkadan buyurtma yaratilmaydi, yozish paytidagi soat bilan (`clock_timestamp()`, R4-3, Y5 bilan bir xil); `deliveredAt` faqat `→ DELIVERED` o‘tishida guard tomonidan qo‘yiladi va keyin o‘zgarmaydi (Z1); `status` faqat `ggpin_order_edge_allowed` qirralari bo‘yicha (barcha aktorlar bo‘yicha
+  `ORDER_TRANSITIONS` birlashmasi; kim olishi — ilova kodida); `FAILED`/`HELD`/`CANCELLED` ga (va `FAILED`/`CANCELLED` dan `REFUNDED` ga) o‘tish urinish `SENDING/SENT/UNKNOWN/CONFIRMED` yoki **`EXPIRED` dan boshqa har qanday** transfer
+  bo‘lsa rad etiladi (H2 3-qism, audit N1). **Istisno (A4, D-59):** `ONCHAIN_FAILED`, `BOUNCED`, `CONSUMED_UNMATCHED` transferlar faqat `NEEDS_REVIEW → FAILED` va `FAILED → REFUNDED` da (resolve oqimi) to‘smaydi; `PROCESSING` dan to‘g‘ridan-to‘g‘ri, `HELD`, `CANCELLED` hamon to‘silgan; oddiy yordamchilar (`transitionOrder`, `refundFailedOrder`) uchalasini ham isbotsiz rad etadi.
+  **`DELIVERED` ga** o‘tish (`PROCESSING`/`NEEDS_REVIEW` dan, Y1/L5): kamida bitta `CONFIRMED` urinish, hal bo‘lmagan urinish yo‘q, har transfer `CONFIRMED`/`EXPIRED`/`ONCHAIN_FAILED` (`BOUNCED`, `CONSUMED_UNMATCHED`, jonli transfer bo‘lsa rad); guard `deliveredAt` ni DB soatidan o‘zi qo‘yadi (Y11). **`DELIVERED → REFUNDED`** (admin): jonli urinish yoki `SIGNED`/`BROADCAST`/`CONSUMED_UNMATCHED`/`BOUNCED` transfer bo‘lsa rad (`CONFIRMED` urinish/transfer rad etmaydi). Uch **deferred constraint trigger** (R4, A4, `COMMIT` da):
+  `Order_refund_ledger_check` (`REFUNDED` ⇒ `LedgerEntry(REFUND, ORDER, <orderId>)` mavjud, **summa = `priceTiyin − discountTiyin`, `userId` = buyurtma egasi**: L6), `Order_review_audit_check` (`NEEDS_REVIEW → FAILED|DELIVERED` ⇒ `AuditLog(action='ORDER_REVIEW_RESOLVE',
+targetType='Order', targetId=<orderId>)` mavjud) va `Order_special_transfer_check` (buyurtma `FAILED` yoki `FAILED → REFUNDED` bo‘lsa va `ONCHAIN_FAILED`/`BOUNCED`/`CONSUMED_UNMATCHED` transferi bo‘lsa, har biri uchun audit qatori: `after.proof.kind` holatga mos `TON_NOT_DEBITED`/`TON_BOUNCED`/`TON_UNMATCHED_RESOLVED`, `after.proof.transferId` shu transfer, `after.otpVerified = true`, `after.operator.role = 'OWNER'`; `BOUNCED` uchun `after.proof.returnTxHash` bo‘sh emas, `BOUNCED`/`ONCHAIN_FAILED` uchun `after.proof.txHash`/`txLt` transfer qatoridagilarga teng, `CONSUMED_UNMATCHED` uchun `after.operator.type = 'CLI'` va `consumingTxHash` bo‘sh emas: I-1, Z2). Audit qatori iz, chegara emas (I1): isbotni zanjir ma’lumotiga bog‘laydigan helper. `AuditLog_review_return_tx_key` — qisman unique ifoda indeksi `((after->'proof')->>'returnTxHash') WHERE action = 'ORDER_REVIEW_RESOLVE'`: bitta bounce bitta refund (yangi ustun emas; R2e); xuddi shu shaklda `AuditLog_review_consuming_tx_key` — `consumingTxHash` bo‘yicha (bitta topilma bitta refund, Z5). Trigger
+  `Order_immutable_guard` (`ggpin_order_immutable_guard()`, `GG001`): `number, createdAt, userId, quoteId, productId, skuId, quantity, recipient, providerRef, priceTiyin,
+discountTiyin, costCurrency, costMinor, maxCostMinor, fxRateId, idempotencyKey, requestHash` o‘zgarmaydi; `status`, `statusReason`, `deliveredAt` o‘zgaradi.
+- **`providerRef` (R3):** `Quote.providerRef` va `Order.providerRef` — qabul qiluvchining provayderdagi id'si (`String?`). Kotirovkada INSERT paytida yoziladi, buyurtmaga yaratilganda ko‘chiriladi;
+  ikkalasi ham o‘zgarmas (NULL → qiymat ham rad etiladi). Ichki maydon: API javobiga va logga chiqmaydi (`docs/04` o‘zgarmadi).
+- **`search_path` (audit N5):** shu migratsiyadagi har bir `ggpin_*` funksiya va 4-faza qo‘riqchilari (`ALTER FUNCTION ... SET search_path = public, pg_temp`; tanalari o‘zgarmadi) `public, pg_temp`
+  bilan ishlaydi, jadval nomlari `public.` bilan to‘liq yoziladi: sessiya ochgan TEMP jadval qo‘riqchini aldamaydi. Test barcha `ggpin%` funksiyalarni `pg_proc` dan tekshiradi.
+- **`Quote`:** trigger `Quote_immutable_guard` (`ggpin_quote_immutable_guard()`, `GG001`): narx, tannarx, `maxCostMinor`, qabul qiluvchi, `providerRef`, egasi, `expiresAt`,
+  `costSnapshotId`, `fxRateId`, `discountCodeId` va `createdAt` o‘zgarmaydi; `usedAt` faqat `NULL → vaqt` (bir marta), keyin tozalab ham, o‘zgartirib ham bo‘lmaydi,
+  va faqat `clock_timestamp() <= expiresAt` bo‘lsa qo‘yiladi (`timezone('UTC', clock_timestamp())`: ustun — UTC, zonasiz; yozuv paytidagi haqiqiy vaqt — `now()` tranzaksiya boshi bo‘lib, uzoq tranzaksiyada muddati o‘tgan kotirovkani o‘tkazib yuborardi, Y5) (muddati o‘tgan kotirovka ishlatilmaydi; xarid tranzaksiyasi buni o‘zi ham tekshiradi, bu — zaxira).
+- **Eski testlar:** 2–3-migratsiya CHECK'lari (`Order_amounts_check`, `Order_discount_check`, `Quote_amounts_check`, `Quote_cost_currency_check`) va `Order.fxRateId` FK
+  testi ilgari UPDATE bilan tekshirilardi; endi shu ustunlar o‘zgarmas, shuning uchun o‘sha yomon qiymatlar INSERT bilan beriladi (xuddi shu CHECK/FK).
+  `(adapter, externalRef)` testida ikkinchi urinishlar `FAILED` qilindi. Buyurtma endi faqat `PAID` bo‘lib tug‘iladi va holatlarga qonuniy yo‘l bilan boradi
+  (`order-fixtures.ts` dagi `walkTo`); transferlar `SIGNED` bilan yaratilib, keyin ko‘chiriladi.
+
+### M4 (3-faza review): yetkazish marshrutni qayerdan biladi
+
+Sxema darajasida **yangi ustun kerak emas**: `Order.quoteId` → `Quote.costSnapshotId` → `CostSnapshot.adapter` kotirovka qaysi adapter tannarxidan
+narxlanganini aytadi (`CostSnapshot` o‘zgarmas, trigger bilan; `Quote.costSnapshotId` NOT NULL, FK Restrict). `Order.costCurrency` / `maxCostMinor` shu
+adapterning valyutasida. Qoida (S4 tekshiradi, `docs/06`): router tanlagan adapterning valyutasi `Order.costCurrency` dan farq qilsa, adapter bu buyurtma
+uchun yaroqsiz — buyurtma HELD (`NO_ADAPTER`). **5-bosqichda valyutalararo taqqoslash yo‘q**: buyurtma bitta `fxRateId` snapshot'ini (bitta juftlik)
+saqlaydi, u boshqa valyutani halol konvertatsiya qila olmaydi (3-faza review M4 ning dastlabki taklifi — «o‘z `fxRateId`'si bilan konvertatsiya» —
+amalga oshmaydi; review F3). `exceedsCostCeiling` ham valyuta farq qilsa `MoneyError` tashlaydi. Narx kitobi (API) tomonidagi qism (kotirovka birinchi
+yoqilgan route adapteri snapshot'laridan narxlansin) S2 da.
+
+### `@repo/db` yordamchilari (5-faza)
+
+`packages/db/src/orders/` (hammasi tranzaksiyada; ildiz klient `NotInTransactionError`). Qulf tartibi hamma joyda bir xil: **hamyon → buyurtma qatori → urinish → transfer** (R8; yordamchilar, SQL qo‘riqchilari, worker). `docs/06` «5-faza S1» bo‘limiga qarang.
+
+- `transitionOrder(tx, {orderId, from, to, actor, actorRef?, note?, reason?})` — oddiy qirralar uchun `Order.status` yozuvchisi: `assertTransition` + CAS
+  (`UPDATE … WHERE id AND status = from`; 0 qator → `StaleOrderStateError`) + shu tranzaksiyada `OrderEvent` (`SYSTEM` | `RECONCILER` | `ADMIN:<id>`).
+  **Ikki qirra bu yerda yopiq** (`RestrictedTransitionError`, audit H2): NEEDS_REVIEW dan chiqish (faqat `resolveNeedsReview`) va REFUNDED ga kirish
+  (faqat refund yordamchilari). Cheklanmagan yozuvchi (`applyTransition`) paket indeksidan eksport qilinmaydi. FAILED/HELD ga o‘tish qulf ostida buyurtmaning
+  o‘z qatorlari bilan tekshiriladi: SENDING/SENT/UNKNOWN/CONFIRMED urinish yo‘q va har TON transfer `EXPIRED` bo‘lishi shart, aks holda `LivePayoutError`; `CANCELLED` ga o‘tish ham shu tekshiruvdan o‘tadi (va hamyon qulfi oldin olinadi).
+  HELD/NEEDS_REVIEW/FAILED ga o‘tishda `reason` majburiy (tip va runtime), `admin` aktori uchun `actorRef` majburiy. Sabab `QUEUED`/`PROCESSING`/`DELIVERED`
+  ga o‘tishda tozalanadi, boshqalarda (CANCELLED, REFUNDED) saqlanadi. `DELIVERED` ga o‘tish ham qulf ostida tekshiriladi: kamida bitta `CONFIRMED` urinish, hal bo‘lmagan urinish yo‘q, har transfer `CONFIRMED`/`EXPIRED`/`ONCHAIN_FAILED`, aks holda `DeliveryNotProvenError` (Y1, L5); `deliveredAt` ni DB guard'i DB soatidan qo‘yadi (Y11).
+- `refundFailedOrder(tx, {orderId, actor, actorRef?, note?})` — `lockWallet` → buyurtma qatori qulfi → holatni o‘qish → `FAILED→REFUNDED` + `REFUND`
+  (`ORDER/<orderId>`). `REFUNDED` bo‘lsa — `ALREADY_REFUNDED` (yozuvsiz); P2002 ushlanmaydi (xato tranzaksiyani buzadi), unique — zaxira to‘siq. Qulf ostida
+  yana tekshiradi: jonli to‘lov yo‘q (`LivePayoutError`) va summa **ledger'dan** olinadi: buyurtmaning o‘z `PURCHASE` yozuvi bo‘lishi shart
+  (`PurchaseEntryMissingError`) va `priceTiyin − discountTiyin` ga teng bo‘lishi shart (`PurchaseEntryMismatchError`). `actor` faqat `system` | `admin`
+  (jadval `FAILED→REFUNDED` ni `reconciler` ga bermaydi). `statusReason` saqlanadi.
+- `failAndRefundOrder(tx, {orderId, from: 'PROCESSING' | 'HELD', reason, actor, …})` — avval `lockWallet`, keyin `→FAILED` va refund bitta chaqiruvda
+  (qulf tartibini buzib bo‘lmaydi). Yetkazish va HELD muddati tugashi uchun tavsiya etilgan yo‘l.
+- (D-59 4-raund) `TON_TX`/`FRAGMENT_STATUS` faqat **tirik** urinishni qabul qiladi; `TON_UNMATCHED_RESOLVED` faqat `type: 'CLI'` (`ACTOR_MISMATCH`); `type: 'ADMIN'` da `AdminUser` `FOR SHARE` bilan o‘qiladi (qulf tartibi: AdminUser → hamyon → buyurtma → urinish → transfer); `deliveryProblem` urinishning o‘z transferi qoidasini DB bilan bir xil qo‘llaydi; `CONSUMING_TX_REUSED` yangi `ReviewProofError` kodi.
+- `resolveNeedsReview(tx, {orderId, to, proof, resolver})` (soat parametri yo‘q: DB soati ishlatiladi; testlar ichki `resolveNeedsReviewAt` orqali soat beradi, u paket `exports` idan tashqarida) — NEEDS_REVIEW dan **yagona chiqish**. `resolver` — ishonchli parametr
+  (`{kind:'reconciler'}` | `{kind:'operator', type: 'ADMIN'|'CLI', id, ip, osUser, otpVerified}`): **`role` maydoni yo‘q** (L3) — `type: 'ADMIN'` da helper `AdminUser` ni tranzaksiya ichida o‘qiydi (mavjud, faol, `OWNER`; aks holda `OWNER_REQUIRED`), `CLI` — eganing o‘z CLI'si (OWNER). Hamma maydon `typeof` bilan tekshiriladi: `id` matn va bo‘sh emas, `ip`/`osUser` matn yoki `null`, `otpVerified` mantiqiy (aks holda `OPERATOR_REQUIRED`; `"yes"` yoki `1` o‘tmaydi, L2); aktor isbot JSON'idan olinmaydi.
+  `NeedsReviewProofSchema` + `proofJustifies` dan keyin isbot qulf ostida buyurtmaning o‘z urinishlari va TON transferlariga **bog‘lanadi** (`docs/06` «isbot turlari»): `TON_TX` — `CONFIRMED` transfer, `txHash`/`lt`/`extMsgHash`/`walletAddress` teng; `TON_NOT_SENT` — `EXPIRED` transfer, `seqno`/`validUntil` teng, DB soati `validUntil + TON_NOT_SENT_MARGIN_MS` dan o‘tgan, `checkedAt <= now`;
+  `TON_NOT_DEBITED` (`ONCHAIN_FAILED`, A2), `TON_BOUNCED` (`BOUNCED`, A1: qaytgan summa `[yuborilgan − TON_BOUNCE_FEE_MAX_NANO, yuborilgan]`, `returnLt > txLt`, `returnTxHash` yangi va bizning tx emas) va `TON_UNMATCHED_RESOLVED` (`CONSUMED_UNMATCHED`, A3) — faqat OWNER + OTP, boshqa transferlar `EXPIRED`, boshqa tirik/`CONFIRMED` urinish yo‘q; `FRAGMENT_STATUS` (faqat operator; urinish transferi `EXPIRED` bo‘lmasin) va `TON_TX` — bog‘langan urinish tirik yoki `CONFIRMED`, boshqa hal bo‘lmagan urinish yo‘q (N3, R5);
+  `MANUAL` — faqat operator, OWNER + OTP, ikkala chiqish; FAILED ga faqat `EXPIRED` transferlar bilan, `CONFIRMED` urinishsiz va transfersiz `SENDING` urinish `lockDuration + margin` dan eski bo‘lsa. **`DELIVERED` chiqishi** urinishni `CONFIRMED` qilib yopishi va yetkazish qoidasini (`deliveryProblem`) bajarishi shart. Mos kelmasa `ReviewProofError` (`INVALID`, `WRONG_KIND`, `OPERATOR_REQUIRED`, `ACTOR_MISMATCH`, `OWNER_REQUIRED`, `RETURN_TX_REUSED`, `MISMATCH`, `LIVE_PAYOUT`), hech narsa yozilmaydi.
+  Bitta tranzaksiyada: tegishli hal bo‘lmagan urinish yopiladi (CONFIRMED yoki FAILED), CAS o‘tish (FAILED da sabab saqlanadi), FAILED bo‘lsa refund, **oxirida**
+  `AuditLog(ORDER_REVIEW_RESOLVE)`: `after = {proof, resolver, operator: {type, id, role: 'OWNER'}, osUser, otpVerified, refund:{amountTiyin, ledgerEntryId}}`, `before = {status, statusReason}`,
+  `reason` = isbot sababi, `ip`. CLI qatorida `actorId` NULL (D-46), `ADMIN` da operator id. Natijada `securityAlert: 'tonWalletCompromised' | null` (`SENT_ELSEWHERE`): chaqiruvchi (S10 CLI) commit'dan keyin kritik alert chiqaradi. OTP'ni tekshirish S10 da
+  (`requireOwnerConfirmation`); bu yerda faqat natija (`otpVerified`) saqlanadi va talab qilinadi. `TonTransfer` qatori yopilmaydi (isbot allaqachon shu holatni talab qiladi).
+  Interpretatsiya: `MANUAL → FAILED` da «SIGNED/BROADCAST/CONFIRMED/ONCHAIN_FAILED/BOUNCED/CONSUMED_UNMATCHED» transfer hamda CONFIRMED urinish rad etiladi;
+  hal bo‘lmagan (SENDING/SENT/UNKNOWN) urinishni esa shu operator isboti yopadi, aks holda NEEDS_REVIEW buyurtmani qo‘lda qaytarib bo‘lmas edi.
+- Isbot: `packages/db/test/check-constraints-ton-transfer.e2e.test.ts`, `check-constraints-orders.e2e.test.ts` (har CHECK, qisman unique va trigger: qabul va rad),
+  `order-helpers.e2e.test.ts` (CAS, poyga), `order-refund.e2e.test.ts` (refund idempotentligi, parallel refund, atomiklik), `order-guards.e2e.test.ts` (yopiq qirralar,
+  jonli to‘lov matritsasi), `order-ledger-reason.e2e.test.ts` (ledger'dan summa, sabab va operator majburiy), `needs-review-resolve.e2e.test.ts`,
+  `needs-review-binding.e2e.test.ts`, `needs-review-binding-more.e2e.test.ts` (isbot buyurtmaga bog‘lanishi: har nomuvofiqlik rad etiladi).
+  DB zaxira himoyasi (B guruhi): `order-status-guard.e2e.test.ts` (Order qirralari har juftlik bo‘yicha, INSERT faqat PAID, jonli to‘lov to‘sig‘i, `statusReason` CHECK va sinxronlik),
+  `ton-transfer-guard.e2e.test.ts` (SIGNED bilan tug‘ilish, holat mashinasi har juftlik, bir marta yoziladigan maydonlar, DELETE), `fulfillment-attempt-guard.e2e.test.ts`
+  (bitta tirik urinish, oldinga yuruvchi holat, FAILED uchun transfer sharti, bir marta yoziladigan `externalRef`, DELETE).
+  Ikkinchi raund: `payout-race.e2e.test.ts` (ikki `pg` ulanishi, ikkala tartib: refund bilan parallel urinish/transfer INSERT), `payout-insert-guards.e2e.test.ts` (INSERT qoidalari, 60 s margin,
+  chain maydonlari), `order-deferred-guards.e2e.test.ts` (R4, `search_path`, `providerRef`), `needs-review-bounced.e2e.test.ts` (TON_BOUNCED, A1), `needs-review-onchain-failed.e2e.test.ts` (TON_NOT_DEBITED, A2), `needs-review-unmatched.e2e.test.ts` (TON_UNMATCHED_RESOLVED, A3), `needs-review-owner-gate.e2e.test.ts` (L2, L3, L4, Y4: resolver, rol, OTP), `order-delivery-guard.e2e.test.ts` (Y1, L5, Y11), `db-clock-and-quote.e2e.test.ts` (L1, L8, Y5, Y6), `payout-race-helpers.e2e.test.ts` (RA1, RA2, RA4, I5), `needs-review-clock.e2e.test.ts` (soat, yosh
+  SENDING urinish, `resolver.id`), `order-status-guard-onchain.e2e.test.ts` (ONCHAIN_FAILED istisnosi, REFUNDED tekshiruvi). Qoidasi buzilgan holatlar (DB rad etadigan qatorlar) yordamchilar ham rad
+  etishini isbotlash uchun `order-fixtures.ts` dagi `force*`/`bypassingGuards` bilan quriladi (`session_replication_role = replica`, tranzaksiyaga lokal).
 
 ## Seed (boshlang‘ich ma’lumotlar)
 

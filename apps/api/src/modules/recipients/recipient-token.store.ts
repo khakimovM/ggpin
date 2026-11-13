@@ -32,13 +32,23 @@ export class RecipientTokenStore {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  /** A fresh 43-char base64url token for this user, product and recipient. */
-  async issue(userId: string, productId: string, recipient: Recipient): Promise<string> {
+  /**
+   * A fresh 43-char base64url token for this user, product and recipient. `providerRef` is the
+   * provider's handle of the validated recipient and is REQUIRED: fulfillment re-checks it
+   * before paying, so a token that carries none would open a payout that cannot be checked.
+   */
+  async issue(
+    userId: string,
+    productId: string,
+    recipient: Recipient,
+    providerRef: string,
+  ): Promise<string> {
     const token = randomBytes(TOKEN_BYTES).toString('base64url');
     const record: RecipientTokenRecord = {
       userId,
       productId,
       recipient,
+      providerRef,
       issuedAt: this.clock.now().toISOString(),
     };
     await this.redis.client.set(

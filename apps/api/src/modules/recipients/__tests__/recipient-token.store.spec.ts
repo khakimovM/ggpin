@@ -13,6 +13,8 @@ interface SetCall {
   readonly ttl: number;
 }
 
+const PROVIDER_REF = 'fragment-ref-1';
+
 function setup() {
   const data = new Map<string, string>();
   const sets: SetCall[] = [];
@@ -31,8 +33,8 @@ function setup() {
 describe('RecipientTokenStore.issue', () => {
   it('returns a 43-char base64url token, different every time', async () => {
     const { store } = setup();
-    const a = await store.issue('u1', 'p1', RECIPIENT);
-    const b = await store.issue('u1', 'p1', RECIPIENT);
+    const a = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
+    const b = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     expect(a).toMatch(RECIPIENT_TOKEN_PATTERN);
     expect(b).toMatch(RECIPIENT_TOKEN_PATTERN);
     expect(a).not.toBe(b);
@@ -40,7 +42,7 @@ describe('RecipientTokenStore.issue', () => {
 
   it('stores the record under the SHA-256 of the token with a 600 s TTL', async () => {
     const { store, sets } = setup();
-    const token = await store.issue('u1', 'p1', RECIPIENT);
+    const token = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     const expectedKey = `rcpt:${createHash('sha256').update(token).digest('hex')}`;
     expect(sets).toHaveLength(1);
     expect(sets[0]).toMatchObject({ key: expectedKey, mode: 'PX', ttl: RECIPIENT_TOKEN_TTL_MS });
@@ -49,13 +51,14 @@ describe('RecipientTokenStore.issue', () => {
       userId: 'u1',
       productId: 'p1',
       recipient: RECIPIENT,
+      providerRef: PROVIDER_REF,
       issuedAt: NOW.toISOString(),
     });
   });
 
   it('never puts the raw token in the Redis key or value', async () => {
     const { store, sets } = setup();
-    const token = await store.issue('u1', 'p1', RECIPIENT);
+    const token = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     for (const call of sets) {
       expect(call.key).not.toContain(token);
       expect(call.value).not.toContain(token);
@@ -66,25 +69,26 @@ describe('RecipientTokenStore.issue', () => {
 describe('RecipientTokenStore.resolve', () => {
   it('returns the record for the owner and the product it was issued for', async () => {
     const { store } = setup();
-    const token = await store.issue('u1', 'p1', RECIPIENT);
+    const token = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     await expect(store.resolve(token, 'u1', 'p1')).resolves.toEqual({
       userId: 'u1',
       productId: 'p1',
       recipient: RECIPIENT,
+      providerRef: PROVIDER_REF,
       issuedAt: NOW.toISOString(),
     });
   });
 
   it('is not consumed: a second resolve still works', async () => {
     const { store } = setup();
-    const token = await store.issue('u1', 'p1', RECIPIENT);
+    const token = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     await store.resolve(token, 'u1', 'p1');
     await expect(store.resolve(token, 'u1', 'p1')).resolves.not.toBeNull();
   });
 
   it('is null for another user, another product, and an unknown token', async () => {
     const { store } = setup();
-    const token = await store.issue('u1', 'p1', RECIPIENT);
+    const token = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     await expect(store.resolve(token, 'u2', 'p1')).resolves.toBeNull();
     await expect(store.resolve(token, 'u1', 'p2')).resolves.toBeNull();
     await expect(store.resolve('A'.repeat(43), 'u1', 'p1')).resolves.toBeNull();
@@ -92,7 +96,7 @@ describe('RecipientTokenStore.resolve', () => {
 
   it('is null once Redis has expired the key', async () => {
     const { store, data } = setup();
-    const token = await store.issue('u1', 'p1', RECIPIENT);
+    const token = await store.issue('u1', 'p1', RECIPIENT, PROVIDER_REF);
     data.delete(recipientTokenKey(token));
     await expect(store.resolve(token, 'u1', 'p1')).resolves.toBeNull();
   });
@@ -105,6 +109,7 @@ describe('RecipientTokenStore.resolve', () => {
       userId: 'u1',
       productId: 'p1',
       recipient: RECIPIENT,
+      providerRef: PROVIDER_REF,
       issuedAt: NOW.toISOString(),
     };
     for (const stored of [
@@ -114,6 +119,8 @@ describe('RecipientTokenStore.resolve', () => {
       JSON.stringify({ userId: 'u1' }),
       JSON.stringify({ ...valid, recipient: { username: 'x', displayName: 'Aziz' } }),
       JSON.stringify({ ...valid, extra: true }),
+      // A record without the provider handle is never trusted (audit L4: fail closed).
+      JSON.stringify((({ providerRef: _ref, ...rest }) => rest)(valid)),
     ]) {
       data.set(key, stored);
       await expect(store.resolve(token, 'u1', 'p1')).resolves.toBeNull();

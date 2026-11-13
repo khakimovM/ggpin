@@ -1,8 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
-import { QUEUES, alertRef, notifyJobId, notifyJobSchema } from '@repo/shared';
+import { NOTIFY_JOB_NAME, QUEUES, alertRef, notifyJobId, notifyJobSchema } from '@repo/shared';
 import type { Queue } from 'bullmq';
-import { NOTIFY_JOB_NAME } from '../payments/payments-alerts';
 
 /**
  * Tells the owner a wallet went negative and was frozen for purchases (`walletFrozen`, docs/05
