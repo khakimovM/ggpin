@@ -56,7 +56,8 @@ Skeleton (yakuniy layout shaklida) · Xato + "Qayta urinish" · Bo‘sh + haraka
 ## Telegram Mini App integratsiyasi
 
 `ready()`, `expand()`, `themeParams` → CSS o‘zgaruvchilari, safe area, BackButton (ichki sahifalarda),
-MainButton (asosiy harakat), `HapticFeedback` (muvaffaqiyat/xato), `openLink` (to‘lov sahifasi),
+MainButton (asosiy harakat), `HapticFeedback` (muvaffaqiyat/xato), `openLink` (to‘lov sahifasi; oferta va maxfiylik — faqat aniq yo‘llar `/terms`, `/ru/terms`, `/privacy`,
+`/ru/privacy`, prefiks va regex’siz, `docs/04`, D-57 dagi 8-bosqich rejasi S4),
 `shareMessage`/havola ulashish (referal), `requestContact` (telefon). Telegram yorug‘/qorong‘i mavzusi
 avtomatik.
 

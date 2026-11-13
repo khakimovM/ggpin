@@ -86,12 +86,10 @@ describe('TgGate gates', () => {
         expect(app.openLink).not.toHaveBeenCalled();
       });
 
-      it('any other link is an ordinary link that opens in a new tab', async () => {
+      it('a link that is not on t.me is no link at all (the env schema refuses it too)', async () => {
         mocks.env.NEXT_PUBLIC_SUPPORT_URL = 'https://help.example.test/ggpin';
         await blocked();
-        const link = screen.getByRole('link', { name: uz.tg.gate.blocked.cta });
-        expect(link).toHaveAttribute('href', 'https://help.example.test/ggpin');
-        expect(link).toHaveAttribute('target', '_blank');
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
         expect(app.openTelegramLink).not.toHaveBeenCalled();
       });

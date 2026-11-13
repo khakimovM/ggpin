@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { configuredTelegramUrl } from './telegram/t-me-url';
 
 // Groups of API endpoints that may be served by the in-browser mock transport (phase 7 only).
 // `wallet` and `payments` are gone (phase 4 is merged: those endpoints are real); naming them in
@@ -42,31 +43,22 @@ export const baseUrl = httpUrl
   )
   .transform((value) => value.replace(/\/+$/, ''));
 
-// A public Telegram channel or invite link. Only https://t.me/<something>: the footer and the contacts
-// page link to it from our own domain, so nothing else (a look-alike host, a javascript: URL) may
-// get in through configuration.
-const channelUrl = z.union([
-  z.literal(''),
-  z.url({ protocol: /^https$/ }).refine(
-    (value) => {
-      try {
-        const url = new URL(value);
-        return (
-          url.hostname === 't.me' &&
-          url.username === '' &&
-          url.password === '' &&
-          url.port === '' &&
-          url.pathname.length > 1 &&
-          url.search === '' &&
-          url.hash === ''
-        );
-      } catch {
-        return false;
+// A t.me link from configuration: the brand channel and the support chat. Both are shown on our own
+// public pages (footer, contacts), so only https://t.me/<path> by the one rule in t-me-url.ts gets
+// in, and the value is normalised here (`https://T.ME/x` becomes `https://t.me/x`): the site links use
+// the parsed value as it is, nothing downstream checks it a second way.
+const telegramUrl = (what: string) =>
+  z.union([
+    z.literal(''),
+    z.string().transform((value, ctx) => {
+      const href = configuredTelegramUrl(value);
+      if (href === null) {
+        ctx.addIssue({ code: 'custom', message: `must look like https://t.me/<${what}>` });
+        return z.NEVER;
       }
-    },
-    { message: 'must look like https://t.me/<channel>' },
-  ),
-]);
+      return href;
+    }),
+  ]);
 
 const mockList = z
   .string()
@@ -83,10 +75,11 @@ const schema = z.object({
   NEXT_PUBLIC_SITE_URL: baseUrl,
   NEXT_PUBLIC_BOT_USERNAME: botUsername,
   NEXT_PUBLIC_API_MOCKS: mockList,
-  // Empty means "no support link": the UI hides the "write to operator" entry.
-  NEXT_PUBLIC_SUPPORT_URL: z.union([z.literal(''), httpUrl]),
+  // Empty means "no support link": the UI hides the "write to operator" entry. Only the
+  // operator's https://t.me/<handle>: it is shown on the public contacts page.
+  NEXT_PUBLIC_SUPPORT_URL: telegramUrl('handle'),
   // Empty means "no channel": the footer and contacts hide the Channel link.
-  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: channelUrl,
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: telegramUrl('channel'),
 });
 
 export type ClientEnv = z.infer<typeof schema>;
@@ -106,14 +99,14 @@ export type RawClientEnv = Partial<
 >;
 
 // Plain http is allowed in production only for a local host (CI and local runs of a production
-// build talk to http://localhost); every real deployment must use https.
+// build talk to http://localhost); every real deployment must use https. (The t.me links are https
+// by their own rule, in every mode.)
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 function assertSecureUrls(env: ClientEnv): void {
   const urls = {
     NEXT_PUBLIC_API_URL: env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_SITE_URL: env.NEXT_PUBLIC_SITE_URL,
-    NEXT_PUBLIC_SUPPORT_URL: env.NEXT_PUBLIC_SUPPORT_URL,
   };
   for (const [name, value] of Object.entries(urls)) {
     if (value === '') continue;

@@ -13,14 +13,18 @@ describe('supportLink', () => {
     });
   });
 
-  it('anything else is external, look-alike hosts included', () => {
+  it('any other host is no link at all, look-alikes included (audit L-3)', () => {
     for (const url of [
       'https://help.example.test/ggpin',
       'http://t.me/ggpin_support',
       'https://t.me.evil.example/x',
       'https://telegram.me/x',
+      'https://user:pw@t.me/x',
+      'https://t.me:8443/x',
+      'https://t.me/x?start=1',
+      'https://t.me/"onmouseover=',
     ]) {
-      expect(supportLink(url).kind, url).toBe('external');
+      expect(supportLink(url), url).toEqual({ kind: 'none' });
     }
   });
 
