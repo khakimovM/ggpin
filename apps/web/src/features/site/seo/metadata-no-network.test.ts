@@ -54,13 +54,16 @@ describe('generateMetadata stays off the network', () => {
     },
   );
 
-  // The helpers a page's generateMetadata delegates to: the shared one, and the product pages'.
-  it.each([['page-metadata.ts'], [join('..', 'product', 'product-metadata.ts')]])(
-    'the metadata helper %s imports no fetcher either',
-    (file) => {
-      const helper = readFileSync(join(__dirname, file), 'utf8');
-      expect(helper).not.toMatch(FORBIDDEN_IMPORT);
-      expect(helper).not.toMatch(FORBIDDEN_CALL);
-    },
-  );
+  // The helpers a page's generateMetadata delegates to: the shared one, the product pages', and
+  // the legal pages' (with the catalog reader it uses).
+  it.each([
+    ['page-metadata.ts'],
+    [join('..', 'product', 'product-metadata.ts')],
+    [join('..', 'legal', 'legal-metadata.ts')],
+    [join('..', 'legal', 'legal-texts.ts')],
+  ])('the metadata helper %s imports no fetcher either', (file) => {
+    const helper = readFileSync(join(__dirname, file), 'utf8');
+    expect(helper).not.toMatch(FORBIDDEN_IMPORT);
+    expect(helper).not.toMatch(FORBIDDEN_CALL);
+  });
 });

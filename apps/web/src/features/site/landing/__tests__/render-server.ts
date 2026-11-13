@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 
 // A server component may be `async`, which a client renderer (Testing Library) cannot draw. This
 // runs every async component of a tree to its result and leaves the rest as it is, so a page
@@ -17,5 +17,11 @@ export async function settleServerTree(node: ReactNode): Promise<ReactNode> {
   }
   const { children } = node.props;
   if (children === undefined) return node;
-  return cloneElement(node, undefined, await settleServerTree(children));
+  // `Children.toArray` keys every child (as React itself would), and they go back as separate
+  // arguments: a bare array as the one child would warn "each child in a list should have a unique
+  // key" for children that were never a list.
+  const settled = await Promise.all(
+    Children.toArray(children).map((child) => settleServerTree(child)),
+  );
+  return cloneElement(node, undefined, ...settled);
 }

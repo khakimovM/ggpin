@@ -26,6 +26,7 @@ const product = (
 
 const page = (path: SitePage['path']): SitePage => ({
   path,
+  kind: 'product',
   indexable: true,
   lastModified: '2026-11-12',
   changeFrequency: 'monthly',

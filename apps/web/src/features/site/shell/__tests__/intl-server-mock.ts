@@ -32,6 +32,13 @@ type Namespace =
   | `site.product.${'stars' | 'premium'}.faq`
   | `site.product.${'stars' | 'premium'}.faq.items`
   | `site.product.${'stars' | 'premium'}.meta`
+  // The FAQ, legal and contacts pages (phase 8 S4).
+  | `site.meta.${'faq' | 'terms' | 'privacy' | 'contacts'}`
+  | 'site.contacts'
+  | 'site.why.items.support'
+  | 'legal'
+  | 'account.help.faq'
+  | 'account.help.ask'
   | 'store.catalog'
   | 'common.money'
   | 'common.currency';

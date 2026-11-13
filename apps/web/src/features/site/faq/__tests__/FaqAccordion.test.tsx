@@ -49,6 +49,14 @@ describe('FaqAccordion', () => {
     }
   });
 
+  it('where the accordion is the page itself, the questions are h2, right under the h1', () => {
+    render(<FaqAccordion items={ITEMS} questionLevel={2} />);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(
+      ITEMS.map((item) => item.question),
+    );
+    expect(screen.queryAllByRole('heading', { level: 3 })).toEqual([]);
+  });
+
   it('toggles an item from its summary', async () => {
     const user = userEvent.setup();
     const { container } = render(<FaqAccordion items={ITEMS} />);

@@ -29,6 +29,20 @@
       "home": {
         "title": "{brand} — Telegram Stars, Premium va o‘yin donatlari",
         "description": "Telegram Stars va Premium — Humo yoki Uzcard kartasidan o‘tkazma bilan to‘lang, buyurtma 1⁠–⁠2 daqiqada avtomatik yetkaziladi. O‘yin donatlari tez orada."
+      },
+      "faq": {
+        "title": "Ko‘p beriladigan savollar",
+        "description": "Telegram Stars va Premium xaridi, to‘lov, hamyon va pul qaytarish haqidagi savollarga javoblar."
+      },
+      "terms": {
+        "title": "Ommaviy oferta"
+      },
+      "privacy": {
+        "title": "Maxfiylik siyosati"
+      },
+      "contacts": {
+        "title": "Aloqa",
+        "description": "Telegramʼda biz bilan bog‘lanish yo‘llari va operator ish vaqti."
       }
     },
     "nav": {
@@ -318,7 +332,33 @@
           }
         }
       }
+    },
+    "contacts": {
+      "support": {
+        "title": "Yordam xizmati",
+        "text": "Buyurtma, to‘lov yoki hamyon bo‘yicha savollar uchun.",
+        "cta": "Yordamga yozish"
+      },
+      "bot": {
+        "title": "Telegram bot",
+        "text": "Xarid qilish va buyurtma holatini kuzatish uchun.",
+        "cta": "Botni ochish"
+      },
+      "channel": {
+        "title": "Telegram kanal",
+        "text": "Yangiliklar va eʼlonlar.",
+        "cta": "Kanalga o‘tish"
+      },
+      "hours": {
+        "title": "Operator ish vaqti"
+      }
     }
+  },
+  "legal": {
+    "draftNotice": "Hujjat tayyorlanmoqda.",
+    "contact": "Aloqa",
+    "updated": "Kuchga kirgan sana: {date}",
+    "toc": "Mundarija"
   },
   "store": {
     "catalog": {
@@ -789,7 +829,9 @@
     },
     "footer": {
       "copyright": "© {year} {brand}",
-      "contact": "Aloqa"
+      "contact": "Aloqa",
+      "terms": "Ommaviy oferta",
+      "privacy": "Maxfiylik siyosati"
     }
   },
   "account": {
@@ -920,6 +962,10 @@
           "label": "Animatsiyalarni kamaytirish",
           "hint": "Eski qurilmalarda tezroq ishlashi uchun"
         }
+      },
+      "legal": {
+        "terms": "Ommaviy oferta",
+        "privacy": "Maxfiylik siyosati"
       }
     },
     "referral": {
@@ -942,7 +988,7 @@
       "faqLabel": "Ko‘p beriladigan savollar",
       "ask": {
         "title": "Savolingiz qoldimi?",
-        "hours": "Har kuni 09:00–23:00",
+        "hours": "Har kuni 09:00⁠–⁠23:00",
         "cta": "Operatorga yozish",
         "note": "Telegramʼda {handle} bilan chat ochiladi",
         "noteExternal": "Qo‘llab-quvvatlash sahifasi ochiladi",
@@ -956,7 +1002,7 @@
         "q3": "Buyurtma bajarilmasa pulim nima bo‘ladi?",
         "a3": "Pul avtomatik ravishda balansingizga qaytadi va “Moliya” bo‘limida ko‘rinadi.",
         "q4": "Balansni qanday to‘ldiraman?",
-        "a4": "“Hisobni to‘ldirish”da summani tanlang, so‘ng ko‘rsatilgan Humo yoki Uzcard kartasiga istalgan bank ilovasidan aynan shu summani o‘tkazing. Pul 1–2 daqiqada tushadi.",
+        "a4": "“Hisobni to‘ldirish”da summani tanlang, so‘ng ko‘rsatilgan Humo yoki Uzcard kartasiga istalgan bank ilovasidan aynan shu summani o‘tkazing. Pul 1⁠–⁠2 daqiqada tushadi.",
         "q5": "Keshbek tangalari nima?",
         "a5": "Keshbek tangalari — xaridlar uchun beriladigan bonus. Ulardan foydalanish imkoniyatlari keyingi yangilanishlarda qo‘shiladi.",
         "q6": "Balansdagi pulni qaytarib olsam bo‘ladimi?",

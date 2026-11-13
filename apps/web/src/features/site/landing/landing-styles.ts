@@ -43,6 +43,19 @@ export const LANDING_CTA_SECONDARY = cn(
   LINK_FOCUS,
 );
 
+/** The FAQ block's two columns (heading, accordion), one column when narrow; the FAQ page's too. */
+export const LANDING_FAQ_GRID =
+  'grid grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))] items-start gap-x-16 gap-y-8';
+
+/**
+ * The small outlined link button of the FAQ block ("Yordamga yozish", Site.dc.html `#savollar`),
+ * also used by the FAQ page and the contact cards.
+ */
+export const LANDING_OUTLINE_LINK = cn(
+  'flex min-h-11 items-center gap-2 self-start rounded-control border-[1.5px] border-border px-4 py-2 text-sm leading-none font-bold text-foreground no-underline hover:bg-muted hover:text-foreground',
+  LINK_FOCUS,
+);
+
 /** The product grid, shared by the live block and its skeleton so that the two line up. */
 export const PRODUCT_GRID =
   'm-0 grid list-none grid-cols-[repeat(auto-fill,minmax(max(156px,18vw),1fr))] gap-[clamp(12px,1.4vw,20px)] p-0';

@@ -25,14 +25,16 @@ describe('the SEO product registry', () => {
     for (const product of SEO_PRODUCTS) {
       const page = SITE_PAGES.find((candidate) => candidate.path === product.path);
       expect(page, product.slug).toBeDefined();
+      expect(page?.kind, product.slug).toBe('product');
       expect(page?.indexable, product.slug).toBe(true);
     }
-    // Every page of the site registry but the home is a product page, or one of a later slice.
-    const productPaths = new Set<string>(SEO_PRODUCTS.map((product) => product.path));
-    for (const page of SITE_PAGES) {
-      if (page.path === '/') continue;
-      expect(productPaths.has(page.path), page.path).toBe(true);
-    }
+    // The registry's product pages are exactly the products of this registry: the other kinds
+    // (the home, the FAQ, the contacts, the legal texts) are not product pages.
+    const productPaths = SEO_PRODUCTS.map((product) => product.path).sort();
+    const registryProducts = SITE_PAGES.filter((page) => page.kind === 'product').map(
+      (page) => page.path,
+    );
+    expect(registryProducts.sort()).toEqual(productPaths);
   });
 
   it('a path is the slug (the folder under (marketing) and the catalog slug are one name)', () => {

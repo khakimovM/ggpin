@@ -5,7 +5,6 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { requestNonce } from '../../../csp/request-nonce';
 import { env } from '../../../env';
-import { getLandingFaq } from '../../../features/site/landing/faq-items';
 import { FaqSection } from '../../../features/site/landing/FaqSection';
 import { FinalCta } from '../../../features/site/landing/FinalCta';
 import { Hero } from '../../../features/site/landing/Hero';
@@ -13,7 +12,7 @@ import { HowItWorks } from '../../../features/site/landing/HowItWorks';
 import { ProductsSection } from '../../../features/site/landing/ProductsSection';
 import { WhyUs } from '../../../features/site/landing/WhyUs';
 import { JsonLd } from '../../../features/site/seo/JsonLd';
-import { faqLd, organizationLd, websiteLd } from '../../../features/site/seo/json-ld';
+import { organizationLd, websiteLd } from '../../../features/site/seo/json-ld';
 import { pageMetadata, pageUrl } from '../../../features/site/seo/page-metadata';
 import { siteLinks } from '../../../features/site/shell/site-links';
 import { routing } from '../../../i18n/routing';
@@ -38,14 +37,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * The landing (Site.dc.html `page: landing`, hero `classic`): hero, products, how it works, why
  * us, FAQ, final call to action. A server component all the way: the only client code on the page
  * is the site header's menu and the product pictures. The referral band of the design is left out
- * until the referral percentage is decided (phase 10).
+ * until the referral percentage is decided (phase 10). The FAQ block has no `FAQPage` JSON-LD:
+ * that lives only on `/faq`, which asks all these questions and more (one page per question set).
  */
 export default async function HomePage({ params }: Props) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
   const nonce = await requestNonce();
-  const faq = await getLandingFaq(locale);
   const { bot, channel } = siteLinks();
 
   return (
@@ -66,7 +65,6 @@ export default async function HomePage({ params }: Props) {
           inLanguage: locale,
         })}
       />
-      <JsonLd nonce={nonce} data={faqLd(faq)} />
       <Hero locale={locale} />
       <ProductsSection locale={locale} />
       <HowItWorks locale={locale} />

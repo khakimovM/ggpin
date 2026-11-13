@@ -15,6 +15,11 @@ export interface FaqAccordionProps {
    * accordions on one page need different names.
    */
   group?: string;
+  /**
+   * The heading level of the questions: 3 under a section's h2 (the landing, a product page), 2
+   * where the accordion is the page itself, under its h1 (the FAQ page): no level is skipped.
+   */
+  questionLevel?: 2 | 3;
 }
 
 /**
@@ -22,7 +27,13 @@ export interface FaqAccordionProps {
  * answer in the HTML, a keyboard opens an item with Enter or Space) and the browser keeps one
  * item open at a time through the shared `name`. Used by the landing, and by the FAQ page.
  */
-export function FaqAccordion({ items, openIndex = 0, group = 'faq' }: FaqAccordionProps) {
+export function FaqAccordion({
+  items,
+  openIndex = 0,
+  group = 'faq',
+  questionLevel = 3,
+}: FaqAccordionProps) {
+  const Question = questionLevel === 2 ? 'h2' : 'h3';
   return (
     <div className="overflow-hidden rounded-3xl border border-border bg-card">
       {items.map((item, index) => (
@@ -33,9 +44,9 @@ export function FaqAccordion({ items, openIndex = 0, group = 'faq' }: FaqAccordi
           className="group border-b border-border"
         >
           <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-base leading-[22px] font-bold hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-            <h3 className="m-0 min-w-0 flex-1 text-base leading-[22px] font-bold">
+            <Question className="m-0 min-w-0 flex-1 text-base leading-[22px] font-bold">
               {item.question}
-            </h3>
+            </Question>
             <Icon
               icon={ChevronDown}
               size={20}

@@ -1,6 +1,7 @@
 import { env } from '../../../env';
 import type { ClientEnv } from '../../../env-schema';
 import { supportLink } from '../../../telegram/support-link';
+import { configuredTelegramUrl } from '../../../telegram/t-me-url';
 
 // Where the website sends a visitor outside itself. Every link comes from configuration and is
 // `null` when that configuration is empty: the page then draws no link at all (a dead or
@@ -22,18 +23,18 @@ export interface SiteLinks {
   support: string | null;
 }
 
-const CHANNEL_PREFIX = 'https://t.me/';
+const BOT_PREFIX = 'https://t.me/';
 
 export function siteLinks(source: SiteLinkEnv = env): SiteLinks {
   const username = source.NEXT_PUBLIC_BOT_USERNAME.trim();
   const channel = source.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL.trim();
   const support = supportLink(source.NEXT_PUBLIC_SUPPORT_URL.trim());
   return {
-    bot: username === '' ? null : `${CHANNEL_PREFIX}${username}`,
+    bot: username === '' ? null : `${BOT_PREFIX}${username}`,
     botHandle: username === '' ? null : `@${username}`,
-    // The env schema already allows only https://t.me/...; a second check here keeps a look-alike
-    // host out of an href even if the schema is ever loosened.
-    channel: channel.startsWith(CHANNEL_PREFIX) ? channel : null,
+    // The same rule the env schema normalised the value with (t-me-url.ts), not a second, looser
+    // one: a value the schema would refuse never becomes an href, even from a hand-made source.
+    channel: channel === '' ? null : configuredTelegramUrl(channel),
     support: support.kind === 'none' ? null : support.href,
   };
 }

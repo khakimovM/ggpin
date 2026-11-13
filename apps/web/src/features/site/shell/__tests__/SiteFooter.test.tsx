@@ -20,8 +20,10 @@ vi.mock('../../seo/site-pages', async (original) => {
   };
 });
 
+// The footer does not read a page's kind; every test page is given one.
 const page = (path: SitePage['path'], indexable = true): SitePage => ({
   path,
+  kind: 'product',
   indexable,
   lastModified: '2026-11-12',
   changeFrequency: 'monthly',

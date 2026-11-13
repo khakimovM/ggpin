@@ -3,8 +3,10 @@ import { buildSitemap } from './build-sitemap';
 import { indexablePages, SITE_PAGES, type SitePage } from './site-pages';
 
 const SITE = 'https://ggpin.example';
+// The sitemap does not read a page's kind; every test page is given one.
 const page = (path: SitePage['path'], indexable = true): SitePage => ({
   path,
+  kind: 'product',
   indexable,
   lastModified: '2026-11-11',
   changeFrequency: 'monthly',
@@ -78,5 +80,16 @@ describe('the page registry', () => {
 
   it('indexablePages drops drafts', () => {
     expect(indexablePages([page('/a'), page('/b', false)]).map((p) => p.path)).toEqual(['/a']);
+  });
+});
+
+describe('the kinds of the registry', () => {
+  it('has one home, one FAQ page, one contacts page and the two legal texts', () => {
+    const byKind = (kind: SitePage['kind']) =>
+      SITE_PAGES.filter((p) => p.kind === kind).map((p) => p.path);
+    expect(byKind('home')).toEqual(['/']);
+    expect(byKind('faq')).toEqual(['/faq']);
+    expect(byKind('contacts')).toEqual(['/contacts']);
+    expect(byKind('legal').sort()).toEqual(['/privacy', '/terms']);
   });
 });
