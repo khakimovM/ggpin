@@ -4,6 +4,7 @@ import type { DestinationStream } from 'pino';
 import { BankFeedModule } from './bank-feed/bank-feed.module';
 import { TopupExpireModule } from './bank-feed/topup-expire.module';
 import { WorkerConfigModule, type WorkerConfig } from './config/config.module';
+import { FulfillmentModule } from './fulfillment/fulfillment.module';
 import { HeartbeatModule } from './heartbeat/heartbeat.module';
 import { buildLoggerParams } from './logging/logger-params';
 import { PrismaModule } from './infra/prisma/prisma.module';
@@ -42,6 +43,8 @@ export class WorkerModule {
         ReconcileModule,
         // Phase 5 S5: the hot wallet (dry run: a throw-away key on a fake chain, plan §8).
         TonModule,
+        // Phase 5 S4: the fulfill-order consumer (dry run: simulators + the in-memory chain).
+        FulfillmentModule,
       ],
     };
   }

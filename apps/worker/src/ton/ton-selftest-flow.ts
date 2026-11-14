@@ -1,12 +1,11 @@
 import type { TonTransferStatus } from '@repo/db';
-import { parseMajor } from '@repo/shared';
+import { coversPayout, parseMajor, type TonLimits } from '@repo/shared';
 import { beginCell, type Address, type Cell } from '@ton/core';
 import type { WorkerConfig } from '../config/config.module';
 import { rawAddress } from './ton-address';
 import type { TonConfirmService } from './ton-confirm.service';
 import { errorKind } from './ton-db-errors';
 import type { TonGateway } from './ton-gateway';
-import { coversPayout, type TonLimits } from './ton-limits';
 import type { TonWalletLock } from './ton-lock';
 import type { TonNetwork } from './ton-mnemonic';
 import type { TonTransferRepository } from './ton-transfer.repository';

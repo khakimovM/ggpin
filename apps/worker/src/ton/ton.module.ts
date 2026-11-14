@@ -86,6 +86,7 @@ import type { TonWallet } from './ton-wallet';
     TonSenderService,
     TonBalanceMonitor,
   ],
-  exports: [TonSenderService, TonConfirmService, TON_HOT_WALLET_ADDRESS],
+  // TON_PAY_ADDRESSES: the fulfillment core checks a prepared payee before SENDING (S4 audit L-4).
+  exports: [TonSenderService, TonConfirmService, TON_HOT_WALLET_ADDRESS, TON_PAY_ADDRESSES],
 })
 export class TonModule {}

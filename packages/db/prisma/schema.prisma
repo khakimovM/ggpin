@@ -866,7 +866,7 @@ model TonTransfer {
   validUntil    DateTime
   toAddress     String
   amountNanoTon BigInt
-  payloadHash   String // sha256 hex of the payload Fragment asked us to send
+  payloadHash   String // cell hash (hex) of the payload Fragment asked us to send (Cell.hash())
   extMsgHash    String              @unique // normalized external message hash
   bocBase64     String // the signed message (not a secret: proof instead of re-signing)
   status        TonTransferStatus

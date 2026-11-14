@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { coversPayout } from '@repo/shared';
 import type { Address } from '@ton/core';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { parseTonAddress, rawAddress } from './ton-address';
 import { TonConfirmService } from './ton-confirm.service';
 import { errorKind } from './ton-db-errors';
 import { TonGatewayError, type TonAccountState, type TonGateway } from './ton-gateway';
-import { coversPayout } from './ton-limits';
 import type { TonLease, TonWalletLock } from './ton-lock';
 import { blocksWallet, heldNotices, walletBlockedNotice } from './ton-notices';
 import { TonNotifier } from './ton-notifier';

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { workerBankFeedProblems, workerBankFeedShape } from './bank-feed-env';
 import { bankFeedKeySource, forgetBankFeedKey, type SecretFileReader } from './secret-file';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
+import { simulatedPayeeProblems } from './simulated-payee';
 import { forgetWalletSecrets, walletKeySource, workerTonProblems, workerTonShape } from './ton-env';
 import { TonApiKey } from './ton-api-key';
 import { workerTopupProblems, workerTopupShape } from './topup-env';
@@ -150,6 +151,7 @@ export function loadEnv(
     problems.push(...workerTopupProblems(data));
     problems.push(...workerBankFeedProblems(data, production));
     problems.push(...workerTonProblems(data, clean));
+    problems.push(...simulatedPayeeProblems(data, production));
   }
 
   if (data === null || problems.length > 0) throw new EnvValidationError(problems);

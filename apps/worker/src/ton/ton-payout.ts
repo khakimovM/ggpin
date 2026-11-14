@@ -1,7 +1,6 @@
 import type { AttemptStatus, TonTransferStatus } from '@repo/db';
-import type { OrderStatus, OrderStatusReason } from '@repo/shared';
+import type { OrderStatus, OrderStatusReason, TonLimitRefusal } from '@repo/shared';
 import type { Cell } from '@ton/core';
-import type { TonLimitRefusal } from './ton-limits';
 
 // The contract between the TON module (S5) and the fulfillment core / the Fragment adapter (S4,
 // S8). `pay` is called only after the FulfillmentAttempt row was committed SENDING (rules/45 step

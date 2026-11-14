@@ -184,3 +184,52 @@ export function balanceAfterPurchase(balanceTiyin: string, totalTiyin: string): 
   const left = BigInt(balanceTiyin) - BigInt(totalTiyin);
   return left < 0n ? null : left.toString();
 }
+
+// ---- Hot-wallet payout limits (rules/45, docs/06 "Limitlar"; moved here from the worker's TON
+// module so the money math lives in one module). Pure bigint comparisons in nanotons: the rolling
+// 24 h sum is read by the worker inside its signing transaction. "Exactly at the limit" is
+// allowed; one nanoton more is refused (the order is HELD).
+
+export interface TonLimits {
+  readonly perOrderMaxNano: bigint;
+  readonly dailyMaxNano: bigint;
+}
+
+export type TonLimitRefusal = 'LIMIT_PER_ORDER' | 'LIMIT_DAILY';
+
+export type TonLimitVerdict =
+  { readonly ok: true } | { readonly ok: false; readonly reason: TonLimitRefusal };
+
+/**
+ * `spentLast24hNano` counts EVERY transfer of the wallet of the last 24 hours, whatever its status:
+ * the EXPIRED ones (provably never sent) too, and the bounced and failed ones. Conservative (audit
+ * I-4, D-60 (2)): a payout re-signed after EXPIRED counts twice towards the daily limit, so the
+ * limit can only refuse earlier, never let more out. The per-order limit is checked first.
+ */
+export function checkTonLimits(
+  amountNano: bigint,
+  spentLast24hNano: bigint,
+  limits: TonLimits,
+): TonLimitVerdict {
+  requireBigInt(amountNano, 'a TON payout', 1n);
+  requireBigInt(spentLast24hNano, 'the spent sum', 0n);
+  if (amountNano > limits.perOrderMaxNano) return { ok: false, reason: 'LIMIT_PER_ORDER' };
+  if (spentLast24hNano + amountNano > limits.dailyMaxNano) {
+    return { ok: false, reason: 'LIMIT_DAILY' };
+  }
+  return { ok: true };
+}
+
+/** The balance pays the amount and keeps the fee reserve (D-56 (12): fees are not in maxCost). */
+export function coversPayout(
+  balanceNano: bigint,
+  amountNano: bigint,
+  feeReserveNano: bigint,
+): boolean {
+  return balanceNano >= amountNano + feeReserveNano;
+}
+
+/** Under the alert threshold (TON_MIN_BALANCE_ALERT_NANO): the owner is told. */
+export function isLowBalance(balanceNano: bigint, alertBelowNano: bigint): boolean {
+  return balanceNano < alertBelowNano;
+}

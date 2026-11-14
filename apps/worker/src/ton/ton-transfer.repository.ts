@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, TonTransferStatus, Tx } from '@repo/db';
+import { checkTonLimits, type TonLimits } from '@repo/shared';
 import { isUniqueViolation } from '../bank-feed/prisma-errors';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { isGuardRefusal } from './ton-db-errors';
-import { checkTonLimits, type TonLimits } from './ton-limits';
 import type { TonNetwork } from './ton-mnemonic';
 import type { TonHoldReason, TonStopReason } from './ton-payout';
 import {
@@ -153,6 +153,8 @@ export class TonTransferRepository {
   /**
    * The TON hold of a HELD order and the attempt it failed, or null: a replay re-sends that
    * hold's notices under the same ids, a later hold (another attempt) gets new ones (review m7).
+   * The order's LATEST attempt must be that hold (S4 CR m4): an older TON hold followed by a hold
+   * of another kind (the core's TON_NOT_SENT_*) is not this order's hold any more.
    */
   async tonHoldOf(orderId: string): Promise<TonHold | null> {
     const order = await this.prisma.client.order.findUnique({
@@ -161,12 +163,12 @@ export class TonTransferRepository {
     });
     if (order?.status !== 'HELD') return null;
     const attempt = await this.prisma.client.fulfillmentAttempt.findFirst({
-      where: { orderId, status: 'FAILED', error: { in: [...HOLD_ERRORS] } },
+      where: { orderId },
       orderBy: { attemptNo: 'desc' },
-      select: { id: true, error: true },
+      select: { id: true, status: true, error: true },
     });
     const error = HOLD_ERRORS.find((known) => known === attempt?.error);
-    if (attempt === null || error === undefined) return null;
+    if (attempt?.status !== 'FAILED' || error === undefined) return null;
     const reason = holdReasonOf(error);
     return order.statusReason === reason ? { reason, attemptId: attempt.id } : null;
   }

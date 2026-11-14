@@ -32,9 +32,12 @@ const UNKNOWN = '?';
  * the raw refId (our own id, from the worker) to look it up.
  *
  * refIds (worker ton-notices, docs/06 "S6 uchun"): needsReview / reviewResolved /
- * heldExpiredRefunded = orderId; held / tonDailyLimit = `<orderId>_<attemptId>`; tonLowBalance =
- * the WalletSnapshot; ton* transfer alerts = the TonTransfer; workerDown = the outage start;
- * queueStuck = `<jobId>_<added ms>` (the job id is the order id, alertRef.queueStuck).
+ * heldExpiredRefunded = orderId (an abandoned fulfill-order job: `<orderId>_abandoned`, so the
+ * plain id stays free for a later real review); held / tonDailyLimit = `<orderId>_<attemptId>`
+ * (a core hold: `<orderId>_<HELD OrderEvent id>`); tonLowBalance = the WalletSnapshot; ton*
+ * transfer alerts = the TonTransfer; workerDown = the outage start; queueStuck =
+ * `<jobId>_<first seen ms>` (the job id is the order id, alertRef.queueStuck). Composite refIds are
+ * resolved to the order through refIdSubject.
  */
 @Injectable()
 export class FulfillmentAlertRenderer {

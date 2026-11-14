@@ -6,11 +6,17 @@ import {
   redactLogRecord,
   redactSecrets,
   scrubSecretsInText,
+  type RedactionOptions,
 } from '@repo/shared';
 import type { WorkerConfig } from '../config/config.module';
 
 // `err` is redacted by its own serializer, so the record formatter skips it.
 const SERIALIZED_KEYS: ReadonlySet<string> = new Set(['err']);
+
+// Prisma and Postgres errors are rebuilt from an allowlist (what failed and where, never the
+// call's data), as in apps/api: a validation error renders the whole `data` argument into its
+// message, a Postgres error its failing row into `detail` (phase 5 S2 audit L3, S4).
+const LOG_POLICY: RedactionOptions = { databaseErrors: true };
 
 export type LoggerConfig = Pick<WorkerConfig, 'LOG_LEVEL' | 'NODE_ENV'>;
 
@@ -30,9 +36,9 @@ export function buildLoggerParams(config: LoggerConfig, destination?: Destinatio
     base: { service: 'worker' },
     timestamp: stdTimeFunctions.isoTime,
     formatters: {
-      log: (record) => redactLogRecord(record, SERIALIZED_KEYS),
+      log: (record) => redactLogRecord(record, SERIALIZED_KEYS, LOG_POLICY),
       // Root bindings (`base`). Pino resets this formatter for child loggers, see onChild.
-      bindings: (bindings) => redactLogRecord(bindings, SERIALIZED_KEYS),
+      bindings: (bindings) => redactLogRecord(bindings, SERIALIZED_KEYS, LOG_POLICY),
       // pino-pretty reads numeric levels; JSON consumers prefer labels.
       ...(pretty ? {} : { level: (label: string) => ({ level: label }) }),
     },
@@ -40,7 +46,7 @@ export function buildLoggerParams(config: LoggerConfig, destination?: Destinatio
     // `formatters.log` and `formatters.bindings`; this rewrites the child's stored bindings.
     onChild: (child) => redactChildBindings(child, symbols.chindingsSym),
     serializers: {
-      err: redactSecrets,
+      err: (error: unknown) => redactSecrets(error, LOG_POLICY),
       // A message such as `connect failed redis://user:pw@host` is free text.
       msg: (message: unknown) =>
         typeof message === 'string' ? scrubSecretsInText(message) : message,

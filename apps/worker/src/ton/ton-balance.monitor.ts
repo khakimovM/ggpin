@@ -5,10 +5,10 @@ import {
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from '@nestjs/common';
+import { isLowBalance } from '@repo/shared';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { errorKind } from './ton-db-errors';
 import type { TonGateway } from './ton-gateway';
-import { isLowBalance } from './ton-limits';
 import { blocksWallet, walletBlockedNotice } from './ton-notices';
 import { TonNotifier } from './ton-notifier';
 import { TonSnapshotRepository } from './ton-snapshot.repository';
