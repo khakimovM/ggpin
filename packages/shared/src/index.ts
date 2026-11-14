@@ -20,6 +20,7 @@ export * from './money';
 export * from './money-pricing';
 export * from './money-schemas';
 export * from './notify';
+export * from './notify-fulfillment';
 export * from './order-state';
 export * from './orders/order-schemas';
 export * from './orders/order-status-reason';

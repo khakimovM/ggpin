@@ -46,8 +46,9 @@ export const FULFILLMENT_ALERT_KINDS = [
   // address that is not ours, so the wallet is compromised (owner decision A3). CRITICAL security
   // incident; emitted by the owner CLI (S10) right after the resolution commits.
   'tonWalletCompromised',
-  // The oldest waiting fulfill-order job is older than 5 minutes: the worker is down or not taking
-  // jobs (API watchdog; emitted even while the heartbeat is alive, e.g. a crash loop).
+  // One waiting fulfill-order job has not been taken for 5 minutes since the API watchdog first saw
+  // it: the worker is down or not taking jobs (emitted even while the heartbeat is alive, e.g. a
+  // crash loop; one alert per stuck episode, docs/07).
   'queueStuck',
   'workerDown',
 ] as const;

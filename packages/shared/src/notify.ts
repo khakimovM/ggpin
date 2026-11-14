@@ -67,6 +67,9 @@ export const notifyJobSchema = z.discriminatedUnion('kind', [
 ]);
 export type NotifyJob = z.infer<typeof notifyJobSchema>;
 
+// A cuid order id; no `_`, so refIdSubject reads it back from a queueStuck ref.
+const PLAIN_JOB_ID = /^[A-Za-z0-9]{1,40}$/;
+
 /**
  * `refId` of the alerts whose subject is not a single row (docs/05 "Ogohlantirishlar jadvali"):
  * `walletFrozen` is one per ledger write, `cardSilent` one per silent period (the last CREDIT
@@ -91,6 +94,15 @@ export const alertRef = {
     `${source}_${reason}_${String(Math.floor(at.getTime() / 3_600_000))}`,
   // The listener bound a working account for the first time (D-52 r2, review L-B): the hour.
   accountBound: (at: Date): string => String(Math.floor(at.getTime() / 3_600_000)),
+  // One per worker outage (D-34 (12), phase 5 S6): the last time the API's watchdog saw the worker
+  // heartbeat, epoch ms. Every API instance reads it from Redis, so they all build the same id.
+  workerDown: (lastSeen: Date): string => String(lastSeen.getTime()),
+  // One per stuck episode (S6 review M2, re-review): the job id (= the order id) and when the
+  // API watchdog first saw it waiting (Redis clock), so the same order waiting again later (a
+  // retry, a re-enqueue) is a new alert. A job id that is not a plain id is never copied into the
+  // ref (`job` instead; the time still tells episodes apart).
+  queueStuck: (jobId: string | undefined, firstSeen: Date): string =>
+    `${jobId !== undefined && PLAIN_JOB_ID.test(jobId) ? jobId : 'job'}_${String(firstSeen.getTime())}`,
 } as const;
 
 /** Why the bank-feed listener stopped for good (alert `listenerStopped`, D-52). */

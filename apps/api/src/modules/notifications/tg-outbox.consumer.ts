@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { describeErrorForLog, tgOutboxJobSchema } from '@repo/shared';
+import { TG_OUTBOX_PRIORITY, describeErrorForLog, tgOutboxJobSchema } from '@repo/shared';
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq';
 import { GrammyError } from 'grammy';
 import { CLOCK, type Clock } from '../../common/clock/clock';
@@ -15,6 +15,14 @@ import {
 import { TG_OUTBOX_SENDER, type TgOutboxSender } from './tg-outbox.sender';
 
 const CHAT_GAP_MS = 1_000;
+// A gated ordinary message comes back this much after the gate opens (plus a random share of the
+// spread, so a flood does not return in one burst); a critical one comes back exactly when it
+// opens. Audit M-1 (b), re-review: priority alone is lost in the delayed set, which is ordered by
+// time, so the return time itself carries the priority.
+const NORMAL_GATE_OFFSET_MS = 250;
+const NORMAL_GATE_SPREAD_MS = 250;
+// PTTL said the gate is already gone (-2): try again almost at once.
+const GATE_GONE_RETRY_MS = 5;
 const MIN_RETRY_AFTER_MS = 1_000;
 const MAX_LOGGED_ERROR_CHARS = 200;
 const BLOCKED_BY_USER = /bot was blocked by the user|user is deactivated/i;
@@ -23,7 +31,9 @@ export const chatGateKey = (chatId: string): string => `tg-outbox:chat:${chatId}
 
 /**
  * Sends one outbox message. Retry policy lives here, not in the transport:
- * - per chat at most 1 message/s (Redis `SET NX PX`): a second message is delayed, not dropped;
+ * - per chat at most 1 message/s (Redis `SET NX PX`): a second message is delayed, not dropped,
+ *   until the gate opens (its PTTL): a critical job exactly then, an ordinary one 250-500 ms later,
+ *   so a critical alert that arrives during a flood is the next message to that chat;
  * - 429: delay by `retry_after` via moveToDelayed + DelayedError, which does not consume an
  *   attempt (BullMQ calls moveToDelayed with skipAttempt: true);
  * - 403 blocked/deactivated: flag the user, never retry; any other 400: never retry (deterministic);
@@ -70,7 +80,8 @@ export class TgOutboxConsumer {
     );
     if (gate === null) {
       this.log(job, 'chat-throttled', data.chatId);
-      await this.delay(job, token, CHAT_GAP_MS);
+      const gateTtl = await this.redis.client.pttl(chatGateKey(data.chatId));
+      await this.delay(job, token, gateDelayMs(gateTtl, job.opts.priority));
     }
 
     try {
@@ -125,6 +136,21 @@ export class TgOutboxConsumer {
     ];
     this.logger.log(parts.join(' '));
   }
+}
+
+/**
+ * How long a gated job waits (ms), from the gate's remaining PTTL: a critical job until the gate
+ * opens, any other one 250-500 ms after that. -2 (the gate just expired): retry at once; -1 (no
+ * expiry, never written that way): a full gap.
+ */
+export function gateDelayMs(
+  gateTtl: number,
+  priority: number | undefined,
+  random: () => number = Math.random,
+): number {
+  const opensIn = gateTtl === -2 ? GATE_GONE_RETRY_MS : gateTtl < 0 ? CHAT_GAP_MS : gateTtl;
+  if (priority === TG_OUTBOX_PRIORITY.critical) return Math.max(opensIn, 1);
+  return opensIn + NORMAL_GATE_OFFSET_MS + Math.floor(random() * NORMAL_GATE_SPREAD_MS);
 }
 
 // A database error (a user lookup that failed) is described from names only (review M1).

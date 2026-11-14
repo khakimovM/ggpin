@@ -33,7 +33,10 @@ function setup(gate: 'OK' | null = 'OK') {
   const send = jest.fn<Promise<void>, [TgOutboxJob]>().mockResolvedValue(undefined);
   const sender: TgOutboxSender = { send };
   const redisSet = jest.fn().mockResolvedValue(gate);
-  const redis = { client: { set: redisSet } } as unknown as RedisService;
+  // The gate's remaining PTTL when it is taken (a normal job then waits it + 250-500 ms).
+  const redis = {
+    client: { set: redisSet, pttl: () => Promise.resolve(900) },
+  } as unknown as RedisService;
   const markBotBlocked = jest.fn().mockResolvedValue(undefined);
   const users = { markBotBlocked } as unknown as UsersService;
   const config = { MINI_APP_URL: 'https://shop.test/tg', WEB_URL: 'https://site.test' };
@@ -46,7 +49,13 @@ function setup(gate: 'OK' | null = 'OK') {
   );
   const moveToDelayed = jest.fn().mockResolvedValue(undefined);
   const job = (data: unknown): Job =>
-    ({ id: 'order-abc-delivered', data, attemptsMade: 0, moveToDelayed }) as unknown as Job;
+    ({
+      id: 'order-abc-delivered',
+      data,
+      attemptsMade: 0,
+      opts: {},
+      moveToDelayed,
+    }) as unknown as Job;
   return { consumer, send, redisSet, markBotBlocked, moveToDelayed, job };
 }
 

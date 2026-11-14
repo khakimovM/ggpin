@@ -10,6 +10,7 @@ import {
 } from './env-security';
 import { topupEnvProblems, topupTuningProblems, topupTuningShape } from './topup-env';
 import { parseTrustedProxies } from './trust-proxy';
+import { watchdogShape } from './watchdog-env';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = (fallback: 'true' | 'false') =>
@@ -156,6 +157,7 @@ const EnvSchema = z
     ),
     // Suffix range, TTL, grace, new-account age and bank-feed heartbeat age (topup-env.ts).
     ...topupTuningShape,
+    ...watchdogShape,
     // Keys the HMAC of the pay-link capability token (D-39). API-only; rotating it kills every
     // open pay link (docs/05 runbook). Production strength: env-security.ts.
     PAY_TOKEN_PEPPER: z.string(),

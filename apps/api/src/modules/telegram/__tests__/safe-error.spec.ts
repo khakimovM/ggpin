@@ -1,4 +1,4 @@
-import { HttpError } from 'grammy';
+import { BotError, HttpError, type Context } from 'grammy';
 import { TEST_BOT_TOKEN } from '../../../config/__tests__/test-env';
 import { safeErrorText } from '../safe-error';
 
@@ -33,7 +33,39 @@ describe('safeErrorText', () => {
     expect(text).not.toMatch(/needle_user|998901234567/);
   });
 
+  // S2 review nit 2: grammY keeps the handler's error in BotError.error (not `cause`) and repeats
+  // its message in its own; the inner error must be what is described.
+  it('a BotError wrapping a database error: names only, no value from either message', () => {
+    class PrismaClientValidationError extends Error {
+      override name = 'PrismaClientValidationError';
+    }
+    const rendered = 'Invalid `tx.user.update()` invocation in\n  data: { phone: "998901234567" }';
+    const botError = new BotError(new PrismaClientValidationError(rendered), {} as Context);
+    expect(botError.message).toContain('998901234567'); // grammY repeats it: the reason for this
+    const text = safeErrorText(botError);
+    expect(text).toBe(
+      'BotError caused by PrismaClientValidationError: Invalid `tx.user.update()` invocation in',
+    );
+    expect(text).not.toContain('998901234567');
+  });
+
+  it('a BotError wrapping an HttpError: the token is scrubbed', () => {
+    const url = `https://api.telegram.org/bot${TEST_BOT_TOKEN}/sendMessage`;
+    const inner = new HttpError(`request to ${url} failed`, new Error('ETIMEDOUT'));
+    const text = safeErrorText(new BotError(inner, {} as Context));
+    expect(text.startsWith('BotError caused by HttpError')).toBe(true);
+    expect(text).not.toContain(TEST_BOT_TOKEN);
+  });
+
+  it('a BotError around a non-Error value does not echo it', () => {
+    const text = safeErrorText(new BotError(`secret ${TEST_BOT_TOKEN}`, {} as Context));
+    expect(text).toBe('BotError caused by non-Error thrown');
+  });
+
   it('is bounded to 300 characters', () => {
+    expect(safeErrorText(new BotError(new Error('x'.repeat(5000)), {} as Context)).length).toBe(
+      300,
+    );
     expect(safeErrorText(new Error('x'.repeat(5000))).length).toBeLessThanOrEqual(300);
   });
 

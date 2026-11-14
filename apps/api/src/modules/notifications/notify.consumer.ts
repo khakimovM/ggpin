@@ -1,23 +1,29 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   BankFeedAlertKindSchema,
+  FulfillmentAlertKindSchema,
+  describeErrorForLog,
   notifyJobId,
   notifyJobSchema,
   ownerAlertChatIds,
   ownerAlertOutboxJobId,
-  type BankFeedAlertKind,
+  ownerAlertPriority,
   type NotifyJob,
   type TgInlineKeyboard,
 } from '@repo/shared';
 import { UnrecoverableError, type Job } from 'bullmq';
-import { translate } from '../../common/i18n/translate';
+import { CLOCK, type Clock } from '../../common/clock/clock';
+import { TranslationError, translate } from '../../common/i18n/translate';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { miniAppUrl } from '../telegram/mini-app-url';
+import { FulfillmentAlertRenderer } from './fulfillment-alert.renderer';
 import { NotifySourcesRepository } from './notify-sources.repository';
+import { OrderNotifyRenderer, OrderSourceMissingError } from './order-notify.renderer';
+import { ownerAlertFallbackText } from './owner-alert.fallback';
 import { AlertSourceMissingError, OwnerAlertRenderer, moneyText } from './owner-alert.renderer';
 import { TgOutboxEnqueuer } from './tg-outbox.enqueuer';
 
-export type NotifyOutcome = 'queued' | 'skipped-blocked' | 'skipped-reversed';
+export type NotifyOutcome = 'queued' | 'skipped-blocked' | 'skipped-reversed' | 'skipped-stale';
 
 /**
  * No OWNER_ALERT_CHAT_ID configured (dev/test only; production refuses to boot without it). The
@@ -32,22 +38,35 @@ export class OwnerChatMissingError extends Error {
 }
 
 type TopupJob = Extract<NotifyJob, { kind: 'TOPUP_CREDITED' | 'TOPUP_LATE_CREDITED' }>;
+type OrderJob = Extract<NotifyJob, { kind: `ORDER_${string}` }>;
+type OwnerAlertJob = Extract<NotifyJob, { kind: 'OWNER_ALERT' }>;
+/** What the consumer reads of a BullMQ job; the attempt fields decide the last-attempt fallback. */
+export type NotifyJobLike = Pick<Job, 'id' | 'data'> & Partial<Pick<Job, 'attemptsMade' | 'opts'>>;
+
+const MAX_LOGGED_ERROR_CHARS = 200;
 
 /**
  * Consumer of `notify` (worker -> API, notify.ts in shared). The job names WHAT happened; this
  * reads the rows, renders the text in the addressee's language (HTML-escaped by `translate`)
- * and hands it to `tg-outbox`, which sends it. A top-up message's outbox job id is the notify
- * job id (`topup-<paymentId>`), so a repeated notify job queues ONE message; an owner alert's is
- * the notify id plus the recipient (`alert-<kind>-<refId>-<chatId>`, D-53): ONE message per
- * recipient.
+ * and hands it to `tg-outbox`, which sends it. A customer message's outbox job id is the notify
+ * job id (`topup-<paymentId>`, `order-<orderId>-<event>`), so a repeated notify job queues ONE
+ * message; an owner alert's is the notify id plus the recipient (`alert-<kind>-<refId>-<chatId>`,
+ * D-53): ONE message per recipient.
  *
  * - TOPUP_CREDITED / TOPUP_LATE_CREDITED: the Payment row decides the user (never the job), the
  *   balance is the current SUM(ledger); nobody is written to who blocked the bot.
- * - OWNER_ALERT: Uzbek, to EVERY id of OWNER_ALERT_CHAT_ID (the partners, D-53): one outbox job
- *   per recipient with the chat id in its job id, so a retry never double-sends and a recipient
- *   who blocked the bot (403, handled by the outbox per job) never blocks the others. Without
- *   one configured the job fails (OwnerChatMissingError), it is never completed unsent.
- * Logs carry the job id and outcome, never text, amounts or chat ids.
+ * - ORDER_*: OrderNotifyRenderer (the Order row decides the user; blocked, or no longer true:
+ *   skipped).
+ * - OWNER_ALERT: Uzbek (bank-feed alerts: OwnerAlertRenderer, fulfillment alerts:
+ *   FulfillmentAlertRenderer), to EVERY id of OWNER_ALERT_CHAT_ID (the partners, D-53): one
+ *   outbox job per recipient with the chat id in its job id, so a retry never double-sends and a
+ *   recipient who blocked the bot (403, handled by the outbox per job) never blocks the others.
+ *   Without one configured the job fails (OwnerChatMissingError), it is never completed unsent.
+ *   A critical alert (CRITICAL_OWNER_ALERTS) goes on the outbox with the critical priority, ahead
+ *   of a flood of ordinary ones (audit M-1 (b)). If its rows cannot be read (database down) on
+ *   the job's LAST attempt, it is sent with what its refId says and `?` in the other gaps instead
+ *   of being lost (audit L-3).
+ * Logs carry the job id, the outcome and a redacted error, never text, amounts or chat ids.
  */
 @Injectable()
 export class NotifyConsumer {
@@ -58,45 +77,59 @@ export class NotifyConsumer {
     private readonly alerts: OwnerAlertRenderer,
     private readonly outbox: TgOutboxEnqueuer,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly orders: OrderNotifyRenderer,
+    private readonly fulfillment: FulfillmentAlertRenderer,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  async handle(job: Pick<Job, 'id' | 'data'>): Promise<NotifyOutcome> {
+  async handle(job: NotifyJobLike): Promise<NotifyOutcome> {
     const parsed = notifyJobSchema.safeParse(job.data);
     if (!parsed.success) {
       this.log(job, 'invalid-payload');
       throw new UnrecoverableError('invalid notify payload');
     }
-    const data = parsed.data;
-    // Phase 5 S1 widened the job union (ORDER_* kinds, fulfillment alerts); their renderers and
-    // routing are S6. Until then such a job fails loudly and is never completed as "sent".
-    if (
-      data.kind !== 'OWNER_ALERT' &&
-      data.kind !== 'TOPUP_CREDITED' &&
-      data.kind !== 'TOPUP_LATE_CREDITED'
-    ) {
-      this.logUnrouted(job, 'unrouted-kind');
-      throw new UnrecoverableError('notify kind is not routed yet');
-    }
-    const bankAlert =
-      data.kind === 'OWNER_ALERT' ? BankFeedAlertKindSchema.safeParse(data.alert) : null;
-    if (bankAlert !== null && !bankAlert.success) {
-      this.logUnrouted(job, 'unrouted-alert');
-      throw new UnrecoverableError('owner alert kind is not routed yet');
-    }
     try {
-      const outcome =
-        data.kind === 'OWNER_ALERT'
-          ? await this.ownerAlert({ ...data, alert: BankFeedAlertKindSchema.parse(data.alert) })
-          : await this.topup(data);
+      const outcome = await this.route(parsed.data, job);
       this.log(job, outcome);
       return outcome;
     } catch (error) {
-      if (error instanceof AlertSourceMissingError || error instanceof UnrecoverableError) {
+      if (
+        error instanceof AlertSourceMissingError ||
+        error instanceof OrderSourceMissingError ||
+        error instanceof UnrecoverableError
+      ) {
         this.log(job, 'source-missing');
         throw new UnrecoverableError('notify source missing');
       }
+      // Already logged where it was thrown (review m5).
+      if (error instanceof OwnerChatMissingError) throw error;
+      // Retried by BullMQ. A database error is described from names only (describeErrorForLog).
+      const reason = describeErrorForLog(error, MAX_LOGGED_ERROR_CHARS);
+      this.logger.warn(`job=${job.id ?? '?'} outcome=error error=${reason}`);
       throw error;
     }
+  }
+
+  private route(data: NotifyJob, job: NotifyJobLike): Promise<NotifyOutcome> {
+    switch (data.kind) {
+      case 'OWNER_ALERT':
+        return this.ownerAlert(data, job);
+      case 'TOPUP_CREDITED':
+      case 'TOPUP_LATE_CREDITED':
+        return this.topup(data);
+      case 'ORDER_ACCEPTED':
+      case 'ORDER_DELIVERED':
+      case 'ORDER_REVIEW':
+      case 'ORDER_REFUNDED':
+        return this.order(data);
+    }
+  }
+
+  private async order(job: OrderJob): Promise<NotifyOutcome> {
+    const result = await this.orders.render(job.kind, job.refId);
+    if (result.kind !== 'message') return result.kind;
+    await this.outbox.enqueue(notifyJobId(job), result.job);
+    return 'queued';
   }
 
   private async topup(job: TopupJob): Promise<NotifyOutcome> {
@@ -133,20 +166,19 @@ export class NotifyConsumer {
     return 'queued';
   }
 
-  private async ownerAlert(
-    job: Extract<NotifyJob, { kind: 'OWNER_ALERT' }> & { alert: BankFeedAlertKind },
-  ): Promise<NotifyOutcome> {
+  private async ownerAlert(job: OwnerAlertJob, raw: NotifyJobLike): Promise<NotifyOutcome> {
     const chatIds = ownerAlertChatIds(this.config.OWNER_ALERT_CHAT_ID);
     if (chatIds.length === 0) {
       this.logger.error('owner alert not sent: OWNER_ALERT_CHAT_ID is not configured');
       throw new OwnerChatMissingError();
     }
-    const text = await this.alerts.render(job.alert, job.refId);
+    const text = await this.ownerAlertText(job, raw);
+    const priority = ownerAlertPriority(job.alert);
     // Every recipient is tried even if one enqueue fails; the job then fails and is retried, and
     // the recipients already queued are no-ops the second time (same job ids).
     const results = await Promise.allSettled(
       chatIds.map((chatId) =>
-        this.outbox.enqueue(ownerAlertOutboxJobId(job, chatId), { chatId, text }),
+        this.outbox.enqueue(ownerAlertOutboxJobId(job, chatId), { chatId, text }, priority),
       ),
     );
     const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
@@ -154,13 +186,37 @@ export class NotifyConsumer {
     return 'queued';
   }
 
-  // An error, not an info line: a job that cannot be routed is a deploy-order mistake (a producer
-  // went live before this consumer learned its kind) and must be visible (review F10, audit L2).
-  private logUnrouted(job: Pick<Job, 'id'>, outcome: string): void {
-    this.logger.error(`job=${job.id ?? '?'} outcome=${outcome}`);
+  private async ownerAlertText(job: OwnerAlertJob, raw: NotifyJobLike): Promise<string> {
+    try {
+      // OwnerAlertKind is the union of the two lists (notify.ts); the schema already checked it.
+      const bankAlert = BankFeedAlertKindSchema.safeParse(job.alert);
+      return bankAlert.success
+        ? await this.alerts.render(bankAlert.data, job.refId)
+        : await this.fulfillment.render(FulfillmentAlertKindSchema.parse(job.alert), job.refId);
+    } catch (error) {
+      // A missing row (deliberately unsent) or a broken template is not a read failure; earlier
+      // attempts are retried as before.
+      const deliberate =
+        error instanceof AlertSourceMissingError ||
+        error instanceof UnrecoverableError ||
+        error instanceof TranslationError;
+      if (deliberate || !isLastAttempt(raw)) throw error;
+      const reason = describeErrorForLog(error, MAX_LOGGED_ERROR_CHARS);
+      this.logger.warn(`job=${raw.id ?? '?'} outcome=render-fallback error=${reason}`);
+      return ownerAlertFallbackText(job.alert, job.refId, this.clock.now());
+    }
   }
 
   private log(job: Pick<Job, 'id'>, outcome: string): void {
     this.logger.log(`job=${job.id ?? '?'} outcome=${outcome}`);
   }
+}
+
+/**
+ * True on a job's last attempt: BullMQ counts the attempts already made (`attemptsMade`, 0 on the
+ * first run) against `opts.attempts`. A job without these fields (a direct call) is never last.
+ */
+function isLastAttempt(job: NotifyJobLike): boolean {
+  if (job.opts === undefined || job.attemptsMade === undefined) return false;
+  return job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
 }

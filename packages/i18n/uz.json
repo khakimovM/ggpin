@@ -878,6 +878,20 @@
       "topupLateCredited": "✅ Kechikkan to‘lovingiz hisobga tushdi: {amount}\nBalans: {balance}",
       "topupButton": "➕ Hisobni to‘ldirish",
       "openTopup": "💳 Hisobni to‘ldirish uchun quyidagi tugmani bosing."
+    },
+    "order": {
+      "accepted": "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}",
+      "delivered": "🎉 #{number} yetkazildi! {product} → {recipient}",
+      "reviewing": "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz.",
+      "failedRefunded": "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi.",
+      "viewButton": "Buyurtmani ko‘rish",
+      "recipient": {
+        "nameAndUsername": "<code>{name}</code> (@{username})",
+        "name": "<code>{name}</code>",
+        "username": "@{username}",
+        "nameAndOddUsername": "<code>{name}</code> (<code>@{username}</code>)",
+        "oddUsername": "<code>@{username}</code>"
+      }
     }
   },
   "fields": {
@@ -981,6 +995,33 @@
     "limitReason": {
       "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",
       "NEW_ACCOUNT_DAILY_LIMIT": "yangi akkaunt: kuniga {cap}"
+    },
+    "fulfillment": {
+      "needsReview": "🟠 #{number} buyurtma tekshiruvga tushdi (NEEDS_REVIEW): {product}. Sabab: {reason}. Pul chiqqan yoki chiqmagani nomaʼlum, runbook bo‘yicha tekshiring. Buyurtma: {ref}",
+      "held": "🟡 #{number} buyurtma to‘xtatildi (HELD): {product}. Sabab: {reason}. Buyurtma: {ref}",
+      "heldReason": {
+        "priceAboveMax": "tannarx ruxsat etilgan chegaradan oshdi",
+        "limitPerOrder": "bitta buyurtma uchun TON limiti",
+        "limitDaily": "kunlik TON limiti",
+        "lowBalance": "hamyonda TON yetarli emas",
+        "noAdapter": "ishlaydigan yetkazish kanali yo‘q",
+        "adapterError": "yetkazish kanali xatosi"
+      },
+      "heldExpiredRefunded": "↩️ #{number} buyurtma juda uzoq to‘xtab qoldi va bekor qilindi: {product}. Mijozga {amount} qaytarildi. Buyurtma: {ref}",
+      "reviewResolved": "✅ #{number} buyurtma tekshiruvi yopildi. Yangi holat: {status}. Buyurtma: {ref}",
+      "fragmentSessionDead": "🔴 Fragment sessiyasi ishlamay qoldi. Stars va Premium buyurtmalari to‘xtatiladi. Sessiyani yangilang (runbook).",
+      "fragmentSessionRestored": "🟢 Fragment sessiyasi tiklandi. Buyurtmalar yana bajariladi.",
+      "fragmentAdapterDown": "🔴 Fragment nomaʼlum javob qaytardi, adapter o‘chirildi. Yangi buyurtmalar to‘xtatildi, tuzatish kerak.",
+      "tonLowBalance": "🟠 TON hamyonda mablag‘ kam: {balance} ({address}). Hamyonni to‘ldiring.",
+      "tonDailyLimit": "🟡 Kunlik TON limiti #{number} buyurtmani to‘xtatdi. Limitni tekshiring. Buyurtma: {ref}",
+      "tonSeqnoUnmatched": "🚨 KRITIK: TON hamyonning seqno {seqno} raqami bizga nomaʼlum xabar bilan ishlatildi. Kalitni boshqa kimdir ishlatgan bo‘lishi mumkin. Yuborishlarni to‘xtating. Transfer: {ref}",
+      "tonConsumedUnmatched": "🚨 KRITIK: #{number} buyurtma transferi (seqno {seqno}, {amount} → {to}) aniqlanmadi, pul chiqib ketgan bo‘lishi mumkin. Avtomatik refund yo‘q, qo‘lda tekshiring (runbook). Transfer: {ref}",
+      "tonBounced": "🚨 KRITIK: #{number} buyurtma uchun TON to‘lovi ({amount} → {to}) qaytib keldi (bounce). Buyurtma tekshiruvda. Transfer: {ref}",
+      "tonWalletBlocked": "🚨 KRITIK: TON hamyon bloklandi. #{number} buyurtma transferi (seqno {seqno}, {amount}) hal bo‘lmadi, keyingi TON to‘lovlari kutib turibdi. Transfer: {ref}",
+      "tonWalletCompromised": "🚨 XAVFSIZLIK: TON hamyondan pul begona manzilga ketgan. Hamyonni buzilgan deb hisoblang: yuborishlarni to‘xtating (TON limitlarini 0 qiling) va kalitlarni almashtiring. Transfer: {ref}",
+      "tonWitnessConflict": "🚨 KRITIK: asosiy manba #{number} buyurtma transferi (seqno {seqno}) yuborilmagan dedi, ikkinchi zanjir manbai esa uni ko‘rdi. Buyurtma tekshiruvda: manbalardan biri noto‘g‘ri yoki orqada qolgan. Transfer: {ref}",
+      "queueStuck": "🟠 Yetkazish navbati {minutes} daqiqadan ko‘p turib qoldi: #{number} buyurtma hali ishga olinmagan. Worker ishlayotganini tekshiring. Buyurtma: {ref}",
+      "workerDown": "🔴 Worker {minutes} daqiqadan beri javob bermayapti (heartbeat yo‘q). Buyurtmalar va to‘ldirishlar bajarilmaydi."
     }
   }
 }

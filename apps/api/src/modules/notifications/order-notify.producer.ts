@@ -10,11 +10,11 @@ import {
 import type { Queue } from 'bullmq';
 
 /**
- * Tells the customer about their order (`ORDER_ACCEPTED` from the purchase; the texts and the
- * consumer arrive in phase 5 S6). The job carries the order id only: the product, the amount and
- * the recipient are read from the database when it is rendered, so nothing about the purchase
- * sits in Redis. Job id = `order-<orderId>-<kind>`: a replayed purchase (D-49) or a second call
- * adds nothing while the first job is kept.
+ * Tells the customer about their order (`ORDER_ACCEPTED` from the purchase; rendered by
+ * OrderNotifyRenderer via the notify consumer). The job carries the order id only: the product,
+ * the amount and the recipient are read from the database when it is rendered, so nothing about
+ * the purchase sits in Redis. Job id = `order-<orderId>-<kind>`: a replayed purchase (D-49) or a
+ * second call adds nothing while the first job is kept.
  */
 @Injectable()
 export class OrderNotifyProducer {

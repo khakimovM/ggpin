@@ -70,15 +70,48 @@ Salomlashish xabari (rasm/banner + matn):
 | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Balans to‘ldirildi     | "✅ Hisobingiz to‘ldirildi: {amount}↵Balans: {balance}" (+ "➕ Hisobni to‘ldirish" tugmasi, Mini App `/topup`) |
 | Kech tushgan to‘lov    | "✅ Kechikkan to‘lovingiz hisobga tushdi: {amount}↵Balans: {balance}" (+ o‘sha tugma)                          |
-| Buyurtma qabul qilindi | "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}"                                                 |
+| Buyurtma qabul qilindi | "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}" (+ "Buyurtmani ko‘rish" tugmasi)                |
 | Yetkazildi             | "🎉 #{number} yetkazildi! {product} → {recipient}" (+ "Buyurtmani ko‘rish" tugmasi)                            |
 | Voucher                | "🎟 #{number}: kodingiz Mini App'da" (kod chatga yuborilmaydi — faqat ilovada)                                  |
-| Muvaffaqiyatsiz        | "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi."                                                 |
-| Tekshirilmoqda         | "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz."                                             |
+| Muvaffaqiyatsiz        | "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi." (+ o‘sha tugma)                                 |
+| Tekshirilmoqda         | "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz." (+ o‘sha tugma)                             |
 | Referal bonus          | "🎁 Do‘stingiz xarid qildi — sizga {amount} bonus!"                                                            |
 | Bonus kod              | "🎁 Bonus kod faollashtirildi: +{amount}"                                                                      |
 
 Ruscha matnlar `ru.json`da. Xabarlar HTML parse mode, foydalanuvchi matnlari escape qilinadi.
+
+Buyurtma xabarlari (5-bosqich S6): kalitlar `bot.order.*`; tugma Mini App `/tg/orders/:id` ni ochadi
+(`MINI_APP_URL` https bo‘lmasa tugmasiz). `{product}` — mahsulot nomi, paket bo‘lsa `Nom (paket)`, erkin
+miqdorda `Nom × N`; `{recipient}` — `<code>Ism</code> (@username)`: ism (Telegram’dagi erkin matn) bosiladigan
+havolaga aylanmasligi uchun `<code>` ichida, `@username` oddiy matn (Telegram username naqshiga mos kelmasa,
+masalan eski yozuvdagi `t.me/x`, u ham `<code>` ichida); ism bo‘lmasa faqat `@username`.
+Botni bloklagan foydalanuvchiga yuborilmaydi. Buyurtma xabardagi holatdan o‘tib ketgan bo‘lsa (masalan,
+«qabul qilindi» kelguncha yetkazilgan), eski xabar yuborilmaydi. «Muvaffaqiyatsiz» summasi buyurtmaning
+`REFUND` yozuvidan olinadi; yetkazilgan buyurtmaning admin refundida bu xabar yuborilmaydi (o‘z xabari S10 da). Egaga
+fulfillment alertlari (`alerts.fulfillment.*`) faqat o‘zbekcha, D-53 bo‘yicha hamma sheriklarga
+boradi; TON manzili qisqartirilgan (`0:abcd…7890`), cookie, mnemonic va kalit hech qachon yozilmaydi.
+
+Ustuvorlik (`tg-outbox`, 5-bosqich S6): kritik xabarlar navbatda boshqalardan oldin ketadi —
+`CRITICAL_OWNER_ALERTS` (`packages/shared/src/notify-fulfillment.ts`): bank feed’dan `foreignChat`,
+`bankChatAnomaly`, `listenerStopped`, `listenerDown`; fulfillment’dan `needsReview`, `tonSeqnoUnmatched`,
+`tonConsumedUnmatched`, `tonBounced`, `tonWalletBlocked`, `tonWitnessConflict`, `tonWalletCompromised`,
+`queueStuck`, `workerDown`. Egaga OTP kodi (admin tasdig‘i) ham kritik: u qisqa yashaydi. Qolgan hamma xabar
+oddiy. Chatga 1 xabar/s darvozasi band bo‘lsa, kritik xabar darvoza ochilgan zahoti, oddiy xabar undan
+250–500 ms keyin qaytadi, shuning uchun qaytish aylanmasida ham kritik xabar oldinda qoladi.
+
+`queueStuck` (API watchdog, har 30 s): Redis’da bitta kuzatilayotgan job saqlanadi — eng eski kutayotgan
+`fulfill-order` job’i, watchdog uni birinchi marta kutayotgan holda ko‘rgan vaqt (Redis `TIME`) va necha
+marta olingani. Aynan shu job hali olinmay, birinchi ko‘rilganidan 5 daqiqadan (`QUEUE_STUCK_AFTER_MS`) ko‘p
+kutsa — bitta alert (refId = job id + birinchi ko‘rilgan vaqt). Job olinsa yoki yo‘qolsa, keyingi eng eski
+kutayotgan job hozirdan kuzatiladi; navbat bo‘sh bo‘lsa kalit o‘chiriladi. Yosh BullMQ qo‘shilgan vaqtidan
+hisoblanmaydi: ishlab turgan, lekin band worker (job’lar birin-ketin olinadi) alert bermaydi, qayta urinishga
+qaytgan eski job yana 5 daqiqa oladi. `active` holat o‘lchanmaydi (TON to‘lovi bir necha daqiqa `active`
+turishi mumkin). Qoldiq: worker job’ni olib, keyin qulasa, job stalled bo‘lib `wait`ga qaytadi va yangidan
+kuzatiladi — bu epizod uchun `queueStuck` yo‘q; uni S4 (stalled → review) va S9 qoplaydi.
+
+Runbook: alert manbasini bazadan o‘qib bo‘lmasa (baza ishlamayapti), oxirgi urinishda alert refId’dan
+chiqadigan ma’lumot bilan (qolgani `?`) yuboriladi. Bunday alert o‘qilgan paytda allaqachon hal bo‘lgan
+holatni tasvirlashi mumkin — avval bazada joriy holatni tekshiring.
 
 ## Rassilka (broadcast)
 

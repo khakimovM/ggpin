@@ -1,7 +1,9 @@
 import { tgOutboxJobSchema, type NotifyJob, type TgOutboxJob } from '@repo/shared';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
+import type { FulfillmentAlertRenderer } from '../fulfillment-alert.renderer';
 import type { NotifySourcesRepository } from '../notify-sources.repository';
 import { NotifyConsumer, OwnerChatMissingError } from '../notify.consumer';
+import type { OrderNotifyRenderer } from '../order-notify.renderer';
 import type { OwnerAlertRenderer } from '../owner-alert.renderer';
 import type { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
 
@@ -27,7 +29,15 @@ function setup(chatIds: string | undefined, failFor: readonly string[] = []) {
   } as unknown as TgOutboxEnqueuer;
   const alerts = { render: () => Promise.resolve('alert text') } as unknown as OwnerAlertRenderer;
   const config = buildTestEnv(chatIds === undefined ? {} : { OWNER_ALERT_CHAT_ID: chatIds });
-  const consumer = new NotifyConsumer({} as NotifySourcesRepository, alerts, outbox, config);
+  const consumer = new NotifyConsumer(
+    {} as NotifySourcesRepository,
+    alerts,
+    outbox,
+    config,
+    {} as OrderNotifyRenderer,
+    {} as FulfillmentAlertRenderer,
+    { now: () => new Date() },
+  );
   return { consumer, sent, attempted };
 }
 

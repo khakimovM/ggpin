@@ -878,6 +878,20 @@
       "topupLateCredited": "✅ Ваш запоздавший платёж зачислен: {amount}\nБаланс: {balance}",
       "topupButton": "➕ Пополнить счёт",
       "openTopup": "💳 Чтобы пополнить счёт, нажмите кнопку ниже."
+    },
+    "order": {
+      "accepted": "🧾 Заказ #{number} принят: {product} → {recipient}",
+      "delivered": "🎉 Заказ #{number} выполнен! {product} → {recipient}",
+      "reviewing": "⏳ Заказ #{number} на проверке. Обычно до 15 минут. Деньги в безопасности.",
+      "failedRefunded": "⚠️ Заказ #{number} не выполнен. {amount} возвращено на ваш баланс.",
+      "viewButton": "Посмотреть заказ",
+      "recipient": {
+        "nameAndUsername": "<code>{name}</code> (@{username})",
+        "name": "<code>{name}</code>",
+        "username": "@{username}",
+        "nameAndOddUsername": "<code>{name}</code> (<code>@{username}</code>)",
+        "oddUsername": "<code>@{username}</code>"
+      }
     }
   },
   "fields": {
@@ -981,6 +995,33 @@
     "limitReason": {
       "DAILY_LIMIT": "для всех аккаунтов: {cap} в сутки",
       "NEW_ACCOUNT_DAILY_LIMIT": "для нового аккаунта: {cap} в сутки"
+    },
+    "fulfillment": {
+      "needsReview": "🟠 Заказ #{number} на проверке (NEEDS_REVIEW): {product}. Причина: {reason}. Неизвестно, ушли ли деньги, проверьте по runbook. Заказ: {ref}",
+      "held": "🟡 Заказ #{number} приостановлен (HELD): {product}. Причина: {reason}. Заказ: {ref}",
+      "heldReason": {
+        "priceAboveMax": "себестоимость выше допустимого потолка",
+        "limitPerOrder": "лимит TON на один заказ",
+        "limitDaily": "суточный лимит TON",
+        "lowBalance": "в кошельке недостаточно TON",
+        "noAdapter": "нет рабочего канала доставки",
+        "adapterError": "ошибка канала доставки"
+      },
+      "heldExpiredRefunded": "↩️ Заказ #{number} слишком долго был приостановлен и отменён: {product}. Клиенту возвращено {amount}. Заказ: {ref}",
+      "reviewResolved": "✅ Проверка заказа #{number} закрыта. Новый статус: {status}. Заказ: {ref}",
+      "fragmentSessionDead": "🔴 Сессия Fragment перестала работать. Заказы Stars и Premium приостанавливаются. Обновите сессию (runbook).",
+      "fragmentSessionRestored": "🟢 Сессия Fragment восстановлена. Заказы снова выполняются.",
+      "fragmentAdapterDown": "🔴 Fragment вернул неизвестный ответ, адаптер отключён. Новые заказы остановлены, нужно исправление.",
+      "tonLowBalance": "🟠 В TON-кошельке мало средств: {balance} ({address}). Пополните кошелёк.",
+      "tonDailyLimit": "🟡 Суточный лимит TON остановил заказ #{number}. Проверьте лимит. Заказ: {ref}",
+      "tonSeqnoUnmatched": "🚨 КРИТИЧНО: seqno {seqno} TON-кошелька использован неизвестным нам сообщением. Ключ мог использовать кто-то другой. Остановите отправки. Перевод: {ref}",
+      "tonConsumedUnmatched": "🚨 КРИТИЧНО: перевод заказа #{number} (seqno {seqno}, {amount} → {to}) не опознан, деньги могли уйти. Автоматического возврата нет, проверьте вручную (runbook). Перевод: {ref}",
+      "tonBounced": "🚨 КРИТИЧНО: TON-платёж по заказу #{number} ({amount} → {to}) вернулся (bounce). Заказ на проверке. Перевод: {ref}",
+      "tonWalletBlocked": "🚨 КРИТИЧНО: TON-кошелёк заблокирован. Перевод заказа #{number} (seqno {seqno}, {amount}) не завершён, следующие TON-платежи ждут. Перевод: {ref}",
+      "tonWalletCompromised": "🚨 БЕЗОПАСНОСТЬ: деньги из TON-кошелька ушли на чужой адрес. Считайте кошелёк скомпрометированным: остановите отправки (лимиты TON в 0) и смените ключи. Перевод: {ref}",
+      "tonWitnessConflict": "🚨 КРИТИЧНО: основной источник сообщил, что перевод заказа #{number} (seqno {seqno}) не отправлен, а второй источник цепочки его увидел. Заказ на проверке: один из источников ошибается или отстаёт. Перевод: {ref}",
+      "queueStuck": "🟠 Очередь доставки стоит больше {minutes} мин.: заказ #{number} ещё не взят в работу. Проверьте, работает ли worker. Заказ: {ref}",
+      "workerDown": "🔴 Worker не отвечает {minutes} мин. (нет heartbeat). Заказы и пополнения не выполняются."
     }
   }
 }

@@ -1,0 +1,23 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`fulfillment alert texts (alerts.fulfillment.*) renders every kind (uz, synthetic rows) 1`] = `
+{
+  "fragmentAdapterDown": "🔴 Fragment nomaʼlum javob qaytardi, adapter o‘chirildi. Yangi buyurtmalar to‘xtatildi, tuzatish kerak.",
+  "fragmentSessionDead": "🔴 Fragment sessiyasi ishlamay qoldi. Stars va Premium buyurtmalari to‘xtatiladi. Sessiyani yangilang (runbook).",
+  "fragmentSessionRestored": "🟢 Fragment sessiyasi tiklandi. Buyurtmalar yana bajariladi.",
+  "held": "🟡 #1042 buyurtma to‘xtatildi (HELD): Telegram Stars × 500. Sabab: kunlik TON limiti. Buyurtma: cmorder1",
+  "heldExpiredRefunded": "↩️ #1042 buyurtma juda uzoq to‘xtab qoldi va bekor qilindi: Telegram Stars × 500. Mijozga 50 000 so‘m qaytarildi. Buyurtma: cmorder1",
+  "needsReview": "🟠 #1042 buyurtma tekshiruvga tushdi (NEEDS_REVIEW): Telegram Stars × 500. Sabab: kunlik TON limiti. Pul chiqqan yoki chiqmagani nomaʼlum, runbook bo‘yicha tekshiring. Buyurtma: cmorder1",
+  "queueStuck": "🟠 Yetkazish navbati 5 daqiqadan ko‘p turib qoldi: #1042 buyurtma hali ishga olinmagan. Worker ishlayotganini tekshiring. Buyurtma: cmorder1",
+  "reviewResolved": "✅ #1042 buyurtma tekshiruvi yopildi. Yangi holat: HELD. Buyurtma: cmorder1",
+  "tonBounced": "🚨 KRITIK: #1042 buyurtma uchun TON to‘lovi (1.5 TON → 0:ffff...beef) qaytib keldi (bounce). Buyurtma tekshiruvda. Transfer: cmtransfer1",
+  "tonConsumedUnmatched": "🚨 KRITIK: #1042 buyurtma transferi (seqno 42, 1.5 TON → 0:ffff...beef) aniqlanmadi, pul chiqib ketgan bo‘lishi mumkin. Avtomatik refund yo‘q, qo‘lda tekshiring (runbook). Transfer: cmtransfer1",
+  "tonDailyLimit": "🟡 Kunlik TON limiti #1042 buyurtmani to‘xtatdi. Limitni tekshiring. Buyurtma: cmorder1",
+  "tonLowBalance": "🟠 TON hamyonda mablag‘ kam: 0.25 TON (0:aaaa...babe). Hamyonni to‘ldiring.",
+  "tonSeqnoUnmatched": "🚨 KRITIK: TON hamyonning seqno 42 raqami bizga nomaʼlum xabar bilan ishlatildi. Kalitni boshqa kimdir ishlatgan bo‘lishi mumkin. Yuborishlarni to‘xtating. Transfer: cmtransfer1",
+  "tonWalletBlocked": "🚨 KRITIK: TON hamyon bloklandi. #1042 buyurtma transferi (seqno 42, 1.5 TON) hal bo‘lmadi, keyingi TON to‘lovlari kutib turibdi. Transfer: cmtransfer1",
+  "tonWalletCompromised": "🚨 XAVFSIZLIK: TON hamyondan pul begona manzilga ketgan. Hamyonni buzilgan deb hisoblang: yuborishlarni to‘xtating (TON limitlarini 0 qiling) va kalitlarni almashtiring. Transfer: cmtransfer1",
+  "tonWitnessConflict": "🚨 KRITIK: asosiy manba #1042 buyurtma transferi (seqno 42) yuborilmagan dedi, ikkinchi zanjir manbai esa uni ko‘rdi. Buyurtma tekshiruvda: manbalardan biri noto‘g‘ri yoki orqada qolgan. Transfer: cmtransfer1",
+  "workerDown": "🔴 Worker 7 daqiqadan beri javob bermayapti (heartbeat yo‘q). Buyurtmalar va to‘ldirishlar bajarilmaydi.",
+}
+`;
