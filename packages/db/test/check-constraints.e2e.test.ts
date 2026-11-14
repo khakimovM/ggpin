@@ -3,12 +3,24 @@ import type { CoinKind, LedgerKind } from '../src/index';
 import { expectCheck } from './check-helpers';
 import { db } from './client';
 import { createIntent, createOrder, createQuote, createUser } from './factories';
+import { bypassingGuards } from './order-fixtures';
 
 let ref = 0;
 const ledger = (userId: string, kind: LedgerKind, amountTiyin: bigint) =>
   db.ledgerEntry.create({
     data: { userId, kind, amountTiyin, refType: 'TEST', refId: `r${++ref}` },
   });
+// The sign CHECK is what is under test. A PURCHASE that the CHECK accepts would still be refused at
+// COMMIT without its order (D-60, order-purchase-ledger-check.e2e.test.ts), so the accepted one is
+// written with the triggers off: CHECK constraints are not triggers and stay on.
+const accepted = (userId: string, kind: LedgerKind, amountTiyin: bigint) =>
+  kind === 'PURCHASE'
+    ? bypassingGuards((tx) =>
+        tx.ledgerEntry.create({
+          data: { userId, kind, amountTiyin, refType: 'TEST', refId: `r${++ref}` },
+        }),
+      )
+    : ledger(userId, kind, amountTiyin);
 const coins = (userId: string, kind: CoinKind, amount: bigint) =>
   db.coinEntry.create({
     data: { userId, kind, coins: amount, refType: 'TEST', refId: `c${++ref}` },
@@ -27,7 +39,7 @@ describe('LedgerEntry sign per kind', () => {
 
   it.each(NEGATIVE)('%s accepts - and rejects + and 0', async (kind) => {
     const { id } = await createUser();
-    await ledger(id, kind, -1n);
+    await accepted(id, kind, -1n);
     await expectCheck(ledger(id, kind, 1n), 'LedgerEntry_amount_sign_check');
     await expectCheck(ledger(id, kind, 0n), 'LedgerEntry_amount_sign_check');
   });

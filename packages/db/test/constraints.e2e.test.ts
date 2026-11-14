@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '../src/index';
+import { expectGuard } from './check-helpers';
 import { db } from './client';
 import { createIntent, createOrder, createUser } from './factories';
 import { walkTo } from './order-fixtures';
@@ -182,10 +183,17 @@ describe('foreign keys', () => {
     expect(await db.ledgerEntry.count({ where: { userId: user.id } })).toBe(1);
   });
 
-  it('Restrict: an order with events cannot be deleted', async () => {
+  // Order_no_delete (BEFORE DELETE, review N6) refuses every order DELETE before the foreign key
+  // is checked, so the Restrict of OrderEvent -> Order is proven from the catalog instead.
+  it('an order with events cannot be deleted; OrderEvent restricts the delete of its order', async () => {
     const order = await createOrder(await createUser());
     await db.orderEvent.create({ data: { orderId: order.id, to: 'PAID', actor: 'SYSTEM' } });
-    await expectPrismaError(db.order.delete({ where: { id: order.id } }), 'P2003');
+    await expectGuard(db.order.delete({ where: { id: order.id } }), 'is never deleted');
+    const rules = await db.$queryRaw<{ rule: string }[]>`
+      SELECT confdeltype::text AS rule FROM pg_constraint
+      WHERE contype = 'f' AND conrelid = '"OrderEvent"'::regclass
+        AND confrelid = '"Order"'::regclass`;
+    expect(rules).toEqual([{ rule: 'r' }]);
   });
 
   it('Cascade is limited to credentials: deleting a user drops its web sessions', async () => {
@@ -235,7 +243,14 @@ describe('BigInt money', () => {
           refId: 'a',
         },
         { userId: user.id, kind: 'TOPUP', amountTiyin: 2n, refType: 'PAYMENT', refId: 'b' },
-        { userId: user.id, kind: 'PURCHASE', amountTiyin: -1n, refType: 'ORDER', refId: 'c' },
+        // A debit (not a PURCHASE: that needs its order since D-60).
+        {
+          userId: user.id,
+          kind: 'TOPUP_REVERSAL',
+          amountTiyin: -1n,
+          refType: 'PAYMENT',
+          refId: 'c',
+        },
       ],
     });
     const sum = await db.ledgerEntry.aggregate({

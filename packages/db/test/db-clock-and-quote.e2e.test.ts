@@ -176,15 +176,35 @@ describe('L8: createdAt of an attempt and of a transfer is the database clock', 
 });
 
 describe('Y5 (P4): a quote cannot be used after it expired, judged at the moment of the write', () => {
+  // Review N8: only the DATABASE clock is used. The expiry is set inside the transaction to its own
+  // start + 1 s (now()), so "began before the expiry" holds by construction, whatever the load or
+  // the skew between Node and Postgres; the use comes after pg_sleep(1.5), past the expiry on the
+  // statement clock the guard reads. The generous timeout keeps a slow machine from turning this
+  // into a transaction-timeout failure (it once ran 5077 ms against Prisma's default 5 s).
   it('a transaction that began before the expiry cannot use the quote after it', async () => {
     const user = await createUser();
-    const quote = await createQuote(user.id, { expiresAt: new Date(Date.now() + 1_500) });
+    const quote = await createQuote(user.id);
     await expectGuard(
-      db.$transaction(async (tx) => {
-        // The transaction's own now() is its start, before the expiry; the wall clock is not.
-        await tx.$executeRaw`SELECT pg_sleep(2.5)`;
-        await tx.quote.update({ where: { id: quote.id }, data: { usedAt: new Date() } });
-      }),
+      db.$transaction(
+        async (tx) => {
+          // The expiry is immutable (Quote_immutable_guard): it is moved with the triggers off for
+          // this one statement, then they are back on for the use the test is about.
+          await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+          await tx.$executeRaw`
+            UPDATE "Quote" SET "expiresAt" = timezone('UTC', now()) + interval '1 second'
+            WHERE "id" = ${quote.id}`;
+          await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'origin'`);
+          const [began] = await tx.$queryRaw<{ before: boolean }[]>`
+            SELECT timezone('UTC', now()) < "expiresAt" AS before FROM "Quote"
+            WHERE "id" = ${quote.id}`;
+          expect(began?.before).toBe(true);
+          await tx.$executeRaw`SELECT pg_sleep(1.5)`;
+          await tx.$executeRaw`
+            UPDATE "Quote" SET "usedAt" = timezone('UTC', clock_timestamp())
+            WHERE "id" = ${quote.id}`;
+        },
+        { timeout: 30_000 },
+      ),
       'expired quote',
     );
     expect((await db.quote.findUniqueOrThrow({ where: { id: quote.id } })).usedAt).toBeNull();

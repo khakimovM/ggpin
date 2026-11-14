@@ -320,6 +320,13 @@ NULL natija berib o‘tib ketmaydi. Partial indeks predikatlari enum literalini 
 | `GG004` | `Payment` o‘z intenti yoki bank xabari bilan ziddiyatli                                          |
 | `GG005` | `BankMessageOutcome` boshqa bank xabariga tegishli to‘lov yoki review'ni nomlaydi (5-migratsiya) |
 
+**Qoida (5-faza S2 review N2):** `GG*` xabari (`RAISE EXCEPTION` matni, `DETAIL`, `HINT`) faqat **id**, **holat / enum kodi**
+(`status`, `bank`, `source`, `provider`), jadval va ustun **nomlari** hamda o‘zgarmas sozlama qiymatini (masalan
+`ggpin_ton_not_sent_margin_ms()`) o‘z ichiga oladi — **hech qachon qator qiymatini emas**: summa, narx, qabul qiluvchi, username,
+`providerRef`, karta raqami, bank xabari matni, kalit yoki hash. Sabab: ilova bu matnni o‘zgarishsiz log qiladi
+(`packages/shared/src/log-redaction/db-errors.ts` → `redactDatabaseError`, `describeErrorForLog`). Yangi trigger yozganda shu qoida
+tekshiriladi.
+
 ### Enum'lar (10 yangi + 1 qiymat)
 
 | Enum                      | Qiymatlar                                                                                                                                                                                                                |
@@ -732,7 +739,7 @@ Ikkinchi qatlam: quyidagi qoidalarni `@repo/db` yordamchilari ham tekshiradi; DB
   **`DELIVERED` ga** o‘tish (`PROCESSING`/`NEEDS_REVIEW` dan, Y1/L5): kamida bitta `CONFIRMED` urinish, hal bo‘lmagan urinish yo‘q, har transfer `CONFIRMED`/`EXPIRED`/`ONCHAIN_FAILED` (`BOUNCED`, `CONSUMED_UNMATCHED`, jonli transfer bo‘lsa rad); guard `deliveredAt` ni DB soatidan o‘zi qo‘yadi (Y11). **`DELIVERED → REFUNDED`** (admin): jonli urinish yoki `SIGNED`/`BROADCAST`/`CONSUMED_UNMATCHED`/`BOUNCED` transfer bo‘lsa rad (`CONFIRMED` urinish/transfer rad etmaydi). Uch **deferred constraint trigger** (R4, A4, `COMMIT` da):
   `Order_refund_ledger_check` (`REFUNDED` ⇒ `LedgerEntry(REFUND, ORDER, <orderId>)` mavjud, **summa = `priceTiyin − discountTiyin`, `userId` = buyurtma egasi**: L6), `Order_review_audit_check` (`NEEDS_REVIEW → FAILED|DELIVERED` ⇒ `AuditLog(action='ORDER_REVIEW_RESOLVE',
 targetType='Order', targetId=<orderId>)` mavjud) va `Order_special_transfer_check` (buyurtma `FAILED` yoki `FAILED → REFUNDED` bo‘lsa va `ONCHAIN_FAILED`/`BOUNCED`/`CONSUMED_UNMATCHED` transferi bo‘lsa, har biri uchun audit qatori: `after.proof.kind` holatga mos `TON_NOT_DEBITED`/`TON_BOUNCED`/`TON_UNMATCHED_RESOLVED`, `after.proof.transferId` shu transfer, `after.otpVerified = true`, `after.operator.role = 'OWNER'`; `BOUNCED` uchun `after.proof.returnTxHash` bo‘sh emas, `BOUNCED`/`ONCHAIN_FAILED` uchun `after.proof.txHash`/`txLt` transfer qatoridagilarga teng, `CONSUMED_UNMATCHED` uchun `after.operator.type = 'CLI'` va `consumingTxHash` bo‘sh emas: I-1, Z2). Audit qatori iz, chegara emas (I1): isbotni zanjir ma’lumotiga bog‘laydigan helper. `AuditLog_review_return_tx_key` — qisman unique ifoda indeksi `((after->'proof')->>'returnTxHash') WHERE action = 'ORDER_REVIEW_RESOLVE'`: bitta bounce bitta refund (yangi ustun emas; R2e); xuddi shu shaklda `AuditLog_review_consuming_tx_key` — `consumingTxHash` bo‘yicha (bitta topilma bitta refund, Z5). Trigger
-  `Order_immutable_guard` (`ggpin_order_immutable_guard()`, `GG001`): `number, createdAt, userId, quoteId, productId, skuId, quantity, recipient, providerRef, priceTiyin,
+  `Order_immutable_guard` (`ggpin_order_immutable_guard()`, `GG001`): `id` (11-migratsiyadan beri), `number, createdAt, userId, quoteId, productId, skuId, quantity, recipient, providerRef, priceTiyin,
 discountTiyin, costCurrency, costMinor, maxCostMinor, fxRateId, idempotencyKey, requestHash` o‘zgarmaydi; `status`, `statusReason`, `deliveredAt` o‘zgaradi.
 - **`providerRef` (R3):** `Quote.providerRef` va `Order.providerRef` — qabul qiluvchining provayderdagi id'si (`String?`). Kotirovkada INSERT paytida yoziladi, buyurtmaga yaratilganda ko‘chiriladi;
   ikkalasi ham o‘zgarmas (NULL → qiymat ham rad etiladi). Ichki maydon: API javobiga va logga chiqmaydi (`docs/04` o‘zgarmadi).
@@ -797,6 +804,37 @@ yoqilgan route adapteri snapshot'laridan narxlansin) S2 da.
   chain maydonlari), `order-deferred-guards.e2e.test.ts` (R4, `search_path`, `providerRef`), `needs-review-bounced.e2e.test.ts` (TON_BOUNCED, A1), `needs-review-onchain-failed.e2e.test.ts` (TON_NOT_DEBITED, A2), `needs-review-unmatched.e2e.test.ts` (TON_UNMATCHED_RESOLVED, A3), `needs-review-owner-gate.e2e.test.ts` (L2, L3, L4, Y4: resolver, rol, OTP), `order-delivery-guard.e2e.test.ts` (Y1, L5, Y11), `db-clock-and-quote.e2e.test.ts` (L1, L8, Y5, Y6), `payout-race-helpers.e2e.test.ts` (RA1, RA2, RA4, I5), `needs-review-clock.e2e.test.ts` (soat, yosh
   SENDING urinish, `resolver.id`), `order-status-guard-onchain.e2e.test.ts` (ONCHAIN_FAILED istisnosi, REFUNDED tekshiruvi). Qoidasi buzilgan holatlar (DB rad etadigan qatorlar) yordamchilar ham rad
   etishini isbotlash uchun `order-fixtures.ts` dagi `force*`/`bypassingGuards` bilan quriladi (`session_replication_role = replica`, tranzaksiyaga lokal).
+
+## Migratsiya 11: buyurtma va uning PURCHASE debeti (D-60 (1))
+
+`20261113120000_p5_order_purchase_ledger_check` — faqat SQL (`schema.prisma` o‘zgarmadi), **qo‘shimcha**: ikki funksiya va ikki deferred
+constraint trigger, `Order` o‘zgarmaslik funksiyasiga `id` va `Order_no_delete` triggeri (pastda); ustun, indeks va qator o‘zgarmaydi. Triggerlar faqat INSERT da ishlaydi, eski qatorlar qayta tekshirilmaydi. Sabab (5-faza S2 auditi M1):
+`REFUNDED` o‘z REFUND yozuvisiz bo‘lmaydi (`Order_refund_ledger_check`), PURCHASE esa DB da buyurtmaga bog‘lanmagan edi — kod xatosi debetsiz buyurtma
+va keyin to‘liq refund orqali pul yaratishi mumkin edi.
+
+- **`Order_purchase_ledger_check`** (`ggpin_order_purchase_ledger_check()`, `AFTER INSERT ON "Order"`, `DEFERRABLE INITIALLY DEFERRED`, `GG001`):
+  `COMMIT` da yangi buyurtmaning `LedgerEntry(kind = PURCHASE, refType = ORDER, refId = <orderId>)` yozuvi bo‘lishi shart — **`userId` = buyurtma egasi,
+  `amountTiyin = −(priceTiyin − discountTiyin)`**. «Ko‘pi bilan bitta» — `(refType, refId, kind)` unique indeksi. Narx va chegirma o‘zgarmas
+  (`Order_immutable_guard`), shuning uchun INSERT paytidagi tekshiruv yetarli.
+- **`LedgerEntry_purchase_order_check`** (`ggpin_ledger_purchase_order_check()`, `AFTER INSERT ON "LedgerEntry"` faqat `kind = PURCHASE`, deferred, `GG001`):
+  PURCHASE yozuvi faqat `refType = ORDER` bilan, `refId` — shu `userId` ning mavjud buyurtmasi va summasi o‘sha buyurtma narxi (`−(price − discount)`).
+  Buyurtmasiz, boshqa foydalanuvchining yoki boshqa summadagi PURCHASE yo‘q (oldingi tranzaksiyada yozilgan buyurtma uchun ham).
+- Ishora xatosi (`LedgerEntry_amount_sign_check`) INSERT paytida, bular esa `COMMIT` da. Xabar matni buzilgan qoidani aytadi; `session_replication_role = replica`
+  ularni ham o‘chiradi (faqat testlar, `bypassingGuards`).
+- Ilova: xarid (`POST /orders`) Order(PAID) va PURCHASE ni bitta tranzaksiyada yozadi, debet saqlangan buyurtma qatoridan hisoblanadi
+  (`totalAfterDiscount(order.priceTiyin, order.discountTiyin)`). Test fixture’lari ham buyurtmani PURCHASE bilan bitta tranzaksiyada yaratadi
+  (`packages/db/test/factories.ts` `createOrder`); qoidani buzgan holat faqat `bypassingGuards` / `unguarded` bilan quriladi.
+- Isbot: `packages/db/test/order-purchase-ledger-check.e2e.test.ts` — debetsiz, 1 tiyinlik, boshqa `userId`, chegirmani hisobga olmagan, ikki PURCHASE,
+  buyurtmasiz va `refType` boshqa PURCHASE rad etiladi; to‘g‘ri juftlik (chegirmali ham) o‘tadi.
+- **`Order.id` o‘zgarmas** (S2 qayta audit N1): xuddi shu migratsiya `ggpin_order_immutable_guard()` ni `CREATE OR REPLACE` qiladi — 1-migratsiya
+  (`p5_orders_fulfillment_checks`) ro‘yxatiga `id` qo‘shiladi, qolgani so‘zma-so‘z. Sabab: buyurtmani boshqa id ga ko‘chirib, eski id ostida debetsiz
+  yangi buyurtma yozish bitta debetga ikki refund berar edi (D11b). Endi qayta kalitlash `… is immutable` (`GG001`) bilan rad etiladi.
+- **Trigger `Order_no_delete`** (`ggpin_order_no_delete_guard()`, `BEFORE DELETE ON "Order"`, `GG001`, review N6): buyurtma hech qachon o‘chirilmaydi
+  (`Order … is never deleted`) — u xarid va uning ledger yozuvlarining yozuvi. Ilova kodida `Order` DELETE yo‘q; test tozalash `TRUNCATE` ishlatadi,
+  u qator triggerini ishga tushirmaydi. Trigger FK tekshiruvidan oldin ishlaydi, shuning uchun `OrderEvent → Order` `Restrict` endi `pg_constraint`
+  orqali tekshiriladi (`constraints.e2e.test.ts`).
+- Isbot: `packages/db/test/order-identity-guard.e2e.test.ts` — id UPDATE (klient va SQL), D11b ssenariysi (balans boshlang‘ich qiymatga qaytadi,
+  bitta refund), bolasiz va REFUNDED buyurtma DELETE / `deleteMany` / SQL `DELETE` rad etiladi, `TRUNCATE` ishlaydi.
 
 ## Seed (boshlang‘ich ma’lumotlar)
 

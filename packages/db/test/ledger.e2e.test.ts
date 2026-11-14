@@ -38,6 +38,8 @@ async function userWithWallet(): Promise<string> {
   return user.id;
 }
 
+// The debits below are not PURCHASEs: since D-60 a PURCHASE needs its order (order-purchase-ledger-
+// check.e2e.test.ts). Under test here are the sum and the lock, which treat every kind alike.
 describe('sumBalance', () => {
   it('is 0n for a user without entries', async () => {
     const userId = await userWithWallet();
@@ -57,10 +59,10 @@ describe('sumBalance', () => {
       });
       await appendLedgerEntry(tx, {
         userId,
-        kind: 'PURCHASE',
+        kind: 'TOPUP_REVERSAL',
         amountTiyin: -250_000n,
-        refType: 'ORDER',
-        refId: 'o1',
+        refType: 'PAYMENT',
+        refId: 'r1',
       });
       await appendLedgerEntry(tx, {
         userId: otherId,
@@ -95,9 +97,9 @@ describe('sumBalance beyond 2^53', () => {
       });
       await appendLedgerEntry(tx, {
         userId,
-        kind: 'PURCHASE',
+        kind: 'TOPUP_REVERSAL',
         amountTiyin: -1n,
-        refType: 'ORDER',
+        refType: 'PAYMENT',
         refId: 'big-3',
       });
     });
@@ -266,7 +268,7 @@ describe('lockWallet', () => {
     expect(balanceSeenBySecond).toBe(500n); // the second one saw the first one's committed entry
   });
 
-  it('stops two parallel purchases from spending the same balance twice', async () => {
+  it('stops two parallel debits (two adjustments) from spending the same balance twice', async () => {
     const userId = await userWithWallet();
     await db.$transaction((tx) =>
       appendLedgerEntry(tx, {
@@ -277,21 +279,21 @@ describe('lockWallet', () => {
         refId: 'seed',
       }),
     );
-    const purchase = (orderId: string) =>
+    const debit = (refId: string) =>
       db.$transaction(async (tx) => {
         await lockWallet(tx, userId);
         if ((await sumBalance(tx, userId)) < 700n) return false;
         await sleep(100); // widen the check-then-write window the lock has to cover
         await appendLedgerEntry(tx, {
           userId,
-          kind: 'PURCHASE',
+          kind: 'ADJUSTMENT',
           amountTiyin: -700n,
-          refType: 'ORDER',
-          refId: orderId,
+          refType: 'ADMIN_ACTION',
+          refId,
         });
         return true;
       });
-    const results = await Promise.all([purchase('o1'), purchase('o2')]);
+    const results = await Promise.all([debit('a1'), debit('a2')]);
     expect(results.filter(Boolean)).toHaveLength(1);
     expect(await db.$transaction((tx) => sumBalance(tx, userId))).toBe(300n);
   });

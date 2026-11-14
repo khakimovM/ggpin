@@ -99,11 +99,29 @@ export async function createOrder(
     requestHash: 'hash-a',
     ...overrides,
   };
-  if (options.unguarded !== true) return db.order.create({ data });
+  if (options.unguarded !== true) {
+    // The order and its PURCHASE debit in one transaction, as the purchase writes them: the database
+    // checks the pair at COMMIT (migration p5_order_purchase_ledger_check, D-60).
+    return db.$transaction(async (tx) => {
+      const order = await tx.order.create({ data });
+      await tx.ledgerEntry.create({
+        data: {
+          userId: order.userId,
+          kind: 'PURCHASE',
+          amountTiyin: -(order.priceTiyin - order.discountTiyin),
+          refType: 'ORDER',
+          refId: order.id,
+        },
+      });
+      return order;
+    });
+  }
   // For the CHECK tests of an order whose numbers differ from its quote's (audit Z4 refuses that
-  // first): the triggers are switched off for this one INSERT (session_replication_role = replica,
-  // local to the transaction). The CHECK constraints stay on; foreign keys are triggers too and are
-  // off as well, so never use this for a foreign-key test.
+  // first), and for an order WITHOUT its PURCHASE debit (a state the database refuses, to prove the
+  // @repo/db helpers refuse it too): the triggers are switched off for this one INSERT
+  // (session_replication_role = replica, local to the transaction), so no debit is written or
+  // demanded. The CHECK constraints stay on; foreign keys are triggers too and are off as well, so
+  // never use this for a foreign-key test.
   return db.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
     return tx.order.create({ data });

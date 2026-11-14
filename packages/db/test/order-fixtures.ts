@@ -71,7 +71,7 @@ export async function walkTo(orderId: string, status: OrderStatus): Promise<void
   }
 }
 
-/** An order of `user` in `status`, with no PURCHASE entry. */
+/** An order of `user` in `status`, with its PURCHASE entry (createOrder writes both, D-60). */
 export async function orderIn(
   user: Awaited<ReturnType<typeof createUser>>,
   status: OrderStatus,
@@ -82,22 +82,37 @@ export async function orderIn(
   return db.order.findUniqueOrThrow({ where: { id: order.id } });
 }
 
+/**
+ * An order of `user` in `status` WITHOUT a PURCHASE entry: a state the database refuses
+ * (Order_purchase_ledger_check), built with the triggers off, to prove the helpers refuse it too.
+ * `forcePurchase` then adds a debit the database would also refuse (another amount, another user).
+ */
+export async function orderWithoutDebitIn(
+  user: Awaited<ReturnType<typeof createUser>>,
+  status: OrderStatus,
+) {
+  const order = await createOrder(user, undefined, {}, { unguarded: true });
+  await walkTo(order.id, status);
+  return db.order.findUniqueOrThrow({ where: { id: order.id } });
+}
+
+/** A PURCHASE entry written with the triggers off (the database refuses it at COMMIT). */
+export function forcePurchase(userId: string, orderId: string, amountTiyin: bigint) {
+  return bypassingGuards((tx) =>
+    tx.ledgerEntry.create({
+      data: { userId, kind: 'PURCHASE', amountTiyin, refType: 'ORDER', refId: orderId },
+    }),
+  );
+}
+
 /** A user with a wallet, an order in `status` and its PURCHASE entry, like the purchase leaves it. */
 export async function paidOrder(status: OrderStatus, discountTiyin = 0n) {
   const user = await createUser();
   await db.wallet.create({ data: { userId: user.id } });
   const order = await orderIn(user, status, { discountTiyin });
-  await db.ledgerEntry.create({
-    data: {
-      userId: user.id,
-      kind: 'PURCHASE',
-      amountTiyin: -(PRICE - discountTiyin),
-      refType: 'ORDER',
-      refId: order.id,
-    },
-  });
   return { user, order };
 }
+
 export const events = (orderId: string) =>
   db.orderEvent.findMany({ where: { orderId }, orderBy: { createdAt: 'asc' } });
 export const refunds = (orderId: string) =>

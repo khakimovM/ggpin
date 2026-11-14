@@ -13,26 +13,40 @@ const MUST = 'must equal its quote';
 
 type QuoteRow = Awaited<ReturnType<typeof createQuote>>;
 
+// The order with its PURCHASE debit in one transaction (D-60 demands the pair at COMMIT); a refused
+// order fails at its INSERT, before the debit.
 const orderFor = (quote: QuoteRow, overrides: Record<string, unknown> = {}) =>
-  db.order.create({
-    data: {
-      userId: quote.userId,
-      quoteId: quote.id,
-      productId: quote.productId,
-      skuId: quote.skuId,
-      quantity: quote.quantity,
-      recipient: quote.recipient ?? {},
-      providerRef: quote.providerRef,
-      priceTiyin: quote.priceTiyin,
-      costCurrency: quote.costCurrency,
-      fxRateId: quote.fxRateId,
-      costMinor: quote.costMinor,
-      maxCostMinor: quote.maxCostMinor,
-      status: 'PAID',
-      idempotencyKey: `qb-${uniqueHash()}`,
-      requestHash: 'h',
-      ...overrides,
-    },
+  db.$transaction(async (tx) => {
+    const order = await tx.order.create({
+      data: {
+        userId: quote.userId,
+        quoteId: quote.id,
+        productId: quote.productId,
+        skuId: quote.skuId,
+        quantity: quote.quantity,
+        recipient: quote.recipient ?? {},
+        providerRef: quote.providerRef,
+        priceTiyin: quote.priceTiyin,
+        costCurrency: quote.costCurrency,
+        fxRateId: quote.fxRateId,
+        costMinor: quote.costMinor,
+        maxCostMinor: quote.maxCostMinor,
+        status: 'PAID',
+        idempotencyKey: `qb-${uniqueHash()}`,
+        requestHash: 'h',
+        ...overrides,
+      },
+    });
+    await tx.ledgerEntry.create({
+      data: {
+        userId: order.userId,
+        kind: 'PURCHASE',
+        amountTiyin: -(order.priceTiyin - order.discountTiyin),
+        refType: 'ORDER',
+        refId: order.id,
+      },
+    });
+    return order;
   });
 
 describe('the order of its own quote', () => {
