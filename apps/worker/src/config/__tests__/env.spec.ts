@@ -7,6 +7,7 @@ import {
 } from '@repo/shared';
 import { EnvValidationError, loadEnv, loadProcessEnv } from '../env';
 import { TEST_ENV_SOURCE, buildTestEnv } from './test-env';
+import { tonLiveSource } from './ton-live-env';
 
 const SECRET_VALUE = 'S3cr3t-VALUE-that-must-never-be-printed-9f8e7d';
 const LONG_SECRET = 'a'.repeat(40);
@@ -50,7 +51,9 @@ describe('worker loadEnv', () => {
   });
 
   it('parses FULFILLMENT_DRY_RUN strictly', () => {
-    expect(buildTestEnv({ FULFILLMENT_DRY_RUN: 'false' }).FULFILLMENT_DRY_RUN).toBe(false);
+    // DRY_RUN=false also needs the TON settings (plan §5); they are per-run fakes.
+    const live = buildTestEnv({ ...tonLiveSource(), FULFILLMENT_DRY_RUN: 'false' });
+    expect(live.FULFILLMENT_DRY_RUN).toBe(false);
     for (const bad of ['yes', '0', 'FALSE']) {
       expect(messageOf({ ...TEST_ENV_SOURCE, FULFILLMENT_DRY_RUN: bad })).toContain(
         'FULFILLMENT_DRY_RUN',
@@ -200,7 +203,10 @@ describe('worker loadEnv', () => {
     });
 
     it('accepts strong values in production', () => {
-      expect(() => loadEnv({ ...prod, WALLET_ENC_KEY: LONG_SECRET })).not.toThrow();
+      // WALLET_ENC_KEY itself is refused inline in production whatever its strength: it comes
+      // from WALLET_ENC_KEY_FILE there (D-52 D3 pattern, plan §5; env-ton.spec.ts). The strength
+      // rule is the same for every generated secret, so another one proves it accepts.
+      expect(() => loadEnv({ ...prod, TON_MNEMONIC_ENC: LONG_SECRET })).not.toThrow();
     });
 
     it('allows placeholders outside production', () => {

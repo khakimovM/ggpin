@@ -11,6 +11,7 @@ import {
   adapterHealthKey,
 } from './health-keys';
 import { ALERT_KINDS } from '../payments/bank-feed';
+import { TON_NOT_SENT_MARGIN_MS } from '../orders/review-proof';
 
 describe('health keys', () => {
   it('uses the names of the plan and the readiness contract', () => {
@@ -46,6 +47,14 @@ describe('fulfillment alert kinds', () => {
     expect(FULFILLMENT_ALERT_KINDS).toContain('tonBounced');
     expect(FULFILLMENT_ALERT_KINDS).toContain('tonWalletCompromised');
   });
+
+  it('has the critical key of a hot wallet blocked by an unresolved transfer (review M4)', () => {
+    expect(FULFILLMENT_ALERT_KINDS).toContain('tonWalletBlocked');
+  });
+
+  it('has the critical key of an expiry witness that contradicts the primary source (m3)', () => {
+    expect(FULFILLMENT_ALERT_KINDS).toContain('tonWitnessConflict');
+  });
 });
 
 describe('the stored cost ceiling (I4)', () => {
@@ -80,8 +89,10 @@ describe('the stored cost ceiling (I4)', () => {
   });
 });
 
-describe('the lock duration that the "never sent" waiting period is built on', () => {
-  it('is longer than the 3-minute confirmation wait (plan 6.4 step 7)', () => {
-    expect(FULFILL_ORDER_LOCK_DURATION_MS).toBeGreaterThan(3 * 60_000);
+describe('the lock duration of the fulfill-order worker', () => {
+  // Not tied to the confirmation wait (BullMQ renews the lock of a live worker); its relation to
+  // the TON wallet lease is checked in the worker (fulfill-order-lock.spec.ts).
+  it("makes the operator's MANUAL quiet period lockDuration + margin = 5 minutes (docs/06)", () => {
+    expect(FULFILL_ORDER_LOCK_DURATION_MS + TON_NOT_SENT_MARGIN_MS).toBe(5 * 60_000);
   });
 });

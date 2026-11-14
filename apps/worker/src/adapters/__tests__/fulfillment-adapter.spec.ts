@@ -1,4 +1,4 @@
-import type { NeedsReviewProof } from '@repo/shared';
+import { RecipientProviderRefSchema, type NeedsReviewProof } from '@repo/shared';
 import {
   hasProviderRef,
   type AdapterBalance,
@@ -102,6 +102,15 @@ describe('FulfillmentAdapter contract', () => {
     expect(hasProviderRef(context.recipient)).toBe(true);
     expect(hasProviderRef({ fields: {}, providerRef: null })).toBe(false);
     expect(hasProviderRef({ fields: {}, providerRef: '' })).toBe(false);
+  });
+
+  it('a whitespace-only providerRef (spaces, NBSP, a tab) is no handle, like the shared schema', () => {
+    const nbsp = String.fromCharCode(0xa0);
+    for (const blank of ['   ', nbsp, `${nbsp} ${nbsp}`, '\t']) {
+      expect(hasProviderRef({ fields: {}, providerRef: blank })).toBe(false);
+      expect(RecipientProviderRefSchema.safeParse(blank).success).toBe(false);
+    }
+    expect(hasProviderRef({ fields: {}, providerRef: ` ${nbsp}x` })).toBe(true);
   });
 
   it('money is bigint minor units, never a number', async () => {
