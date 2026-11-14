@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
-import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES } from '@repo/shared';
+import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES, queueStreamOptions } from '@repo/shared';
 import type { QueueOptions } from 'bullmq';
 import { WORKER_CONFIG, type WorkerConfig } from '../../config/config.module';
 import { BullWorkersShutdown } from './bull-workers-shutdown';
@@ -15,7 +15,12 @@ export function workerBullOptions(config: WorkerConfig): QueueOptions {
 }
 
 const queues = BullModule.registerQueue(
-  ...QUEUE_NAMES.map((name) => ({ name, defaultJobOptions: QUEUE_JOB_DEFAULTS[name] })),
+  ...QUEUE_NAMES.map((name) => ({
+    name,
+    defaultJobOptions: QUEUE_JOB_DEFAULTS[name],
+    // Same events-stream bound in api and worker: each Queue writes it to the queue's meta.
+    ...queueStreamOptions(name),
+  })),
 );
 
 // Registers every queue from @repo/shared so jobs can be added (cron schedules, follow-ups).

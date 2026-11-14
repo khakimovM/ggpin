@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { NOTIFY_DEDUPE_SEC, QUEUE_JOB_DEFAULTS, QUEUE_NAMES, QUEUES } from './index';
+import {
+  NOTIFY_DEDUPE_SEC,
+  QUEUE_EVENTS_MAX_LEN,
+  QUEUE_JOB_DEFAULTS,
+  QUEUE_NAMES,
+  QUEUES,
+  RECIPIENT_CHECK_RETENTION_SEC,
+  queueStreamOptions,
+} from './index';
 
 describe('queues', () => {
   it('lists every queue name once', () => {
@@ -26,7 +34,9 @@ describe('queues', () => {
 
   it('matches the retry policy in docs/02-ARCHITECTURE.md', () => {
     expect(QUEUE_JOB_DEFAULTS[QUEUES.FULFILL_ORDER].attempts).toBe(5);
-    expect(QUEUE_JOB_DEFAULTS[QUEUES.VALIDATE_RECIPIENT].attempts).toBe(2);
+    // validate-recipient: one attempt (phase 5 S3a fix round; the worker answers UNAVAILABLE
+    // instead of throwing, so a retry would only repeat a provider call nobody waits for).
+    expect(QUEUE_JOB_DEFAULTS[QUEUES.VALIDATE_RECIPIENT].attempts).toBe(1);
     for (const cron of [
       QUEUES.PRICE_SYNC,
       QUEUES.FRAGMENT_KEEPALIVE,
@@ -57,6 +67,25 @@ describe('queues', () => {
     );
     for (const keep of ['removeOnComplete', 'removeOnFail'] as const) {
       expect(QUEUE_JOB_DEFAULTS[QUEUES.TG_OUTBOX][keep].age).toBeLessThanOrEqual(24 * 60 * 60);
+    }
+  });
+
+  it('keeps finished validate-recipient jobs (personal data) for one 60 s bucket only', () => {
+    expect(RECIPIENT_CHECK_RETENTION_SEC).toBe(60);
+    for (const keep of ['removeOnComplete', 'removeOnFail'] as const) {
+      expect(QUEUE_JOB_DEFAULTS[QUEUES.VALIDATE_RECIPIENT][keep].age).toBe(
+        RECIPIENT_CHECK_RETENTION_SEC,
+      );
+    }
+  });
+
+  it('bounds the validate-recipient events stream; other queues keep the BullMQ default', () => {
+    expect(QUEUE_EVENTS_MAX_LEN[QUEUES.VALIDATE_RECIPIENT]).toBe(500);
+    expect(queueStreamOptions(QUEUES.VALIDATE_RECIPIENT)).toEqual({
+      streams: { events: { maxLen: 500 } },
+    });
+    for (const name of QUEUE_NAMES.filter((n) => n !== QUEUES.VALIDATE_RECIPIENT)) {
+      expect(queueStreamOptions(name)).toEqual({});
     }
   });
 });

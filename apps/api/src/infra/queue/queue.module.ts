@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
-import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES } from '@repo/shared';
+import { QUEUE_JOB_DEFAULTS, QUEUE_NAMES, queueStreamOptions } from '@repo/shared';
 import type { QueueOptions } from 'bullmq';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { FulfillOrderEnqueuer } from './fulfill-order-enqueuer';
@@ -17,7 +17,12 @@ export function apiBullOptions(config: AppConfig): QueueOptions {
 }
 
 const queues = BullModule.registerQueue(
-  ...QUEUE_NAMES.map((name) => ({ name, defaultJobOptions: QUEUE_JOB_DEFAULTS[name] })),
+  ...QUEUE_NAMES.map((name) => ({
+    name,
+    defaultJobOptions: QUEUE_JOB_DEFAULTS[name],
+    // Same events-stream bound in api and worker: each Queue writes it to the queue's meta.
+    ...queueStreamOptions(name),
+  })),
 );
 
 // This module only produces jobs; it registers no processors. Inject a queue with

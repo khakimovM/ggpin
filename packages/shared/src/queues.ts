@@ -41,6 +41,36 @@ const DAY_SEC = 24 * HOUR_SEC;
  */
 export const NOTIFY_DEDUPE_SEC = 30 * DAY_SEC;
 
+/**
+ * Seconds a finished validate-recipient job (input and answer, both personal data) is kept, at
+ * least: BullMQ removes old finished jobs lazily (when a later job finishes), so the worker also
+ * sweeps the queue every 30 s (phase 5 S3b, recipient-job-sweeper.ts): a finished job lives at
+ * most ~90 s (60 + 30). The API's job id carries a 60 s time bucket (RECIPIENT_CHECK_REUSE_MS),
+ * so a job id is not asked for again once its bucket is over.
+ */
+export const RECIPIENT_CHECK_RETENTION_SEC = 60;
+
+/**
+ * Upper bound of a queue's events stream (BullMQ trims with XADD MAXLEN ~, so a little more may
+ * stay). The default is 10 000 events. validate-recipient's `completed` event carries the answer
+ * (display name, provider handle), so its stream is kept short: about 5-6 events per job means the
+ * last ~100 lookups, while the API's QueueEvents reads the stream live and never needs history.
+ * BullMQ stores this in the queue's meta hash (`opts.maxLenEvents`) and every `Queue` instance
+ * writes it when it opens, so the api and the worker must register the queue with the same value:
+ * use queueStreamOptions() in both QueueModules.
+ */
+export const QUEUE_EVENTS_MAX_LEN: Readonly<Partial<Record<QueueName, number>>> = {
+  [QUEUES.VALIDATE_RECIPIENT]: 500,
+};
+
+/** `streams` registration option of a queue (structurally BullMQ's QueueOptions.streams). */
+export function queueStreamOptions(name: QueueName): {
+  readonly streams?: { readonly events: { readonly maxLen: number } };
+} {
+  const maxLen = QUEUE_EVENTS_MAX_LEN[name];
+  return maxLen === undefined ? {} : { streams: { events: { maxLen } } };
+}
+
 // Cron-driven jobs: the next tick is the retry, so a failure is not re-run on its own.
 const CRON_DEFAULTS: QueueJobDefaults = {
   attempts: 1,
@@ -69,12 +99,16 @@ export const QUEUE_JOB_DEFAULTS: Readonly<Record<QueueName, QueueJobDefaults>> =
     removeOnComplete: { age: 7 * DAY_SEC, count: 10_000 },
     removeOnFail: { age: 30 * DAY_SEC, count: 10_000 },
   },
-  // The API waits ~10 s for the answer (phase 5), so only one quick retry fits in that window.
+  // One attempt: the worker never throws for a provider problem (it answers UNAVAILABLE) and only
+  // throws UnrecoverableError for a malformed job, so a retry could only repeat a provider call
+  // for a question the API may have stopped waiting for (10 s). The user's next tap is the retry.
+  // A crashed worker's job comes back through BullMQ's stalled check, not through attempts.
+  // Finished jobs: RECIPIENT_CHECK_RETENTION_SEC, completed and failed alike (personal data).
   [QUEUES.VALIDATE_RECIPIENT]: {
-    attempts: 2,
+    attempts: 1,
     backoff: { type: 'exponential', delay: 1_000 },
-    removeOnComplete: { age: HOUR_SEC, count: 1_000 },
-    removeOnFail: { age: DAY_SEC, count: 1_000 },
+    removeOnComplete: { age: RECIPIENT_CHECK_RETENTION_SEC, count: 1_000 },
+    removeOnFail: { age: RECIPIENT_CHECK_RETENTION_SEC, count: 1_000 },
   },
   [QUEUES.PRICE_SYNC]: CRON_DEFAULTS,
   [QUEUES.FRAGMENT_KEEPALIVE]: CRON_DEFAULTS,
