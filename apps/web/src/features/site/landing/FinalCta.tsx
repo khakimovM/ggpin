@@ -2,7 +2,7 @@ import { BRAND, type Locale } from '@repo/shared';
 import { cn, Icon, Logo } from '@repo/ui';
 import { Send } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { storePath } from '../../../i18n/paths';
 import { siteLinks } from '../shell/site-links';
 import { LANDING_CONTAINER, LANDING_CTA_PRIMARY, LANDING_CTA_SECONDARY } from './landing-styles';
@@ -37,13 +37,13 @@ export async function FinalCta({ locale }: { locale: Locale }) {
               {t('telegram')}
             </a>
           )}
-          <Link
+          <SiteLink
             href={storePath(locale)}
             prefetch={false}
             className={cn(LANDING_CTA_SECONDARY, 'flex-[0_1_260px]')}
           >
             {t('store')}
-          </Link>
+          </SiteLink>
         </div>
       </div>
     </section>

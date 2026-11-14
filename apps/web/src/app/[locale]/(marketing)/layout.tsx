@@ -2,12 +2,14 @@ import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { SiteAnalytics } from '../../../features/site/analytics/SiteAnalytics';
 import { SiteFooter } from '../../../features/site/shell/SiteFooter';
 import { SiteHeader } from '../../../features/site/shell/SiteHeader';
 import { routing } from '../../../i18n/routing';
 
 // The marketing pages (landing, product pages, FAQ, legal, contacts): the site header above, the
-// footer below, the page between them.
+// footer below, the page between them. The only place the analytics script is rendered (phase 8
+// S5): the store, the login, the Mini App and the payment page never load it.
 export default async function MarketingLayout({
   children,
   params,
@@ -36,6 +38,7 @@ export default async function MarketingLayout({
         {children}
       </div>
       <SiteFooter locale={locale} />
+      <SiteAnalytics />
     </div>
   );
 }

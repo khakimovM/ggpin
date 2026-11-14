@@ -2,7 +2,7 @@ import type { Locale } from '@repo/shared';
 import { cn, Icon } from '@repo/ui';
 import { ArrowRight, Send, Zap } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { storePath } from '../../../i18n/paths';
 import { siteLinks } from '../shell/site-links';
 import { HeroFloatCards } from './HeroFloatCards';
@@ -69,7 +69,7 @@ export async function Hero({ locale }: { locale: Locale }) {
                 {cta('telegram')}
               </a>
             )}
-            <Link
+            <SiteLink
               href={storePath(locale)}
               prefetch={false}
               className={cn(
@@ -79,7 +79,7 @@ export async function Hero({ locale }: { locale: Locale }) {
             >
               {cta('store')}
               <Icon icon={ArrowRight} size={18} />
-            </Link>
+            </SiteLink>
           </div>
           <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-2 p-0 text-sm leading-5 font-bold text-foreground-secondary">
             {TRUST.map(({ key, glyph }) => (

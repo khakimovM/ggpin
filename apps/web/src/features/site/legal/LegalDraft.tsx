@@ -2,7 +2,7 @@ import type { Locale } from '@repo/shared';
 import { Button, Icon } from '@repo/ui';
 import { FileText } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { localizedPath } from '../../../i18n/paths';
 import type { LegalDocKey } from './legal-docs';
 
@@ -34,9 +34,9 @@ export async function LegalDraft({ locale, docKey }: { locale: Locale; docKey: L
           {t('draftNotice')}
         </p>
         <Button asChild size="lg" className="mt-2">
-          <Link href={localizedPath(locale, '/contacts')} prefetch={false}>
+          <SiteLink href={localizedPath(locale, '/contacts')} prefetch={false}>
             {t('contact')}
-          </Link>
+          </SiteLink>
         </Button>
       </div>
     </main>

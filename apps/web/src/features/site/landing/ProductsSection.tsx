@@ -2,7 +2,7 @@ import type { Locale } from '@repo/shared';
 import { cn, Icon } from '@repo/ui';
 import { ArrowRight } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { Suspense } from 'react';
 import { storePath } from '../../../i18n/paths';
 import { LINK_FOCUS } from '../shell/nav-config';
@@ -38,7 +38,7 @@ export async function ProductsSection({ locale }: { locale: Locale }) {
             </h2>
             <p className={LANDING_LEAD}>{t('lead')}</p>
           </div>
-          <Link
+          <SiteLink
             href={storePath(locale)}
             prefetch={false}
             className={cn(
@@ -48,7 +48,7 @@ export async function ProductsSection({ locale }: { locale: Locale }) {
           >
             {t('all')}
             <Icon icon={ArrowRight} size={16} />
-          </Link>
+          </SiteLink>
         </div>
         <Suspense fallback={<ProductsSkeleton label={t('loading')} />}>
           <ProductsGrid locale={locale} />

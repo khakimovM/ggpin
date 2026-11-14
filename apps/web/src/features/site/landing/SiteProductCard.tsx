@@ -1,6 +1,6 @@
 import { Badge, cn, Icon } from '@repo/ui';
 import { Clock, Crown, Flame, ImageIcon, Star } from 'lucide-react';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import type { ReactNode } from 'react';
 import { ProductImage } from '../../catalog/ProductImage';
 import { LINK_FOCUS } from '../shell/nav-config';
@@ -150,7 +150,7 @@ export function SiteProductCard({ tile, name, href, price, labels }: SiteProduct
       {href === null ? (
         <div className={frame}>{body}</div>
       ) : (
-        <Link
+        <SiteLink
           href={href}
           prefetch={false}
           className={cn(
@@ -160,7 +160,7 @@ export function SiteProductCard({ tile, name, href, price, labels }: SiteProduct
           )}
         >
           {body}
-        </Link>
+        </SiteLink>
       )}
     </li>
   );

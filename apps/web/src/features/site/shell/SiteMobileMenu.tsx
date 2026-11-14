@@ -2,7 +2,7 @@
 
 import { cn, HIT_AREA_LINK, Icon } from '@repo/ui';
 import { ChevronRight, Menu, Send, X } from 'lucide-react';
-import Link from 'next/link';
+import { SiteLink } from './SiteLink';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { LINK_FOCUS } from './nav-config';
 
@@ -68,7 +68,7 @@ export function SiteMobileMenu({
 
   return (
     <div ref={root} className={cn('ml-auto items-center gap-1.5', className)}>
-      <Link
+      <SiteLink
         href={login.href}
         prefetch={false}
         className={cn(
@@ -77,7 +77,7 @@ export function SiteMobileMenu({
         )}
       >
         {login.label}
-      </Link>
+      </SiteLink>
       <button
         ref={button}
         type="button"
@@ -101,7 +101,7 @@ export function SiteMobileMenu({
       >
         <nav aria-label={menuLabel} className="flex flex-col gap-1">
           {items.map((item) => (
-            <Link
+            <SiteLink
               key={item.href}
               href={item.href}
               onClick={close}
@@ -112,7 +112,7 @@ export function SiteMobileMenu({
             >
               {item.label}
               <Icon icon={ChevronRight} size={18} className="text-foreground-muted" />
-            </Link>
+            </SiteLink>
           ))}
         </nav>
         <div className="flex h-14 items-center justify-between">

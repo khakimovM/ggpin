@@ -5,6 +5,7 @@
 //
 // 1. NODE_ENV=production `next build` with NEXT_PUBLIC_API_MOCKS filled  -> must FAIL (the guard).
 // 1b. the same with a REMOVED group (`wallet`, `payments`: real since phase 4) -> must FAIL (unknown group).
+// 1c. NEXT_PUBLIC_ANALYTICS_SITE_ID that is not a UUID (phase 8 S5)     -> must FAIL.
 // 2. the same with NEXT_PUBLIC_API_MOCKS empty                           -> must PASS.
 // 3. `.next/static` and `.next/server` hold no mock identifier or fixture literal; a literal that
 //    the production bundle does contain is searched in the same way, to prove the search works.
@@ -22,6 +23,8 @@ const ENV = {
   NEXT_PUBLIC_BOT_USERNAME: 'ggpin_e2e_bot',
   NEXT_PUBLIC_SUPPORT_URL: '',
   NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: 'https://t.me/ggpin_e2e_channel',
+  // Analytics off, as in every build until the Umami container exists (phase 11).
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: '',
   // Server-only: must never reach a browser bundle (check below).
   API_INTERNAL_URL: INTERNAL_API,
   NEXT_TELEMETRY_DISABLED: '1',
@@ -49,9 +52,9 @@ const FORBIDDEN = [
 // Written in client.ts as the production branch of the mock loader: it must be in the bundle.
 const CONTROL = 'does not exist in production builds';
 
-function build(mocks) {
+function build(mocks, extra = {}) {
   const run = spawnSync('npx', ['next', 'build'], {
-    env: { ...ENV, NEXT_PUBLIC_API_MOCKS: mocks },
+    env: { ...ENV, NEXT_PUBLIC_API_MOCKS: mocks, ...extra },
     encoding: 'utf8',
     shell: true,
   });
@@ -97,6 +100,18 @@ for (const removed of ['wallet', 'payments']) {
     `the failure for "${removed}" names the valid groups (an unknown group, not a silent no-op)`,
   );
 }
+
+// The analytics id is written into a script attribute on every marketing page: a value that is not
+// a UUID (here: markup) must stop the build, not reach the HTML.
+const badAnalytics = build('', { NEXT_PUBLIC_ANALYTICS_SITE_ID: '"><b>x</b>' });
+check(
+  badAnalytics.code !== 0,
+  `build with a non-UUID NEXT_PUBLIC_ANALYTICS_SITE_ID fails (exit ${badAnalytics.code})`,
+);
+check(
+  badAnalytics.out.includes('NEXT_PUBLIC_ANALYTICS_SITE_ID'),
+  'the failure names NEXT_PUBLIC_ANALYTICS_SITE_ID',
+);
 
 const empty = build('');
 check(empty.code === 0, `build with NEXT_PUBLIC_API_MOCKS empty passes (exit ${empty.code})`);

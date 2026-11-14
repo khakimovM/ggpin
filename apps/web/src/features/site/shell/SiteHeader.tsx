@@ -2,7 +2,7 @@ import { BRAND, type Locale } from '@repo/shared';
 import { cn, HIT_AREA_LINK, Icon, Logo } from '@repo/ui';
 import { Send } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import { SiteLink } from './SiteLink';
 import { homePath, loginPath } from '../../../i18n/paths';
 import { NAV_ITEMS, NAV_LAYOUT, LINK_FOCUS } from './nav-config';
 import { SiteLangSwitch } from './SiteLangSwitch';
@@ -31,7 +31,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/86 backdrop-blur-[14px]">
       <div className="mx-auto flex h-[clamp(64px,5vw,72px)] w-full max-w-[1264px] items-center gap-8 px-[clamp(16px,2.5vw,32px)]">
-        <Link
+        <SiteLink
           href={homePath(locale)}
           aria-label={t('home', { brand: BRAND.name })}
           className={cn(
@@ -43,10 +43,10 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
           {/* Both parts are decorative: the link's name starts with the wordmark (WCAG 2.5.3). */}
           <Logo name={BRAND.name} size={32} decorative />
           <Logo name={BRAND.name} variant="wordmark" size={20} decorative />
-        </Link>
+        </SiteLink>
         <nav aria-label={t('main')} className={cn('gap-0', layout.wide)}>
           {items.map((item) => (
-            <Link
+            <SiteLink
               key={item.href}
               href={item.href}
               className={cn(
@@ -56,12 +56,12 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
               )}
             >
               {item.label}
-            </Link>
+            </SiteLink>
           ))}
         </nav>
         <div className={cn('ml-auto items-center gap-2', layout.wide)}>
           <SiteLangSwitch labels={langLabels} />
-          <Link
+          <SiteLink
             href={login.href}
             prefetch={false}
             className={cn(
@@ -70,7 +70,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
             )}
           >
             {login.label}
-          </Link>
+          </SiteLink>
           {telegram === null ? null : (
             <a
               href={telegram.href}

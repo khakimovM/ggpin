@@ -1,6 +1,6 @@
 import { Icon } from '@repo/ui';
 import { MessageCircle } from 'lucide-react';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { LANDING_OUTLINE_LINK } from '../landing/landing-styles';
 
 /**
@@ -25,9 +25,9 @@ export function FaqSupportLink({
   );
   if (internal) {
     return (
-      <Link href={href} prefetch={false} className={LANDING_OUTLINE_LINK}>
+      <SiteLink href={href} prefetch={false} className={LANDING_OUTLINE_LINK}>
         {content}
-      </Link>
+      </SiteLink>
     );
   }
   return (

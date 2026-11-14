@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@repo/ui';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { LANDING_CTA_PRIMARY } from '../landing/landing-styles';
 import { LINK_FOCUS } from '../shell/nav-config';
@@ -137,13 +137,13 @@ export function PackagePicker({
         ))}
       </div>
       <div className={PRODUCT_BUTTONS}>
-        <Link
+        <SiteLink
           href={buyHref}
           prefetch={false}
           className={cn(LANDING_CTA_PRIMARY, BUY_BUTTON_SIZE, 'tabular-nums')}
         >
           {current.cta}
-        </Link>
+        </SiteLink>
         {children}
       </div>
     </>

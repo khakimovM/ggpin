@@ -21,6 +21,8 @@ export const SITE_ENV = {
   NEXT_PUBLIC_API_MOCKS: '',
   NEXT_PUBLIC_SUPPORT_URL: '',
   NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: 'https://t.me/ggpin_e2e_channel',
+  // Analytics off, written out: an id left in the shell must not slip into the measured build.
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: '',
   API_INTERNAL_URL: `${CATALOG_ORIGIN}/api/v1`,
   NEXT_TELEMETRY_DISABLED: '1',
 };

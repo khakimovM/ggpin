@@ -9,8 +9,9 @@ import { parseServerEnv } from './src/server-env';
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 export default function config(phase: string): NextConfig {
-  // Only the mock guard needs the env here; the strict checks (required values, https) live in
-  // src/env.ts and run when the app code is built.
+  // The mock guard needs the env here (and parsing it checks every format, the analytics id
+  // included); the strict checks (required values, https) live in src/env.ts and run when the app
+  // code is built.
   const env = parseClientEnv(
     {
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
@@ -19,6 +20,8 @@ export default function config(phase: string): NextConfig {
       NEXT_PUBLIC_API_MOCKS: process.env.NEXT_PUBLIC_API_MOCKS,
       NEXT_PUBLIC_SUPPORT_URL: process.env.NEXT_PUBLIC_SUPPORT_URL,
       NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL,
+      // Checked here too, so a malformed id stops `next build` before any page is compiled.
+      NEXT_PUBLIC_ANALYTICS_SITE_ID: process.env.NEXT_PUBLIC_ANALYTICS_SITE_ID,
     },
     { production: false },
   );

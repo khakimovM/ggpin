@@ -1,6 +1,6 @@
 import { cn, Icon } from '@repo/ui';
 import { Send } from 'lucide-react';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { LANDING_CTA_BOX, LANDING_CTA_PRIMARY } from '../landing/landing-styles';
 import { LINK_FOCUS } from '../shell/nav-config';
 import { BUY_BUTTON_SIZE, TELEGRAM_BUTTON_SIZE } from './product-styles';
@@ -34,9 +34,9 @@ export function TelegramButton({ href, label }: { href: string | null; label: st
 /** The buy button without a package behind it: it leads into the store, which asks for the rest. */
 export function BuyLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} prefetch={false} className={cn(LANDING_CTA_PRIMARY, BUY_BUTTON_SIZE)}>
+    <SiteLink href={href} prefetch={false} className={cn(LANDING_CTA_PRIMARY, BUY_BUTTON_SIZE)}>
       {label}
-    </Link>
+    </SiteLink>
   );
 }
 

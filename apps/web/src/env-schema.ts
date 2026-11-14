@@ -60,6 +60,12 @@ const telegramUrl = (what: string) =>
     }),
   ]);
 
+// The Umami website id (phase 8 S5, D-08/D-57). Umami makes it with uuid() (v4, or v7 with
+// USE_UUIDV7), so only an RFC UUID passes; anything else (a URL, markup, a stray space) is refused,
+// because the value is written into a script attribute on every marketing page. Empty means
+// "analytics off": no script, no request (dev, CI, until the Umami container exists in phase 11).
+const analyticsSiteId = z.union([z.literal(''), z.uuid()]);
+
 const mockList = z
   .string()
   .transform((value) =>
@@ -80,6 +86,7 @@ const schema = z.object({
   NEXT_PUBLIC_SUPPORT_URL: telegramUrl('handle'),
   // Empty means "no channel": the footer and contacts hide the Channel link.
   NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: telegramUrl('channel'),
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: analyticsSiteId,
 });
 
 export type ClientEnv = z.infer<typeof schema>;
@@ -93,7 +100,8 @@ export type RawClientEnv = Partial<
     | 'NEXT_PUBLIC_BOT_USERNAME'
     | 'NEXT_PUBLIC_API_MOCKS'
     | 'NEXT_PUBLIC_SUPPORT_URL'
-    | 'NEXT_PUBLIC_TELEGRAM_CHANNEL_URL',
+    | 'NEXT_PUBLIC_TELEGRAM_CHANNEL_URL'
+    | 'NEXT_PUBLIC_ANALYTICS_SITE_ID',
     string | undefined
   >
 >;
@@ -126,6 +134,7 @@ export function parseClientEnv(raw: RawClientEnv, mode: { production: boolean })
     NEXT_PUBLIC_API_MOCKS: raw.NEXT_PUBLIC_API_MOCKS ?? '',
     NEXT_PUBLIC_SUPPORT_URL: raw.NEXT_PUBLIC_SUPPORT_URL ?? '',
     NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: raw.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL ?? '',
+    NEXT_PUBLIC_ANALYTICS_SITE_ID: raw.NEXT_PUBLIC_ANALYTICS_SITE_ID ?? '',
   });
   if (mode.production) assertSecureUrls(parsed);
   // Mocks must never reach production: a mocked wallet/order would show money that does not exist.

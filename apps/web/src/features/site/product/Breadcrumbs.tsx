@@ -1,6 +1,6 @@
 import { cn, HIT_AREA_LINK, Icon } from '@repo/ui';
 import { ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { SiteLink } from '../shell/SiteLink';
 import { Fragment } from 'react';
 import { LANDING_CONTAINER } from '../landing/landing-styles';
 import { LINK_FOCUS } from '../shell/nav-config';
@@ -39,9 +39,9 @@ export function Breadcrumbs({ label, items }: { label: string; items: readonly C
                     {item.label}
                   </span>
                 ) : (
-                  <Link href={item.href} prefetch={false} className={LINK}>
+                  <SiteLink href={item.href} prefetch={false} className={LINK}>
                     {item.label}
-                  </Link>
+                  </SiteLink>
                 )}
               </li>
             </Fragment>

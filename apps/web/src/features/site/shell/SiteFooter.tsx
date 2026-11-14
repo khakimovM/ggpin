@@ -2,7 +2,7 @@ import { BRAND, type Locale } from '@repo/shared';
 import { cn, HIT_AREA_LINK, Icon, Logo } from '@repo/ui';
 import { Bot, Megaphone } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import { SiteLink } from './SiteLink';
 import type { ReactNode } from 'react';
 import { homePath, localizedPath } from '../../../i18n/paths';
 import { yearInDisplayZone } from './current-year';
@@ -52,7 +52,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
       <div className="mx-auto flex w-full max-w-[1264px] flex-col gap-8 px-[clamp(16px,2.5vw,32px)] pt-[clamp(40px,4vw,56px)] pb-7">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-x-8 gap-y-7">
           <div className="flex min-w-0 flex-col gap-3">
-            <Link
+            <SiteLink
               href={homePath(locale)}
               className={cn(
                 'relative flex w-fit items-center gap-2.5 text-foreground no-underline',
@@ -62,7 +62,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
             >
               <Logo name={BRAND.name} size={32} decorative />
               <Logo name={BRAND.name} variant="wordmark" size={20} />
-            </Link>
+            </SiteLink>
             <span className="text-sm leading-[21px] font-medium text-foreground-muted">
               {t('footer.tagline')}
             </span>
@@ -70,26 +70,26 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
           {products.length === 0 ? null : (
             <Column title={t('footer.products')}>
               {products.map((link) => (
-                <Link
+                <SiteLink
                   key={link.path}
                   href={localizedPath(locale, link.path)}
                   className={LINK_CLASS}
                 >
                   {t(`footer.productLinks.${link.labelKey}`)}
-                </Link>
+                </SiteLink>
               ))}
             </Column>
           )}
           {info.length === 0 ? null : (
             <Column title={t('footer.info')}>
               {info.map((link) => (
-                <Link
+                <SiteLink
                   key={link.path}
                   href={localizedPath(locale, link.path)}
                   className={LINK_CLASS}
                 >
                   {t(`footer.infoLinks.${link.labelKey}`)}
-                </Link>
+                </SiteLink>
               ))}
             </Column>
           )}
