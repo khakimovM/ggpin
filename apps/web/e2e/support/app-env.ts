@@ -2,6 +2,8 @@
 export const E2E_BOT_USERNAME = 'ggpin_bot';
 export const E2E_BOT_URL = `https://t.me/${E2E_BOT_USERNAME}`;
 export const E2E_CHANNEL_URL = 'https://t.me/ggpin_e2e_channel';
+// The Umami website id of the e2e build (any UUID: there is no Umami server in the tests).
+export const E2E_ANALYTICS_SITE_ID = '3f1d6b2a-8c4e-4f7a-9b2d-5e6c7a8b9c0d';
 // The fixture catalog server (e2e/support/catalog-server.ts): the site's server-side rendering
 // reads the public catalog from it (API_INTERNAL_URL).
 export const E2E_CATALOG_PORT = 5100;

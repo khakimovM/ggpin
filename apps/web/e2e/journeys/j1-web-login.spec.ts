@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import uz from '@repo/i18n/uz.json';
 import { expect, test, type Page } from '@playwright/test';
 import { watchPage } from '../support/gallery';
-import { CATALOGS, openLogin, startFromLanding, type Lang } from './j1-support';
+import { CATALOGS, openLogin, startFromLanding, untilLoginHydrated, type Lang } from './j1-support';
 import {
   BAD_CODE,
   BOT_URL,
@@ -48,6 +48,11 @@ const journeyCases = [
   },
 ] as const;
 
+// The sign-in ends with a full page load of the store, which then asks the API for the session
+// before it draws a heading. On a loaded machine that load alone took over 5 s (a trace at 768 px:
+// the document 2.4 s, the session request 5.6 s after it), past the default of an assertion.
+const AFTER_SIGN_IN_MS = 20_000;
+
 test.describe('journey 1: sign in through Telegram', () => {
   for (const { lang, theme, wrong, welcome } of journeyCases) {
     test(`${lang}, ${theme}: start, bot link, wrong code, right code, store`, async ({ page }) => {
@@ -82,7 +87,9 @@ test.describe('journey 1: sign in through Telegram', () => {
       await typeCode(page, lang, GOOD_CODE);
 
       await expect(page).toHaveURL(new RegExp(`${CATALOGS[lang].store}$`));
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText(welcome);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(welcome, {
+        timeout: AFTER_SIGN_IN_MS,
+      });
 
       expect(api.count('POST /auth/telegram/start')).toBe(1);
       expect(api.count('POST /auth/telegram/verify')).toBe(2);
@@ -116,17 +123,15 @@ test.describe('journey 1: sign in through Telegram', () => {
     // (The cleanup after the loss resets the mounted `/me` query, which asks once more.)
     expect(api.count('POST /auth/refresh')).toBeGreaterThanOrEqual(1);
 
-    // A click before hydration does nothing: wait until the theme provider has run.
-    await expect(page.locator('html')).toHaveAttribute('data-theme', /light|dark/, {
-      timeout: 15_000,
-    });
+    // A click before hydration does nothing: wait until React has hydrated the page.
+    await untilLoginHydrated(page);
     await page.getByRole('button', { name: uz.web.login.start }).click();
     await typeCode(page, 'uz', GOOD_CODE);
 
     await expect(page).toHaveURL(/\/store\/profile$/);
     await expect(
       page.getByRole('heading', { level: 1, name: uz.account.profile.title }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: AFTER_SIGN_IN_MS });
   });
 
   for (const next of ['//evil.com', 'https://evil.com', '/%2F%2Fevil.com', '/\\evil.com']) {

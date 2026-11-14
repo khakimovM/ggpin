@@ -87,18 +87,24 @@ for (const lang of ['uz', 'ru'] as const) {
       );
     });
 
-    test('the footer links only to pages that exist, and "Kirish" leads to the sign-in page', async ({
-      page,
-    }) => {
+    test('the header and the footer link only to pages that exist', async ({ page }) => {
+      // Each target is a server render of its own (the landing waits for the catalog): on a loaded
+      // machine a dozen of them come close to the default 30 s of a test.
+      test.slow();
       await open(page, path, 1440);
       const hrefs = await page
         .locator('header a[href^="/"], footer a[href^="/"]')
         .evaluateAll((a) => a.map((link) => link.getAttribute('href') ?? ''));
-      for (const href of hrefs) {
-        const target = href.split('#')[0] || '/';
+      const targets = new Set(hrefs.map((href) => href.split('#')[0] || '/'));
+      expect(targets.size).toBeGreaterThan(3);
+      for (const target of targets) {
         const response = await page.request.get(target);
-        expect(response.status(), `${href} must not be a 404`).toBeLessThan(400);
+        expect(response.status(), `${target} must not be a 404`).toBeLessThan(400);
       }
+    });
+
+    test('"Kirish" leads to the sign-in page', async ({ page }) => {
+      await open(page, path, 1440);
       await page
         .getByRole('banner')
         .getByRole('link', { name: copy.nav.login })

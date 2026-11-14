@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import {
+  E2E_ANALYTICS_SITE_ID,
   E2E_BOT_USERNAME,
   E2E_DEGRADED_CATALOG_API_URL,
   E2E_DEGRADED_CATALOG_ORIGIN,
@@ -31,6 +32,10 @@ const APP_ENV = {
   NEXT_PUBLIC_API_MOCKS: '',
   NEXT_PUBLIC_SUPPORT_URL: '',
   NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: E2E_CHANNEL_URL,
+  // Analytics ON in the e2e build (phase 8 S5): the marketing pages render the Umami tag, and
+  // e2e/site/analytics.spec.ts checks where it loads and what its beacons carry. /stats/script.js
+  // is answered by the E2E_PROBES stand-in (src/app/stats/script.js/route.ts).
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: E2E_ANALYTICS_SITE_ID,
   // Where the Next.js SERVER reads the catalog from (the website's server-side rendering): the
   // fixture catalog server below, not the real API.
   API_INTERNAL_URL: E2E_CATALOG_API_URL,
