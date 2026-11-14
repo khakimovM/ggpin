@@ -15,6 +15,8 @@ export interface AccountOpen {
   lang?: Lang;
   scheme?: 'light' | 'dark';
   api?: AccountApiOptions;
+  /** The first N calls of the fake client's `openLink` throw (a client that refuses the call). */
+  openLinkRefusals?: number;
 }
 
 export const account = (lang: Lang) => TEXT[lang].account;
@@ -22,9 +24,14 @@ export const account = (lang: Lang) => TEXT[lang].account;
 export async function openAccount(
   page: Page,
   path: '/tg/history' | '/tg/profile' | '/tg/referral' | '/tg/help',
-  { lang = 'uz', scheme = 'light', api }: AccountOpen = {},
+  { lang = 'uz', scheme = 'light', api, openLinkRefusals }: AccountOpen = {},
 ) {
-  await installFakeWebApp(page, { initData: INIT_DATA, colorScheme: scheme, languageCode: lang });
+  await installFakeWebApp(page, {
+    initData: INIT_DATA,
+    colorScheme: scheme,
+    languageCode: lang,
+    openLinkRefusals,
+  });
   await installTgApi(page, [{ kind: 'ok', user: { locale: lang } }]);
   await installCatalogApi(page);
   const fake = await installAccountApi(page, api);

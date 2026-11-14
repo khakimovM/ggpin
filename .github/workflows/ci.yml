@@ -2,6 +2,10 @@ name: CI
 on:
   push: { branches: [main] }
   pull_request:
+# Least privilege: no job writes to the repository, pull requests or checks. Checkout, the
+# caches and the artifact upload need no more than contents: read.
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -82,4 +86,110 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report
+          retention-days: 7
+  # WebKit is the engine behind Safari and Telegram on iOS. It is its own job, not a part of
+  # e2e-web: that job is already near its 60-minute ceiling, and a WebKit run (the component
+  # gallery and the public pay page, about 80 tests) needs only the web build, no Postgres and no
+  # Redis. The Playwright config adds the `webkit-390` project when PW_WEBKIT=1.
+  e2e-webkit:
+    runs-on: ubuntu-latest
+    # About 10 minutes: install, build of web and its packages, then the WebKit project.
+    timeout-minutes: 25
+    env:
+      PW_WEBKIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      # apps/web imports @repo/shared, @repo/ui and @repo/i18n from dist/source; Playwright builds
+      # and starts apps/web itself.
+      - run: npx turbo run build --filter="web^..."
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-webkit-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install WebKit
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps webkit
+        working-directory: apps/web
+      - name: Install WebKit system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps webkit
+        working-directory: apps/web
+      - run: npx playwright test --project=webkit-390
+        working-directory: apps/web
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-webkit
+          path: apps/web/playwright-report
+          retention-days: 7
+  # Lighthouse gate of the website (phase 8): Performance and Accessibility >= 90 on every page,
+  # SEO on every indexable page, uz and ru, mobile and desktop, median of 3 runs. Runs only when
+  # something the website is built from changed (a skipped step still gives a green check, so the
+  # job can be a required check).
+  lighthouse-web:
+    runs-on: ubuntu-latest
+    # The final 14 pages x 2 form factors x 3 runs are 84 Lighthouse runs, about 15 seconds each
+    # (about 20 minutes), plus install and build. The ceiling stops a hung Chrome.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Did the website change
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Fail closed: if the diff cannot be computed the job fails, it never skips silently.
+          files=$(git diff --name-only "origin/$BASE_REF"...HEAD) || exit 1
+          if printf '%s\n' "$files" | grep -qE '^(apps/web/|packages/(ui|i18n|shared)/|package-lock\.json$|\.github/workflows/ci\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "The website did not change: Lighthouse skipped."
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.run == 'true'
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+        if: steps.changes.outputs.run == 'true'
+      # The packages web is built from (shared compiles to dist); the production build of web
+      # itself is made by the Lighthouse script (--build) with its own public URLs.
+      - run: npx turbo run build --filter="web^..."
+        if: steps.changes.outputs.run == 'true'
+      # Same cache key as e2e-web: both need only Chromium.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        if: steps.changes.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        if: steps.changes.outputs.run == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Install Playwright system dependencies
+        if: steps.changes.outputs.run == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: apps/web
+      - name: Lighthouse
+        if: steps.changes.outputs.run == 'true'
+        run: npm run lighthouse -w web -- --build
+      - name: Upload Lighthouse report
+        if: always() && steps.changes.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: apps/web/lighthouse-report
           retention-days: 7

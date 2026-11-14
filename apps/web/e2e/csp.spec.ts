@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { stubTelegramSdk } from './fixtures/telegram';
+import { FAKE_UMAMI_TRACKER } from './support/fake-umami';
 import { watchPage } from './support/gallery';
 
 // Browser side of the nonce CSP (phase 7 X4): pages run without violations, injected code does
@@ -186,5 +187,25 @@ test.describe('theme script (first paint)', () => {
     const html = await (await request.get('/')).text();
     const head = html.slice(0, html.indexOf('</head>'));
     expect(head).toContain('dataset.theme=');
+  });
+});
+
+// Phase 8 S5: the Umami tag on the marketing pages. It is loaded from our own origin with the
+// request's nonce, and the tracker posts to /stats/api/send, also our own origin: no new host.
+test.describe('analytics under the nonce CSP', () => {
+  test('the tracker loads and its beacon goes out without a violation', async ({ page }) => {
+    await installProbe(page);
+    await page.route('**/stats/script.js', (route) =>
+      route.fulfill({ contentType: 'text/javascript', body: FAKE_UMAMI_TRACKER }),
+    );
+    let beacons = 0;
+    await page.route('**/stats/api/send', async (route) => {
+      beacons += 1;
+      await route.fulfill({ contentType: 'application/json', body: '{}' });
+    });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', /^(light|dark)$/);
+    await expect.poll(() => beacons).toBe(1);
+    expect((await probeOf(page)).violations).toEqual([]);
   });
 });

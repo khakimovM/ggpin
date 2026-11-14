@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { configuredTelegramUrl } from './telegram/t-me-url';
 
 // Groups of API endpoints that may be served by the in-browser mock transport (phase 7 only).
 // `wallet` and `payments` are gone (phase 4 is merged: those endpoints are real); naming them in
@@ -25,7 +26,7 @@ const httpUrl = z.url({ protocol: /^https?$/ });
 // The API and site URLs are joined with paths all over the app (`${base}/auth/refresh`, cookie
 // path `/api/v1/auth`), so they are normalised here, once: no trailing slash (it would produce
 // `//auth/refresh`), and no query, hash or credentials (they would be glued into every request).
-const baseUrl = httpUrl
+export const baseUrl = httpUrl
   .refine(
     (value) => {
       if (/[?#]/.test(value)) return false;
@@ -42,6 +43,29 @@ const baseUrl = httpUrl
   )
   .transform((value) => value.replace(/\/+$/, ''));
 
+// A t.me link from configuration: the brand channel and the support chat. Both are shown on our own
+// public pages (footer, contacts), so only https://t.me/<path> by the one rule in t-me-url.ts gets
+// in, and the value is normalised here (`https://T.ME/x` becomes `https://t.me/x`): the site links use
+// the parsed value as it is, nothing downstream checks it a second way.
+const telegramUrl = (what: string) =>
+  z.union([
+    z.literal(''),
+    z.string().transform((value, ctx) => {
+      const href = configuredTelegramUrl(value);
+      if (href === null) {
+        ctx.addIssue({ code: 'custom', message: `must look like https://t.me/<${what}>` });
+        return z.NEVER;
+      }
+      return href;
+    }),
+  ]);
+
+// The Umami website id (phase 8 S5, D-08/D-57). Umami makes it with uuid() (v4, or v7 with
+// USE_UUIDV7), so only an RFC UUID passes; anything else (a URL, markup, a stray space) is refused,
+// because the value is written into a script attribute on every marketing page. Empty means
+// "analytics off": no script, no request (dev, CI, until the Umami container exists in phase 11).
+const analyticsSiteId = z.union([z.literal(''), z.uuid()]);
+
 const mockList = z
   .string()
   .transform((value) =>
@@ -57,8 +81,12 @@ const schema = z.object({
   NEXT_PUBLIC_SITE_URL: baseUrl,
   NEXT_PUBLIC_BOT_USERNAME: botUsername,
   NEXT_PUBLIC_API_MOCKS: mockList,
-  // Empty means "no support link": the UI hides the "write to operator" entry.
-  NEXT_PUBLIC_SUPPORT_URL: z.union([z.literal(''), httpUrl]),
+  // Empty means "no support link": the UI hides the "write to operator" entry. Only the
+  // operator's https://t.me/<handle>: it is shown on the public contacts page.
+  NEXT_PUBLIC_SUPPORT_URL: telegramUrl('handle'),
+  // Empty means "no channel": the footer and contacts hide the Channel link.
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: telegramUrl('channel'),
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: analyticsSiteId,
 });
 
 export type ClientEnv = z.infer<typeof schema>;
@@ -71,20 +99,22 @@ export type RawClientEnv = Partial<
     | 'NEXT_PUBLIC_SITE_URL'
     | 'NEXT_PUBLIC_BOT_USERNAME'
     | 'NEXT_PUBLIC_API_MOCKS'
-    | 'NEXT_PUBLIC_SUPPORT_URL',
+    | 'NEXT_PUBLIC_SUPPORT_URL'
+    | 'NEXT_PUBLIC_TELEGRAM_CHANNEL_URL'
+    | 'NEXT_PUBLIC_ANALYTICS_SITE_ID',
     string | undefined
   >
 >;
 
 // Plain http is allowed in production only for a local host (CI and local runs of a production
-// build talk to http://localhost); every real deployment must use https.
+// build talk to http://localhost); every real deployment must use https. (The t.me links are https
+// by their own rule, in every mode.)
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 function assertSecureUrls(env: ClientEnv): void {
   const urls = {
     NEXT_PUBLIC_API_URL: env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_SITE_URL: env.NEXT_PUBLIC_SITE_URL,
-    NEXT_PUBLIC_SUPPORT_URL: env.NEXT_PUBLIC_SUPPORT_URL,
   };
   for (const [name, value] of Object.entries(urls)) {
     if (value === '') continue;
@@ -103,6 +133,8 @@ export function parseClientEnv(raw: RawClientEnv, mode: { production: boolean })
     NEXT_PUBLIC_BOT_USERNAME: raw.NEXT_PUBLIC_BOT_USERNAME ?? defaults.NEXT_PUBLIC_BOT_USERNAME,
     NEXT_PUBLIC_API_MOCKS: raw.NEXT_PUBLIC_API_MOCKS ?? '',
     NEXT_PUBLIC_SUPPORT_URL: raw.NEXT_PUBLIC_SUPPORT_URL ?? '',
+    NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: raw.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL ?? '',
+    NEXT_PUBLIC_ANALYTICS_SITE_ID: raw.NEXT_PUBLIC_ANALYTICS_SITE_ID ?? '',
   });
   if (mode.production) assertSecureUrls(parsed);
   // Mocks must never reach production: a mocked wallet/order would show money that does not exist.

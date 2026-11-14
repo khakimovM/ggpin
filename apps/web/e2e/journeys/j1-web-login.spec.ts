@@ -1,8 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
 import { expect, test, type Page } from '@playwright/test';
 import { watchPage } from '../support/gallery';
+import { CATALOGS, openLogin, startFromLanding, untilLoginHydrated, type Lang } from './j1-support';
 import {
   BAD_CODE,
   BOT_URL,
@@ -15,18 +15,6 @@ import {
 // Journey 1: web sign-in through the bot (phase 7 S3). The API is faked with `page.route`; the
 // bot, the OTP and the cookies are not real. Each run covers one language and one theme; the
 // per-viewport projects (375 / 390 / 768 / 1440) repeat it.
-
-const CATALOGS = {
-  uz: { text: uz.web, path: '/login', store: '/store' },
-  ru: { text: ru.web, path: '/ru/login', store: '/ru/store' },
-} as const;
-type Lang = keyof typeof CATALOGS;
-
-async function openLogin(page: Page, lang: Lang, theme: 'light' | 'dark', query = '') {
-  await page.addInitScript((stored) => window.localStorage.setItem('ggpin-theme', stored), theme);
-  await page.goto(`${CATALOGS[lang].path}${query}`);
-  await expect(page.locator('html')).toHaveAttribute('data-theme', theme, { timeout: 15_000 });
-}
 
 const box = (page: Page, lang: Lang, position: number) =>
   page.getByRole('textbox', {
@@ -60,6 +48,11 @@ const journeyCases = [
   },
 ] as const;
 
+// The sign-in ends with a full page load of the store, which then asks the API for the session
+// before it draws a heading. On a loaded machine that load alone took over 5 s (a trace at 768 px:
+// the document 2.4 s, the session request 5.6 s after it), past the default of an assertion.
+const AFTER_SIGN_IN_MS = 20_000;
+
 test.describe('journey 1: sign in through Telegram', () => {
   for (const { lang, theme, wrong, welcome } of journeyCases) {
     test(`${lang}, ${theme}: start, bot link, wrong code, right code, store`, async ({ page }) => {
@@ -68,12 +61,16 @@ test.describe('journey 1: sign in through Telegram', () => {
       page.on('request', (request) => urls.push(request.url()));
       const api = await installFakeApi(page);
       const t = CATALOGS[lang].text;
-      await openLogin(page, lang, theme);
+      await startFromLanding(page, lang, theme);
 
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
         t.login.title.replace('{brand}', 'ggpin'),
       );
-      await page.getByRole('button', { name: t.login.start }).click();
+      // Owner decision (p8 S6): disabled and busy until hydration, then ready.
+      const start = page.getByRole('button', { name: t.login.start });
+      await expect(start).toBeEnabled();
+      await expect(start).not.toHaveAttribute('aria-busy');
+      await start.click();
 
       // The bot link comes from the API answer, and opens outside this tab.
       const link = page.getByRole('link', { name: t.login.openTelegram });
@@ -94,7 +91,9 @@ test.describe('journey 1: sign in through Telegram', () => {
       await typeCode(page, lang, GOOD_CODE);
 
       await expect(page).toHaveURL(new RegExp(`${CATALOGS[lang].store}$`));
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText(welcome);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(welcome, {
+        timeout: AFTER_SIGN_IN_MS,
+      });
 
       expect(api.count('POST /auth/telegram/start')).toBe(1);
       expect(api.count('POST /auth/telegram/verify')).toBe(2);
@@ -120,6 +119,17 @@ test.describe('journey 1: sign in through Telegram', () => {
     expect(api.count('POST /auth/telegram/verify')).toBe(0);
   });
 
+  test('the server HTML shows the sign-in button disabled and busy (before hydration)', async ({
+    request,
+  }) => {
+    for (const path of ['/login', '/ru/login']) {
+      const html = await (await request.get(path)).text();
+      const button = /<main[\s\S]*?(<button[^>]*>)/.exec(html)?.[1] ?? '';
+      expect(button, path).toContain('disabled=""');
+      expect(button, path).toContain('aria-busy="true"');
+    }
+  });
+
   test('a visitor sent to the login page returns to where they were going', async ({ page }) => {
     const api = await installFakeApi(page, { statuses: ['CODE_SENT'] });
     await page.goto('/store/profile');
@@ -128,17 +138,15 @@ test.describe('journey 1: sign in through Telegram', () => {
     // (The cleanup after the loss resets the mounted `/me` query, which asks once more.)
     expect(api.count('POST /auth/refresh')).toBeGreaterThanOrEqual(1);
 
-    // A click before hydration does nothing: wait until the theme provider has run.
-    await expect(page.locator('html')).toHaveAttribute('data-theme', /light|dark/, {
-      timeout: 15_000,
-    });
+    // A click before hydration does nothing: wait until React has hydrated the page.
+    await untilLoginHydrated(page);
     await page.getByRole('button', { name: uz.web.login.start }).click();
     await typeCode(page, 'uz', GOOD_CODE);
 
     await expect(page).toHaveURL(/\/store\/profile$/);
     await expect(
       page.getByRole('heading', { level: 1, name: uz.account.profile.title }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: AFTER_SIGN_IN_MS });
   });
 
   for (const next of ['//evil.com', 'https://evil.com', '/%2F%2Fevil.com', '/\\evil.com']) {

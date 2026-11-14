@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { focusIsVisible, settle } from './qa-support';
+import { settle } from '../support/settle';
+import { focusIsVisible } from './qa-support';
 import { MINI } from './screens-mini';
 import { WEB } from './screens-web';
 

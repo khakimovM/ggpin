@@ -166,7 +166,9 @@ test.describe('wallet card', () => {
   }) => {
     await openHome(page, { catalog: { wallet: 'error' } });
     const t = uz.wallet.card;
-    await expect(page.getByText(t.error.title)).toBeVisible();
+    // A 500 is retried twice first (shouldRetry, 1 s + 2 s backoff), so the message cannot come
+    // before ~3 s after the session; the default 5 s left too little room for the page under load.
+    await expect(page.getByText(t.error.title)).toBeVisible({ timeout: 15_000 });
     await expect(card(page, 'Telegram Stars')).toBeVisible();
     await installCatalogApi(page);
     await page.getByRole('button', { name: uz.common.retry }).first().click();

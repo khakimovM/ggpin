@@ -90,15 +90,25 @@ test.describe('the header', () => {
 
 test.describe('the footer', () => {
   for (const lang of ['uz', 'ru'] as const) {
-    test(`${lang}: the copyright and the way to reach us, at the end of every page`, async ({
+    test(`${lang}: the copyright and the site's offer, privacy and contacts pages, at the end of every page`, async ({
       page,
     }) => {
       await openStore(page, { lang });
       const footer = page.getByRole('contentinfo');
+      const t = TEXT[lang].web.footer;
+      const prefix = lang === 'uz' ? '' : '/ru';
       await expect(footer).toContainText(new RegExp(`© \\d{4} ${BRAND.name}`));
-      await expect(
-        footer.getByRole('link', { name: TEXT[lang].web.footer.contact }),
-      ).toHaveAttribute('href', /^https:\/\/t\.me\//);
+      // Store.dc.html: «Ommaviy oferta · Maxfiylik · Aloqa», pages of the site (phase 8 S4).
+      for (const [name, path] of [
+        [t.terms, '/terms'],
+        [t.privacy, '/privacy'],
+        [t.contact, '/contacts'],
+      ] as const) {
+        await expect(footer.getByRole('link', { name })).toHaveAttribute(
+          'href',
+          `${prefix}${path}`,
+        );
+      }
       expect(await overflow(page)).toBeLessThanOrEqual(0);
     });
   }

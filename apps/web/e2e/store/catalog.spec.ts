@@ -20,7 +20,8 @@ test.describe('ready', () => {
         await expect(
           page.getByRole('heading', { level: 1, name: t.store.catalog.allProducts }),
         ).toBeVisible();
-        await expect(page.getByRole('list').getByRole('listitem')).toHaveCount(7);
+        // In the main area: the footer has a list of its own (phase 8 S4).
+        await expect(page.getByRole('main').getByRole('list').getByRole('listitem')).toHaveCount(7);
         await expect(
           page.getByText(lang === 'uz' ? '7 ta mahsulot' : '7 товаров').first(),
         ).toBeVisible();

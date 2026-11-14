@@ -20,8 +20,8 @@ export interface SupportLinkButtonProps {
 }
 
 /**
- * A button to the configured support chat (`NEXT_PUBLIC_SUPPORT_URL`): a t.me link opens inside
- * Telegram in the Mini App, anything else is an ordinary link in a new tab. With no support link
+ * A button to the configured support chat (`NEXT_PUBLIC_SUPPORT_URL`, a t.me link): it opens inside
+ * Telegram in the Mini App, and is an ordinary link in a new tab elsewhere. With no support link
  * configured nothing is drawn: a button must never lead nowhere (S9's help screen replaces this).
  */
 export function SupportLinkButton({

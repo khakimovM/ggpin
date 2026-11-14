@@ -5,6 +5,7 @@
 //
 // 1. NODE_ENV=production `next build` with NEXT_PUBLIC_API_MOCKS filled  -> must FAIL (the guard).
 // 1b. the same with a REMOVED group (`wallet`, `payments`: real since phase 4) -> must FAIL (unknown group).
+// 1c. NEXT_PUBLIC_ANALYTICS_SITE_ID that is not a UUID (phase 8 S5)     -> must FAIL.
 // 2. the same with NEXT_PUBLIC_API_MOCKS empty                           -> must PASS.
 // 3. `.next/static` and `.next/server` hold no mock identifier or fixture literal; a literal that
 //    the production bundle does contain is searched in the same way, to prove the search works.
@@ -12,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+// A host name nothing else in the app contains, so finding it in the browser bundle is conclusive.
+const INTERNAL_API = 'http://internal-api.example.test:5000/api/v1';
 const ENV = {
   ...process.env,
   NODE_ENV: 'production',
@@ -19,6 +22,11 @@ const ENV = {
   NEXT_PUBLIC_SITE_URL: 'https://example.test',
   NEXT_PUBLIC_BOT_USERNAME: 'ggpin_e2e_bot',
   NEXT_PUBLIC_SUPPORT_URL: '',
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: 'https://t.me/ggpin_e2e_channel',
+  // Analytics off, as in every build until the Umami container exists (phase 11).
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: '',
+  // Server-only: must never reach a browser bundle (check below).
+  API_INTERNAL_URL: INTERNAL_API,
   NEXT_TELEMETRY_DISABLED: '1',
 };
 const FORBIDDEN = [
@@ -44,9 +52,9 @@ const FORBIDDEN = [
 // Written in client.ts as the production branch of the mock loader: it must be in the bundle.
 const CONTROL = 'does not exist in production builds';
 
-function build(mocks) {
+function build(mocks, extra = {}) {
   const run = spawnSync('npx', ['next', 'build'], {
-    env: { ...ENV, NEXT_PUBLIC_API_MOCKS: mocks },
+    env: { ...ENV, NEXT_PUBLIC_API_MOCKS: mocks, ...extra },
     encoding: 'utf8',
     shell: true,
   });
@@ -61,9 +69,9 @@ function* files(dir) {
   }
 }
 
-function hits(needle) {
+function hits(needle, roots = ['.next/static', '.next/server']) {
   const found = [];
-  for (const root of ['.next/static', '.next/server']) {
+  for (const root of roots) {
     for (const file of files(root)) {
       if (readFileSync(file, 'latin1').includes(needle)) found.push(file);
     }
@@ -93,6 +101,18 @@ for (const removed of ['wallet', 'payments']) {
   );
 }
 
+// The analytics id is written into a script attribute on every marketing page: a value that is not
+// a UUID (here: markup) must stop the build, not reach the HTML.
+const badAnalytics = build('', { NEXT_PUBLIC_ANALYTICS_SITE_ID: '"><b>x</b>' });
+check(
+  badAnalytics.code !== 0,
+  `build with a non-UUID NEXT_PUBLIC_ANALYTICS_SITE_ID fails (exit ${badAnalytics.code})`,
+);
+check(
+  badAnalytics.out.includes('NEXT_PUBLIC_ANALYTICS_SITE_ID'),
+  'the failure names NEXT_PUBLIC_ANALYTICS_SITE_ID',
+);
+
 const empty = build('');
 check(empty.code === 0, `build with NEXT_PUBLIC_API_MOCKS empty passes (exit ${empty.code})`);
 if (empty.code !== 0) console.log(empty.out.slice(-1500));
@@ -106,6 +126,78 @@ if (empty.code === 0) {
       `no "${needle}" in .next/static or .next/server${found.length ? `: ${found.slice(0, 3).join(', ')}` : ''}`,
     );
   }
+
+  // NOTE (phase 8 S0-A): catalog-server.ts is not yet imported by any route, so for now this check
+  // proves little beyond "the variable is not NEXT_PUBLIC". It becomes meaningful in S2, which
+  // wires the module into the landing: add then a control that the module IS in .next/server (for
+  // example its "[site-catalog]" log prefix), so a leak search over a build that lacks the module
+  // cannot pass by accident.
+  // API_INTERNAL_URL is read by the server at run time; it must not be inlined into a browser
+  // bundle the way NEXT_PUBLIC_* values are. The public API URL is searched as the control: it IS
+  // inlined, so finding it proves the search works.
+  const PUBLIC_API = ENV.NEXT_PUBLIC_API_URL;
+  check(
+    hits(PUBLIC_API, ['.next/static']).length > 0,
+    `control: the public API URL is found in .next/static (search works)`,
+  );
+  const leaked = hits(new URL(INTERNAL_API).host, ['.next/static']);
+  check(
+    leaked.length === 0,
+    `API_INTERNAL_URL is not in .next/static (server-only)${leaked.length ? `: ${leaked.slice(0, 3).join(', ')}` : ''}`,
+  );
+
+  checkMarketingChunks();
+}
+
+// Phase 8 S6 audit L-2: the browser chunks of the marketing pages carry no secret NAMES (the
+// @repo/shared barrel lists them in env-secrets.ts; values never were there). The store, the
+// login and the Mini App still import the barrel: they are listed, not failed, until the
+// `@repo/shared/env-secrets` subpath (phase 11).
+function checkMarketingChunks() {
+  const SECRET_NAMES = [
+    'WORKER_ONLY_SECRETS',
+    'API_ONLY_SECRETS',
+    'OTP_PEPPER',
+    'TON_MNEMONIC_ENC',
+    'BANK_FEED_',
+    'bankfeed:heartbeat',
+  ];
+  const isMarketing = (entry) =>
+    entry.startsWith('/[locale]/(marketing)/') ||
+    [
+      '/[locale]/layout',
+      '/[locale]/error',
+      '/[locale]/not-found',
+      '/[locale]/[...rest]/page',
+    ].includes(entry);
+  const pages = JSON.parse(readFileSync('.next/app-build-manifest.json', 'utf8')).pages;
+  const chunksOf = (wanted) =>
+    new Set(
+      Object.entries(pages)
+        .filter(([entry]) => wanted(entry))
+        .flatMap(([, files]) => files.filter((file) => file.endsWith('.js'))),
+    );
+  const marketing = chunksOf(isMarketing);
+  const text = (file) => readFileSync(path.join('.next', file), 'latin1');
+  // zones.ts (a marketing client module) reads paths against this base: finding it proves the
+  // chunk list is the marketing one and the search works.
+  check(
+    marketing.size > 0 && [...marketing].some((file) => text(file).includes('site.invalid')),
+    `control: the marketing chunks (${marketing.size}) are found and searched`,
+  );
+  for (const name of SECRET_NAMES) {
+    const found = [...marketing].filter((file) => text(file).includes(name));
+    check(
+      found.length === 0,
+      `no "${name}" in the marketing browser chunks${found.length ? `: ${found.slice(0, 3).join(', ')}` : ''}`,
+    );
+  }
+  const others = [...chunksOf((entry) => !isMarketing(entry))].filter(
+    (file) => !marketing.has(file) && SECRET_NAMES.some((name) => text(file).includes(name)),
+  );
+  console.log(
+    `INFO  secret names still in non-marketing chunks (phase 11): ${others.join(', ') || 'none'}`,
+  );
 }
 
 console.log(failures.length === 0 ? 'ALL CHECKS PASSED' : `${failures.length} CHECK(S) FAILED`);

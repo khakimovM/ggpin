@@ -79,6 +79,18 @@ export function formatDay(date: Date, options: DateFormatOptions, now: Date = ne
   }).format(date);
 }
 
+/** "15-noyabr, 2026" / "15 ноября 2026 г.": with the year always (the date of a document). */
+export function formatFullDay(date: Date, options: DateFormatOptions): string {
+  const { locale, timeZone = DISPLAY_TIME_ZONE } = options;
+  if (locale === 'uz') return formatUzDay(date, timeZone, true);
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone,
+  }).format(date);
+}
+
 /** "15-noyabr, 14:05" / "15 ноября, 14:05"; the year is added when it is not `now`'s year. */
 export function formatDateTime(
   date: Date,

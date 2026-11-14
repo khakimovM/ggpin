@@ -33,10 +33,16 @@ test.describe('website', () => {
     }
   }
 
-  test('the way home works', async ({ page }) => {
+  test('the way home works, as a full page load (home is a marketing page, with analytics)', async ({
+    page,
+  }) => {
     await page.goto('/ru/nonexistent');
+    await page.evaluate(() => Reflect.set(window, '__e2eSameDocument', true));
     await page.getByRole('link', { name: ru.common.notFound.cta }).click();
     await expect(page).toHaveURL(/\/ru$/);
+    expect(await page.evaluate(() => Reflect.get(window, '__e2eSameDocument') === true)).toBe(
+      false,
+    );
   });
 });
 
