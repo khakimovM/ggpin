@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import { openPay } from '../pay/pay-support';
 import { INFO_PAGES, openInfo } from '../site/info-support';
 import { openLanding } from '../site/landing-support';
+import { openProduct, PRODUCTS } from '../site/product-support';
 import { installFakeApi } from '../support/fake-api';
 import { openStoreAccount } from '../store/account-support';
 import { openStore } from '../store/catalog-support';
@@ -22,6 +23,14 @@ export const WEB: Screen[] = [
       await openLanding(page, lang);
     },
   },
+  // The product pages (phase 8 S3): Telegram Stars and Telegram Premium, catalog answered.
+  ...PRODUCTS.map(({ slug }): Screen => ({
+    name: `site-${slug}`,
+    open: async ({ page, lang, scheme }) => {
+      await page.addInitScript((s) => window.localStorage.setItem('ggpin-theme', s), scheme);
+      await openProduct(page, slug, lang);
+    },
+  })),
   // The information pages (phase 8 S4): the FAQ, the contacts and the two legal drafts.
   ...INFO_PAGES.map((which): Screen => ({
     name: `site-${which}`,
@@ -130,6 +139,15 @@ export const WEB: Screen[] = [
       }
     },
   })),
+  {
+    // The error page with the site chrome (phase 8 S1): an e2e-only page that throws (E2E_PROBES).
+    name: 'site-error',
+    open: async ({ page, lang, scheme }) => {
+      await page.addInitScript((s) => window.localStorage.setItem('ggpin-theme', s), scheme);
+      await page.goto(lang === 'uz' ? '/e2e-probe-error' : '/ru/e2e-probe-error');
+      await expect(page.getByRole('button').last()).toBeVisible({ timeout: 15_000 });
+    },
+  },
   {
     name: 'web-404',
     open: async ({ page, lang, scheme }) => {

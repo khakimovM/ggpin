@@ -66,7 +66,11 @@ test.describe('journey 1: sign in through Telegram', () => {
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
         t.login.title.replace('{brand}', 'ggpin'),
       );
-      await page.getByRole('button', { name: t.login.start }).click();
+      // Owner decision (p8 S6): disabled and busy until hydration, then ready.
+      const start = page.getByRole('button', { name: t.login.start });
+      await expect(start).toBeEnabled();
+      await expect(start).not.toHaveAttribute('aria-busy');
+      await start.click();
 
       // The bot link comes from the API answer, and opens outside this tab.
       const link = page.getByRole('link', { name: t.login.openTelegram });
@@ -113,6 +117,17 @@ test.describe('journey 1: sign in through Telegram', () => {
     await expect(page.getByRole('link', { name: uz.web.login.openTelegram })).toBeVisible();
     expect(api.count('POST /auth/telegram/start')).toBe(2);
     expect(api.count('POST /auth/telegram/verify')).toBe(0);
+  });
+
+  test('the server HTML shows the sign-in button disabled and busy (before hydration)', async ({
+    request,
+  }) => {
+    for (const path of ['/login', '/ru/login']) {
+      const html = await (await request.get(path)).text();
+      const button = /<main[\s\S]*?(<button[^>]*>)/.exec(html)?.[1] ?? '';
+      expect(button, path).toContain('disabled=""');
+      expect(button, path).toContain('aria-busy="true"');
+    }
   });
 
   test('a visitor sent to the login page returns to where they were going', async ({ page }) => {

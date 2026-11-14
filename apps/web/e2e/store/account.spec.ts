@@ -152,9 +152,11 @@ test.describe('header language switch', () => {
     await (await reach(page)).click();
     await expect(page).toHaveURL(/\/ru\/store\/orders$/);
     expect(api.patches).toEqual([{ locale: 'ru' }]);
+    // The URL changes before the Russian page is drawn: a full load, the session restored and the
+    // history asked again. Under a full parallel run that took longer than the default 5 s.
     await expect(
       page.getByRole('heading', { level: 1, name: account('ru').history.title }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('refused: the page stays in Uzbek and a message appears next to the switch', async ({

@@ -46,6 +46,32 @@ for (const lang of ['uz', 'ru'] as const satisfies LandingLang[]) {
       await expect(page.getByText(/1\s?%/)).toHaveCount(0);
     });
 
+    test('how it works: one column, then 2 + 1 full width (md), then three in a row (lg)', async ({
+      page,
+    }) => {
+      const boxes = await page.locator('#how-it-works ol > li').evaluateAll((items) =>
+        items.map((li) => {
+          const { x, y, right } = li.getBoundingClientRect();
+          return { x, y, right };
+        }),
+      );
+      expect(boxes).toHaveLength(3);
+      const [first, second, third] = boxes;
+      if (first === undefined || second === undefined || third === undefined) return;
+      const width = page.viewportSize()?.width ?? 0;
+      const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+      if (width < 768) {
+        expect(near(first.x, second.x) && near(second.x, third.x)).toBe(true);
+      } else if (width < 1024) {
+        expect(near(first.y, second.y)).toBe(true);
+        expect(third.y).toBeGreaterThan(first.y);
+        // Owner decision (p8 S6): the third card is not left alone at half width.
+        expect(near(third.x, first.x) && near(third.right, second.right)).toBe(true);
+      } else {
+        expect(near(first.y, second.y) && near(second.y, third.y)).toBe(true);
+      }
+    });
+
     test('the nav anchors point at real sections', async ({ page }) => {
       for (const id of ['products', 'how-it-works', 'faq']) {
         await expect(page.locator(`main section#${id}`)).toHaveCount(1);
