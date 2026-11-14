@@ -7,6 +7,7 @@ import {
   costForQuantity,
   maxCostFor,
   priceFromCost,
+  purchaseShortfall,
   totalAfterDiscount,
   unitDisplayPrice,
 } from './money-pricing';
@@ -241,6 +242,29 @@ describe('totalAfterDiscount (step 5)', () => {
     expect(() => totalAfterDiscount(100n, -1n)).toThrow(MoneyError);
     expect(() => totalAfterDiscount(-1n, 0n)).toThrow(MoneyError);
     expect(() => totalAfterDiscount(notABigInt(100), 0n)).toThrow(MoneyError);
+  });
+});
+
+describe('purchaseShortfall (422 INSUFFICIENT_BALANCE details)', () => {
+  it('is what the balance lacks, exactly, beyond 2^53', () => {
+    expect(purchaseShortfall(500_000n, 550_000n)).toBe(50_000n);
+    expect(purchaseShortfall(0n, 550_000n)).toBe(550_000n);
+    expect(purchaseShortfall(1n, 9_007_199_254_740_993n)).toBe(9_007_199_254_740_992n);
+  });
+
+  it('is 0 when the balance covers the total', () => {
+    expect(purchaseShortfall(550_000n, 550_000n)).toBe(0n);
+    expect(purchaseShortfall(600_000n, 550_000n)).toBe(0n);
+  });
+
+  it('includes a negative balance (debt) in what must be topped up', () => {
+    expect(purchaseShortfall(-100_000n, 550_000n)).toBe(650_000n);
+  });
+
+  it('refuses a negative total and non-bigints', () => {
+    expect(() => purchaseShortfall(0n, -1n)).toThrow(MoneyError);
+    expect(() => purchaseShortfall(notABigInt(1), 1n)).toThrow(MoneyError);
+    expect(() => purchaseShortfall(1n, notABigInt(1))).toThrow(MoneyError);
   });
 });
 

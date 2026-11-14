@@ -143,7 +143,8 @@ describe('CreateQuoteBodySchema', () => {
     expect(RecipientTokenRecordSchema.safeParse({ ...record, providerRef: 'x7Gq-2' }).success).toBe(
       true,
     );
-    for (const providerRef of ['', 'a'.repeat(257), 'a\nb']) {
+    // Whitespace only is no handle (re-audit N2); \u00a0 is written escaped, never literally.
+    for (const providerRef of ['', ' ', '   ', ' \u00a0 ', 'a'.repeat(257), 'a\nb']) {
       expect(RecipientTokenRecordSchema.safeParse({ ...record, providerRef }).success).toBe(false);
     }
     // The quote response is built from `pick`, so the ref cannot leak into it by accident.

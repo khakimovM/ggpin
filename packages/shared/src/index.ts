@@ -24,6 +24,7 @@ export * from './order-state';
 export * from './orders/order-schemas';
 export * from './orders/order-status-reason';
 export * from './orders/review-proof';
+export * from './orders/stored-recipient';
 export * from './orders/address-format';
 export * from './payments/bank-feed';
 export * from './payments/bank-parse';

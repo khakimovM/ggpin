@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { DEFAULT_LOCALE, LOCALES } from '../auth/locale';
 import { SlugSchema } from '../catalog/catalog-schemas';
 import { NO_CONTROL_CHARS, ResourceIdSchema, pageQueryShape } from '../common-schemas';
-import { TiyinStringSchema } from '../money-schemas';
+import { SignedTiyinStringSchema, TiyinStringSchema } from '../money-schemas';
 import { ORDER_STATUSES, orderStatusSchema } from '../order-state';
 import { RECIPIENT_TOKEN_PATTERN, RecipientSchema } from '../pricing/quote-schemas';
 
@@ -67,6 +67,7 @@ export const OrderRecipientSchema = z.strictObject({
   displayName: z.string().min(1).max(128),
   fields: z.record(z.string().regex(INPUT_KEY_PATTERN), z.string().min(1).max(128)),
 });
+export type OrderRecipient = z.infer<typeof OrderRecipientSchema>;
 
 /**
  * Order as the owner sees it. `status` is the raw state; the client maps it to a label
@@ -133,11 +134,20 @@ export const OrderDetailSchema = OrderSchema.extend({
 export type OrderDetail = z.infer<typeof OrderDetailSchema>;
 
 // ---- POST /orders: the answers that carry `details` ------------------------------------------
-/** `422 INSUFFICIENT_BALANCE`: the SERVER's numbers; the client never works out a shortfall. */
+// Positive: a tiyin string other than "0" (TiyinStringSchema allows no leading zeros), review N7.
+const PositiveTiyinStringSchema = TiyinStringSchema.refine((value) => value !== '0', {
+  message: 'a positive amount',
+});
+
+/**
+ * `422 INSUFFICIENT_BALANCE`: the SERVER's numbers; the client never works out a shortfall.
+ * `balance` is signed (owner decision D-60): a reversed top-up can leave the wallet below zero,
+ * and then the shortfall covers the debt too. `required` and `shortfall` are positive.
+ */
 export const InsufficientBalanceDetailsSchema = z.strictObject({
-  balance: TiyinStringSchema,
-  required: TiyinStringSchema,
-  shortfall: TiyinStringSchema,
+  balance: SignedTiyinStringSchema,
+  required: PositiveTiyinStringSchema,
+  shortfall: PositiveTiyinStringSchema,
 });
 export type InsufficientBalanceDetails = z.infer<typeof InsufficientBalanceDetailsSchema>;
 

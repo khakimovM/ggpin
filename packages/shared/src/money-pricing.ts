@@ -159,6 +159,17 @@ export function totalAfterDiscount(priceTiyin: bigint, discountTiyin: bigint): b
   return priceTiyin - discountTiyin;
 }
 
+/**
+ * What the wallet still lacks to pay `totalTiyin` (the `shortfall` of 422 INSUFFICIENT_BALANCE):
+ * 0 when the balance covers it. The balance may be NEGATIVE (a reversed top-up, D-41), and then
+ * the shortfall includes the debt: topping up exactly this much makes the purchase possible.
+ */
+export function purchaseShortfall(balanceTiyin: bigint, totalTiyin: bigint): bigint {
+  if (typeof balanceTiyin !== 'bigint') throw new MoneyError('balance must be a bigint');
+  requireBigInt(totalTiyin, 'total', 0n);
+  return balanceTiyin >= totalTiyin ? 0n : totalTiyin - balanceTiyin;
+}
+
 const TIYIN_STRING = /^(0|[1-9]\d{0,18})$/;
 
 /**

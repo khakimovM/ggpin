@@ -59,8 +59,15 @@ export type Recipient = z.infer<typeof RecipientSchema>;
  * The provider's own handle of a validated recipient (Fragment's `recipient` value, a supplier's
  * player token). Opaque and INTERNAL: never in a response, never in a log; fulfillment compares
  * it again before paying (plan Q21).
+ * A whitespace-only value is no handle at all (re-audit N2): it would pass min(1) and then be
+ * "checked" against nothing, so at least one non-space character is required.
  */
-export const RecipientProviderRefSchema = z.string().min(1).max(256).regex(NO_CONTROL_CHARS);
+export const RecipientProviderRefSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(NO_CONTROL_CHARS)
+  .regex(/\S/, { message: 'a provider handle needs a non-space character' });
 
 /** What the token store keeps in Redis under the hash of the token. */
 export const RecipientTokenRecordSchema = z.strictObject({

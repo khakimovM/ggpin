@@ -205,6 +205,23 @@ describe('POST /orders answers with details', () => {
     expect(InsufficientBalanceDetailsSchema.safeParse({ balance: '1' }).success).toBe(false);
   });
 
+  it('INSUFFICIENT_BALANCE: the balance may be negative (D-60); required and shortfall are positive', () => {
+    const owing = { balance: '-100000', required: '550000', shortfall: '650000' };
+    expect(InsufficientBalanceDetailsSchema.safeParse(owing).success).toBe(true);
+    for (const bad of [
+      { ...owing, required: '-550000' },
+      { ...owing, shortfall: '-1' },
+      // Review N7: a 422 is sent only when something is missing, so both are above zero.
+      { ...owing, required: '0' },
+      { ...owing, shortfall: '0' },
+      { ...owing, shortfall: '00' },
+      { ...owing, balance: '-0' },
+      { ...owing, balance: '-' },
+    ]) {
+      expect(InsufficientBalanceDetailsSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
   it('QUOTE_ALREADY_USED details: only the order id', () => {
     expect(QuoteAlreadyUsedDetailsSchema.safeParse({ orderId: 'cm0order1' }).success).toBe(true);
     expect(QuoteAlreadyUsedDetailsSchema.safeParse({}).success).toBe(false);
