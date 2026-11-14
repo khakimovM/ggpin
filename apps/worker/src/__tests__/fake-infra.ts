@@ -5,6 +5,7 @@ import { QUEUE_NAMES } from '@repo/shared';
 import { RedisService } from '../infra/redis/redis.service';
 import { BankMessageProcessor } from '../bank-feed/bank-message.processor';
 import { CardLimitProcessor } from '../bank-feed/card-limit.processor';
+import { FulfillOrderProcessor } from '../fulfillment/fulfill-order.processor';
 import { TopupExpireProcessor } from '../bank-feed/topup-expire.processor';
 import type { ScheduleRule } from '../infra/queue/boot-scheduler';
 import { PriceSyncProcessor } from '../pricing-sync/price-sync.processor';
@@ -56,5 +57,7 @@ export function withFakeInfra(
     .overrideProvider(TopupExpireProcessor)
     .useValue({})
     .overrideProvider(PaymentReconcileProcessor)
+    .useValue({})
+    .overrideProvider(FulfillOrderProcessor)
     .useValue({});
 }

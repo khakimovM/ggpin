@@ -1,9 +1,12 @@
-import { parseMajor } from '@repo/shared';
-import { checkTonLimits, coversPayout, isLowBalance } from '../ton-limits';
+import { describe, expect, it } from 'vitest';
+import { MoneyError, parseMajor } from './money';
+import { checkTonLimits, coversPayout, isLowBalance } from './money-pricing';
 
+// Hot-wallet limits (rules/45, docs/06): moved from the worker's TON module (phase 5 S4), the
+// worker's sender and signing transaction import them from here.
 const limits = { perOrderMaxNano: parseMajor('TON', '50'), dailyMaxNano: parseMajor('TON', '500') };
 
-describe('hot-wallet limits (rules/45, docs/06): exactly at the limit passes, one nanoton more is HELD', () => {
+describe('hot-wallet limits: exactly at the limit passes, one nanoton more is HELD', () => {
   it('per order', () => {
     expect(checkTonLimits(limits.perOrderMaxNano, 0n, limits)).toEqual({ ok: true });
     expect(checkTonLimits(limits.perOrderMaxNano + 1n, 0n, limits)).toEqual({
@@ -30,9 +33,9 @@ describe('hot-wallet limits (rules/45, docs/06): exactly at the limit passes, on
       ok: false,
       reason: 'LIMIT_PER_ORDER',
     });
-    expect(() => checkTonLimits(0n, 0n, limits)).toThrow(RangeError);
-    expect(() => checkTonLimits(-1n, 0n, limits)).toThrow(RangeError);
-    expect(() => checkTonLimits(1n, -1n, limits)).toThrow(RangeError);
+    expect(() => checkTonLimits(0n, 0n, limits)).toThrow(MoneyError);
+    expect(() => checkTonLimits(-1n, 0n, limits)).toThrow(MoneyError);
+    expect(() => checkTonLimits(1n, -1n, limits)).toThrow(MoneyError);
   });
 
   it('the balance must cover the amount AND the fee reserve; the alert is strictly below', () => {
