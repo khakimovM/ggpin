@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SimulatorScript } from '../adapters/simulator/simulator-script';
+import { AdaptersModule } from '../adapters/adapters.module';
 import { RedisLockStore } from '../bank-feed/client/leader-lock';
 import { WalletCacheInvalidator } from '../bank-feed/wallet-cache-invalidator';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
@@ -7,8 +7,6 @@ import { RedisService } from '../infra/redis/redis.service';
 import { TonSenderService } from '../ton/ton-sender.service';
 import { TonModule } from '../ton/ton.module';
 import { ABANDON_COUNTER, RedisAbandonCounter } from './abandon-counter';
-import { AdapterRouter } from './adapter-router';
-import { SIMULATOR_SCRIPT, buildAdapterRegistry } from './adapter-registry';
 import { AttemptsRepository } from './attempts.repository';
 import { FulfillEnqueuer } from './fulfill-enqueuer';
 import { FreshAttempt } from './fulfill-fresh';
@@ -20,7 +18,6 @@ import { FulfillSettler } from './fulfill-settle';
 import { FulfillSupplierRunner } from './fulfill-supplier.runner';
 import { FulfillTonRunner } from './fulfill-ton.runner';
 import {
-  FULFILL_ADAPTERS,
   FULFILL_HOOKS,
   FULFILL_TIMING,
   NO_FULFILL_HOOKS,
@@ -36,14 +33,9 @@ import { OrderStateRepository } from './order-state.repository';
 // the TON module's (S5), reached through TON_PAYER only; Prisma, Redis and the queues come from the
 // worker's global modules.
 @Module({
-  imports: [TonModule],
+  // The adapters, their scenario script and the router: one shared set (AdaptersModule, S3b).
+  imports: [TonModule, AdaptersModule],
   providers: [
-    { provide: SIMULATOR_SCRIPT, useFactory: () => new SimulatorScript() },
-    {
-      provide: FULFILL_ADAPTERS,
-      inject: [WORKER_CONFIG, SIMULATOR_SCRIPT],
-      useFactory: buildAdapterRegistry,
-    },
     {
       provide: FULFILL_TIMING,
       inject: [WORKER_CONFIG],
@@ -70,7 +62,6 @@ import { OrderStateRepository } from './order-state.repository';
     WalletCacheInvalidator,
     OrderStateRepository,
     AttemptsRepository,
-    AdapterRouter,
     FulfillmentNotifier,
     FulfillReviewer,
     FulfillTonRunner,

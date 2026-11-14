@@ -415,9 +415,66 @@ Kod: `apps/worker/src/fulfillment/**`, simulyator: `apps/worker/src/adapters/sim
 
 **Replika va concurrency (5-bosqich sharti).** `fulfill-order` — **bitta worker replikasi, concurrency 1**: hamyon band bo‘lsa (`WALLET_BUSY`) `pay()` `NOT_SENT` qaytaradi va bu BullMQ urinishini sarflaydi; oxirgi urinishgacha band qolsa buyurtma HELD bo‘ladi. Bitta replika va concurrency 1 da hamyonni faqat shu jarayonning bitta run’i ushlaydi, shuning uchun bu amalda bo‘lmaydi. Replikalar qo‘shilishidan oldin WALLET_BUSY urinish sarflamasligi kerak (masalan, BullMQ `DelayedError` bilan kechiktirish yoki hamyon bo‘yicha alohida navbat) — bu shartsiz replika qo‘shilmaydi.
 
-**Simulyator (dry-run).** Adapterlar ro‘yxati bitta fabrikada (`adapter-registry.ts`): `DRY_RUN=true` va production emas → `FRAGMENT` (TON bilan to‘lanadi) va `RESELLER_STARS` (USDT); aks holda bo‘sh (har buyurtma HELD `NO_ADAPTER`; haqiqiy adapterlar S8). Simulyator konstruktorlari production’da va `DRY_RUN=false` da istisno tashlaydi. Ssenariylar: `OK`, `PRICE_UP` (narx ×2), `NOT_FOUND`, `NOT_SENT`, `UNKNOWN`, `TIMEOUT` (`simulator-script.ts`). Zanjir tomonidagi natijalar (tushdi, yo‘qoldi) `FakeTonGateway` da. Simulyator `providerRef` i `sim_<username>` — S3b `validate-recipient` simulyatori ham shuni berishi kerak.
+**Simulyator (dry-run).** Adapterlar ro‘yxati bitta fabrikada (`adapter-registry.ts`): `DRY_RUN=true` va production emas → `FRAGMENT` (TON bilan to‘lanadi) va `RESELLER_STARS` (USDT); aks holda bo‘sh (har buyurtma HELD `NO_ADAPTER`; haqiqiy adapterlar S8). Simulyator konstruktorlari production’da va `DRY_RUN=false` da istisno tashlaydi. Ssenariylar: `OK`, `PRICE_UP` (narx ×2), `NOT_FOUND`, `NOT_SENT`, `UNKNOWN`, `TIMEOUT` (`simulator-script.ts`). Zanjir tomonidagi natijalar (tushdi, yo‘qoldi) `FakeTonGateway` da. Simulyator `providerRef` i `sim_<username>` — S3b `validate-recipient` simulyatori ham shuni beradi (normallashgan username bilan).
 
 **Testlar.** `fulfill-crash.e2e-spec.ts` (to‘rt o‘lim nuqtasi, zanjirda bajarilgan ≤ 1), `fulfill-outcomes.e2e-spec.ts`, `fulfill-flow.e2e-spec.ts` (oqim, replay, parallel run’lar, DB fence, refund, run oxiri), `fulfill-retries.e2e-spec.ts` (`pay()` natijalari, chegara, ta’minotchi NOT_SENT → review), `fulfill-guards.e2e-spec.ts` (HAS_TRANSFER, PURCHASE yo‘q, yadrodagi `providerRef` tekshiruvi, allowlist’dan tashqari manzil, eng oxirgi urinish hold’i, rad etilgan SENDING → HELD), `fulfill-abandoned.e2e-spec.ts` (butunlay yiqilgan job: haqiqiy BullMQ Worker bilan ikki marta stalled va oxirgi urinishdagi istisno; `_abandoned` alerti haqiqiy review alertini yutmaydi; PAID dagi har yiqilish bir marta sanaladi), `fulfill-dry-run-net.e2e-spec.ts` (DB/Redis’dan boshqa tarmoq yo‘q).
+
+## 5-faza S3b: `validate-recipient` processori
+
+Kod: `apps/worker/src/recipients/**`, adapterlar: `apps/worker/src/adapters/adapters.module.ts`. API (`POST /recipients/validate`, docs/04) navbatga job qo‘shadi va `RECIPIENT_CHECK_TIMEOUT_MS` (10 s) kutadi; worker — Fragment yoki ta’minotchiga yeta oladigan yagona jarayon.
+
+**Ishlash.**
+
+1. Job ma’lumoti `RecipientCheckRequestSchema` bilan tekshiriladi. Mos kelmasa — bu producer va consumer orasidagi dasturiy xato: `UnrecoverableError` (qayta urinilmaydi, API failed job’ni ko‘rib 503 beradi), logda faqat Zod kodlari.
+2. Muddat: javob API kutishni to‘xtatishidan `replyMarginMs` (1 s) oldin tayyor bo‘lishi kerak, ya’ni `job.timestamp + 10 s − 1 s`. Byudjet yuqoridan ham `10 s − 1 s` bilan cheklanadi: kelajakdagi `timestamp` (soat farqi) slotni API kutishidan uzoq ushlab turmaydi. Qolgan vaqt `minCallMs` (0,5 s) dan kam bo‘lsa — eski job, javobni hech kim kutmayapti: provider’ga bormasdan `UNAVAILABLE` (`STALE`).
+3. Mahsulot DB’dan o‘qiladi; input mahsulotning `inputSchema` si bo‘yicha `normalizeRecipientInput` bilan qayta normallashtiriladi (himoya qatlami; mos kelmasa — 1-banddagi kabi `UnrecoverableError`).
+4. Adapter fulfillment bilan bir xil router orqali tanlanadi (yoqilgan `ProductRoute`, priority, health = OK). `validateRecipient` dan oldin qolgan vaqt yana tekshiriladi: `minCallMs` dan kam bo‘lsa (DB yoki router sekin bo‘lgan) — provider chaqirilmaydi, `TIMEOUT`. Mahsulot o‘qish, router (health ham) va chaqiruv — hammasi bitta muddat ichida.
+5. Javob `RecipientCheckResultSchema` bilan tekshiriladi (ism uchinchi tomon matni).
+6. Processor adapter xatosida **throw qilmaydi**: javob har doim natija sifatida qaytadi. Aks holda BullMQ ikkinchi urinishni API kutishni to‘xtatgandan keyin qilardi — behuda provider so‘rovi. Shuning uchun navbatning `attempts` qiymati amalda ahamiyatsiz.
+7. Muddat **slotni** bo‘shatadi, provider chaqiruvini emas: chaqiruv abort qilinmaydi va fonda davom etishi mumkin (`Deadline`). Haqiqiy adapterga `AbortSignal` va qattiq timeout kerak (S7/S8 darvozasi).
+
+**`UNAVAILABLE` holatlari (hech qachon «topilmadi» emas):** mahsulot yo‘q (`NO_PRODUCT`), nofaol (`INACTIVE`), mahsulot formasi buzilgan (`BAD_PRODUCT_INPUT`), yo‘nalish yo‘q yoki sog‘lom adapter yo‘q (`NO_ADAPTER`; production’da yoki `DRY_RUN=false` da haqiqiy adapterlar S8 gacha yo‘q, shuning uchun har tekshiruv shu — test bilan), muddat tugadi (`TIMEOUT`), adapter yoki DB istisnosi (`ERROR`), javob sxemaga mos emas (`BAD_ANSWER`), eski job (`STALE`).
+
+**Tezlik va parallellik (konstantalar, env emas).**
+
+- BullMQ `limiter`: **1 job/s**, barcha replikalar uchun umumiy (Redis’da). Fragment’ning ochiq API’si yo‘q; bot kabi ko‘ringan akkaunt sessiyasini yo‘qotishi mumkin, sessiya o‘lsa esa to‘langan buyurtmalar ham HELD bo‘ladi. Shuning uchun suiiste’mol paytida tekshiruvning 503 berishi sessiyani xavfga qo‘yishdan yaxshiroq. Limiter testlangan: metadata unit testi va e2e (darhol javob beradigan 3 job ≥ ~1 s oraliq bilan boshlanadi); limiter olib tashlansa ikkalasi yiqiladi.
+- `concurrency` = 10 (= 10 s / 1 s) **job sloti**: har bir job o‘z muddatida tugaydi, shuning uchun provider osilib qolsa ham ~10 slot band bo‘ladi. Bitta sekin tekshiruv tezini to‘smaydi; provider’ga murojaat chastotasini faqat limiter cheklaydi.
+- Limiter kvotasini **har job** yeydi — provider’ga bormaganlari ham (`STALE`, `NO_ADAPTER`, noto‘g‘ri javob, noto‘g‘ri so‘rov). Navbat to‘lganda hamma 503 oladi. API qulasa, u discard qilmagan job’lar sweep’gacha (≤ 60 + 30 s) kvota yeydi.
+- Bir xil savollar (mahsulot + normallashgan input, 60 s oyna) bitta job’ni bo‘lishadi. Muddat birinchi qo‘shilgan job `timestamp` idan hisoblanadi, shuning uchun keyin qo‘shilgan foydalanuvchi `STALE` yoki 503 olishi mumkin (fail-closed; API `UNAVAILABLE` dan keyin job’ni o‘chiradi, shuning uchun qayta so‘rov yangi job oladi).
+- Navbatni to‘ldirish (API: bir foydalanuvchiga bir vaqtda bitta tekshiruv, daqiqasiga 20): navbatdagi har job ~1 s kutish qo‘shadi. Muddat ~8,5 s, shuning uchun bir vaqtda faol **~9 dan ortiq** akkaunt (har biri o‘z javobini olgach darhol yangisini yuborsa) haqiqiy mijozning tekshiruvini 503 ga aylantiradi. Bu fail-closed: pul yo‘qolmaydi, Fragment sessiyasi himoyalangan. Kuchaytirish — egasining qarori (pastdagi «Ochiq»).
+
+**Logs.** Faqat `productId`, adapter kodi, status, sabab va davomiylik (ms). Username, input, ism, `providerRef` va **job id** (username’ning kalitsiz hash’i, lug‘at bilan ochiladi) yozilmaydi. Xato matnidan faqat klass nomi olinadi (xabarida username bo‘lishi mumkin). `failedReason` — faqat qat’iy matn. Worker `error` hodisasi (yo‘qolgan lock, Redis xatosi: BullMQ matnida job id bor, tinglovchi bo‘lmasa BullMQ uni `console.error` ga chiqaradi) processor’da tinglanadi: faqat klass nomi, o‘zgarganda bir marta va ko‘pi bilan har 60 s da qayta.
+
+**Saqlash tozalovi.** BullMQ `removeOnComplete/removeOnFail.age` ni faqat **boshqa** job tugaganda qo‘llaydi, job hash’ida TTL yo‘q. Trafik kam bo‘lsa oxirgi javob (username, ism, `providerRef`) Redis’da qolib ketardi. Events stream’ning `completed` yozuvlari ham javobni (ism, `providerRef`) ko‘chiradi va har yozuvda job id bor; stream’ning `maxLen` i uzunlikni cheklaydi, yoshni emas. `RecipientJobSweeper` har 30 s (boot’da ham):
+
+- `queue.clean(60 s, …)` — `completed`, `failed`, hech kim olmagan `wait` va `prioritized` (API kelajakda priority bilan qo‘shsa) job’lari uchun;
+- `XTRIM <events> MINID <Redis TIME − 60 s>` — aniq (`~` siz), Redis server soati bo‘yicha. API QueueEvents ≤ 10 s orqada o‘qiydi, 60 s unga zarar qilmaydi.
+
+Job hash’i ham, uning stream yozuvlari ham job tugaganidan keyin ko‘pi bilan 60 + 30 s yashaydi. Oddiy taymer (unref, shutdown’da to‘xtaydi): shu navbatdagi repeatable job processor’ga tushardi. Xato — klass nomi bilan bitta warn, keyingi takt yana urinadi.
+
+**Adapterlar ro‘yxati.** Bitta `AdaptersModule` (`SIMULATOR_SCRIPT`, `FULFILL_ADAPTERS`, `AdapterRouter`) — `FulfillmentModule` ham, `RecipientsModule` ham uni import qiladi. Tekshiruv va yetkazish bitta adapter nusxasidan (S7/S8 dan — bitta provider sessiyasidan) foydalanadi.
+
+**Simulyator username shakllari (dev va test, ssenariy `OK`).** Hammasi normallashgan shaklda (`@` siz, kichik harf):
+
+| Username      | Natija                                                              |
+| ------------- | ------------------------------------------------------------------- |
+| `notfound_*`  | `NOT_FOUND` (shunday qabul qiluvchiga `prepare` — `RECIPIENT_GONE`) |
+| `slowcheck_*` | 15 s kutadi (API kutishidan uzoq) → worker muddatida `UNAVAILABLE`  |
+| boshqasi      | `FOUND`, `providerRef = sim_<username>`, `displayName` = username   |
+
+`username` maydoni yo‘q yoki bo‘sh — har ssenariyda `UNAVAILABLE` (savolning o‘zi buzilgan, fail-closed). Telegram username bo‘la olmaydigan qiymat (`x`, `1abc`) — `NOT_FOUND` (haqiqiy provider ham shunday ismli odamni topmaydi). FOUND berilgan har username uchun `prepare` qayta tekshiruvi `null`, shuning uchun dry-run buyurtma `RECIPIENT_CHANGED` bilan refund bo‘lmaydi. Ssenariylar (`NOT_FOUND`, `UNKNOWN`, `TIMEOUT`) avvalgidek.
+
+**Testlar.** Unit: `validate-recipient.processor.spec.ts`, `validate-recipient-bounds.spec.ts` (limiter/concurrency metadata, worker error listener, muddat chegaralari: kelajakdagi timestamp, sekin DB, osilgan `health()`, `<` chegarasi, `dispose`), `recipient-job-sweeper.spec.ts`, `recipients-production.spec.ts` (production simoni → `NO_ADAPTER`), `simulated-validation.spec.ts`. E2e (haqiqiy BullMQ Worker, job’lar API qo‘shgandek): `validate-recipient.e2e-spec.ts` (shakllar, normallashtirish, muddat, concurrency, limiter, eski job, log satrlari), `validate-recipient-failsafe.e2e-spec.ts` (adapter xatosi — bitta urinish; yo‘nalish/health/mahsulot → `UNAVAILABLE`; noto‘g‘ri so‘rov; tarmoq guard), `validate-recipient-errors.e2e-spec.ts` (worker error va haqiqatan yo‘qolgan lock → stderr toza, logda job id yo‘q), `validate-recipient-sweep.e2e-spec.ts` (boshqa job tugamasa ham job va stream yozuvlari o‘chadi), `validate-recipient-worker.e2e-spec.ts` (butun `WorkerModule`, `logDestination` bilan loglarda shaxsiy ma’lumot yo‘q).
+
+**S7/S8 darvozalari (haqiqiy Fragment/reseller adapteridan oldin).**
+
+- `providerRef` qaysi adapterdan kelgani saqlanmaydi: mahsulotda ikki route bo‘lsa, tekshiruv bir adapterdan, yetkazish boshqasidan — `RECIPIENT_CHANGED` xavfi.
+- Provider chaqiruviga `AbortSignal` va adapterning o‘zida qattiq timeout.
+- Router har lookup’da `health()` ni chaqiradi — keshlash kerak.
+- Provider chaqiruvi atrofida token bucket (provider’ga bormaydigan job’lar kvota yemasin).
+- Fragment so‘rovlari hajmiga shift va alert (audit M-2; ega qarori, yangi alert turi va i18n kerak).
+
+**Ochiq (egasi uchun).** Navbatni to‘ldirishga qarshi kuchliroq himoya (audit M-1): ishonchsiz akkauntlar uchun API’da priority va umumiy byudjet, foydalanuvchilar bo‘yicha adolatli navbat (BullMQ Pro groups — yangi qaramlik) yoki Fragment chidasa limiter’ni oshirish (masalan 2/s → ~17 akkaunt kerak bo‘ladi).
 
 ## Dev va test
 

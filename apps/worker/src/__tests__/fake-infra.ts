@@ -10,6 +10,7 @@ import { TopupExpireProcessor } from '../bank-feed/topup-expire.processor';
 import type { ScheduleRule } from '../infra/queue/boot-scheduler';
 import { PriceSyncProcessor } from '../pricing-sync/price-sync.processor';
 import { PaymentReconcileProcessor } from '../reconcile/payment-reconcile.processor';
+import { ValidateRecipientProcessor } from '../recipients/validate-recipient.processor';
 
 export interface FakeRedisClient {
   set: jest.Mock<Promise<string>, [string, string, string, number]>;
@@ -59,5 +60,7 @@ export function withFakeInfra(
     .overrideProvider(PaymentReconcileProcessor)
     .useValue({})
     .overrideProvider(FulfillOrderProcessor)
+    .useValue({})
+    .overrideProvider(ValidateRecipientProcessor)
     .useValue({});
 }

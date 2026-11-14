@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { RecipientProviderRefSchema, type RecipientCheckResult } from '@repo/shared';
+import {
+  RECIPIENT_CHECK_TIMEOUT_MS,
+  RecipientProviderRefSchema,
+  normalizeTgUsername,
+  type RecipientCheckResult,
+} from '@repo/shared';
 import { hasProviderRef, type FulfillmentRecipient } from '../fulfillment-adapter';
 
 // What the simulated providers do, per order (tests) or for every order (dev). Never a secret,
@@ -15,6 +20,12 @@ import { hasProviderRef, type FulfillmentRecipient } from '../fulfillment-adapte
 //
 // The TON side of a Fragment payout (landed, lost, bounced...) is scripted on the fake chain
 // (FakeTonGateway), not here.
+//
+// `validateRecipient` under OK also answers by the username's shape (dev and tests, docs/06 S3b),
+// always on the normalized username (normalizeTgUsername: no `@`, lower case):
+//   notfound_*   NOT_FOUND (and `prepare` of such a recipient: RECIPIENT_GONE)
+//   slowcheck_*  answers only after SIM_SLOW_CHECK_MS, longer than any caller waits: UNAVAILABLE
+//   any other    FOUND, providerRef `sim_<username>`, displayName = the username
 
 export const SIM_SCENARIOS = [
   'OK',
@@ -66,26 +77,73 @@ export class SimulatedOutageError extends Error {
   }
 }
 
-/** `validateRecipient` of both simulators. */
+/** Username prefixes the simulated `validateRecipient` answers by (scenario OK only). */
+export const SIM_NOT_FOUND_PREFIX = 'notfound_';
+export const SIM_SLOW_CHECK_PREFIX = 'slowcheck_';
+/** How long a `slowcheck_*` lookup takes: longer than the API ever waits for an answer. */
+export const SIM_SLOW_CHECK_MS = RECIPIENT_CHECK_TIMEOUT_MS + 5_000;
+
+const NOT_FOUND: RecipientCheckResult = { status: 'NOT_FOUND' };
+const UNAVAILABLE: RecipientCheckResult = { status: 'UNAVAILABLE' };
+
+/** The raw `username` field (own key only); undefined when absent or blank. */
+function rawUsernameOf(fields: Readonly<Record<string, string>>): string | undefined {
+  const raw = Object.hasOwn(fields, 'username') ? fields['username'] : undefined;
+  return raw === undefined || raw.trim() === '' ? undefined : raw;
+}
+
+/** The normalized username of an input or a stored recipient; null when there is none. */
+function usernameOf(fields: Readonly<Record<string, string>>): string | null {
+  const raw = rawUsernameOf(fields);
+  return raw === undefined ? null : normalizeTgUsername(raw);
+}
+
+// The timer is unref'd: a caller that stopped waiting (the validate-recipient deadline) never
+// keeps a test or a stopping worker alive for it.
+function slowAnswer(): Promise<RecipientCheckResult> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(UNAVAILABLE), SIM_SLOW_CHECK_MS).unref();
+  });
+}
+
+/**
+ * `validateRecipient` of both simulators.
+ * - No `username` field, or a blank one: UNAVAILABLE. The question itself is malformed (a form
+ *   mismatch, our bug), so no answer about a person is given: fail-closed (CR #11).
+ * - A value that cannot be a Telegram username (`x`, `1abc`): NOT_FOUND, which is what the real
+ *   provider answers when searching for it — there is a question, and nobody has that name.
+ */
 export function simulatedValidation(
   scenario: SimScenario,
   input: Readonly<Record<string, string>>,
-): RecipientCheckResult {
-  const username = input['username'];
-  if (scenario === 'NOT_FOUND' || username === undefined || username === '') {
-    return { status: 'NOT_FOUND' };
+): Promise<RecipientCheckResult> {
+  if (rawUsernameOf(input) === undefined) return Promise.resolve(UNAVAILABLE);
+  const username = usernameOf(input);
+  if (scenario === 'NOT_FOUND' || username === null) return Promise.resolve(NOT_FOUND);
+  if (scenario === 'UNKNOWN' || scenario === 'TIMEOUT') return Promise.resolve(UNAVAILABLE);
+  if (scenario === 'OK' && username.startsWith(SIM_NOT_FOUND_PREFIX)) {
+    return Promise.resolve(NOT_FOUND);
   }
-  if (scenario === 'UNKNOWN' || scenario === 'TIMEOUT') return { status: 'UNAVAILABLE' };
-  return { status: 'FOUND', providerRef: simulatedProviderRef(username), displayName: username };
+  if (scenario === 'OK' && username.startsWith(SIM_SLOW_CHECK_PREFIX)) return slowAnswer();
+  return Promise.resolve({
+    status: 'FOUND',
+    providerRef: simulatedProviderRef(username),
+    displayName: username,
+  });
 }
 
-/** The recipient re-check of `prepare`: null when it is still the validated one. */
+/**
+ * The recipient re-check of `prepare`: null when it is still the validated one. Consistent with
+ * `simulatedValidation`: for every normalized username it answers FOUND for, its providerRef
+ * gives null here, so a dry-run order is never refunded as RECIPIENT_CHANGED.
+ */
 export function simulatedRecipientProblem(
   scenario: SimScenario,
   recipient: FulfillmentRecipient,
 ): 'RECIPIENT_GONE' | 'RECIPIENT_CHANGED' | null {
   if (!hasProviderRef(recipient) || scenario === 'NOT_FOUND') return 'RECIPIENT_GONE';
-  const username = recipient.fields['username'];
-  if (username === undefined || username === '') return 'RECIPIENT_GONE';
+  const username = usernameOf(recipient.fields);
+  if (username === null) return 'RECIPIENT_GONE';
+  if (scenario === 'OK' && username.startsWith(SIM_NOT_FOUND_PREFIX)) return 'RECIPIENT_GONE';
   return recipient.providerRef === simulatedProviderRef(username) ? null : 'RECIPIENT_CHANGED';
 }

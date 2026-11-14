@@ -12,6 +12,7 @@ import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { PricingSyncModule } from './pricing-sync/pricing-sync.module';
 import { ReconcileModule } from './reconcile/reconcile.module';
+import { RecipientsModule } from './recipients/recipients.module';
 import { TonModule } from './ton/ton.module';
 
 export interface WorkerModuleOptions {
@@ -45,6 +46,8 @@ export class WorkerModule {
         TonModule,
         // Phase 5 S4: the fulfill-order consumer (dry run: simulators + the in-memory chain).
         FulfillmentModule,
+        // Phase 5 S3b: the validate-recipient consumer (dry run: the simulators' lookups).
+        RecipientsModule,
       ],
     };
   }
