@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { workerBankFeedProblems, workerBankFeedShape } from './bank-feed-env';
 import { bankFeedKeySource, forgetBankFeedKey, type SecretFileReader } from './secret-file';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
+import { forgetWalletSecrets, walletKeySource, workerTonProblems, workerTonShape } from './ton-env';
+import { TonApiKey } from './ton-api-key';
 import { workerTopupProblems, workerTopupShape } from './topup-env';
+import { WalletSecretHandle } from './wallet-secret';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
@@ -33,7 +36,8 @@ const EnvSchema = z.object({
   // loadEnv); in production it must be set explicitly.
   FULFILLMENT_DRY_RUN: bool,
   TON_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
-  // Hard limits from .claude/rules/45-fulfillment.md; a breach holds the order, never silent.
+  // Hard limits from .claude/rules/45-fulfillment.md; a breach holds the order, never silent. The
+  // TON defaults are for dry runs: with DRY_RUN=false both must be set explicitly (audit L5).
   TON_MAX_PER_ORDER_NANO: bigintString('50000000000'),
   TON_MAX_DAILY_NANO: bigintString('500000000000'),
   TON_MIN_BALANCE_ALERT_NANO: bigintString('100000000000'),
@@ -50,13 +54,33 @@ const EnvSchema = z.object({
   RESELLER_STARS_API_URL: z.url({ protocol: /^https?$/ }).optional(),
   RESELLER_STARS_API_KEY: z.string().optional(),
 
+  // Phase 5: the hot wallet, its key file and the payout timings (ton-env.ts).
+  ...workerTonShape,
   // Phase 4 (P2P top-ups): matcher knobs, equal to the API's (topup-env.ts).
   ...workerTopupShape,
   // Phase 4: pinned bank-bot ids and the matcher's lock wait (bank-feed-env.ts).
   ...workerBankFeedShape,
 });
 
-export type Env = Readonly<z.infer<typeof EnvSchema>>;
+type ParsedEnv = z.infer<typeof EnvSchema>;
+
+/**
+ * The frozen worker config. The encrypted mnemonic and its key are not in it as strings: the
+ * wallet factory takes them once from TON_WALLET_SECRET (audit L2; undefined in a dry run). The
+ * TON API key is a redacting holder only the toncenter transport reads (review m5, audit I-3).
+ */
+export type Env = Readonly<
+  Omit<ParsedEnv, 'TON_MNEMONIC_ENC' | 'WALLET_ENC_KEY' | 'TON_API_KEY'> & {
+    readonly TON_WALLET_SECRET?: WalletSecretHandle | undefined;
+    readonly TON_API_KEY?: TonApiKey | undefined;
+  }
+>;
+
+function walletSecretOf(blob: string | undefined, key: string | undefined) {
+  return blob === undefined || key === undefined
+    ? undefined
+    : new WalletSecretHandle({ mnemonicBlob: blob, keyText: key });
+}
 
 // Carries every problem at once so an operator fixes the env in one pass. Messages name the
 // variable and the reason, never the value (values may be secrets).
@@ -108,14 +132,38 @@ export function loadEnv(
   // D-52 D3: the session key comes from its Docker-secret file (or inline outside production).
   const key = bankFeedKeySource(clean, production, readSecret);
   problems.push(...key.problems);
-  const data = parsed.success ? { ...parsed.data, BANK_FEED_ENC_KEY: key.key } : null;
+  // Plan §8: in dry run nothing can be sent, so no wallet secret is read or kept (the mnemonic,
+  // its key and the TON API key stay out of the config even when set).
+  const dryRun = withDefaults.FULFILLMENT_DRY_RUN !== 'false';
+  const walletKey = walletKeySource(clean, production, dryRun, readSecret);
+  problems.push(...walletKey.problems);
+  const data = parsed.success
+    ? {
+        ...parsed.data,
+        BANK_FEED_ENC_KEY: key.key,
+        WALLET_ENC_KEY: walletKey.key,
+        TON_MNEMONIC_ENC: dryRun ? undefined : parsed.data.TON_MNEMONIC_ENC,
+        TON_API_KEY: dryRun ? undefined : parsed.data.TON_API_KEY,
+      }
+    : null;
   if (data !== null) {
     problems.push(...workerTopupProblems(data));
     problems.push(...workerBankFeedProblems(data, production));
+    problems.push(...workerTonProblems(data, clean));
   }
 
   if (data === null || problems.length > 0) throw new EnvValidationError(problems);
-  return Object.freeze(data);
+  const {
+    TON_MNEMONIC_ENC: blob,
+    WALLET_ENC_KEY: walletKeyText,
+    TON_API_KEY: apiKey,
+    ...config
+  } = data;
+  return Object.freeze({
+    ...config,
+    TON_WALLET_SECRET: walletSecretOf(blob, walletKeyText),
+    TON_API_KEY: apiKey === undefined ? undefined : new TonApiKey(apiKey),
+  });
 }
 
 /**
@@ -131,7 +179,8 @@ export function loadProcessEnv(source: NodeJS.ProcessEnv = process.env): Env {
     return loadEnv(source);
   } finally {
     // Read once (also when the config is refused); from here on only the frozen config holds
-    // the key (D-52 D3).
+    // the keys (D-52 D3).
     forgetBankFeedKey(source);
+    forgetWalletSecrets(source);
   }
 }

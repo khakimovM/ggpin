@@ -58,11 +58,15 @@ export interface FulfillmentRecipient {
   readonly providerRef: string | null;
 }
 
-/** True when the recipient can be re-checked against the provider (see `FulfillmentRecipient`). */
+/**
+ * True when the recipient can be re-checked against the provider (see `FulfillmentRecipient`).
+ * Like the shared RecipientProviderRefSchema (`/\S/`): a whitespace-only handle (NBSP included,
+ * `trim()` and `\s` remove the same characters) is no handle at all.
+ */
 export function hasProviderRef(
   recipient: FulfillmentRecipient,
 ): recipient is FulfillmentRecipient & { readonly providerRef: string } {
-  return recipient.providerRef !== null && recipient.providerRef.length > 0;
+  return recipient.providerRef !== null && recipient.providerRef.trim().length > 0;
 }
 
 export interface PrepareContext {

@@ -29,14 +29,25 @@ export const FULFILLMENT_ALERT_KINDS = [
   // is emitted by the reconciler (S9), only the key exists here.
   'tonConsumedUnmatched',
   // A transfer is BOUNCED: the destination aborted our message and the value came back (owner
-  // decision A1, D-59). The order is held for review; CRITICAL when the bounce is found late (the
-  // transfer was already CONFIRMED). Emitted by the reconciler (S9), only the key exists here.
+  // decision A1, D-59). The order is held for review. Emitted by the TON module (S5) when the
+  // bounce is found while the payout is watched, and by the reconciler (S9), CRITICAL, when it is
+  // found late (the transfer was already CONFIRMED). The bounce facts the owner's proof needs are
+  // in `FulfillmentAttempt.response.ton.bounce` (refId = the transfer).
   'tonBounced',
+  // CRITICAL: the hot wallet's one unresolved transfer (refId) stays unresolved past
+  // TON_CONFIRM_TIMEOUT_MS, so every later TON payout waits (WALLET_BUSY) until the reconciler or
+  // the owner decides it (review M4, audit L3). Once per blocking transfer.
+  'tonWalletBlocked',
+  // CRITICAL: a second chain source (TON_EXPIRY_WITNESSES) saw our message, or the seqno used,
+  // while the primary source said the message never went out (review m3). The order went to
+  // review instead of EXPIRED; one of the two sources lies or lags (refId = the transfer).
+  'tonWitnessConflict',
   // An owner resolved a CONSUMED_UNMATCHED transfer as SENT_ELSEWHERE: value left the wallet to an
   // address that is not ours, so the wallet is compromised (owner decision A3). CRITICAL security
   // incident; emitted by the owner CLI (S10) right after the resolution commits.
   'tonWalletCompromised',
-  // fulfill-order has waited more than 5 minutes; the worker heartbeat is gone (API watchdog).
+  // The oldest waiting fulfill-order job is older than 5 minutes: the worker is down or not taking
+  // jobs (API watchdog; emitted even while the heartbeat is alive, e.g. a crash loop).
   'queueStuck',
   'workerDown',
 ] as const;

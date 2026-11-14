@@ -11,6 +11,7 @@ import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { PricingSyncModule } from './pricing-sync/pricing-sync.module';
 import { ReconcileModule } from './reconcile/reconcile.module';
+import { TonModule } from './ton/ton.module';
 
 export interface WorkerModuleOptions {
   /** Where log lines go instead of stdout; tests capture output here. */
@@ -39,6 +40,8 @@ export class WorkerModule {
         BankFeedModule,
         TopupExpireModule,
         ReconcileModule,
+        // Phase 5 S5: the hot wallet (dry run: a throw-away key on a fake chain, plan §8).
+        TonModule,
       ],
     };
   }

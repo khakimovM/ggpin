@@ -183,6 +183,25 @@ const API_ONLY_PATTERNS = [
 ];
 const API_ONLY_SYNTAX = dynamicImport(API_RE, API_MESSAGE);
 
+// Worker TON boundaries inside apps/worker (audit I-1, I-3). importNames also catches a renaming
+// import (`TON_WALLET as W`) and a namespace import; the .js spelling is listed too (review RR2 #5).
+const TON_WALLET_PATTERNS = [
+  {
+    group: ['**/ton-tokens', '**/ton-tokens.js'],
+    importNames: ['TON_WALLET'],
+    message: 'TON_WALLET (the signer) stays inside apps/worker/src/ton (audit I-1).',
+  },
+];
+const TON_API_KEY_MESSAGE =
+  'Only the toncenter transport (src/ton/toncenter-http.ts) reads TON_API_KEY (I-3).';
+const TON_API_KEY_SYNTAX = [
+  // key.headerValueForToncenter(), key['headerValueForToncenter']() and const { ... } = key.
+  "MemberExpression[property.name='headerValueForToncenter']",
+  "MemberExpression[property.value='headerValueForToncenter']",
+  "ObjectPattern > Property[key.name='headerValueForToncenter']",
+  "ObjectPattern > Property[key.value='headerValueForToncenter']",
+].map((selector) => ({ selector, message: TON_API_KEY_MESSAGE }));
+
 export default defineConfig(
   {
     ignores: [
@@ -294,6 +313,58 @@ export default defineConfig(
         ...PROCESS_ENV_SYNTAX,
         ...API_ONLY_SYNTAX,
         ...SET_BINDINGS_SYNTAX,
+      ],
+    },
+  },
+  {
+    // Audit I-1: the signer is reachable in the Nest container by the TON_WALLET Symbol only, so
+    // outside apps/worker/src/ton that Symbol cannot be imported (moduleRef.get(TON_WALLET, ...)
+    // cannot be written there). Restated: flat config replaces rule options.
+    files: ['apps/worker/src/config/**/*.{ts,mts,cts}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: API_ONLY_PATHS, patterns: [...API_ONLY_PATTERNS, ...TON_WALLET_PATTERNS] },
+      ],
+    },
+  },
+  {
+    files: ['apps/worker/src/**/*.{ts,mts,cts}'],
+    ignores: ['apps/*/src/config/**', 'apps/worker/src/ton/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [...PROCESS_ENV_IMPORTS, ...API_ONLY_PATHS],
+          patterns: [...API_ONLY_PATTERNS, ...TON_WALLET_PATTERNS],
+        },
+      ],
+    },
+  },
+  {
+    // Review m5 / audit I-3: TON_API_KEY's value is read by the toncenter transport only.
+    files: ['apps/worker/src/**/*.{ts,mts,cts}'],
+    ignores: ['apps/*/src/config/**', '**/__tests__/**', 'apps/worker/src/ton/toncenter-http.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...PROCESS_ENV_SYNTAX,
+        ...API_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+        ...TON_API_KEY_SYNTAX,
+      ],
+    },
+  },
+  {
+    // The same rule in src/config (review RR2 #5): only the holder's tests read the value there.
+    files: ['apps/worker/src/config/**/*.{ts,mts,cts}'],
+    ignores: ['**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...API_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+        ...TON_API_KEY_SYNTAX,
       ],
     },
   },
