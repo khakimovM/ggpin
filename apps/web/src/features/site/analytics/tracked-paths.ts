@@ -1,4 +1,6 @@
-import { routing } from '../../../i18n/routing';
+// Not `routing` (it imports the @repo/shared barrel at runtime, and with it secret NAMES the
+// landing chunk does not need: p8 S6 audit L-2): the client copy of the locales.
+import { DEFAULT_LOCALE_CLIENT, LOCALES_CLIENT } from '../../../i18n/client-locales';
 import { SITE_PAGES } from '../seo/site-pages';
 
 // The marketing pages, the only ones analytics may know about (phase 8 S5). Used twice: the beacon
@@ -6,9 +8,9 @@ import { SITE_PAGES } from '../seo/site-pages';
 // zone from the rest, so a link between the zones is a full page load and the tracker stays put.
 
 /** The URL prefix of every locale but the default one (`as-needed`: uz has none). */
-const PREFIXES = routing.locales
-  .filter((locale) => locale !== routing.defaultLocale)
-  .map((locale) => `/${locale}`);
+const PREFIXES = LOCALES_CLIENT.filter((locale) => locale !== DEFAULT_LOCALE_CLIENT).map(
+  (locale) => `/${locale}`,
+);
 
 /** Every path of a marketing page, in each locale: `/`, `/faq`, `/ru`, `/ru/faq`, ... */
 const TRACKED_PATHS: ReadonlySet<string> = new Set(

@@ -62,7 +62,9 @@ export async function HowItWorks({ locale }: { locale: Locale }) {
           </h2>
           <p className={LANDING_LEAD}>{t('lead')}</p>
         </div>
-        <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-4 p-0">
+        {/* One column on phones, three from lg (as before). In between (md) two cards on top and the
+            third below at full width (owner decision, p8 S6): auto-fit left it alone at half width. */}
+        <ol className="m-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
           <li className={STEP_CARD}>
             <StepHead index={1} icon={Wallet} />
             <h3 className={STEP_TITLE}>{t('steps.s1')}</h3>
@@ -87,7 +89,7 @@ export async function HowItWorks({ locale }: { locale: Locale }) {
               </span>
             </span>
           </li>
-          <li className={STEP_CARD}>
+          <li className={cn(STEP_CARD, 'md:col-span-2 lg:col-span-1')}>
             <StepHead index={3} icon={Activity} />
             <h3 className={STEP_TITLE}>{t('steps.s3')}</h3>
             <span aria-hidden="true" className="flex flex-wrap items-center gap-1.5">

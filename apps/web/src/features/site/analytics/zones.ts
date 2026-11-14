@@ -1,4 +1,6 @@
-import { routing } from '../../../i18n/routing';
+// Not `routing` (it imports the @repo/shared barrel at runtime, and with it secret NAMES the
+// landing chunk does not need: p8 S6 audit L-2): the client copy of the locales.
+import { DEFAULT_LOCALE_CLIENT, LOCALES_CLIENT } from '../../../i18n/client-locales';
 import { isTrackedPath } from './tracked-paths';
 
 // The two zones of the web app (phase 8 S5): the marketing pages, which carry the analytics
@@ -11,9 +13,9 @@ import { isTrackedPath } from './tracked-paths';
 const PATH_BASE = 'https://site.invalid';
 
 /** The URL prefix of every locale but the default one (`as-needed`: uz has none). */
-const PREFIXES = routing.locales
-  .filter((locale) => locale !== routing.defaultLocale)
-  .map((locale) => `/${locale}`);
+const PREFIXES = LOCALES_CLIENT.filter((locale) => locale !== DEFAULT_LOCALE_CLIENT).map(
+  (locale) => `/${locale}`,
+);
 
 /** The path without its locale prefix: `/ru/store` → `/store`, `/ru` → `/`. */
 function unprefixed(pathname: string): string {

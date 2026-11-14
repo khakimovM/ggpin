@@ -10,6 +10,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { z } from 'zod';
 import { env } from '../../env';
 import { resolveApiBaseUrl } from '../../server-env';
+import { OutcomeMemo } from './catalog-memo';
 
 // Server-side reader of the public catalog (docs/04 "Katalog") for the marketing pages.
 //
@@ -52,7 +53,43 @@ function failureOf(error: unknown): Failure {
   return name === 'TimeoutError' || name === 'AbortError' ? 'TIMEOUT' : 'NETWORK';
 }
 
+// How long a negative outcome is kept in process memory (catalog-memo.ts, p8 S6 audit L-3): a
+// product the API does not know is not asked again for 45 s, an overloaded or failing API (5xx,
+// 429) for 8 s. Success is left to the Next.js data cache (60 s); timeouts and network failures
+// already cost the caller the full wait and are not kept, so the API is retried as soon as it is up.
+const NOT_FOUND_TTL_MS = 45_000;
+const FAILING_TTL_MS = 8_000;
+const MEMO_MAX_ENTRIES = 500;
+
+function ttlOf(outcome: Outcome<unknown>): number {
+  if (outcome.kind === 'not-found') return NOT_FOUND_TTL_MS;
+  if (outcome.kind !== 'unavailable') return 0;
+  // Matched as text: this module does no number parsing at all (see its "no arithmetic" test).
+  const failing = outcome.failure === 'HTTP_429' || /^HTTP_5\d\d$/.test(outcome.failure);
+  return failing ? FAILING_TTL_MS : 0;
+}
+
+const memo = new OutcomeMemo<Outcome<unknown>>(MEMO_MAX_ENTRIES, ttlOf);
+
+/** For tests: forget every kept and in-flight outcome. */
+export function resetSiteCatalogMemo(): void {
+  memo.clear();
+}
+
+// The key is the whole request URL: path (with the slug) and query (with the locale).
 async function read<S extends z.ZodType>(
+  path: string,
+  query: Record<string, string | number>,
+  schema: S,
+): Promise<Outcome<z.infer<S>>> {
+  const params = Object.entries(query).map(([name, value]) => `${name}=${String(value)}`);
+  const key = `${path}?${params.join('&')}`;
+  // The memo is shared by every schema, so its values are typed loosely; each key is only ever
+  // loaded with the one schema of its path, so the stored data is that schema's output.
+  return memo.run(key, () => fetchOutcome(path, query, schema)) as Promise<Outcome<z.infer<S>>>;
+}
+
+async function fetchOutcome<S extends z.ZodType>(
   path: string,
   query: Record<string, string | number>,
   schema: S,

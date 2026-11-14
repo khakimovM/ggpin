@@ -145,6 +145,59 @@ if (empty.code === 0) {
     leaked.length === 0,
     `API_INTERNAL_URL is not in .next/static (server-only)${leaked.length ? `: ${leaked.slice(0, 3).join(', ')}` : ''}`,
   );
+
+  checkMarketingChunks();
+}
+
+// Phase 8 S6 audit L-2: the browser chunks of the marketing pages carry no secret NAMES (the
+// @repo/shared barrel lists them in env-secrets.ts; values never were there). The store, the
+// login and the Mini App still import the barrel: they are listed, not failed, until the
+// `@repo/shared/env-secrets` subpath (phase 11).
+function checkMarketingChunks() {
+  const SECRET_NAMES = [
+    'WORKER_ONLY_SECRETS',
+    'API_ONLY_SECRETS',
+    'OTP_PEPPER',
+    'TON_MNEMONIC_ENC',
+    'BANK_FEED_',
+    'bankfeed:heartbeat',
+  ];
+  const isMarketing = (entry) =>
+    entry.startsWith('/[locale]/(marketing)/') ||
+    [
+      '/[locale]/layout',
+      '/[locale]/error',
+      '/[locale]/not-found',
+      '/[locale]/[...rest]/page',
+    ].includes(entry);
+  const pages = JSON.parse(readFileSync('.next/app-build-manifest.json', 'utf8')).pages;
+  const chunksOf = (wanted) =>
+    new Set(
+      Object.entries(pages)
+        .filter(([entry]) => wanted(entry))
+        .flatMap(([, files]) => files.filter((file) => file.endsWith('.js'))),
+    );
+  const marketing = chunksOf(isMarketing);
+  const text = (file) => readFileSync(path.join('.next', file), 'latin1');
+  // zones.ts (a marketing client module) reads paths against this base: finding it proves the
+  // chunk list is the marketing one and the search works.
+  check(
+    marketing.size > 0 && [...marketing].some((file) => text(file).includes('site.invalid')),
+    `control: the marketing chunks (${marketing.size}) are found and searched`,
+  );
+  for (const name of SECRET_NAMES) {
+    const found = [...marketing].filter((file) => text(file).includes(name));
+    check(
+      found.length === 0,
+      `no "${name}" in the marketing browser chunks${found.length ? `: ${found.slice(0, 3).join(', ')}` : ''}`,
+    );
+  }
+  const others = [...chunksOf((entry) => !isMarketing(entry))].filter(
+    (file) => !marketing.has(file) && SECRET_NAMES.some((name) => text(file).includes(name)),
+  );
+  console.log(
+    `INFO  secret names still in non-marketing chunks (phase 11): ${others.join(', ') || 'none'}`,
+  );
 }
 
 console.log(failures.length === 0 ? 'ALL CHECKS PASSED' : `${failures.length} CHECK(S) FAILED`);

@@ -7,6 +7,7 @@ import {
   getSiteProduct,
   getSiteProducts,
   lookupSiteProduct,
+  resetSiteCatalogMemo,
 } from './catalog-server';
 
 const LIST_ITEM = {
@@ -54,6 +55,8 @@ const fetchMock = vi.fn<typeof fetch>();
 let logged: string[];
 
 beforeEach(() => {
+  // Negative outcomes are kept in process memory (catalog-memo.ts): every test starts clean.
+  resetSiteCatalogMemo();
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
   logged = [];
@@ -186,8 +189,10 @@ describe('lookupSiteProduct / getSiteProduct', () => {
   it('tells a 404 (the product is gone) from an outage (we do not know)', async () => {
     fetchMock.mockResolvedValueOnce(json({ success: false, error: { code: 'NOT_FOUND' } }, 404));
     expect(await lookupSiteProduct('telegram-stars', 'uz')).toEqual({ status: 'not-found' });
+    resetSiteCatalogMemo();
     fetchMock.mockResolvedValueOnce(json({}, 500));
     expect(await lookupSiteProduct('telegram-stars', 'uz')).toEqual({ status: 'unavailable' });
+    resetSiteCatalogMemo();
     fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
     expect(await lookupSiteProduct('telegram-stars', 'uz')).toEqual({ status: 'unavailable' });
   });
@@ -195,6 +200,7 @@ describe('lookupSiteProduct / getSiteProduct', () => {
   it('getSiteProduct is null for both a 404 and an outage', async () => {
     fetchMock.mockResolvedValueOnce(json({}, 404));
     expect(await getSiteProduct('telegram-stars', 'uz')).toBeNull();
+    resetSiteCatalogMemo();
     fetchMock.mockResolvedValueOnce(json({}, 500));
     expect(await getSiteProduct('telegram-stars', 'uz')).toBeNull();
   });
