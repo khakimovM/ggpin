@@ -80,6 +80,7 @@ export class QuotesService {
       skuId: selection.sku?.id ?? null,
       quantity: selection.quantity,
       recipient: record.recipient,
+      providerRef: record.providerRef,
       costCurrency: price.costCurrency,
       costMinor: price.costMinor,
       fxRateId: price.fxRateId,

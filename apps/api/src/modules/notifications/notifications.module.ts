@@ -5,6 +5,7 @@ import { GrammyTgOutboxSender } from './grammy-tg-outbox.sender';
 import { NotifySourcesRepository } from './notify-sources.repository';
 import { NotifyConsumer } from './notify.consumer';
 import { NOTIFY_QUEUE_NAME, NotifyWorker } from './notify.worker';
+import { OrderNotifyProducer } from './order-notify.producer';
 import { OwnerAlertRenderer } from './owner-alert.renderer';
 import { TgOutboxConsumer } from './tg-outbox.consumer';
 import { TgOutboxEnqueuer } from './tg-outbox.enqueuer';
@@ -27,7 +28,9 @@ import { TG_OUTBOX_QUEUE_NAME, TgOutboxWorker } from './tg-outbox.worker';
     OwnerAlertRenderer,
     NotifyConsumer,
     NotifyWorker,
+    // Producer of the order notices (ORDER_ACCEPTED from the purchase); rendered by S6.
+    OrderNotifyProducer,
   ],
-  exports: [TgOutboxEnqueuer],
+  exports: [TgOutboxEnqueuer, OrderNotifyProducer],
 })
 export class NotificationsModule {}

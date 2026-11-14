@@ -11,6 +11,11 @@ export interface NewQuote {
   readonly skuId: string | null;
   readonly quantity: number;
   readonly recipient: Recipient;
+  /**
+   * The recipient's provider-side id from the validate call (docs/06 S2). Internal: written once
+   * (the DB refuses any later change) and copied to the order; never in a response or a log.
+   */
+  readonly providerRef: string;
   readonly costCurrency: CostCurrency;
   readonly costMinor: bigint;
   readonly fxRateId: string;
@@ -51,6 +56,7 @@ export class QuotesRepository {
         skuId: quote.skuId,
         quantity: quote.quantity,
         recipient: recipientJson(quote.recipient),
+        providerRef: quote.providerRef,
         costCurrency: quote.costCurrency,
         costMinor: quote.costMinor,
         fxRateId: quote.fxRateId,

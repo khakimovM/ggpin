@@ -510,6 +510,8 @@ konvert shaklida (`success:false`) bo‘lmasin (devops). Javob shakli o‘zgarma
 | 422    | `INSUFFICIENT_BALANCE` + `{balance, required, shortfall}` | balans yetmaydi; hech narsa yozilmaydi                    |
 | 429    | `RATE_LIMITED` + `Retry-After`                            | foydalanuvchiga 10 buyurtma/daqiqa                        |
 
+`422 INSUFFICIENT_BALANCE` `details`: uchalasi tiyin string; `balance` manfiy bo‘lishi mumkin (masalan `TOPUP_REVERSAL` dan keyin, D-60), `required` va `shortfall` doim musbat.
+
 «10 buyurtma/daqiqa» — o‘ylab topilmagan: manba `.claude/rules/10-backend-nestjs.md` («order create 10/min/user»).
 
 **`GET /orders?status=&locale=&page=1&limit=20`** — faqat o‘zining buyurtmalari, eng yangisi birinchi. `status` ixtiyoriy: bitta xom holat yoki

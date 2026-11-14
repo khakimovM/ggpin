@@ -35,8 +35,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
   // Method + route pattern + request id, then the error itself: no body, headers, query or
   // raw URL (they can embed ids or tokens). The stack stays here; the client never sees it.
-  // Pino's err serializer redacts secrets in the message, stack and extra props (e.g. a
-  // driver error that quotes a connection URL).
+  // Pino's err serializer (logger-params.ts) redacts secrets in the message, stack and extra
+  // props (e.g. a driver error that quotes a connection URL) and rebuilds a Prisma or Postgres
+  // error from an allowlist: never the call's rendered `data` or a failing row (`detail`).
   private logFailure(exception: unknown, request: ErrorRequest): void {
     const log = requestLogger(request);
     const where = { method: request.method, route: routeOf(request) };

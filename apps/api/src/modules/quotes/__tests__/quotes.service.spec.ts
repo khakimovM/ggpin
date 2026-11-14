@@ -34,6 +34,8 @@ describe('QuotesService.create', () => {
       skuId: 's100',
       quantity: 100,
       recipient: RECIPIENT,
+      // The token record's provider-side id is stored on the quote (docs/06 S2).
+      providerRef: 'fragment-ref-1',
       costCurrency: 'TON',
       costMinor: 125_000_000n,
       fxRateId: 'fx_1',

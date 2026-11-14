@@ -49,6 +49,9 @@ describe('POST /quotes (e2e)', () => {
         skuId: f.stars.sku[50],
         quantity: 50,
         recipient: RECIPIENT,
+        // The validate call's provider-side id travels from the token record to the quote
+        // (docs/06 S2), and from there to the order; it is never in the response (checked below).
+        providerRef: 'fragment-ref-1',
         costCurrency: 'TON',
         costMinor: 125_000_000n,
         fxRateId: f.fxId,
@@ -60,7 +63,9 @@ describe('POST /quotes (e2e)', () => {
         usedAt: null,
         expiresAt: new Date(t.base.getTime() + 600_000),
       });
-      expect(JSON.stringify(res.body)).not.toMatch(/cost|maxCost|fxRate|snapshot|markup/i);
+      expect(JSON.stringify(res.body)).not.toMatch(
+        /cost|maxCost|fxRate|snapshot|markup|providerRef|fragment-ref/i,
+      );
     });
 
     it('quotes a custom quantity from the product-level cost with sku null', async () => {

@@ -16,6 +16,23 @@ describe('safeErrorText', () => {
     expect(text).not.toContain('a'.repeat(32));
   });
 
+  // Review M1: a handler's failed database call, even wrapped, logs names only, never its data.
+  it('a wrapped Prisma validation error: no value of the failed call reaches the text', () => {
+    class PrismaClientValidationError extends Error {
+      override name = 'PrismaClientValidationError';
+    }
+    const rendered = [
+      'Invalid `tx.user.update()` invocation in',
+      '  data: { username: "needle_user", phone: "998901234567" }',
+    ].join('\n');
+    const prisma = new PrismaClientValidationError(rendered);
+    const text = safeErrorText(new Error(`handler failed: ${rendered}`, { cause: prisma }));
+    expect(text).toBe(
+      'Error caused by PrismaClientValidationError: Invalid `tx.user.update()` invocation in',
+    );
+    expect(text).not.toMatch(/needle_user|998901234567/);
+  });
+
   it('is bounded to 300 characters', () => {
     expect(safeErrorText(new Error('x'.repeat(5000))).length).toBeLessThanOrEqual(300);
   });

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { scrubSecretsInText, tgOutboxJobSchema } from '@repo/shared';
+import { describeErrorForLog, tgOutboxJobSchema } from '@repo/shared';
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq';
 import { GrammyError } from 'grammy';
 import { CLOCK, type Clock } from '../../common/clock/clock';
@@ -127,7 +127,7 @@ export class TgOutboxConsumer {
   }
 }
 
+// A database error (a user lookup that failed) is described from names only (review M1).
 function describeError(error: unknown): string {
-  const raw = error instanceof Error ? `${error.name}: ${error.message}` : 'non-error thrown';
-  return scrubSecretsInText(raw).slice(0, MAX_LOGGED_ERROR_CHARS);
+  return describeErrorForLog(error, MAX_LOGGED_ERROR_CHARS);
 }

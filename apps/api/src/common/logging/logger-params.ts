@@ -6,6 +6,7 @@ import {
   redactLogRecord,
   redactSecrets,
   scrubSecretsInText,
+  type RedactionOptions,
 } from '@repo/shared';
 import type { AppConfig } from '../../config/config.module';
 import { serializeRequest, serializeResponse } from './serializers';
@@ -14,6 +15,11 @@ import { serializeRequest, serializeResponse } from './serializers';
 // a small allowlisted shape and redact it themselves, so copying the live objects first
 // would only cost time.
 const SERIALIZED_KEYS: ReadonlySet<string> = new Set(['req', 'res', 'err']);
+
+// Prisma and Postgres errors are rebuilt from an allowlist (what failed and where, never the
+// call's data): a validation error renders the whole `data` argument into its message and stack,
+// a Postgres error its failing row or key into `detail` (phase 5 S2 audit L3, review N4).
+const LOG_POLICY: RedactionOptions = { databaseErrors: true };
 
 export type LoggerConfig = Pick<AppConfig, 'LOG_LEVEL' | 'NODE_ENV'>;
 
@@ -36,9 +42,9 @@ export function buildLoggerParams(config: LoggerConfig, destination?: Destinatio
     base: { service: 'api' },
     timestamp: stdTimeFunctions.isoTime,
     formatters: {
-      log: (record) => redactLogRecord(record, SERIALIZED_KEYS),
+      log: (record) => redactLogRecord(record, SERIALIZED_KEYS, LOG_POLICY),
       // Root bindings (`base`). Pino resets this formatter for child loggers, see onChild.
-      bindings: (bindings) => redactLogRecord(bindings, SERIALIZED_KEYS),
+      bindings: (bindings) => redactLogRecord(bindings, SERIALIZED_KEYS, LOG_POLICY),
       // pino-pretty reads numeric levels; JSON consumers prefer labels.
       ...(pretty ? {} : { level: (label: string) => ({ level: label }) }),
     },
@@ -48,7 +54,7 @@ export function buildLoggerParams(config: LoggerConfig, destination?: Destinatio
     serializers: {
       req: serializeRequest,
       res: serializeResponse,
-      err: redactSecrets,
+      err: (error: unknown) => redactSecrets(error, LOG_POLICY),
       // A message such as `connect failed redis://user:pw@host` is free text.
       msg: (message: unknown) =>
         typeof message === 'string' ? scrubSecretsInText(message) : message,
