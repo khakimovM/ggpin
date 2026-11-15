@@ -114,6 +114,7 @@
         "invalid": "Username 5–32 ta lotin harf, raqam yoki _ dan iborat bo‘ladi",
         "notFound": "Bunday foydalanuvchi topilmadi. Usernameni tekshiring.",
         "down": "Tekshirib bo‘lmadi. Birozdan so‘ng qayta urinib ko‘ring.",
+        "busy": "Tekshiruv hozir band. Bir oz kutib, qayta urinib ko‘ring.",
         "prompt": "To‘g‘ri odammi? Tasdiqlang",
         "confirm": "Ha, shu",
         "change": "O‘zgartirish",

@@ -52,7 +52,11 @@ export function PurchaseView({ variant, product, field }: PurchaseViewProps) {
   useBackInterceptor(variant === 'tg' && openSheet === 'help', closeSheet);
 
   const { recipient, selection, quote, totalTiyin, reason } = purchase;
-  const confirmedName = recipient.confirmedToken === null ? null : `@${recipient.state.username}`;
+  // The canonical form everywhere (`@aziz_k`), the one the server checked and the order carries.
+  const confirmedName =
+    recipient.confirmedToken === null || recipient.canonical === null
+      ? null
+      : `@${recipient.canonical}`;
   const qtyValue = customQty ?? String(product.minQty ?? '');
   const selectionLabel = useSelectionLabel();
   const found = recipient.state.found;
@@ -88,14 +92,14 @@ export function PurchaseView({ variant, product, field }: PurchaseViewProps) {
         onBuy={() => setSheet('checkout')}
         suspended={openSheet === 'checkout'}
       />
-      {found !== null && recipient.confirmedToken !== null ? (
+      {found !== null && recipient.confirmedToken !== null && recipient.canonical !== null ? (
         <CheckoutFlow
           variant={variant}
           open={openSheet === 'checkout'}
           onOpenChange={(open) => setSheet(open ? 'checkout' : null)}
           product={product}
           item={`${product.name} · ${selectionLabel(product, selection)}`}
-          recipient={{ username: recipient.state.username, displayName: found.displayName }}
+          recipient={{ username: recipient.canonical, displayName: found.displayName }}
           quote={quote}
         />
       ) : null}
