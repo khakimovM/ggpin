@@ -24,10 +24,11 @@ test.describe('token utilities (computed style)', () => {
   });
 
   test('dark theme switches the same utilities through data-theme', async ({ page }) => {
+    // Chosen the way the app stores it, before the page loads: setting data-theme by hand after
+    // goto() raced the theme provider, which (hydrating late under load) set it back to light.
+    await page.addInitScript(() => window.localStorage.setItem('ggpin-theme', 'dark'));
     await page.goto('/e2e-probe');
-    await page.evaluate(() => {
-      document.documentElement.dataset.theme = 'dark';
-    });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark', { timeout: 15_000 });
     const button = page.getByTestId('probe-button');
     await expect(button).toHaveCSS('background-color', 'rgb(74, 87, 255)');
     await expect(page.getByTestId('probe-link')).toHaveCSS('color', 'rgb(183, 191, 218)');

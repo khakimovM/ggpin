@@ -1,5 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
-import { E2E_BOT_USERNAME } from './e2e/support/app-env';
+import {
+  E2E_ANALYTICS_SITE_ID,
+  E2E_BOT_USERNAME,
+  E2E_DEGRADED_CATALOG_API_URL,
+  E2E_DEGRADED_CATALOG_ORIGIN,
+  E2E_DEGRADED_CATALOG_PORT,
+  E2E_DEGRADED_SITE_PORT,
+  E2E_DEGRADED_SITE_URL,
+  E2E_CATALOG_API_URL,
+  E2E_CATALOG_ORIGIN,
+  E2E_CATALOG_PORT,
+  E2E_CHANNEL_URL,
+  E2E_SPARSE_CATALOG_API_URL,
+  E2E_SPARSE_CATALOG_ORIGIN,
+  E2E_SPARSE_CATALOG_PORT,
+  E2E_SPARSE_SITE_PORT,
+  E2E_SPARSE_SITE_URL,
+} from './e2e/support/app-env';
 
 const PORT = 3100;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -14,6 +31,14 @@ const APP_ENV = {
   NEXT_PUBLIC_BOT_USERNAME: E2E_BOT_USERNAME,
   NEXT_PUBLIC_API_MOCKS: '',
   NEXT_PUBLIC_SUPPORT_URL: '',
+  NEXT_PUBLIC_TELEGRAM_CHANNEL_URL: E2E_CHANNEL_URL,
+  // Analytics ON in the e2e build (phase 8 S5): the marketing pages render the Umami tag, and
+  // e2e/site/analytics.spec.ts checks where it loads and what its beacons carry. /stats/script.js
+  // is answered by the E2E_PROBES stand-in (src/app/stats/script.js/route.ts).
+  NEXT_PUBLIC_ANALYTICS_SITE_ID: E2E_ANALYTICS_SITE_ID,
+  // Where the Next.js SERVER reads the catalog from (the website's server-side rendering): the
+  // fixture catalog server below, not the real API.
+  API_INTERNAL_URL: E2E_CATALOG_API_URL,
   // Enables the token-probe fixture page; it is a 404 in every real build.
   E2E_PROBES: '1',
   // No call home from the build.
@@ -38,10 +63,10 @@ export const QA_ALL = /e2e[\\/]qa[\\/]/;
 export const QA_HEAVY = /e2e[\\/]qa[\\/](?:matrix|a11y-focus-motion)\.spec\.ts/;
 const QA_TABLET = /e2e[\\/]qa[\\/]a11y-targets-tablet\.spec\.ts/;
 
-// WebKit (the Safari engine Telegram on iOS uses) runs the component gallery locally. CI installs
-// chromium only, to keep that job small and fast (the public pay page, which people open in
-// Safari from the Mini App, runs on WebKit too); WebKit joins CI in phase 7 S12, when the full
-// journeys run on it too, together with the browser download in the workflow cache key.
+// WebKit (the Safari engine Telegram on iOS uses) runs the component gallery and the public pay
+// page, which people open in Safari from the Mini App. Locally it is always a project. In CI it
+// is a project only when PW_WEBKIT=1: the `e2e-webkit` job sets it and runs `--project=webkit-390`;
+// the `e2e-web` job installs chromium only and must not see this project.
 const webkitProject = {
   name: 'webkit-390',
   testMatch: /(?:ui-gallery.*|pay-page|pay-ends)\.spec\.ts/,
@@ -101,15 +126,64 @@ const config = defineConfig({
       testIgnore: [HTTP_SPECS, REAL_API_SPECS, MOBILE_ONLY, QA_HEAVY],
       use: { ...desktopChrome, viewport: { width: 1440, height: 900 } },
     },
-    ...(process.env.CI ? [] : [webkitProject]),
+    ...(process.env.CI && process.env.PW_WEBKIT !== '1' ? [] : [webkitProject]),
   ],
-  webServer: {
-    command: `npm run build && npx next start --port ${PORT}`,
-    url: BASE_URL,
-    env: APP_ENV,
-    reuseExistingServer: !process.env.CI,
-    timeout: 300_000,
-  },
+  webServer: [
+    // The fixture catalog (no database, no Redis): started first, the site's server reads it.
+    {
+      command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
+      url: `${E2E_CATALOG_ORIGIN}/health`,
+      env: { FIXTURE_CATALOG_PORT: String(E2E_CATALOG_PORT) },
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: `npm run build && npx next start --port ${PORT}`,
+      url: BASE_URL,
+      env: APP_ENV,
+      reuseExistingServer: !process.env.CI,
+      timeout: 300_000,
+    },
+    // The degraded pair (landing-degraded.spec.ts, and the "catalog is down" half of
+    // product-states.spec.ts): a catalog that always answers 500 and a second `next start` of the
+    // same build that reads it. Started after the main pair is up, so the build exists.
+    {
+      command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
+      url: `${E2E_DEGRADED_CATALOG_ORIGIN}/health`,
+      env: {
+        FIXTURE_CATALOG_PORT: String(E2E_DEGRADED_CATALOG_PORT),
+        FIXTURE_MODE: 'error',
+      },
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: `npx next start --port ${E2E_DEGRADED_SITE_PORT}`,
+      url: E2E_DEGRADED_SITE_URL,
+      env: { ...APP_ENV, API_INTERNAL_URL: E2E_DEGRADED_CATALOG_API_URL },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    // The thin pair (the "thin catalog" half of product-states.spec.ts): a catalog that is up with
+    // Stars empty and Premium gone, and a third `next start` of the same build that reads it.
+    {
+      command: 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/support/catalog-server.ts',
+      url: `${E2E_SPARSE_CATALOG_ORIGIN}/health`,
+      env: {
+        FIXTURE_CATALOG_PORT: String(E2E_SPARSE_CATALOG_PORT),
+        FIXTURE_MODE: 'sparse',
+      },
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: `npx next start --port ${E2E_SPARSE_SITE_PORT}`,
+      url: E2E_SPARSE_SITE_URL,
+      env: { ...APP_ENV, API_INTERNAL_URL: E2E_SPARSE_CATALOG_API_URL },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
 });
 
 export default config;

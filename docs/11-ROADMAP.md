@@ -165,8 +165,8 @@ login sahifasi, to‘lov natija sahifasi, uz/ru, animatsiyalar.
 
 **Qabul mezonlari**
 
-- [ ] Lighthouse ≥ 90 (Performance, SEO, Accessibility) uz va ru'da
-- [ ] Sitemap va hreflang to‘g‘ri
+- [x] Lighthouse ≥ 90 (Performance, SEO, Accessibility) uz va ru'da
+- [x] Sitemap va hreflang to‘g‘ri
 
 ---
 

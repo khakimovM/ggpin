@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openStoreAccount } from './account-support';
-import { openStore } from './catalog-support';
+import { openStore, wide } from './catalog-support';
 import { openStoreOrder, openStoreProduct, reachStoreConfirm, type Lang } from './checkout-support';
+import { settle } from '../support/settle';
 import { saveShot } from './shot-file';
 import { openModal } from './topup-support';
 
@@ -28,21 +29,6 @@ const PRESET = {
   quantity: 500,
   totalTiyin: '11000000',
 } as const;
-
-// Ready to shoot: fonts loaded and every finite animation (entrance, slide, pop) finished; loops
-// (the pulse, the gradient drift) are left running. No fixed sleep.
-async function settle(page: Page) {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    const finite = document
-      .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
-    await Promise.race([
-      Promise.all(finite.map((animation) => animation.finished.catch(() => undefined))),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]);
-  });
-}
 
 const heading = (page: Page) => expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
@@ -102,7 +88,8 @@ if (DIR !== undefined && DIR !== '') {
       test('history and profile', async ({ page }) => {
         await openStoreAccount(page, '/store/orders', { lang, scheme });
         await heading(page);
-        await expect(page.getByRole('table')).toBeVisible();
+        // The history is a table only from 1024 px; below it the rows are links (OrderList).
+        if (wide(page)) await expect(page.getByRole('table')).toBeVisible();
         await settle(page);
         await saveShot(page, DIR, name('history'));
         await openStoreAccount(page, '/store/profile', { lang, scheme });

@@ -134,7 +134,8 @@ describe('HelpView', () => {
     renderApp(<HelpView />);
     expect(screen.getByText('Operator havolasi hozircha mavjud emas')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Operatorga yozish/ })).toBeNull();
-    expect(screen.getByText('Har kuni 09:00–23:00')).toBeInTheDocument();
+    // The en dash is held to both times by word joiners (U+2060): the range never breaks in two.
+    expect(screen.getByText('Har kuni 09:00\u2060–\u206023:00')).toBeInTheDocument();
   });
 
   it('with a t.me support link: the button and the handle read from the link', () => {
@@ -151,7 +152,7 @@ describe('HelpView', () => {
     mocks.env.NEXT_PUBLIC_SUPPORT_URL = 'https://t.me/shop_support';
     renderApp(<HelpView />, { locale: 'ru' });
     expect(screen.getByRole('link', { name: /Написать оператору/ })).toBeInTheDocument();
-    expect(screen.getByText('Ежедневно 09:00–23:00')).toBeInTheDocument();
+    expect(screen.getByText('Ежедневно 09:00\u2060–\u206023:00')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Как быстро доставляется заказ/ }),
     ).toBeInTheDocument();

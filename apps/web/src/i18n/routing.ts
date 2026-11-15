@@ -8,4 +8,8 @@ export const routing = defineRouting({
   defaultLocale: DEFAULT_LOCALE,
   localePrefix: 'as-needed',
   localeDetection: false,
+  // next-intl's own `Link: rel=alternate` response header is built from the request's Host and
+  // X-Forwarded-Host, which a client controls (p8 S6 audit L-1). The pages already carry their
+  // hreflang links in the HTML and the sitemap, both built from NEXT_PUBLIC_SITE_URL.
+  alternateLinks: false,
 });

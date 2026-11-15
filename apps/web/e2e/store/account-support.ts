@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { installAccountApi, type AccountApiOptions } from '../fixtures/account';
+import { installAccountApi, noonInTashkent, type AccountApiOptions } from '../fixtures/account';
 import { installCatalogApi } from '../fixtures/catalog';
 import { installFakeApi } from '../support/fake-api';
 import { TEXT, prefix, type Lang } from './product-support';
@@ -25,7 +25,11 @@ export async function openStoreAccount(
   await page.addInitScript((stored) => window.localStorage.setItem('ggpin-theme', stored), scheme);
   await installFakeApi(page, { signedIn: true });
   await installCatalogApi(page);
-  const fake = await installAccountApi(page, api);
+  // The page clock starts at noon in Tashkent, the moment the fake rows are dated from, so the day
+  // headings do not depend on the hour the suite runs (time still flows).
+  const now = noonInTashkent();
+  await page.clock.install({ time: now });
+  const fake = await installAccountApi(page, { ...api, now });
   await page.goto(`${prefix(lang)}${path}`);
   return fake;
 }

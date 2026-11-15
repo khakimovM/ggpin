@@ -160,6 +160,78 @@ const SET_BINDINGS_SYNTAX = [
   },
 ];
 
+// Markup and script injection in the browser apps (apps/web, apps/admin). Three doors into the
+// page that the CSP (nonce + strict-dynamic) relies on staying shut:
+//  - dangerouslySetInnerHTML: allowed only in the two files below (a theme script and JSON-LD,
+//    both fed by constants or JSON-escaped data, never by user text);
+//  - document.createElement('script'): a script a strict-dynamic page would trust;
+//  - <Script src={expression}> from next/script: a computed URL is an arbitrary script load.
+const INJECTION_HTML_SYNTAX = [
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message:
+      'dangerouslySetInnerHTML is allowed only in src/csp/ThemeScript.tsx and src/features/site/seo/JsonLd.tsx.',
+  },
+];
+const SCRIPT_MESSAGE =
+  'Do not create script elements at runtime; load scripts with next/script and a literal src.';
+// The tag name is argument 0 of createElement and argument 1 of createElementNS. Callee forms:
+// document.createElement(...), document['createElement'](...) and a bare/destructured
+// createElement(...).
+const CREATE_SCRIPT_SYNTAX = [
+  ['createElement', 0],
+  ['createElementNS', 1],
+].flatMap(([method, index]) => {
+  const tag = `arguments.${index}`;
+  const callees = [
+    `[callee.property.name='${method}']`,
+    `[callee.property.value='${method}']`,
+    `[callee.name='${method}']`,
+  ];
+  return callees.flatMap((callee) => [
+    {
+      selector: `CallExpression${callee}[${tag}.value=/^script$/i]`,
+      message: SCRIPT_MESSAGE,
+    },
+    {
+      selector: `CallExpression${callee}[${tag}.type='TemplateLiteral'][${tag}.quasis.0.value.cooked=/^script$/i]`,
+      message: SCRIPT_MESSAGE,
+    },
+  ]);
+});
+const NEXT_SCRIPT_MESSAGE =
+  'Import next/script as the default import named Script: the src rules below match that name.';
+const SCRIPT_SRC_SYNTAX = [
+  // The src rules below find the component by the name Script, so no other name may hide it.
+  {
+    selector:
+      "ImportDeclaration[source.value='next/script'] > ImportDefaultSpecifier[local.name!='Script']",
+    message: NEXT_SCRIPT_MESSAGE,
+  },
+  {
+    selector: "ImportDeclaration[source.value='next/script'] > ImportNamespaceSpecifier",
+    message: NEXT_SCRIPT_MESSAGE,
+  },
+  {
+    selector:
+      "ImportDeclaration[source.value='next/script'] > ImportSpecifier[imported.name='default']",
+    message: NEXT_SCRIPT_MESSAGE,
+  },
+  {
+    // <Script src={url} />: the src must be a string literal (a bare one or {'...'}).
+    selector:
+      "JSXOpeningElement[name.name=/^[Ss]cript$/] > JSXAttribute[name.name='src']:not([value.type='Literal']):not([value.type='JSXExpressionContainer'][value.expression.type='Literal'])",
+    message: 'next/script needs a string-literal src; a computed URL is an arbitrary script load.',
+  },
+  {
+    // A spread can carry a src the rule above never sees.
+    selector: 'JSXOpeningElement[name.name=/^[Ss]cript$/] > JSXSpreadAttribute',
+    message: 'Do not spread props into next/script; pass a literal src and explicit props.',
+  },
+];
+const INJECTION_SCRIPT_SYNTAX = [...CREATE_SCRIPT_SYNTAX, ...SCRIPT_SRC_SYNTAX];
+const INJECTION_SYNTAX = [...INJECTION_HTML_SYNTAX, ...INJECTION_SCRIPT_SYNTAX];
+
 // The reverse direction: apps/worker must not reach into apps/api (it would drag HTTP, bot and
 // payment-webhook code into the only process that holds wallet keys). Shared code goes through
 // packages/*. The package name of apps/api is "api"; the relative form is `../**/api/(src|dist)`,
@@ -253,6 +325,45 @@ export default defineConfig(
     },
   },
   {
+    // Flat config replaces a rule's options instead of merging them, so the browser apps restate
+    // the set above with the injection rules added.
+    files: ['apps/web/**/*.{ts,tsx,mts,cts}', 'apps/admin/**/*.{ts,tsx,mts,cts}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...WORKER_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+        ...INJECTION_SYNTAX,
+      ],
+    },
+  },
+  {
+    // The only two files that may use dangerouslySetInnerHTML: every other selector stays.
+    files: ['apps/web/src/csp/ThemeScript.tsx', 'apps/web/src/features/site/seo/JsonLd.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...WORKER_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+        ...INJECTION_SCRIPT_SYNTAX,
+      ],
+    },
+  },
+  {
+    // Unit tests run page scripts in jsdom the way a browser does (an inline <script> element), so
+    // they may create script elements; every other selector stays.
+    files: ['apps/web/**/*.test.{ts,tsx}', 'apps/admin/**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...WORKER_ONLY_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+        ...INJECTION_HTML_SYNTAX,
+        ...SCRIPT_SRC_SYNTAX,
+      ],
+    },
+  },
+  {
     // apps/api (outside config) is under both rule sets above; flat config replaces a rule's
     // options instead of merging them, so the combined set is restated for these files.
     files: ['apps/api/src/**/*.{ts,mts,cts}'],
@@ -307,12 +418,35 @@ export default defineConfig(
     },
   },
   {
+    // packages/ui ships components into web and admin: the same injection rules apply there.
+    // Restated (flat config replaces rule options) on top of the packages/** set above.
+    files: ['packages/ui/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': ['error', ...TON_SYNTAX, ...SET_BINDINGS_SYNTAX, ...INJECTION_SYNTAX],
+    },
+  },
+  {
     // Test harness code is never imported at runtime; packages/db/test/global-setup.ts resolves
     // the Prisma CLI through createRequire. Restated because flat config replaces rule options.
     files: ['packages/*/test/**/*.{ts,tsx,mts,cts}'],
     rules: {
       'no-restricted-imports': ['error', { paths: TON_PACKAGE_PATHS, patterns: TON_PATTERNS }],
       'no-restricted-syntax': ['error', ...TON_REQUIRE_SYNTAX, ...SET_BINDINGS_SYNTAX],
+    },
+  },
+  {
+    // packages/ui tests: as the harness block above, plus the injection rules except
+    // createElement('script') (a test may run a page script in jsdom).
+    files: ['packages/ui/**/*.test.{ts,tsx}', 'packages/ui/test/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: TON_PACKAGE_PATHS, patterns: TON_PATTERNS }],
+      'no-restricted-syntax': [
+        'error',
+        ...TON_REQUIRE_SYNTAX,
+        ...SET_BINDINGS_SYNTAX,
+        ...INJECTION_HTML_SYNTAX,
+        ...SCRIPT_SRC_SYNTAX,
+      ],
     },
   },
   {

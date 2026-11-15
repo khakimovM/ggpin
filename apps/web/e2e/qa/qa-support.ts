@@ -2,26 +2,13 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import { appendFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { settle } from '../support/settle';
 
 // Phase 7 S11 QA helpers: every screen is photographed (when QA_SHOTS_DIR is set) and scanned with
 // axe. critical and serious findings fail the test; lesser ones are only written to a notes file
 // for the report, because they are the owner's call, not a regression.
 
 export const QA_DIR = process.env.QA_SHOTS_DIR ?? '';
-
-/** Fonts loaded and every finite animation finished; loops (pulse, drift) keep running. */
-export async function settle(page: Page) {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    const finite = document
-      .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
-    await Promise.race([
-      Promise.all(finite.map((animation) => animation.finished.catch(() => undefined))),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]);
-  });
-}
 
 export interface Finding {
   id: string;

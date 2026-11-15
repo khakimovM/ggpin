@@ -26,3 +26,6 @@ CLAUDE.local.md
 packages/db/src/generated/
 next-env.d.ts
 .playwright-mcp/
+
+# Lighthouse run output (phase 8): JSON + HTML per page, uploaded as a CI artifact
+apps/web/lighthouse-report

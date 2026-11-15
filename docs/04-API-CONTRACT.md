@@ -824,6 +824,9 @@ X-Pay-Token: <43 belgili token>
    holatda to‘xtaydi.
 3. _`POST /payments/intents` avtomatik qayta yuborilmaydi_ (tarmoq xatosida ham, TanStack Query `retry: false`): foydalanuvchi o‘zi qayta bosadi.
 4. _`openLink`_ faqat `${WEB_URL}/pay/` bilan boshlanadigan URL’ni ochadi (allowlist), boshqasini rad etadi.
+   Mini App’da ikkinchi, alohida allowlist bor (`openSitePage`, 8-bosqich S4 — D-57 dagi tasdiqlangan reja, S4 xavfsizlik auditi L-1): faqat to‘rtta aniq yo‘l — `/terms`, `/ru/terms`, `/privacy`,
+   `/ru/privacy` (yalang yo‘l yoki `${WEB_URL}` + yo‘l). Prefiks, regex yoki normallashtirish yo‘q: `/terms/`, `/x/../terms`, so‘rov, fragment, boshqa host
+   yoki sxema, credentials ro‘yxatda yo‘q, demak rad etiladi. Ro‘yxatni kengaytirish — faqat aniq yo‘l qo‘shib.
 5. _/pay HTML javobi sarlavhalari:_ `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Cross-Origin-Opener-Policy: same-origin`, `X-Frame-Options: DENY`, `Content-Security-Policy` (bitta; `frame-ancestors 'none'`, `base-uri 'none'`, `img-src 'self' data:`).
 6. _Uchinchi tomon resursi yo‘q_ `/pay` va `/topup` da: shrift `next/font` bilan o‘zimizdan, ikonkalar bundle ichida, tashqi CSS/CDN/analytics/widget yo‘q.
    (`/tg/topup` Mini App ichida ishlaydi, shuning uchun u yerda `telegram.org` SDK va Telegram rasm hostlari D-38 Q16 bo‘yicha ruxsat etilgan; bu cheklov faqat `/pay` uchun.)
