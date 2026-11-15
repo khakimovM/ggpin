@@ -22,6 +22,14 @@ import { verifyResolver, type ReviewResolver } from './review-resolver.js';
 
 export type { ReviewResolver } from './review-resolver.js';
 
+/**
+ * What the operator explicitly confirmed on top of the proof, kept in the audit row (audit L-4):
+ * DELIVERED_OUTSIDE_SYSTEM is the owner's "yes, I delivered it outside the system" (I-8, docs/06 Z3)
+ * for a MANUAL delivery whose attempt's own transfer never left the wallet. A closed list.
+ */
+export const REVIEW_ACKNOWLEDGEMENTS = ['DELIVERED_OUTSIDE_SYSTEM'] as const;
+export type ReviewAcknowledgement = (typeof REVIEW_ACKNOWLEDGEMENTS)[number];
+
 /** The critical alert a resolution asks its caller to raise after commit (owner decision A3). */
 export type SecurityAlertKey = 'tonWalletCompromised';
 
@@ -35,6 +43,8 @@ export interface ResolveNeedsReviewInput {
    * every field is checked with `typeof` and an ADMIN's role is re-read from the database.
    */
   readonly resolver: ReviewResolver;
+  /** Confirmations the operator gave (stored in `after.acknowledgements`); none by default. */
+  readonly acknowledgements?: readonly ReviewAcknowledgement[];
 }
 
 export interface ResolveNeedsReviewResult {
@@ -55,6 +65,19 @@ export interface ResolveNeedsReviewResult {
 function failureReason(stored: string | null): OrderStatusReason {
   const parsed = orderStatusReasonSchema.safeParse(stored);
   return parsed.success ? parsed.data : 'ADAPTER_ERROR';
+}
+
+/** The acknowledgements, checked (JS callers are not type-checked), unique and sorted. */
+function checkedAcknowledgements(raw: unknown, orderId: string): ReviewAcknowledgement[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) throw new ReviewProofError('INVALID', orderId);
+  const known = new Set<ReviewAcknowledgement>();
+  for (const value of raw as readonly unknown[]) {
+    const match = REVIEW_ACKNOWLEDGEMENTS.find((ack) => ack === value);
+    if (match === undefined) throw new ReviewProofError('INVALID', orderId);
+    known.add(match);
+  }
+  return [...known].sort();
 }
 
 /**
@@ -109,6 +132,7 @@ export async function resolveNeedsReviewAt(
   if (!parsed.success) throw new ReviewProofError('INVALID', orderId);
   const proof: NeedsReviewProof = parsed.data;
   if (!proofJustifies(proof, to)) throw new ReviewProofError('WRONG_KIND', orderId);
+  const acknowledgements = checkedAcknowledgements(input.acknowledgements, orderId);
 
   const owner = await tx.order.findUnique({ where: { id: orderId }, select: { userId: true } });
   if (owner === null) throw new OrderNotFoundError(orderId);
@@ -194,6 +218,7 @@ export async function resolveNeedsReviewAt(
           operator === null ? null : { type: operator.type, id: operator.id, role: operator.role },
         osUser: operator?.osUser ?? null,
         otpVerified: operator?.otpVerified ?? null,
+        acknowledgements,
         refund:
           refund?.outcome === 'REFUNDED'
             ? { amountTiyin: refund.amountTiyin.toString(), ledgerEntryId: refund.ledgerEntryId }

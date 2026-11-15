@@ -985,12 +985,16 @@
       "setupFailed": "🟠 Bot sozlamalari (buyruqlar, menyu) o‘rnatilmadi (urinish: {attempt}). Webhook o‘rnatilgan, sozlash fonda qayta uriniladi."
     },
     "ownerConfirm": {
-      "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
+      "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring.",
+      "fxCode": "🔐 Kurs tasdiqlash kodi: {code}\nKurs: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
     },
     "reconcileHistory": {
       "ok": "bajarildi",
       "unavailable": "bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan yoki bu worker hozir lider emas",
       "failed": "bajarilmadi, xato bilan tugadi"
+    },
+    "adminActionDetail": {
+      "FX_SET": "FX_SET {pair}: {from} → {to} ({bps} bps)"
     },
     "limitReason": {
       "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",

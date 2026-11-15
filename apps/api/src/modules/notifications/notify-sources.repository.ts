@@ -73,10 +73,11 @@ export class NotifySourcesRepository {
     return totals ?? null;
   }
 
+  /** `before`/`after` feed only the FX_SET detail of adminAction (admin-action-text.ts). */
   auditLog(id: string) {
     return this.prisma.client.auditLog.findUnique({
       where: { id },
-      select: { id: true, action: true },
+      select: { id: true, action: true, before: true, after: true },
     });
   }
 

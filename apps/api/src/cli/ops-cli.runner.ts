@@ -1,9 +1,11 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { scrubSecretsInText } from '@repo/shared';
 import { AppError } from '../common/exceptions/app-error';
-import type { CliIo } from './cli-io';
+import { terminalSafe, type CliIo } from './cli-io';
 import type { CliSession } from './cli-session';
 import { CARD_COMMANDS } from './commands/card.commands';
+import { FX_COMMANDS } from './commands/fx.commands';
+import { ORDER_COMMANDS } from './commands/order.commands';
 import { UsageError, type CliCommand } from './commands/command';
 import { REVIEW_COMMANDS } from './commands/review.commands';
 import { WALLET_COMMANDS } from './commands/wallet.commands';
@@ -12,6 +14,8 @@ export const OPS_COMMANDS: readonly CliCommand[] = [
   ...REVIEW_COMMANDS,
   ...CARD_COMMANDS,
   ...WALLET_COMMANDS,
+  ...ORDER_COMMANDS,
+  ...FX_COMMANDS,
 ];
 
 /** 0 done, 1 refused or failed (nothing half-written: every command is one transaction), 2 usage. */
@@ -68,7 +72,8 @@ export async function runCommand(
     }
     const name = error instanceof Error ? error.name : 'unknown';
     const message = error instanceof Error ? scrubSecretsInText(error.message) : '';
-    io.err(`failed: ${name} ${message}`.trim());
+    // Audit I-4: an error text may carry database text; one safe line, like every other value.
+    io.err(terminalSafe(`failed: ${name} ${message}`.trim()));
     return 1;
   }
 }

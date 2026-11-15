@@ -252,4 +252,30 @@ describe('OwnerAlertRenderer', () => {
       );
     });
   });
+
+  describe('adminAction (re-review N2: the FX_SET detail of audit L-2 reaches the alert)', () => {
+    it('an FX_SET audit row names the pair, both rates and the move', async () => {
+      const auditLog = () =>
+        Promise.resolve({
+          id: 'aud1',
+          action: 'FX_SET',
+          before: { previous: { id: 'fx0', rate: '12800' } },
+          after: { pair: 'USDT_UZS', rate: '13000' },
+        });
+      await expect(renderer({ auditLog }).render('adminAction', 'aud1')).resolves.toBe(
+        '🛠 Ega amali: FX_SET USDT_UZS: 12800 → 13000 (157 bps) (aud1).',
+      );
+    });
+
+    it('any other action keeps the bare code; a missing row cannot be rendered', async () => {
+      const auditLog = () =>
+        Promise.resolve({ id: 'aud2', action: 'ORDER_RETRY', before: {}, after: {} });
+      await expect(renderer({ auditLog }).render('adminAction', 'aud2')).resolves.toBe(
+        '🛠 Ega amali: ORDER_RETRY (aud2).',
+      );
+      await expect(renderer({}).render('adminAction', 'gone')).rejects.toBeInstanceOf(
+        AlertSourceMissingError,
+      );
+    });
+  });
 });

@@ -5,7 +5,9 @@
 /** `source` of every row written from a simulated (dry-run) price source. */
 export const SIMULATOR_SOURCE = 'simulator';
 
-const DERIVED_PREFIX = 'derived:';
+/** `FxRate.source` prefix of a derived row: `derived:<TON_USDT id>*<USDT_UZS id>`. */
+export const DERIVED_FX_SOURCE_PREFIX = 'derived:';
+const DERIVED_PREFIX = DERIVED_FX_SOURCE_PREFIX;
 const FX_RATE_ID = /^[A-Za-z0-9_-]+$/;
 const DERIVED_SOURCE = /^derived:([A-Za-z0-9_-]+)\*([A-Za-z0-9_-]+)$/;
 

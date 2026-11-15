@@ -22,6 +22,7 @@ import {
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { translate, type TranslateParams } from '../../common/i18n/translate';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import { adminActionText } from './admin-action-text';
 import { NotifySourcesRepository } from './notify-sources.repository';
 
 /** The alert's source row is gone or does not fit: the job cannot be rendered (never retried). */
@@ -153,7 +154,7 @@ export class OwnerAlertRenderer {
       }
       case 'adminAction': {
         const audit = await this.sources.auditLog(refId);
-        return audit === null ? null : { action: audit.action, ref: audit.id };
+        return audit === null ? null : { action: adminActionText(audit), ref: audit.id };
       }
     }
   }

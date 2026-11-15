@@ -13,10 +13,11 @@ export {
   StaleOrderStateError,
 } from './errors.js';
 export type { ReviewProofProblem } from './errors.js';
-export { resolveNeedsReview } from './needs-review-resolve.js';
+export { REVIEW_ACKNOWLEDGEMENTS, resolveNeedsReview } from './needs-review-resolve.js';
 export type {
   ResolveNeedsReviewInput,
   ResolveNeedsReviewResult,
+  ReviewAcknowledgement,
   ReviewResolver,
   SecurityAlertKey,
 } from './needs-review-resolve.js';

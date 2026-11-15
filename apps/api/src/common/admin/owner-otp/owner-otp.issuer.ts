@@ -59,7 +59,10 @@ export class OwnerOtpIssuer {
         .hset(key, { hash, binding, attempts: '0' })
         .expire(key, OTP_CODE_TTL_SEC)
         .exec();
-      const text = translate(OWNER_LOCALE, 'alerts.ownerConfirm.code', {
+      // fx:set confirms a rate, not an amount: its own text names the pair, the rate and the jump.
+      const textKey =
+        scope.action === 'fx:set' ? 'alerts.ownerConfirm.fxCode' : 'alerts.ownerConfirm.code';
+      const text = translate(OWNER_LOCALE, textKey, {
         code,
         action: scope.action,
         amount: translate(OWNER_LOCALE, 'common.money.uzs', {
