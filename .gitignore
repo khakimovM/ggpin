@@ -26,3 +26,7 @@ CLAUDE.local.md
 packages/db/src/generated/
 next-env.d.ts
 .playwright-mcp/
+
+# Fragment session cookies pasted for the import CLI (S7 audit I-3, N-4): never in the repo.
+*cookie*.txt
+*cookie*.json

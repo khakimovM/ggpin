@@ -150,12 +150,19 @@ panel — keyingi fazalar).
 yozilgan bo‘lsagina yoziladi (bittasi sakrash himoyasida to‘xtasa — `TON_UZS` ham yozilmaydi), uchala
 qator bitta tranzaksiyada saqlanadi. Shunday qilib yangi kurs eski kurs bilan aralashmaydi.
 
-**Tannarx (`cost`).** Har bir **faol** mahsulot uchun birinchi yoqilgan (`isEnabled`) route
-(`priority` bo‘yicha) olinadi; u `FRAGMENT` bo‘lsa — `CostSnapshot` yoziladi (valyuta TON,
-`adapter = 'FRAGMENT'`). Erkin miqdorli mahsulot (Stars, `allowCustomQty`): bitta mahsulot
+**Tannarx (`cost`).** Har bir **faol** mahsulot uchun yoqilgan (`isEnabled`) route’lardan
+(`priority` bo‘yicha) adapteri **sog‘lom** bo‘lgan birinchisi olinadi (5-faza S7 M2, router’ning
+5 s health keshi); sog‘lomi bo‘lmasa — avvalgidek birinchi yoqilgan route. O‘sha adapterning narx
+manbasi bo‘lsa — `CostSnapshot` yoziladi (masalan `FRAGMENT` — TON; dry-run’da Fragment o‘lsa
+`RESELLER_STARS` simulyatori — USDT, faqat erkin miqdorli mahsulot). Health tebranishi yangi
+quote’lar valyutasini almashtirib turishi mumkin — qabul qilingan: har quote o‘z snapshot’ini
+saqlaydi, buyurtma faqat o‘z valyutasidagi adapterga beriladi. Production’da registr bo‘sh
+(haqiqiy adapterlar S8 da, zaxira yo‘q — Q20), shuning uchun u yerda hech narsa o‘zgarmadi.
+
+Erkin miqdorli mahsulot (Stars, `allowCustomQty`): bitta mahsulot
 darajasidagi qator (`skuId` NULL, `basisQuantity` 1, 1 dona narxi). Tayyor paketli mahsulot
 (Premium): har bir faol SKU uchun bitta qator (`basisQuantity` = SKU miqdori, yaʼni oylar).
-Nofaol mahsulot, nofaol SKU va birinchi routeʼi boshqa adapter bo‘lgan mahsulot o‘tkazib yuboriladi.
+Nofaol mahsulot, nofaol SKU va tanlangan route’ining narx manbasi yo‘q mahsulot o‘tkazib yuboriladi.
 Bu qoida har qanday manba uchun majburiy (`cost-sync.service.ts` `lineProblem`, warn log bilan):
 erkin miqdorli mahsulotning paket darajasidagi qatori ham, tayyor paketli mahsulotning mahsulot
 darajasidagi qatori ham yozilmaydi. Aks holda paket o‘lchamidagi miqdor paket tannarxida, bir dona
@@ -430,8 +437,8 @@ Kod: `apps/worker/src/recipients/**`, adapterlar: `apps/worker/src/adapters/adap
 3. Mahsulot DB’dan o‘qiladi; input mahsulotning `inputSchema` si bo‘yicha `normalizeRecipientInput` bilan qayta normallashtiriladi (himoya qatlami; mos kelmasa — 1-banddagi kabi `UnrecoverableError`).
 4. Adapter fulfillment bilan bir xil router orqali tanlanadi (yoqilgan `ProductRoute`, priority, health = OK). `validateRecipient` dan oldin qolgan vaqt yana tekshiriladi: `minCallMs` dan kam bo‘lsa (DB yoki router sekin bo‘lgan) — provider chaqirilmaydi, `TIMEOUT`. Mahsulot o‘qish, router (health ham) va chaqiruv — hammasi bitta muddat ichida.
 5. Javob `RecipientCheckResultSchema` bilan tekshiriladi (ism uchinchi tomon matni).
-6. Processor adapter xatosida **throw qilmaydi**: javob har doim natija sifatida qaytadi. Aks holda BullMQ ikkinchi urinishni API kutishni to‘xtatgandan keyin qilardi — behuda provider so‘rovi. Shuning uchun navbatning `attempts` qiymati amalda ahamiyatsiz.
-7. Muddat **slotni** bo‘shatadi, provider chaqiruvini emas: chaqiruv abort qilinmaydi va fonda davom etishi mumkin (`Deadline`). Haqiqiy adapterga `AbortSignal` va qattiq timeout kerak (S7/S8 darvozasi).
+6. Processor adapter xatosida **throw qilmaydi**: javob har doim natija sifatida qaytadi. Navbatda `attempts: 1` (`queues.ts`), shuning uchun bugun throw qayta urinilmaydi; faqat `attempts > 1` bo‘lsagina BullMQ qayta urinardi, u ham API kutishni to‘xtatgandan keyin — behuda provider so‘rovi. Throw qilmaslik shu qiymatga bog‘liq bo‘lmagan himoya.
+7. Muddat slotni bo‘shatadi va provider chaqiruvini ham to‘xtatadi (S7): `validateRecipient` ga `AbortSignal` uzatiladi, muddat tugaganda yoki lookup tugagach u abort qilinadi; abortdan keyin adapter yangi provider so‘rovi boshlamaydi. Bundan tashqari har adapter chaqiruvi o‘zi `ADAPTER_CALL_TIMEOUT_MS` (10 s) dan oshmaydi (`FragmentHttp` — `AbortSignal.timeout`).
 
 **`UNAVAILABLE` holatlari (hech qachon «topilmadi» emas):** mahsulot yo‘q (`NO_PRODUCT`), nofaol (`INACTIVE`), mahsulot formasi buzilgan (`BAD_PRODUCT_INPUT`), yo‘nalish yo‘q yoki sog‘lom adapter yo‘q (`NO_ADAPTER`; production’da yoki `DRY_RUN=false` da haqiqiy adapterlar S8 gacha yo‘q, shuning uchun har tekshiruv shu — test bilan), muddat tugadi (`TIMEOUT`), adapter yoki DB istisnosi (`ERROR`), javob sxemaga mos emas (`BAD_ANSWER`), eski job (`STALE`).
 
@@ -468,13 +475,72 @@ Job hash’i ham, uning stream yozuvlari ham job tugaganidan keyin ko‘pi bilan
 
 **S7/S8 darvozalari (haqiqiy Fragment/reseller adapteridan oldin).**
 
-- `providerRef` qaysi adapterdan kelgani saqlanmaydi: mahsulotda ikki route bo‘lsa, tekshiruv bir adapterdan, yetkazish boshqasidan — `RECIPIENT_CHANGED` xavfi.
-- Provider chaqiruviga `AbortSignal` va adapterning o‘zida qattiq timeout.
-- Router har lookup’da `health()` ni chaqiradi — keshlash kerak.
+- ~~`providerRef` qaysi adapterdan kelgani saqlanmaydi~~ — S7 da yopildi (CR #2, quyida "5-faza S7").
+- ~~Provider chaqiruviga `AbortSignal` va adapterning o‘zida qattiq timeout~~ — S7 da yopildi (I-1).
+- ~~Router har lookup’da `health()` ni chaqiradi~~ — S7 da 5 s kesh (I-1).
 - Provider chaqiruvi atrofida token bucket (provider’ga bormaydigan job’lar kvota yemasin).
 - Fragment so‘rovlari hajmiga shift va alert (audit M-2; ega qarori, yangi alert turi va i18n kerak).
 
 **Ochiq (egasi uchun).** Navbatni to‘ldirishga qarshi kuchliroq himoya (audit M-1): ishonchsiz akkauntlar uchun API’da priority va umumiy byudjet, foydalanuvchilar bo‘yicha adolatli navbat (BullMQ Pro groups — yangi qaramlik) yoki Fragment chidasa limiter’ni oshirish (masalan 2/s → ~17 akkaunt kerak bo‘ladi).
+
+## 5-faza S7: Fragment sessiyasi, keep-alive, health va zaxiraga o‘tish
+
+**Saqlash.** `FragmentSession.cookiesEnc` — cookie jar **va** sahifa `hash` bitta AES-256-GCM blob’da (AAD `ggpin/fragment-session/v1`); ochiq `pageHash` ustuni ataylab `NULL` qoladi. Kalit — `FRAGMENT_SESSION_ENC_KEY_FILE` (Docker secret, D-52 D3); inline `FRAGMENT_SESSION_ENC_KEY` faqat dev/test, ikkalasi birga — rad. Dry-run’da kalit umuman o‘qilmaydi (reja §8). Har javobdagi `Set-Cookie` jar’ga qo‘llanadi va blob qayta yoziladi (faqat o‘sha qator va o‘sha status bo‘lsa — eski jar yangi importni bosib ketmaydi). Boshqa domen, noto‘g‘ri nom/qiymat, 32 tadan ortiq cookie — e’tiborsiz. Bitta ACTIVE qator (partial unique).
+
+**HTTP.** `FragmentHttp` — fragment.com’ga yagona eshik: `fetch` tashqaridan beriladi (Node fetch faqat dry-run o‘chiq bo‘lganda), faqat `https://fragment.com` (port, login, boshqa host — `FOREIGN_HOST`, fetch chaqirilmaydi), `redirect: 'manual'` (har 3xx — `REDIRECT`), body bilan birga qattiq timeout (≤ `ADAPTER_CALL_TIMEOUT_MS` = 10 s) va javob hajmi chegarasi (2 MiB). Xato xabarida faqat kod — URL query, cookie yoki body yo‘q.
+
+**Keep-alive** (`fragment-keepalive` navbati, scheduler id `fragment-keepalive:check`, `FRAGMENT_KEEPALIVE_EVERY_MS`, standart 20 daqiqa):
+
+| Holat                     | Natija                                                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| ACTIVE, sahifa login      | `lastOkAt`, `lastError` tozalanadi, Redis `fragment:health=ok` (TTL = 3 davr)                                                    |
+| ACTIVE, 1-xato            | `lastError` = kod, hali ACTIVE (bitta uzilish — o‘lim emas)                                                                      |
+| ACTIVE, ketma-ket 2-xato  | `DEAD` + `deadAt` (CAS), Redis `down`, `fragmentSessionDead`, sessiya umri loglanadi, router keshi tashlanadi                    |
+| ACTIVE yo‘q, oxirgi o‘lim | dead alert yana (o‘sha id — BullMQ tashlab yuboradi), Redis `down`; sahifa yana login bo‘lsa — ACTIVE, `fragmentSessionRestored` |
+| Yangi import, birinchi OK | oldingi o‘lim uchun `fragmentSessionRestored`                                                                                    |
+| Hech qanday sessiya       | Redis kaliti o‘chiriladi (API: `disabled`)                                                                                       |
+
+Bitta o‘lim — bitta alert: `refId` = `<sessionId>_<deadAt ms>`, holat o‘tishlari compare-and-set (ikki replika bir vaqtda ko‘rsa ham bitta o‘lim). Import bilan almashtirilgan qator `DEAD` + `lastError=REPLACED`, `deadAt` bo‘sh — bu o‘lim emas, alert yo‘q, qayta tiklanmaydi. Login holati Zod bilan tekshiriladi: login belgilari + API `hash` bo‘lsa `LOGGED_IN`, login tugmasi bo‘lsa `LOGGED_OUT`, aks holda `BAD_PAGE` (fail-closed). Belgilar hali S0b taxminlari; testlar **sintetik** sahifalarda (`synthetic-fragment-pages.ts`), S8 ularni egasining yozib olingan sahifalari bilan almashtiradi. Dry-run’da keep-alive sintetik sahifani tekshiradi va blob’ni ochmaydi; production + dry-run’da umuman ishlamaydi.
+
+**Health.** Worker: `FragmentHealth.read()` faqat DB bo‘yicha hal qiladi (S7 m2): ACTIVE → `ok`, DEAD (oxirgi o‘limdan keyin ACTIVE yo‘q) → `down`, hech narsa → `disabled`. Redis kaliti — API uchun; shuning uchun o‘limdan keyin import qilingan sessiya worker’da darhol (router keshi ≤ 5 s) ishlatiladi, API’dagi `down` esa keep-alive’ning keyingi qarashigacha (≤ 1 davr) qoladi. Haqiqiy Fragment adapteri (S8) faqat `ok` da OK; dry-run Fragment simulyatori faqat `down` da DOWN (sessiyasiz dev Stars’ni FRAGMENT’ga yuboraveradi). API `/health/ready`: `fragment` Redis’dan — `ok`/`down`, kalit yo‘q → `disabled` (worker hali yozmagan: dev, test, dry-run), o‘qib bo‘lmasa yoki timeout → `down`. Umumiy `status` ga ta’sir qilmaydi (zaxira provayder bor), javob shakli o‘zgarmadi (docs/04).
+
+**Router va zaxiraga o‘tish.** Buyurtma faqat **o‘z narx valyutasidagi** adapterlarga taklif qilinadi (`FulfillmentAdapter.costCurrency`, S7 M1): bu filtr hammasidan oldin — emitent ustunligi va qayta tekshiruvdan oldin, hech qaysi provider’ga murojaat qilinmasdan. TON narxli buyurtma USDT reseller’ga hech qachon berilmaydi (u to‘lay olmaydi, tannarx chegarasi bilan solishtirib bo‘lmaydi). Mos adapter yo‘q yoki sog‘lom emas → `HELD NO_ADAPTER`, `validate` ham `prepare` ham chaqirilmaydi, refund yo‘q. Lookup (buyurtma hali yo‘q) valyutasiz tanlaydi.
+
+**O‘tish oynasi.** Fragment o‘lishidan oldin TON’da narxlangan buyurtmalar o‘limdan keyin `HELD NO_ADAPTER` bo‘ladi (zaxira USDT’da). Cost-sync keyingi ishga tushishida mahsulotni zaxira narxida narxlaydi, yangi buyurtmalar USDT’da bo‘ladi va zaxira orqali yetkaziladi. HELD qolganlar Fragment qaytganda (yangi import yoki tiklanish) S9 reconcile orqali bo‘shatiladi (S9 gacha — operator `order:retry`).
+
+Oyna ichidagi ssenariy (S7 re-review N3, qabul qilingan):
+
+1. Fragment o‘lgach lookup darhol `RESELLER_STARS:` handle’ini beradi, mahsulot snapshot’i esa hali TON bo‘lishi mumkin — cost-sync keyingi ishga tushguncha (≤ 5 daqiqa; zaxira narxlamaydigan mahsulotda — snapshot eskirguncha, ≤ 30 daqiqa).
+2. Shu oraliqda olingan quote — TON, handle — `RESELLER:` → buyurtma `HELD NO_ADAPTER` (TON adapteri DOWN, zaxira boshqa valyutada).
+3. Fragment qaytgach buyurtma qayta ochilsa, Fragment handle’ni ism bo‘yicha qayta tekshiradi; tasdiq `RECHECK_MAX_AGE_MS` dan eski bo‘lsa → `HELD ADAPTER_ERROR`.
+4. Pul yo‘qolmaydi (PURCHASE turadi, hech narsa yuborilmagan); buyurtmani operator yoki S9 hal qiladi.
+
+Lookup’ni snapshot valyutasiga moslash bu bosqichda qilinmaydi (S9 rejasida).
+
+`AdapterRouter.pick` faqat sog‘lom adapterni tanlaydi; `health()` har adapter uchun 5 s keshlanadi, 2 s da javob bermasa — sog‘lom emas (I-1); keep-alive holat o‘zgarganda shu jarayonning keshini darhol tashlaydi, boshqa replikalar ≤ 5 s da ko‘radi. Dry-run’da zaxira — `RESELLER_STARS` simulyatori. Production’da haqiqiy zaxira hali yo‘q: urinishsiz buyurtma `HELD NO_ADAPTER` + alert, tekshiruv — `UNAVAILABLE` (API 503).
+
+- Hal bo‘lmagan urinishli buyurtma (SENDING/SENT/UNKNOWN) hech qachon routerga bormaydi — faqat kuzatiladi (rules/45 2-qadam).
+- **CR m6:** urinishi bor buyurtma, hatto urinish **yuborilmagani isbotlangan** bo‘lsa ham (`FAILED`, masalan `TON_EXPIRED`), o‘sha adapterda qoladi. U adapter DOWN bo‘lsa — `HELD NO_ADAPTER`, zaxiraga o‘tmaydi (operator hal qiladi). Sabab: buyurtma yarim yo‘lda boshqa provayderga ko‘chmasin, ikki provayderda ikki xil iz qolmasin.
+- **Adapter chaqiruvi.** `validateRecipient(product, input, signal)` — `AbortSignal` majburiy; lookup muddati tugaganda yoki lookup tugagach signal abort qilinadi; adapter o‘zi ham `ADAPTER_CALL_TIMEOUT_MS` dan oshmasligi shart.
+
+**Qabul qiluvchi handle’i kimniki (CR #2, D-62 nomzodi).** Lookup `providerRef` ni `<ADAPTER_CODE>:<handle>` ko‘rinishida saqlaydi. Yetkazish emitentni (handle bergan adapter) birinchi tanlaydi (sog‘lom va route yoqilgan bo‘lsa). Boshqa adapter tanlansa (emitent DOWN), hech narsa yuborilmasdan oldin u qabul qiluvchini **qayta tekshiradi** (mijoz kiritgan maydonlar bilan):
+
+- displayName — evristika, identifikator emas: ikki adapterning umumiy id fazosi yo‘q, solishtirsa bo‘ladigan yagona narsa — mijoz ko‘rgan ism. U NFC, trim va ichki bo‘shliqlarni bittaga siqishdan keyin solishtiriladi;
+- ism vaqt o‘tib boshqa akkauntga o‘tishi mumkin (username bo‘shatilib, boshqasi olgan), shuning uchun faqat ism bo‘yicha moslik tasdiq yangi bo‘lsagina ishonchli: `order.createdAt` dan `RECHECK_MAX_AGE_MS` (30 daqiqa, konstanta: quote 10 daqiqa yashaydi, fulfill navbatining 5 urinishi ~75 s da tugaydi, qolgani — navbat tiqilinchi uchun zaxira) o‘tgan bo‘lsa (masalan soatlab HELD turgan buyurtma `order:retry` bilan ochilganda), provider so‘ralmaydi → `HELD ADAPTER_ERROR` (operator hal qiladi); emitentning o‘zi esa (ism emas, o‘z handle’i) yoshidan qat’i nazar ishlaydi;
+- yosh `Order.createdAt` dan (DB soati) hisoblanadi, lookup’dan emas: ism lookup’i buyurtmadan taxminan 20 daqiqagacha oldin bo‘lishi mumkin (tasdiq tokeni 10 daqiqa + quote 10 daqiqa), demak ismning amaldagi yoshi ~50 daqiqagacha yetadi (S7 re-review N8). `createdAt` worker soatidan `RECHECK_CLOCK_TOLERANCE_MS` (5 daqiqa, konstanta) dan ko‘proq oldinda bo‘lsa (worker soati orqada), yoshga ishonilmaydi → xuddi eski tasdiqdek `HELD ADAPTER_ERROR` (audit N-2);
+- FOUND va displayName mijoz tasdiqlaganiga teng → o‘sha adapter handle’i ishlatiladi, urinish `request` ida `recheckedProviderRef` saqlanadi (kuzatish yo‘li shuni oladi);
+- NOT_FOUND yoki boshqa ism → `FAILED` + REFUND (`RECIPIENT_CHANGED`), urinish yaratilmaydi;
+- UNAVAILABLE, xato, timeout, tushunarsiz javob → throw (job qayta urinadi, oxirgisida `HELD ADAPTER_ERROR`). Tekshirilmagan handle’ga hech qachon to‘lanmaydi.
+
+Namespace’siz eski handle (S7 dan oldin yozilgan) o‘zgarmay uzatiladi. Sxema, migratsiya va shartnoma o‘zgarmadi.
+
+**Import CLI.** `npm run fragment:session-import -w worker`: cookie’lar faqat stdin’dan (asosiy yo‘l — yashirin TTY kiritish; fayl ishlatilsa — faqat repo tashqarisidan va darhol o‘chiriladi; argument va env — yo‘q), `name=value` qatorlari yoki brauzer `Cookie:` sarlavhasi. Shifrlanadi, oldingi ACTIVE qator `REPLACED` bo‘ladi va undan eski barcha qatorlarning cookie’lari o‘chiriladi (`cookiesEnc = ''`, audit I-2: ular endi hech qachon ishlatilmaydi). Ekranga faqat soni, cookie **nomlari**, yangi qator id va kalit barmoq izi (`HMAC(key, "ggpin/fragment-session/fp")` ning 8 hex belgisi; worker boot’da ham shuni loglaydi — kalitlar bir xilligini ko‘rish uchun) chiqadi; xato faqat qator raqamini aytadi. Sahifa `hash` so‘ralmaydi — keep-alive birinchi login sahifasidan oladi. `.gitignore` — `*cookie*.txt`, `*cookie*.json`; gitleaks — `fragment-cookie-bare` qoidasi (`stel_ssid`/`stel_token`/`stel_ton_token`/`stel_dt`, `=` atrofida bo‘shliq bo‘lishi mumkin, 8+ belgi; audit N-4).
+
+**Set-Cookie saqlash (CAS).** Keep-alive yangilangan jar’ni faqat o‘qilgan qatorga va faqat u o‘qilgandan beri o‘zgarmagan bo‘lsa yozadi: `id`, `status` va **o‘qilgan blob**ning o‘zi bo‘yicha (audit N-1). Shunda probe paytida import bo‘lsa, eski cookie’lar tombstone’ga qayta yozilmaydi, ikki replika bir vaqtda yozsa — ikkinchisi yutqazadi (birinchisining yangilanishi yo‘qolmaydi).
+
+**Jonli boot (dry-run o‘chiq).** `FRAGMENT_SESSION_ENC_KEY_FILE` (yoki production’dan tashqari inline kalit) majburiy (audit L-4, hamyon kaliti naqshi). Node HTTPS’ni zaiflashtiradigan yoki yo‘naltiradigan env rad etiladi (audit L-2): `NODE_TLS_REJECT_UNAUTHORIZED=0`, `NODE_EXTRA_CA_CERTS`, `NODE_USE_SYSTEM_CA`, `NODE_USE_ENV_PROXY`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `OPENSSL_CONF`, `HTTP(S)_PROXY`, `ALL_PROXY` (kichik harfli shakllari ham; ro‘yxat yozib olish vositasi bilan umumiy — `network-env.ts`), shuningdek `NODE_OPTIONS` yoki buyruq qatoridagi (`process.execArgv`) `--use-system-ca`, `--use-openssl-ca`, `--use-env-proxy` flaglari (audit N-3). `NODE_OPTIONS` ning boshqa qiymatlari (masalan heap hajmi) rad etilmaydi; `--require`/`--import` ham — jarayon env’ini boshqargan kishi baribir o‘z kodini ishga tushira oladi, bu ro‘yxat noto‘g‘ri sozlangan CA/proxy’dan himoya qiladi. Sessiya kaliti hamyon kalitiga (`WALLET_ENC_KEY`) teng bo‘lsa boot rad etiladi (audit I-11; doimiy vaqtli solishtirish, qiymat chiqmaydi). `FragmentHttp` ichida alohida `https` Agent o‘rniga shu tanlandi: rad etish jarayonning har Node so‘roviga taalluqli, CA o‘zgaruvchisi esa alohida Agent’ga ham ta’sir qilardi. Keep-alive logida `NO_KEY` va `BAD_BLOB` o‘z kodlari bilan alohida error qatori oladi (`FRAGMENT_SESSION_NO_KEY`, `FRAGMENT_SESSION_BAD_BLOB`); egaga alert matni o‘zgarmagan. Cookie jar faqat `Domain=fragment.com` (yoki `.fragment.com`) ni qabul qiladi, subdomenni emas (audit I-4).
+
+**Testlar.** Unit: `fragment-http.spec.ts`, `fragment-session-crypto.spec.ts`, `fragment-probe.spec.ts`, `fragment-health.spec.ts`, `provider-ref.spec.ts`, `fulfill-recipient.spec.ts`, `adapter-router.spec.ts`, `recipient-lookup.service.spec.ts`, `env-fragment-session.spec.ts`, `fragment-session-import-flow.spec.ts`. E2e: `fragment-keepalive.e2e-spec.ts` (jonli probe soxta fetch bilan: shifrlangan `Set-Cookie`, bitta o‘lim — bitta alert, ikki replika, tiklanish, import, loglarda cookie/hash/sahifa yo‘q), `fragment-failover.e2e-spec.ts` (5-mezon real oqimda: DEAD → bitta alert → cost-sync zaxira narxi (USDT) → lookup → shu narxdagi quote/buyurtma (API’ning shared narx funksiyalari bilan; faraz qilinganlar `fulfill-e2e.quote.ts` da) → `RESELLER_STARS` orqali DELIVERED; o‘tish oynasi: TON buyurtma → `HELD NO_ADAPTER`, zaxira chaqirilmaydi; emitent zaxira + TON + Fragment sog‘lom → Fragment qayta tekshiradi va yetkazadi; CR #2 FOUND/NOT_FOUND; eski tasdiq → HELD; tarmoq qo‘riqchisi), `fragment-failover-attempts.e2e-spec.ts` (hal bo‘lmagan va EXPIRED Fragment urinishli buyurtma ko‘chmaydi; M3: bir xil valyutadagi sog‘lom ikkinchi adapterga ham ko‘chmaydi), `fragment-session-edges.e2e-spec.ts` (yo‘qolgan dead alert keyingi tickda bitta; o‘limdan keyingi import darhol sog‘lom; tombstone; CAS — tombstone’ga yozilmaydi, ikki parallel yozuvdan bittasi yutadi; `NO_KEY`/`BAD_BLOB` loglari; barmoq izi). Eski tasdiq e2e’si worker’ning butun soatini (faqat `Date`, taymerlar emas) 2 soat oldinga suradi. Unit: `cost-sync-health.spec.ts` (sog‘lom route bo‘yicha narx).
 
 ## Dev va test
 

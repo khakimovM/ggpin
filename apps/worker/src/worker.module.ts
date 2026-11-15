@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
+import { FragmentSessionModule } from './adapters/fragment/fragment-session.module';
 import { BankFeedModule } from './bank-feed/bank-feed.module';
 import { TopupExpireModule } from './bank-feed/topup-expire.module';
 import { WorkerConfigModule, type WorkerConfig } from './config/config.module';
@@ -48,6 +49,8 @@ export class WorkerModule {
         FulfillmentModule,
         // Phase 5 S3b: the validate-recipient consumer (dry run: the simulators' lookups).
         RecipientsModule,
+        // Phase 5 S7: the Fragment session keep-alive (dry run: a synthetic page, no cookie read).
+        FragmentSessionModule,
       ],
     };
   }

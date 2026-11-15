@@ -12,6 +12,7 @@
     "bank-feed:login": "node --env-file-if-exists=.env dist/cli/bank-feed-login.js",
     "bank-feed:inject": "node --env-file-if-exists=.env dist/cli/bank-feed-inject.js",
     "fragment:record": "node dist/cli/fragment-record.js",
+    "fragment:session-import": "node --env-file-if-exists=.env dist/cli/fragment-session-import.js",
     "ton:encrypt-mnemonic": "node --env-file-if-exists=.env dist/cli/ton-encrypt-mnemonic.js",
     "ton:selftest": "node --env-file-if-exists=.env dist/cli/ton-selftest.js",
     "test:e2e": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest-e2e.json --runInBand"

@@ -2,10 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { describeErrorForLog, type OrderStatusReason } from '@repo/shared';
 import {
   hasProviderRef,
+  type AttemptJson,
   type FulfillmentAdapter,
   type PrepareContext,
   type PreparedFulfillment,
 } from '../adapters/fulfillment-adapter';
+import { parseProviderRef } from '../adapters/provider-ref';
 import { WalletCacheInvalidator } from '../bank-feed/wallet-cache-invalidator';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { TON_PAY_ADDRESSES, type TonPayAddresses } from '../ton/ton-tokens';
@@ -22,6 +24,7 @@ import {
 } from './fulfill-steps';
 import { FulfillTonRunner, type RunStep } from './fulfill-ton.runner';
 import { FULFILL_HOOKS, type FulfillHooks } from './fulfill-tokens';
+import { RECHECKED_REF_KEY, recipientFor } from './fulfill-recipient';
 import { FulfillmentNotifier } from './fulfillment-notifier';
 import { coreHoldNote, holdNotices, isAttemptHoldError } from './held-policy';
 import { OrderStateRepository, type RunOrder } from './order-state.repository';
@@ -30,6 +33,10 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 // the SENDING commit nothing has left, so every refusal is a HOLD (with the owner's alert) or, for
 // a recipient that is gone or changed, FAILED + REFUND. A throw of the router or of `prepare` is
 // retried by the queue; on the job's last attempt it holds the order (ADAPTER_ERROR, D-56 (4)).
+// The route offers the order only to adapters of its cost currency (S7 review M1: a TON order
+// with Fragment DOWN is HELD, NO_ADAPTER, before any provider is asked), then prefers the adapter
+// that issued the recipient handle; another adapter checks the recipient again first
+// (fulfill-recipient.ts, S7 CR #2), and only while the confirmation is fresh (STALE -> HELD).
 
 type Decision =
   | { readonly kind: 'HOLD'; readonly reason: OrderStatusReason; readonly why: string }
@@ -38,16 +45,32 @@ type Decision =
       readonly kind: 'READY';
       readonly adapter: FulfillmentAdapter;
       readonly prepared: PreparedFulfillment;
+      /** The context with the picked adapter's own recipient handle. */
+      readonly context: PrepareContext;
+      /** The attempt's `request`, with the re-checked handle when there was a re-check. */
+      readonly request: AttemptJson;
     };
 
-export function contextOf(order: RunOrder, attemptNo: number): PrepareContext {
+/** `providerRef`: the handle the adapter compares (default: the stored one). */
+export function contextOf(
+  order: RunOrder,
+  attemptNo: number,
+  providerRef: string | null = order.providerRef,
+): PrepareContext {
   return {
     orderId: order.id,
     attemptNo,
     product: { id: order.productId, slug: order.productSlug },
     sku: { id: order.skuId, quantity: order.quantity },
-    recipient: { fields: order.fields, providerRef: order.providerRef },
+    recipient: { fields: order.fields, providerRef },
   };
+}
+
+/** `request` plus the re-checked handle; null when `request` is not an object to carry it. */
+function withRecheckedRef(request: AttemptJson, recheckedRef: string | null): AttemptJson | null {
+  if (recheckedRef === null) return request;
+  if (typeof request !== 'object' || request === null || Array.isArray(request)) return null;
+  return { ...request, [RECHECKED_REF_KEY]: recheckedRef };
 }
 
 @Injectable()
@@ -94,7 +117,7 @@ export class FreshAttempt {
       orderId: order.id,
       attemptNo: context.attemptNo,
       adapter: adapter.code,
-      request: toAttemptJson(prepared.request),
+      request: toAttemptJson(decision.request),
       externalRef: isTonPaid(order.costCurrency) ? null : prepared.externalRef,
       costMinor: prepared.costMinor,
       purchaseTiyin: purchaseAmountOf(order),
@@ -106,7 +129,7 @@ export class FreshAttempt {
     }
     await this.hooks.afterSendingCommitted(created.attempt.id);
     if (isTonPaid(order.costCurrency)) return this.ton.run(order.id, created.attempt, final);
-    return this.supplier.run(context, created.attempt, adapter, prepared);
+    return this.supplier.run(decision.context, created.attempt, adapter, prepared);
   }
 
   /** Refunded after the commit: the cached balance goes, the customer hears (stable ids). */
@@ -126,9 +149,36 @@ export class FreshAttempt {
     previousAdapter: string | null,
     context: PrepareContext,
   ): Promise<Decision> {
-    const adapter = await this.router.pick(order.productId, previousAdapter);
-    if (adapter === null) return { kind: 'HOLD', reason: 'NO_ADAPTER', why: 'no healthy route' };
-    const result = await adapter.prepare(context);
+    const stored = order.providerRef ?? '';
+    const issuer = parseProviderRef(stored)?.adapter ?? null;
+    const adapter = await this.router.pick(
+      order.productId,
+      previousAdapter,
+      issuer,
+      order.costCurrency,
+    );
+    if (adapter === null) {
+      return { kind: 'HOLD', reason: 'NO_ADAPTER', why: `no healthy ${order.costCurrency} route` };
+    }
+    const recipient = await recipientFor(adapter, context.product, {
+      fields: order.fields,
+      providerRef: stored,
+      confirmedAt: order.createdAt,
+    });
+    if (recipient.kind === 'STALE') {
+      this.logger.warn(`order ${order.id}: adapter ${adapter.code} re-check refused: too old`);
+      return {
+        kind: 'HOLD',
+        reason: 'ADAPTER_ERROR',
+        why: 'the recipient confirmation is too old for a name-only re-check',
+      };
+    }
+    if (recipient.kind === 'CHANGED') {
+      this.logger.warn(`order ${order.id}: adapter ${adapter.code} re-check: another recipient`);
+      return { kind: 'REFUND', reason: 'RECIPIENT_CHANGED' };
+    }
+    const own = contextOf(order, context.attemptNo, recipient.providerRef);
+    const result = await adapter.prepare(own);
     switch (result.status) {
       case 'RECIPIENT_CHANGED':
       case 'RECIPIENT_GONE':
@@ -147,7 +197,15 @@ export class FreshAttempt {
       payAddresses: this.payAddresses,
     });
     if (verdict.kind === 'HOLD') return verdict;
-    return { kind: 'READY', adapter, prepared: result.prepared };
+    const request = withRecheckedRef(result.prepared.request, recipient.recheckedRef);
+    if (request === null) {
+      return {
+        kind: 'HOLD',
+        reason: 'ADAPTER_ERROR',
+        why: 'the request cannot carry the re-check',
+      };
+    }
+    return { kind: 'READY', adapter, prepared: result.prepared, context: own, request };
   }
 
   /**

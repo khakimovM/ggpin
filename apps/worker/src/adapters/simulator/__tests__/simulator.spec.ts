@@ -11,6 +11,7 @@ import {
   SimulatorScript,
   simulatedProviderRef,
 } from '../simulator-script';
+import { FRAGMENT_UP } from './fragment-health-up';
 
 const DRY = { NODE_ENV: 'test', FULFILLMENT_DRY_RUN: true };
 
@@ -40,12 +41,12 @@ describe('simulator guard (plan §8)', () => {
 
   it('the registry has the simulators only in a non-production dry run', () => {
     const script = new SimulatorScript();
-    const dry = buildAdapterRegistry(buildTestEnv(), script);
+    const dry = buildAdapterRegistry(buildTestEnv(), script, FRAGMENT_UP);
     expect([...dry.keys()].sort()).toEqual(['FRAGMENT', 'RESELLER_STARS']);
     const prodDry = { ...buildTestEnv(), NODE_ENV: 'production' as const };
-    expect(buildAdapterRegistry(prodDry, script).size).toBe(0);
+    expect(buildAdapterRegistry(prodDry, script, FRAGMENT_UP).size).toBe(0);
     const live = { ...buildTestEnv(), FULFILLMENT_DRY_RUN: false };
-    expect(buildAdapterRegistry(live, script).size).toBe(0);
+    expect(buildAdapterRegistry(live, script, FRAGMENT_UP).size).toBe(0);
   });
 });
 

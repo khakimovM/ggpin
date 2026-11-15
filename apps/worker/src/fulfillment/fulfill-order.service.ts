@@ -4,6 +4,7 @@ import type { LockStore } from '../bank-feed/client/leader-lock';
 import { AdapterRouter } from './adapter-router';
 import { AttemptsRepository, type AttemptRow } from './attempts.repository';
 import { FreshAttempt, contextOf } from './fulfill-fresh';
+import { attemptProviderRef } from './fulfill-recipient';
 import { FulfillReplay } from './fulfill-replay';
 import { FulfillReviewer } from './fulfill-review';
 import { FulfillSettler, type SettleOutcome } from './fulfill-settle';
@@ -147,6 +148,7 @@ export class FulfillOrderService {
     }
     if (isTonPaid(order.costCurrency)) return this.ton.run(order.id, live, final);
     const adapter = this.router.adapterOf(live.adapter);
-    return this.supplier.run(contextOf(order, live.attemptNo), live, adapter, null);
+    const providerRef = attemptProviderRef(order.providerRef, live.adapter, live.request);
+    return this.supplier.run(contextOf(order, live.attemptNo, providerRef), live, adapter, null);
   }
 }

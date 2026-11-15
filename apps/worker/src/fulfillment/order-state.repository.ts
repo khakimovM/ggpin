@@ -38,6 +38,8 @@ export interface RunOrder {
   readonly maxCostMinor: bigint;
   readonly priceTiyin: bigint;
   readonly discountTiyin: bigint;
+  /** When the order (and with it the customer's recipient confirmation) was made. */
+  readonly createdAt: Date;
 }
 
 export interface HeldEvent {
@@ -87,6 +89,7 @@ export class OrderStateRepository {
       maxCostMinor: row.maxCostMinor,
       priceTiyin: row.priceTiyin,
       discountTiyin: row.discountTiyin,
+      createdAt: row.createdAt,
     };
   }
 

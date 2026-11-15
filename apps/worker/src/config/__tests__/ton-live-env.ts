@@ -14,7 +14,9 @@ export const TEST_TON_API_KEY = ['marker', 'for', 'env', 'tests'].join('-');
  * call for env-parsing tests: a random key, a blob that opens with it on testnet (the boot check
  * only proves that the key fits the blob; the plaintext is NOT a mnemonic, so no wallet can ever be
  * opened from it), an address nobody owns, an unreachable endpoint, a marker API key and explicit
- * limits. No real secret, nothing a scanner could match.
+ * limits. No real secret, nothing a scanner could match. A live worker also needs the Fragment
+ * session key (S7 audit L-4): a random inline one (env-fragment-session.spec.ts drops it to test
+ * the file form).
  */
 export function tonLiveSource(): Readonly<Record<string, string>> {
   const key = randomBytes(32).toString('base64');
@@ -31,5 +33,6 @@ export function tonLiveSource(): Readonly<Record<string, string>> {
     TON_API_KEY: TEST_TON_API_KEY,
     TON_MAX_PER_ORDER_NANO: '50000000000',
     TON_MAX_DAILY_NANO: '500000000000',
+    FRAGMENT_SESSION_ENC_KEY: randomBytes(32).toString('base64'),
   };
 }

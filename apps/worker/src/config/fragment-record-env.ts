@@ -1,3 +1,5 @@
+import { NETWORK_REFUSED_WHEN_SET, TLS_OFF_REASON } from './network-env';
+
 type Source = Readonly<Record<string, string | undefined>>;
 
 /**
@@ -12,27 +14,16 @@ type Source = Readonly<Record<string, string | undefined>>;
 export function fragmentRecordEnvRefusal(source: Source = process.env): string | null {
   const nodeEnv = (source['NODE_ENV'] ?? '').trim().toLowerCase();
   if (nodeEnv === 'production') return 'NODE_ENV is production';
-  if ((source['NODE_TLS_REJECT_UNAUTHORIZED'] ?? '').trim() === '0') {
-    return 'NODE_TLS_REJECT_UNAUTHORIZED=0 turns TLS checks off';
-  }
+  if ((source['NODE_TLS_REJECT_UNAUTHORIZED'] ?? '').trim() === '0') return TLS_OFF_REASON;
   if ((source['NODE_OPTIONS'] ?? '').trim() !== '') return 'NODE_OPTIONS is set';
-  for (const name of REFUSED_WHEN_SET) {
+  // The live worker refuses the same network list (network-env.ts, S7 audit L-2).
+  for (const name of [...NETWORK_REFUSED_WHEN_SET, 'NODE_DEBUG']) {
     for (const key of [name, name.toLowerCase()]) {
       if ((source[key] ?? '').trim() !== '') return `${key} is set`;
     }
   }
   return null;
 }
-
-const REFUSED_WHEN_SET = [
-  'NODE_EXTRA_CA_CERTS',
-  'NODE_DEBUG',
-  'NODE_USE_ENV_PROXY',
-  'NODE_USE_SYSTEM_CA',
-  'HTTP_PROXY',
-  'HTTPS_PROXY',
-  'ALL_PROXY',
-] as const;
 
 /** OneDrive roots (Windows sets these); the recorder refuses folders inside them (R-5). */
 export function fragmentRecordOneDriveRoots(source: Source = process.env): string[] {

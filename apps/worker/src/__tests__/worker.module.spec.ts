@@ -9,6 +9,7 @@ import {
 } from '@repo/shared';
 import type { RegisterQueueOptions } from '@nestjs/bullmq';
 import { buildTestEnv } from '../config/__tests__/test-env';
+import { FragmentKeepaliveScheduler } from '../adapters/fragment/fragment-keepalive.scheduler';
 import { HeartbeatService } from '../heartbeat/heartbeat.service';
 import { PriceSyncScheduler } from '../pricing-sync/price-sync.scheduler';
 import { TopupExpireScheduler } from '../bank-feed/topup-expire.scheduler';
@@ -98,6 +99,14 @@ describe('WorkerModule', () => {
         { pattern: '30 3 * * *', tz: 'Asia/Tashkent' },
         { name: 'bank-text-purge', data: {} },
       ],
+    ]);
+  });
+
+  it('schedules the 20-minute Fragment keep-alive under a fixed scheduler id', async () => {
+    await moduleRef.init();
+    await moduleRef.get(FragmentKeepaliveScheduler).whenScheduled();
+    expect(queues.get(QUEUES.FRAGMENT_KEEPALIVE)?.upsertJobScheduler.mock.calls).toEqual([
+      ['fragment-keepalive:check', { every: 1_200_000 }, { name: 'check', data: {} }],
     ]);
   });
 });

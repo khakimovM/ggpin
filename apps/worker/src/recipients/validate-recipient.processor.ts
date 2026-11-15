@@ -28,8 +28,9 @@ export const WORKER_ERROR_REPEAT_MS = 60_000;
  * - An invalid request (payload or input that does not fit the product's form) is OUR bug, a
  *   producer/consumer mismatch, not an outage: `UnrecoverableError` (no retry; the API sees a
  *   failed job and answers 503), so it shows up as a failure instead of hiding as UNAVAILABLE.
- * - Everything else ends as a returned answer, never a throw: a throw would make BullMQ run the
- *   second attempt (queues.ts) after the API stopped waiting, a wasted provider request.
+ * - Everything else ends as a returned answer, never a throw. The queue has `attempts: 1`
+ *   (queues.ts), so a throw is not retried today; it would be only if attempts were ever > 1, and
+ *   that retry would run after the API stopped waiting: a wasted provider request.
  * - Deadline: the lookup must end `replyMarginMs` before the API gives up; with less than
  *   `minCallMs` left the provider is not asked (a stale job, nobody waits for it): UNAVAILABLE.
  * - Logs: product id, adapter code, status, reason and duration only. Never the input, the

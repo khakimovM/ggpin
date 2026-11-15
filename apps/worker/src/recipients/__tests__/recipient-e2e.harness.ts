@@ -24,6 +24,7 @@ import { CaptureStream } from '../../logging/__tests__/capture-stream';
 import { RECIPIENT_CHECK_TIMING, type RecipientCheckTiming } from '../recipient-check.config';
 import { RecipientsModule } from '../recipients.module';
 import { RecipientProducts, recipientCheckJobId } from './recipient-e2e.fixtures';
+import { FRAGMENT_UP } from '../../adapters/simulator/__tests__/fragment-health-up';
 
 // Real Postgres (the scratch `_test` database) + Redis DB 15, through the e2e lock. The worker's
 // infra modules + RecipientsModule with its REAL BullMQ Worker (limiter, concurrency) on the real
@@ -31,9 +32,15 @@ import { RecipientProducts, recipientCheckJobId } from './recipient-e2e.fixtures
 // The adapters are the dry-run simulators plus test stubs in one mutable map (FULFILL_ADAPTERS):
 // nothing reaches fragment.com or any provider. Jobs are added exactly like the API adds them.
 
-/** Short deadline so slow checks end quickly; same shape as production (wait - margin). */
+/**
+ * Same shape as production (wait - margin), shorter than production's 10 s. NOT shorter than this
+ * (S7 fix round 3, measured): the full e2e run shares one Jest process whose heap grows to ~2.7 GB
+ * over 50 suites, with event-loop stalls up to ~1.1 s (GC); with a 3 s wait a stall plus the
+ * limiter's 1 s turned instant answers into TIMEOUTs. 8 s leaves several such stalls of headroom.
+ * The tests prove the deadline by its formula and its log reason, not by wall-clock upper bounds.
+ */
 export const E2E_TIMING: RecipientCheckTiming = {
-  waitMs: 3_000,
+  waitMs: 8_000,
   replyMarginMs: 300,
   minCallMs: 100,
   // Production sweep values: the sweep suite boots with its own.
@@ -54,7 +61,7 @@ export function useRecipientE2e(options: HarnessOptions = {}) {
   const timing: RecipientCheckTiming = { ...E2E_TIMING, ...options.timing };
   const capture = new CaptureStream();
   const script = new SimulatorScript();
-  const registry = new Map(buildAdapterRegistry(env, script));
+  const registry = new Map(buildAdapterRegistry(env, script, FRAGMENT_UP));
   for (const adapter of options.adapters ?? []) registry.set(adapter.code, adapter);
   const jobIds = new Set<string>();
   const state = {} as {

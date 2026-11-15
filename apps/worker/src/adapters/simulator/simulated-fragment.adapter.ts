@@ -1,4 +1,4 @@
-import type { CostCurrency, RecipientCheckResult } from '@repo/shared';
+import type { AdapterHealth, CostCurrency, RecipientCheckResult } from '@repo/shared';
 import { beginCell } from '@ton/core';
 import { FRAGMENT_ADAPTER } from '../../pricing-sync/cost-sources/cost-source';
 import type {
@@ -35,10 +35,16 @@ export function simulatedFragmentCost(sku: SkuRef): bigint {
 
 export class SimulatedFragmentAdapter implements FulfillmentAdapter {
   readonly code = FRAGMENT_ADAPTER;
+  readonly costCurrency = 'TON';
 
+  /**
+   * `sessionHealth`: the Fragment session's health (S7: DOWN once the keep-alive declared it
+   * DEAD); without it the simulated Fragment is always up.
+   */
   constructor(
     env: SimulatorEnv,
     private readonly script: SimulatorScript,
+    private readonly sessionHealth: () => Promise<AdapterHealth> = () => Promise.resolve('OK'),
   ) {
     assertSimulatorAllowed(env);
   }
@@ -46,8 +52,9 @@ export class SimulatedFragmentAdapter implements FulfillmentAdapter {
   validateRecipient(
     _product: ProductRef,
     input: Readonly<Record<string, string>>,
+    signal?: AbortSignal,
   ): Promise<RecipientCheckResult> {
-    return Promise.resolve(simulatedValidation(this.script.scenarioFor(null), input));
+    return simulatedValidation(this.script.scenarioFor(null), input, signal);
   }
 
   quote(
@@ -107,7 +114,7 @@ export class SimulatedFragmentAdapter implements FulfillmentAdapter {
     return Promise.resolve({ currency: 'TON', amountMinor: 0n });
   }
 
-  health(): Promise<'OK'> {
-    return Promise.resolve('OK');
+  health(): Promise<AdapterHealth> {
+    return this.sessionHealth();
   }
 }

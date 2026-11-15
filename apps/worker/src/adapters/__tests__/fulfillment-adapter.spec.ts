@@ -15,6 +15,7 @@ import {
 // the calls below pin the ordering rule "send gets exactly what prepare returned".
 class StubAdapter implements FulfillmentAdapter {
   readonly code = 'STUB';
+  readonly costCurrency = 'TON';
   readonly calls: string[] = [];
 
   validateRecipient(): ReturnType<FulfillmentAdapter['validateRecipient']> {

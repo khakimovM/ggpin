@@ -27,6 +27,8 @@ export const FOUND: RecipientCheckResult = {
   providerRef: 'ref-1',
   displayName: 'Someone',
 };
+/** FOUND as the lookup returns it: the handle namespaced by its issuer (S7, CR #2). */
+export const STORED_FOUND: RecipientCheckResult = { ...FOUND, providerRef: 'FRAGMENT:ref-1' };
 
 export interface Setup {
   readonly product?: RecipientCheckProduct | null;

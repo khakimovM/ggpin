@@ -1,6 +1,13 @@
 import { testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import { workerBankFeedProblems, workerBankFeedShape } from './bank-feed-env';
+import {
+  FragmentSessionKey,
+  forgetFragmentSessionKey,
+  fragmentKeySource,
+  liveFragmentProblems,
+  workerFragmentShape,
+} from './fragment-session-env';
 import { bankFeedKeySource, forgetBankFeedKey, type SecretFileReader } from './secret-file';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
 import { simulatedPayeeProblems } from './simulated-payee';
@@ -57,6 +64,8 @@ const EnvSchema = z.object({
 
   // Phase 5: the hot wallet, its key file and the payout timings (ton-env.ts).
   ...workerTonShape,
+  // Phase 5 S7: the Fragment session key file and the keep-alive period (fragment-session-env.ts).
+  ...workerFragmentShape,
   // Phase 4 (P2P top-ups): matcher knobs, equal to the API's (topup-env.ts).
   ...workerTopupShape,
   // Phase 4: pinned bank-bot ids and the matcher's lock wait (bank-feed-env.ts).
@@ -71,9 +80,14 @@ type ParsedEnv = z.infer<typeof EnvSchema>;
  * TON API key is a redacting holder only the toncenter transport reads (review m5, audit I-3).
  */
 export type Env = Readonly<
-  Omit<ParsedEnv, 'TON_MNEMONIC_ENC' | 'WALLET_ENC_KEY' | 'TON_API_KEY'> & {
+  Omit<
+    ParsedEnv,
+    'TON_MNEMONIC_ENC' | 'WALLET_ENC_KEY' | 'TON_API_KEY' | 'FRAGMENT_SESSION_ENC_KEY'
+  > & {
     readonly TON_WALLET_SECRET?: WalletSecretHandle | undefined;
     readonly TON_API_KEY?: TonApiKey | undefined;
+    /** A redacting holder; undefined in a dry run (plan §8) or when not set (S7). */
+    readonly FRAGMENT_SESSION_ENC_KEY?: FragmentSessionKey | undefined;
   }
 >;
 
@@ -138,6 +152,9 @@ export function loadEnv(
   const dryRun = withDefaults.FULFILLMENT_DRY_RUN !== 'false';
   const walletKey = walletKeySource(clean, production, dryRun, readSecret);
   problems.push(...walletKey.problems);
+  const fragmentKey = fragmentKeySource(clean, production, !dryRun, readSecret);
+  problems.push(...fragmentKey.problems);
+  if (!dryRun) problems.push(...liveFragmentProblems(clean, fragmentKey, walletKey.key));
   const data = parsed.success
     ? {
         ...parsed.data,
@@ -145,6 +162,7 @@ export function loadEnv(
         WALLET_ENC_KEY: walletKey.key,
         TON_MNEMONIC_ENC: dryRun ? undefined : parsed.data.TON_MNEMONIC_ENC,
         TON_API_KEY: dryRun ? undefined : parsed.data.TON_API_KEY,
+        FRAGMENT_SESSION_ENC_KEY: fragmentKey.key,
       }
     : null;
   if (data !== null) {
@@ -184,5 +202,6 @@ export function loadProcessEnv(source: NodeJS.ProcessEnv = process.env): Env {
     // the keys (D-52 D3).
     forgetBankFeedKey(source);
     forgetWalletSecrets(source);
+    forgetFragmentSessionKey(source);
   }
 }

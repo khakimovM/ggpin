@@ -19,8 +19,8 @@ export const VALIDATE_RECIPIENT_LIMITER = { max: 1, duration: 1_000 } as const;
  * by its deadline (under RECIPIENT_CHECK_TIMEOUT_MS after its add), so about ten slots are taken
  * even if the provider hangs on each: with ten, one slow lookup never holds up a fast one, and
  * the limiter, not the slot count, bounds how often the provider is asked. The deadline frees the
- * slot only: the provider call itself is NOT aborted and may run on (Deadline); a real adapter
- * needs its own hard timeout and an AbortSignal (S7/S8 gate).
+ * slot and aborts the provider call through its AbortSignal (S7, Deadline); every adapter call is
+ * also bounded by ADAPTER_CALL_TIMEOUT_MS.
  */
 export const VALIDATE_RECIPIENT_CONCURRENCY = Math.ceil(
   RECIPIENT_CHECK_TIMEOUT_MS / VALIDATE_RECIPIENT_LIMITER.duration,
@@ -48,7 +48,7 @@ export const DEFAULT_RECIPIENT_CHECK_TIMING: RecipientCheckTiming = Object.freez
   waitMs: RECIPIENT_CHECK_TIMEOUT_MS,
   replyMarginMs: 1_000,
   minCallMs: 500,
-  // Half the retention: a job is gone at most 60 + 30 s after it finished (two windows = 120 s).
+  // Half the retention: a job is gone at most 60 + 30 s after it finished (D-61).
   sweepEveryMs: (RECIPIENT_CHECK_RETENTION_SEC * 1_000) / 2,
   retentionMs: RECIPIENT_CHECK_RETENTION_SEC * 1_000,
 });

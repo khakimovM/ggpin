@@ -45,6 +45,7 @@ const REFUSAL_PROOF: NeedsReviewProof = {
 
 export class SimulatedResellerAdapter implements FulfillmentAdapter {
   readonly code = RESELLER_STARS_ADAPTER;
+  readonly costCurrency = 'USDT';
 
   constructor(
     env: SimulatorEnv,
@@ -56,8 +57,9 @@ export class SimulatedResellerAdapter implements FulfillmentAdapter {
   validateRecipient(
     _product: ProductRef,
     input: Readonly<Record<string, string>>,
+    signal?: AbortSignal,
   ): Promise<RecipientCheckResult> {
-    return Promise.resolve(simulatedValidation(this.script.scenarioFor(null), input));
+    return simulatedValidation(this.script.scenarioFor(null), input, signal);
   }
 
   quote(

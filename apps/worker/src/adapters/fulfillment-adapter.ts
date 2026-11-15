@@ -129,6 +129,9 @@ export type ConfirmResult =
   | { readonly status: 'PROVIDER_FAILED'; readonly detail?: string }
   | { readonly status: 'UNKNOWN'; readonly detail?: string };
 
+/** The longest one adapter call may run on its own, whatever the caller's signal allows. */
+export const ADAPTER_CALL_TIMEOUT_MS = 10_000;
+
 export interface AdapterBalance {
   readonly currency: CostCurrency;
   readonly amountMinor: bigint;
@@ -136,11 +139,25 @@ export interface AdapterBalance {
 
 export interface FulfillmentAdapter {
   readonly code: AdapterCode;
+  /**
+   * What the provider charges in: TON (our hot wallet, Fragment) or USDT (a supplier balance).
+   * The router offers an order only to adapters of the order's own cost currency (S7 review M1):
+   * an order priced in TON is never handed to a USDT reseller, nor the other way round.
+   */
+  readonly costCurrency: CostCurrency;
 
-  /** `validate-recipient`: who is this input? `UNAVAILABLE` means "could not tell", never "no". */
+  /**
+   * `validate-recipient` (and the fulfillment re-check, S7): who is this input? `UNAVAILABLE`
+   * means "could not tell", never "no". The returned providerRef is the adapter's OWN handle; the
+   * worker stores it namespaced (provider-ref.ts). Hard time bound (S3b gate I-1): the call
+   * settles by itself within ADAPTER_CALL_TIMEOUT_MS (a real adapter bounds every request, see
+   * FragmentHttp) and as soon as `signal` aborts (the caller's deadline), with UNAVAILABLE or a
+   * rejection, never starting another provider request after the abort.
+   */
   validateRecipient(
     product: ProductRef,
     input: Readonly<Record<string, string>>,
+    signal: AbortSignal,
   ): Promise<RecipientCheckResult>;
 
   /** The provider's current price for `quantity` units: what price sync stores as a snapshot. */

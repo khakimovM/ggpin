@@ -1,14 +1,17 @@
-import type { AdapterHealth, RecipientCheckResult } from '@repo/shared';
+import type { AdapterHealth, CostCurrency, RecipientCheckResult } from '@repo/shared';
 import type { FulfillmentAdapter, ProductRef } from '../../adapters/fulfillment-adapter';
 
 // Stand-in adapters for the validate-recipient tests: only `validateRecipient` and `health` are
 // meant to be reached; everything that could move value rejects.
 
 export interface StubAdapterOptions {
+  /** What it charges in (default TON): the router offers an order only to its own currency. */
+  readonly costCurrency?: CostCurrency;
   readonly health?: () => Promise<AdapterHealth>;
   readonly validate?: (
     product: ProductRef,
     input: Readonly<Record<string, string>>,
+    signal: AbortSignal,
   ) => Promise<unknown>;
 }
 
@@ -18,10 +21,12 @@ const notHere = (): Promise<never> =>
 export function stubAdapter(code: string, options: StubAdapterOptions = {}): FulfillmentAdapter {
   return {
     code,
-    validateRecipient: (product, input) =>
+    costCurrency: options.costCurrency ?? 'TON',
+    validateRecipient: (product, input, signal) =>
       (options.validate ?? (() => Promise.resolve({ status: 'NOT_FOUND' })))(
         product,
         input,
+        signal,
       ) as Promise<RecipientCheckResult>,
     quote: notHere,
     prepare: notHere,

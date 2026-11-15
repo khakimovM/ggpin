@@ -5,6 +5,7 @@ import { WorkerConfigModule, type WorkerConfig } from '../../config/config.modul
 import { FULFILL_ADAPTERS, type AdapterRegistry } from '../../fulfillment/fulfill-tokens';
 import { PrismaModule } from '../../infra/prisma/prisma.module';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { RedisModule } from '../../infra/redis/redis.module';
 import { RecipientLookupService } from '../recipient-lookup.service';
 import { RecipientProductRepository } from '../recipient-product.repository';
 import { TG_USERNAME_FORM } from './recipient-test-doubles';
@@ -12,7 +13,8 @@ import { TG_USERNAME_FORM } from './recipient-test-doubles';
 // The production shape of validate-recipient (audit I-3): with NODE_ENV=production (even in a
 // dry run) or FULFILLMENT_DRY_RUN=false the shared AdaptersModule holds NO adapter until the real
 // ones land (S8), so a check is UNAVAILABLE (NO_ADAPTER) — never a simulator's answer — even when
-// the product has a route. Real module wiring; only the database is faked.
+// the product has a route. Real module wiring; only the database is faked (Redis connects lazily
+// and is sent no command: the S7 FragmentHealth is only constructed).
 
 const PRODUCT_ID = 'cmprod0000000000000000001';
 
@@ -24,7 +26,7 @@ async function lookupIn(config: WorkerConfig) {
     },
   };
   const moduleRef = await Test.createTestingModule({
-    imports: [WorkerConfigModule.forRoot(config), PrismaModule, AdaptersModule],
+    imports: [WorkerConfigModule.forRoot(config), PrismaModule, RedisModule, AdaptersModule],
     providers: [
       RecipientLookupService,
       { provide: RecipientProductRepository, useValue: { find: () => Promise.resolve(product) } },

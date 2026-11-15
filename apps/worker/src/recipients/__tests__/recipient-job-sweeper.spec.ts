@@ -62,7 +62,7 @@ describe('RecipientJobSweeper', () => {
     expect(warn).toHaveBeenCalledWith('validate-recipient sweep failed: TypeError');
   });
 
-  it('runs at boot and every 30 s (gone within two retention windows), stops on shutdown', async () => {
+  it('runs at boot and every 30 s (gone at most 60 + 30 s after it finished), stops on shutdown', async () => {
     jest.useFakeTimers();
     const clean = none();
     const { sweeper, xtrim } = build(clean);

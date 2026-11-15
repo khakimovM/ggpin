@@ -22,6 +22,7 @@ import {
 import { WorkerModule } from '../../worker.module';
 import { RecipientProducts, recipientCheckJobId, username } from './recipient-e2e.fixtures';
 import { stubAdapter } from './recipient-test-doubles';
+import { FRAGMENT_UP } from '../../adapters/simulator/__tests__/fragment-health-up';
 
 // The whole WorkerModule (as main.ts boots it, payment crons replaced): RecipientsModule is
 // registered and answers on the real queue, and the worker's real log output (logDestination)
@@ -47,7 +48,7 @@ beforeAll(async () => {
   });
   events = new QueueEvents(QUEUES.VALIDATE_RECIPIENT, { connection });
   await events.waitUntilReady();
-  const registry = new Map(buildAdapterRegistry(env, new SimulatorScript()));
+  const registry = new Map(buildAdapterRegistry(env, new SimulatorScript(), FRAGMENT_UP));
   const thrower = stubAdapter('STUB_THROW', {
     validate: (_product, input) => Promise.reject(new Error(`no user ${input['username'] ?? ''}`)),
   });
@@ -95,7 +96,7 @@ describe('WorkerModule: validate-recipient is registered', () => {
     const found = username('wm_');
     await expect(ask(productId, `@${found.toUpperCase()}`)).resolves.toEqual({
       status: 'FOUND',
-      providerRef: `sim_${found}`,
+      providerRef: `FRAGMENT:sim_${found}`,
       displayName: found,
     });
     await expect(ask(productId, username('notfound_'))).resolves.toEqual({ status: 'NOT_FOUND' });

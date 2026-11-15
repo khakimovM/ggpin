@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { WORKER_HEARTBEAT_KEY } from '@repo/shared';
+import {
+  FRAGMENT_HEALTH_KEY,
+  FRAGMENT_HEALTH_VALUES,
+  WORKER_HEARTBEAT_KEY,
+  type FragmentHealthValue,
+} from '@repo/shared';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
 
@@ -24,5 +29,13 @@ export class HealthRepository {
   // The worker writes this key with a TTL (apps/worker/src/heartbeat); present = alive.
   async workerHeartbeatPresent(): Promise<boolean> {
     return (await this.redis.client.exists(WORKER_HEARTBEAT_KEY)) === 1;
+  }
+
+  // The worker's Fragment keep-alive writes this key with a TTL (phase 5 S7): null when absent
+  // (no session, or the keep-alive stopped), 'down' for anything it would not write.
+  async fragmentHealth(): Promise<FragmentHealthValue | null> {
+    const value = await this.redis.client.get(FRAGMENT_HEALTH_KEY);
+    if (value === null) return null;
+    return FRAGMENT_HEALTH_VALUES.find((known) => known === value) ?? 'down';
   }
 }

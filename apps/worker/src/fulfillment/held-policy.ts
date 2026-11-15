@@ -18,14 +18,17 @@ import type { HoldError } from '../ton/ton-sign-guards';
 //
 // Hold reasons (closed list, OrderStatusReason):
 //   PRICE_ABOVE_MAX  core: the provider asks more than the order's stored maxCostMinor
-//   NO_ADAPTER       core: no enabled, healthy route, or the route is paid in another currency
+//   NO_ADAPTER       core: no enabled, healthy route in the order's cost currency (the router
+//                    filters by currency first, S7 M1), or prepared in another currency
 //   LIMIT_PER_ORDER  core: SUPPLIER_MAX_PER_ORDER_MICRO_USDT; TON module: TON_MAX_PER_ORDER_NANO
 //   LIMIT_DAILY      TON module: TON_MAX_DAILY_NANO (rolling 24 h)
 //   LOW_BALANCE      TON module: balance below amount + fee reserve
 //   ADAPTER_ERROR    core: prepare failed on the last retry, prepare REFUSED, a bad instruction
 //                    (payee outside FRAGMENT_PAY_ADDRESSES included), no PURCHASE, the attempt
 //                    cap, the wallet unusable on the last retry, a refused SENDING row, a job
-//                    failed for good before any attempt; TON module (second layer): payee not in
+//                    failed for good before any attempt, a re-check by another adapter refused
+//                    because the recipient confirmation is older than RECHECK_MAX_AGE_MS (S7 m3,
+//                    an operator decides); TON module (second layer): payee not in
 //                    FRAGMENT_PAY_ADDRESSES
 
 /** The note of a HELD event written by the core before any attempt existed. */

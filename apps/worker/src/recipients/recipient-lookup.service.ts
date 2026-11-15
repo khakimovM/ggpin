@@ -7,6 +7,7 @@ import {
   type RecipientCheckResult,
   type RecipientInputIssue,
 } from '@repo/shared';
+import { namespacedProviderRef } from '../adapters/provider-ref';
 import { AdapterRouter } from '../fulfillment/adapter-router';
 import { Deadline, TIMED_OUT } from './deadline';
 import { RecipientProductRepository } from './recipient-product.repository';
@@ -36,6 +37,16 @@ export type LookupOutcome =
 
 const UNAVAILABLE: RecipientCheckResult = { status: 'UNAVAILABLE' };
 
+/** A FOUND answer with its handle namespaced by the issuing adapter; null when it cannot be. */
+function withIssuer(result: RecipientCheckResult, code: string): RecipientCheckResult | null {
+  if (result.status !== 'FOUND') return result;
+  try {
+    return { ...result, providerRef: namespacedProviderRef(code, result.providerRef) };
+  } catch {
+    return null;
+  }
+}
+
 /** A class name is safe to log; anything else in it is cut away. */
 export function errorNameOf(error: unknown): string {
   const name = error instanceof Error ? error.name : 'non-Error';
@@ -48,6 +59,9 @@ export function errorNameOf(error: unknown): string {
  * input normalized again against the product's own form. Fail-closed: whatever keeps us from a
  * provider's clear answer (no product, inactive, no healthy adapter, out of time, a throw, an
  * answer that does not parse) is UNAVAILABLE, never NOT_FOUND. Never throws.
+ * The provider call gets the deadline's AbortSignal (S7, gate I-1), and a FOUND handle is stored
+ * namespaced by the adapter that issued it (`<CODE>:<handle>`, provider-ref.ts, CR #2), so
+ * fulfillment knows whether the adapter it picks may compare it.
  */
 @Injectable()
 export class RecipientLookupService {
@@ -91,12 +105,16 @@ export class RecipientLookupService {
       if (deadline.remainingMs() < minCallMs) return unavailable('TIMEOUT');
 
       const ref = { id: product.id, slug: product.slug };
-      const answer = await deadline.race(picked.validateRecipient(ref, input.input));
-      if (answer === TIMED_OUT) return unavailable('TIMEOUT');
+      const answer = await deadline.race(
+        picked.validateRecipient(ref, input.input, deadline.signal),
+      );
+      if (answer === TIMED_OUT || deadline.timedOut) return unavailable('TIMEOUT');
       // The adapter's answer is third-party data (a display name of any length or content).
       const parsed = RecipientCheckResultSchema.safeParse(answer);
       if (!parsed.success) return unavailable('BAD_ANSWER');
-      return { kind: 'RESULT', result: parsed.data, reason: 'ANSWERED', adapter };
+      const result = withIssuer(parsed.data, picked.code);
+      if (result === null) return unavailable('BAD_ANSWER');
+      return { kind: 'RESULT', result, reason: 'ANSWERED', adapter };
     } catch (error) {
       return unavailable('ERROR', errorNameOf(error));
     } finally {

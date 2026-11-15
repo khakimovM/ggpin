@@ -99,10 +99,20 @@ function usernameOf(fields: Readonly<Record<string, string>>): string | null {
 }
 
 // The timer is unref'd: a caller that stopped waiting (the validate-recipient deadline) never
-// keeps a test or a stopping worker alive for it.
-function slowAnswer(): Promise<RecipientCheckResult> {
+// keeps a test or a stopping worker alive for it. The caller's signal ends it at once (S7, I-1):
+// an adapter settles when its caller gives up, it does not run on in the background.
+function slowAnswer(signal: AbortSignal | undefined): Promise<RecipientCheckResult> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(UNAVAILABLE), SIM_SLOW_CHECK_MS).unref();
+    const timer = setTimeout(() => resolve(UNAVAILABLE), SIM_SLOW_CHECK_MS);
+    timer.unref();
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        resolve(UNAVAILABLE);
+      },
+      { once: true },
+    );
   });
 }
 
@@ -116,15 +126,18 @@ function slowAnswer(): Promise<RecipientCheckResult> {
 export function simulatedValidation(
   scenario: SimScenario,
   input: Readonly<Record<string, string>>,
+  signal?: AbortSignal,
 ): Promise<RecipientCheckResult> {
-  if (rawUsernameOf(input) === undefined) return Promise.resolve(UNAVAILABLE);
+  if (signal?.aborted === true || rawUsernameOf(input) === undefined) {
+    return Promise.resolve(UNAVAILABLE);
+  }
   const username = usernameOf(input);
   if (scenario === 'NOT_FOUND' || username === null) return Promise.resolve(NOT_FOUND);
   if (scenario === 'UNKNOWN' || scenario === 'TIMEOUT') return Promise.resolve(UNAVAILABLE);
   if (scenario === 'OK' && username.startsWith(SIM_NOT_FOUND_PREFIX)) {
     return Promise.resolve(NOT_FOUND);
   }
-  if (scenario === 'OK' && username.startsWith(SIM_SLOW_CHECK_PREFIX)) return slowAnswer();
+  if (scenario === 'OK' && username.startsWith(SIM_SLOW_CHECK_PREFIX)) return slowAnswer(signal);
   return Promise.resolve({
     status: 'FOUND',
     providerRef: simulatedProviderRef(username),

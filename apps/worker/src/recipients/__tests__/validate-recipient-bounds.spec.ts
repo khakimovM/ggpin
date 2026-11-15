@@ -7,7 +7,7 @@ import {
   ValidateRecipientProcessor,
   WORKER_ERROR_REPEAT_MS,
 } from '../validate-recipient.processor';
-import { FOUND, TIMING, build, job, request } from './processor-harness';
+import { FOUND, STORED_FOUND, TIMING, build, job, request } from './processor-harness';
 import { stubAdapter } from './recipient-test-doubles';
 
 // Limits of validate-recipient that a mutation must not slip past (S3b review CR #1, #3, #6;
@@ -62,14 +62,21 @@ describe('worker error listener (audit L-1)', () => {
 
 describe('deadline edges (audit L-4, CR #6)', () => {
   it('a job timestamp in the future is capped: the slot is held at most wait - margin', async () => {
+    // On a fake clock (S7 fix round 2, item 10): no wall-clock bound that a loaded machine can
+    // break. The cap is wait - margin, not wait and not "timestamp + wait - margin" (S3b re-review
+    // m1): one millisecond before it the lookup still holds the slot, at it the slot is released.
+    jest.useFakeTimers({ now: 5_000_000 });
     const { processor } = build({ adapters: [stubAdapter('FRAGMENT', { validate: hang })] });
-    const started = Date.now();
-    await expect(processor.process(job(request(), started + 60_000))).resolves.toEqual({
-      status: 'UNAVAILABLE',
+    const cap = TIMING.waitMs - TIMING.replyMarginMs;
+    let answer: unknown = 'pending';
+    const run = processor.process(job(request(), Date.now() + 60_000)).then((value) => {
+      answer = value;
     });
-    const took = Date.now() - started;
-    expect(took).toBeGreaterThanOrEqual(TIMING.waitMs - TIMING.replyMarginMs - 20);
-    expect(took).toBeLessThan(TIMING.waitMs + 200);
+    await jest.advanceTimersByTimeAsync(cap - 1);
+    expect(answer).toBe('pending');
+    await jest.advanceTimersByTimeAsync(1);
+    await run;
+    expect(answer).toEqual({ status: 'UNAVAILABLE' });
   });
 
   it('a slow database leaves less than minCallMs: the provider is not asked', async () => {
@@ -100,7 +107,7 @@ describe('deadline edges (audit L-4, CR #6)', () => {
     const now = 5_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(now);
     const edge = now - (TIMING.waitMs - TIMING.replyMarginMs - TIMING.minCallMs);
-    await expect(processor.process(job(request(), edge))).resolves.toEqual(FOUND);
+    await expect(processor.process(job(request(), edge))).resolves.toEqual(STORED_FOUND);
     expect(validate).toHaveBeenCalledTimes(1);
     await expect(processor.process(job(request(), edge - 1))).resolves.toEqual({
       status: 'UNAVAILABLE',
@@ -112,7 +119,7 @@ describe('deadline edges (audit L-4, CR #6)', () => {
   it('the deadline timer is disposed when the lookup ends early', async () => {
     jest.useFakeTimers();
     const { processor } = build();
-    await expect(processor.process(job(request(), Date.now()))).resolves.toEqual(FOUND);
+    await expect(processor.process(job(request(), Date.now()))).resolves.toEqual(STORED_FOUND);
     expect(jest.getTimerCount()).toBe(0);
   });
 });

@@ -1,7 +1,13 @@
+import type { DynamicModule, Type } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { createPrismaClient, type PrismaClient } from '@repo/db';
 import { QUEUES, notifyJobId, parseMajor, type NotifyJob } from '@repo/shared';
 import { Queue } from 'bullmq';
+import { FRAGMENT_PAGE_SCRIPT } from '../../adapters/fragment/fragment-factories';
+import { FragmentKeepaliveProcessor } from '../../adapters/fragment/fragment-keepalive.processor';
+import { FragmentKeepaliveScheduler } from '../../adapters/fragment/fragment-keepalive.scheduler';
+import type { FragmentPageScript } from '../../adapters/fragment/fragment-probe';
+import { FragmentSessionModule } from '../../adapters/fragment/fragment-session.module';
 import {
   SimulatorScript,
   SIMULATED_FRAGMENT_PAY_ADDRESS,
@@ -11,6 +17,9 @@ import { buildE2eEnv } from '../../config/__tests__/e2e-env';
 import { WorkerConfigModule } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { PrismaModule } from '../../infra/prisma/prisma.module';
+import { PriceSyncProcessor } from '../../pricing-sync/price-sync.processor';
+import { PriceSyncScheduler } from '../../pricing-sync/price-sync.scheduler';
+import { PricingSyncModule } from '../../pricing-sync/pricing-sync.module';
 import { QueueModule } from '../../infra/queue/queue.module';
 import { RedisModule } from '../../infra/redis/redis.module';
 import { FakeTonGateway } from '../../ton/fake-ton.gateway';
@@ -97,6 +106,10 @@ export interface BootOptions {
   readonly walletLock?: TonWalletLock;
   /** FRAGMENT_PAY_ADDRESSES of this instance (default: the simulated payee only). */
   readonly payAddresses?: ReadonlySet<string>;
+  /** Adds the Fragment keep-alive (S7) on this synthetic page script; no consumer, no schedule. */
+  readonly fragmentPages?: FragmentPageScript;
+  /** Adds the price sync (FX + cost, simulated sources); no consumer, no schedule (S7 M2). */
+  readonly pricing?: boolean;
 }
 
 export function useFulfillE2e() {
@@ -116,25 +129,23 @@ export function useFulfillE2e() {
   async function boot(options: BootOptions = {}): Promise<FulfillInstance> {
     const tonHooks = new TestSenderHooks();
     const hooks = new TestFulfillHooks();
-    let builder = overrideTon(
-      Test.createTestingModule({
-        imports: [
-          WorkerConfigModule.forRoot(options.env ?? env),
-          PrismaModule,
-          RedisModule,
-          QueueModule,
-          FulfillmentModule,
-        ],
-      }),
-      {
-        wallet: state.wallet,
-        gateway: state.gateway,
-        timing: { ...TEST_TIMING, ...options.timing },
-        hooks: tonHooks,
-        payAddresses: options.payAddresses ?? new Set([SIMULATED_FRAGMENT_PAY_ADDRESS]),
-        ...(options.walletLock === undefined ? {} : { walletLock: options.walletLock }),
-      },
-    )
+    const imports: (Type | DynamicModule)[] = [
+      WorkerConfigModule.forRoot(options.env ?? env),
+      PrismaModule,
+      RedisModule,
+      QueueModule,
+      FulfillmentModule,
+    ];
+    if (options.fragmentPages !== undefined) imports.push(FragmentSessionModule);
+    if (options.pricing === true) imports.push(PricingSyncModule);
+    let builder = overrideTon(Test.createTestingModule({ imports }), {
+      wallet: state.wallet,
+      gateway: state.gateway,
+      timing: { ...TEST_TIMING, ...options.timing },
+      hooks: tonHooks,
+      payAddresses: options.payAddresses ?? new Set([SIMULATED_FRAGMENT_PAY_ADDRESS]),
+      ...(options.walletLock === undefined ? {} : { walletLock: options.walletLock }),
+    })
       .overrideProvider(FULFILL_TIMING)
       .useValue({ ...FULFILL_TEST_TIMING, ...options.fulfillTiming })
       .overrideProvider(FULFILL_HOOKS)
@@ -148,6 +159,22 @@ export function useFulfillE2e() {
     }
     if (options.adapters !== undefined) {
       builder = builder.overrideProvider(FULFILL_ADAPTERS).useValue(options.adapters);
+    }
+    if (options.fragmentPages !== undefined) {
+      builder = builder
+        .overrideProvider(FRAGMENT_PAGE_SCRIPT)
+        .useValue(options.fragmentPages)
+        .overrideProvider(FragmentKeepaliveProcessor)
+        .useValue({})
+        .overrideProvider(FragmentKeepaliveScheduler)
+        .useValue({});
+    }
+    if (options.pricing === true) {
+      builder = builder
+        .overrideProvider(PriceSyncProcessor)
+        .useValue({})
+        .overrideProvider(PriceSyncScheduler)
+        .useValue({});
     }
     if (options.lockStore !== undefined) {
       builder = builder.overrideProvider(ORDER_LOCK_STORE).useValue(options.lockStore);
@@ -231,6 +258,10 @@ export function useFulfillE2e() {
       const at = instances.indexOf(instance);
       if (at >= 0) instances.splice(at, 1);
       await instance.moduleRef.close();
+    },
+    /** An order made elsewhere (fulfill-e2e.quote.ts): its jobs are cleaned up after the suite. */
+    track(orderId: string): void {
+      orderIds.add(orderId);
     },
     async order(options: OrderOptions = {}): Promise<OrderFixture> {
       const fixture = await paidOrder(state.db, options);

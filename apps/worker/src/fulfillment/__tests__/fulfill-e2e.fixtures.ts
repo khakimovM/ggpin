@@ -5,6 +5,7 @@ import {
   RESELLER_STARS_ADAPTER,
   SIMULATED_STAR_MICRO_USDT,
 } from '../../adapters/simulator/simulated-reseller.adapter';
+import { namespacedProviderRef } from '../../adapters/provider-ref';
 import { simulatedProviderRef } from '../../adapters/simulator/simulator-script';
 
 // Orders as POST /orders creates them (S2): born PAID for their quote together with the PURCHASE
@@ -28,8 +29,13 @@ export interface OrderFixture {
 export interface OrderOptions {
   /** The route (and the cost currency): FRAGMENT (TON) by default, RESELLER_STARS (USDT). */
   readonly adapter?: 'FRAGMENT' | typeof RESELLER_STARS_ADAPTER;
-  /** The stored providerRef; default: the simulator's handle of the username. */
+  /**
+   * The stored providerRef; default: the simulator's handle of the username, namespaced by the
+   * quote's adapter as the lookup stores it (S7, CR #2). A plain value is stored as given.
+   */
   readonly providerRef?: string | null;
+  /** The adapter that issued the default providerRef (default: the quote's adapter). */
+  readonly issuer?: string;
   /** Leaves the product without any route. */
   readonly noRoute?: boolean;
   /** The route's adapter when it differs from the one the quote was priced with. */
@@ -53,7 +59,9 @@ export async function paidOrder(
   const adapter = options.adapter ?? 'FRAGMENT';
   const username = `user${t}`.slice(0, 32);
   const providerRef =
-    options.providerRef === undefined ? simulatedProviderRef(username) : options.providerRef;
+    options.providerRef === undefined
+      ? namespacedProviderRef(options.issuer ?? adapter, simulatedProviderRef(username))
+      : options.providerRef;
   const { currency, cost, max } = costOf(adapter);
   const user = await db.user.create({
     data: {

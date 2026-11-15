@@ -1,4 +1,5 @@
 import { RecipientCheckResultSchema } from '@repo/shared';
+import { RecipientLookupService } from '../recipient-lookup.service';
 import { useRecipientE2e } from './recipient-e2e.harness';
 import { username } from './recipient-e2e.fixtures';
 
@@ -15,19 +16,39 @@ function named(prefix: string): string {
   return name;
 }
 
+/** Watches the budget the processor hands to the lookup (calls through unchanged). */
+function budgetsSeen(): () => number[] {
+  const spy = jest.spyOn(RecipientLookupService.prototype, 'check');
+  return () => spy.mock.calls.map((call) => call[1]);
+}
+
+/** The processor's log lines about one product. */
+function lookupLines(productId: string): string[] {
+  return t.capture
+    .records()
+    .map((record) => String(record['msg']))
+    .filter((msg) => msg.startsWith(`validate-recipient ${productId}:`));
+}
+
+afterEach(() => jest.restoreAllMocks());
+
 function ask(productId: string, raw: string, extra: { timestamp?: number } = {}) {
   asked.push(raw);
   return t.ask({ productId, input: { username: raw } }, extra);
 }
 
 describe('validate-recipient: the simulator answers by username shape', () => {
-  it('found: a schema-valid answer, providerRef sim_<normalized>, @Name and name alike', async () => {
+  it('found: a schema-valid answer, providerRef FRAGMENT:sim_<normalized>, @Name and name alike', async () => {
     const productId = await t.products.create();
     const name = username('az_');
     const spelled = `@${name.slice(0, 3).toUpperCase()}${name.slice(3)}`;
     const plain = await ask(productId, name);
     const decorated = await ask(productId, spelled);
-    expect(plain).toEqual({ status: 'FOUND', providerRef: `sim_${name}`, displayName: name });
+    expect(plain).toEqual({
+      status: 'FOUND',
+      providerRef: `FRAGMENT:sim_${name}`,
+      displayName: name,
+    });
     expect(decorated).toEqual(plain);
     expect(RecipientCheckResultSchema.safeParse(plain).success).toBe(true);
   });
@@ -37,17 +58,28 @@ describe('validate-recipient: the simulator answers by username shape', () => {
     await expect(ask(productId, username('notfound_'))).resolves.toEqual({ status: 'NOT_FOUND' });
   });
 
-  it('slowcheck_* -> UNAVAILABLE right at the deadline (job.timestamp + wait - margin)', async () => {
+  it('slowcheck_* -> UNAVAILABLE by the deadline (job.timestamp + wait - margin), not by the provider', async () => {
     const productId = await t.products.create();
+    const budgetsOf = budgetsSeen();
     const job = await t.add({ productId, input: { username: named('slowcheck_') } });
-    await expect(job.waitUntilFinished(t.events, 10_000)).resolves.toEqual({
+    await expect(job.waitUntilFinished(t.events, t.timing.waitMs + 5_000)).resolves.toEqual({
       status: 'UNAVAILABLE',
     });
     const done = await t.jobOf(job.id);
-    const took = (done?.finishedOn ?? 0) - job.timestamp;
-    const deadline = t.timing.waitMs - t.timing.replyMarginMs;
-    expect(took).toBeGreaterThanOrEqual(deadline - 50);
-    expect(took).toBeLessThan(t.timing.waitMs);
+    // No wall-clock upper bound (S7 fix round 3: a GC stall in the shared Jest process is not a
+    // late deadline). The deadline is proved by its formula: the processor read its clock after
+    // the job became active (processedOn), so the budget it gave is at most
+    // `job.timestamp + wait - margin - processedOn` (a budget without the margin is above it).
+    const deadlineAt = job.timestamp + t.timing.waitMs - t.timing.replyMarginMs;
+    const budgets = budgetsOf();
+    expect(budgets).toHaveLength(1);
+    expect(budgets[0]).toBeLessThanOrEqual(deadlineAt - (done?.processedOn ?? Infinity));
+    // The slot was held up to the deadline (a timer never fires early) ...
+    expect(done?.finishedOn ?? 0).toBeGreaterThanOrEqual(deadlineAt - 50);
+    // ... and it was the deadline that ended it, not the provider's own (much later) answer.
+    expect(lookupLines(productId)).toEqual([
+      expect.stringMatching(/: UNAVAILABLE \(TIMEOUT\) adapter=FRAGMENT \d+ ms$/),
+    ]);
     // An answer, not a throw: nothing for BullMQ to retry.
     expect(done?.attemptsMade).toBe(1);
     expect(done?.failedReason).toBeFalsy();
@@ -57,14 +89,21 @@ describe('validate-recipient: the simulator answers by username shape', () => {
     const productId = await t.products.create();
     const slow = await t.add({ productId, input: { username: named('slowcheck_') } });
     const fast = await t.add({ productId, input: { username: named('fast') } });
-    const order: string[] = [];
-    await Promise.all([
-      slow.waitUntilFinished(t.events, 10_000).then(() => order.push('slow')),
-      fast.waitUntilFinished(t.events, 10_000).then(() => order.push('fast')),
+    const wait = t.timing.waitMs + 5_000;
+    const answers: unknown[] = await Promise.all([
+      slow.waitUntilFinished(t.events, wait),
+      fast.waitUntilFinished(t.events, wait),
     ]);
-    expect(order).toEqual(['fast', 'slow']);
+    // Ordered by the jobs' own stamps, not by which wait resolved first (S7 fix round 3): the fast
+    // check STARTED while the slow one was still running (one slot would make it wait for the slow
+    // one's end), and it was answered by the provider within its own deadline (FOUND, ANSWERED).
+    const slowDone = await t.jobOf(slow.id);
     const fastDone = await t.jobOf(fast.id);
-    expect((fastDone?.finishedOn ?? Infinity) - fast.timestamp).toBeLessThan(t.timing.waitMs);
+    expect(fastDone?.processedOn ?? Infinity).toBeLessThan(slowDone?.finishedOn ?? 0);
+    expect(answers[1]).toEqual(expect.objectContaining({ status: 'FOUND' }));
+    expect(lookupLines(productId)).toContainEqual(
+      expect.stringMatching(/: FOUND \(ANSWERED\) adapter=FRAGMENT \d+ ms$/),
+    );
   });
 
   it('the limiter: three instant checks start at least ~1 s apart (the Fragment guard)', async () => {

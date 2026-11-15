@@ -1,3 +1,4 @@
+import type { AdapterHealth } from '@repo/shared';
 import type { FulfillmentAdapter } from '../adapters/fulfillment-adapter';
 import { SimulatedFragmentAdapter } from '../adapters/simulator/simulated-fragment.adapter';
 import { SimulatedResellerAdapter } from '../adapters/simulator/simulated-reseller.adapter';
@@ -15,15 +16,23 @@ export const SIMULATOR_SCRIPT = Symbol('SIMULATOR_SCRIPT');
 // | true                | production | none: every order is HELD (NO_ADAPTER), nothing runs |
 // | false               | any        | none until the real adapters land (S8): NO_ADAPTER   |
 //
-// The simulators' own constructors refuse production and DRY_RUN=false as a second line.
+// The simulators' own constructors refuse production and DRY_RUN=false as a second line. The
+// FRAGMENT simulator's health follows the Fragment session (S7, criterion 5): DOWN once the
+// keep-alive declared the session DEAD, so the router sends Stars to the backup route.
+
+/** Where the FRAGMENT adapter's health comes from (FragmentHealth). */
+export interface FragmentHealthSource {
+  simulatedAdapterHealth(): Promise<AdapterHealth>;
+}
 
 export function buildAdapterRegistry(
   config: WorkerConfig,
   script: SimulatorScript,
+  fragmentHealth: FragmentHealthSource,
 ): AdapterRegistry {
   if (!config.FULFILLMENT_DRY_RUN || config.NODE_ENV === 'production') return new Map();
   const adapters: FulfillmentAdapter[] = [
-    new SimulatedFragmentAdapter(config, script),
+    new SimulatedFragmentAdapter(config, script, () => fragmentHealth.simulatedAdapterHealth()),
     new SimulatedResellerAdapter(config, script),
   ];
   return new Map(adapters.map((adapter) => [adapter.code, adapter]));

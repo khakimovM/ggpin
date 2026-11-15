@@ -1,5 +1,14 @@
 import { UnrecoverableError } from 'bullmq';
-import { FOUND, PRODUCT_ID, TIMING, build, job, request, type Setup } from './processor-harness';
+import {
+  FOUND,
+  PRODUCT_ID,
+  STORED_FOUND,
+  TIMING,
+  build,
+  job,
+  request,
+  type Setup,
+} from './processor-harness';
 import { TG_USERNAME_FORM, stubAdapter } from './recipient-test-doubles';
 
 // The processor and its lookup with the database and the router's routes faked (no Redis, no
@@ -9,10 +18,11 @@ describe('ValidateRecipientProcessor', () => {
   it('FOUND: the adapter gets the input normalized again (no @, lower case)', async () => {
     const validate = jest.fn(() => Promise.resolve(FOUND));
     const { processor, logs } = build({ adapters: [stubAdapter('FRAGMENT', { validate })] });
-    await expect(processor.process(job(request()))).resolves.toEqual(FOUND);
+    await expect(processor.process(job(request()))).resolves.toEqual(STORED_FOUND);
     expect(validate).toHaveBeenCalledWith(
       { id: PRODUCT_ID, slug: 'stars' },
       { username: 'aziz_k' },
+      expect.any(AbortSignal),
     );
     expect(logs.join('\n')).toMatch(/FOUND \(ANSWERED\) adapter=FRAGMENT \d+ ms/);
   });
