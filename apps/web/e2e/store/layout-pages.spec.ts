@@ -10,6 +10,12 @@ import { buyButton, confirmRecipient } from './product-support';
 // profile pages and the modals at 375 / 768 / 1440, in both languages and themes, plus reduced
 // motion. Part 1 (header, footer, banner): layout.spec.ts.
 
+// A day written out with its month name ("7-noyabr", "7 ноября"), whatever the month.
+const UZ_DAY =
+  /\d-(?:yanvar|fevral|mart|aprel|may|iyun|iyul|avgust|sentabr|oktabr|noyabr|dekabr)\b/;
+const RU_DAY =
+  /\d (?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/;
+
 test.describe('the product page', () => {
   for (const lang of ['uz', 'ru'] as const) {
     test(`${lang}: the panel beside the header from 1024 px, under it from 768 px, the buy button in the panel`, async ({
@@ -189,9 +195,8 @@ test.describe('the history', () => {
       await openStoreAccount(page, '/store/orders', { lang });
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       const body = page.locator('main');
-      await expect(
-        body.getByText(lang === 'uz' ? /\d-(?:noyabr|oktabr)/ : /\d (?:ноября|октября)/).first(),
-      ).toBeVisible();
+      // Any month: the rows are dated from today, so the month depends on when the suite runs.
+      await expect(body.getByText(lang === 'uz' ? UZ_DAY : RU_DAY).first()).toBeVisible();
       // A browser without Uzbek calendar data answers "M11 7"; nothing like it may reach the page.
       await expect(body).not.toContainText(/\bM\d{1,2}\b/);
       const orders = TEXT[lang].store.order.status;

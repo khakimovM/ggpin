@@ -11,8 +11,11 @@ import { LINK_FOCUS } from './nav-config';
 import { SiteLangSwitch } from './SiteLangSwitch';
 import { siteLinks } from './site-links';
 
+// The design's links are 32 px high. A long label (ru «Политика конфиденциальности» in a 220 px
+// column at 768) can wrap to two lines: then the link grows with its text (min-h, not h), so the
+// second line never spills over the neighbouring link and takes its taps. One line: unchanged.
 const LINK_CLASS = cn(
-  'relative flex h-8 items-center gap-2 text-sm font-semibold text-foreground-secondary no-underline hover:text-foreground',
+  'relative flex min-h-8 items-center gap-2 text-sm font-semibold text-foreground-secondary no-underline hover:text-foreground',
   HIT_AREA_LINK,
   LINK_FOCUS,
 );

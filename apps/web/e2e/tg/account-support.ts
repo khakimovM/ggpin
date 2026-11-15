@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { installAccountApi, type AccountApiOptions } from '../fixtures/account';
+import { installAccountApi, noonInTashkent, type AccountApiOptions } from '../fixtures/account';
 import { installCatalogApi } from '../fixtures/catalog';
 import { installFakeWebApp } from '../fixtures/telegram';
 import { installTgApi } from '../fixtures/tg-api';
@@ -34,7 +34,11 @@ export async function openAccount(
   });
   await installTgApi(page, [{ kind: 'ok', user: { locale: lang } }]);
   await installCatalogApi(page);
-  const fake = await installAccountApi(page, api);
+  // The page clock starts at noon in Tashkent, the moment the fake rows are dated from, so the day
+  // headings do not depend on the hour the suite runs (time still flows).
+  const now = noonInTashkent();
+  await page.clock.install({ time: now });
+  const fake = await installAccountApi(page, { ...api, now });
   await page.goto(path);
   return fake;
 }
