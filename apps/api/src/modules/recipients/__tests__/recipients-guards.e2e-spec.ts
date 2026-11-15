@@ -40,6 +40,25 @@ describe('POST /recipients/validate guards (e2e)', () => {
     expect(again.status).toBe(200);
   });
 
+  it('a stale slot release leaves the next holder slot alone (compare-and-delete)', async () => {
+    const user = await t.newUser();
+    const key = recipientCheckBusyKey(user.id);
+    const gate = t.gate();
+    const stale = await gate.acquire(user.id);
+    if (!('release' in stale)) throw new Error('first acquire must get the slot');
+    // The stale slot expires (deleted here instead of waiting for its TTL) and B takes it.
+    await t.redis().del(key);
+    const current = await gate.acquire(user.id);
+    if (!('release' in current)) throw new Error('second acquire must get the slot');
+    const held = await t.redis().get(key);
+    expect(held).not.toBeNull();
+    await stale.release();
+    expect(await t.redis().get(key)).toBe(held);
+    expect(await gate.acquire(user.id)).toHaveProperty('retryAfterSec');
+    await current.release();
+    expect(await t.redis().exists(key)).toBe(0);
+  });
+
   it('an UNAVAILABLE answer is not reused: the same question asks again in the same bucket', async () => {
     const user = await t.newUser();
     const name = t.username('unavail_', 1);

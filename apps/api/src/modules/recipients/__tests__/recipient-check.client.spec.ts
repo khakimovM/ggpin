@@ -1,24 +1,18 @@
-import { EventEmitter } from 'node:events';
-import { Logger } from '@nestjs/common';
-import type { RecipientCheckRequest } from '@repo/shared';
-import { QueueEvents, type Queue } from 'bullmq';
-import { AppError } from '../../../common/exceptions/app-error';
-import type { AppConfig } from '../../../config/config.module';
+import type { Queue } from 'bullmq';
 import { RecipientCheckClient, recipientCheckJobId } from '../recipient-check.client';
-
-class FakeEvents extends EventEmitter {
-  readonly waitUntilReady = jest.fn(() => Promise.resolve());
-  readonly close = jest.fn(() => Promise.resolve());
-}
+import {
+  AT,
+  FOUND,
+  ID,
+  REQUEST,
+  WAIT_MS,
+  code,
+  config,
+  tick,
+  useClientHarness,
+} from './recipient-check-client.harness';
 
 jest.mock('bullmq', () => ({ QueueEvents: jest.fn() }));
-const QueueEventsMock = QueueEvents as unknown as jest.Mock<FakeEvents>;
-
-const REQUEST: RecipientCheckRequest = { productId: 'p1', input: { username: 'aziz_k' } };
-const AT = new Date('2026-11-14T10:00:30.000Z');
-const ID = recipientCheckJobId(REQUEST, AT);
-const FOUND = { status: 'FOUND', providerRef: 'ref-1', displayName: 'Aziz' };
-const WAIT_MS = 80;
 
 describe('recipientCheckJobId', () => {
   it('is stable inside one 60 s bucket and changes with the next one', () => {
@@ -38,78 +32,8 @@ describe('recipientCheckJobId', () => {
   });
 });
 
-interface StoredJob {
-  readonly state: string;
-  readonly returnvalue?: unknown;
-}
-
 describe('RecipientCheckClient.check', () => {
-  const config = { REDIS_URL: 'redis://localhost:6379/15' } as AppConfig;
-  const unhandled: unknown[] = [];
-  const warnings: Error[] = [];
-  const onUnhandled = (reason: unknown): void => {
-    unhandled.push(reason);
-  };
-  const onWarning = (warning: Error): void => {
-    warnings.push(warning);
-  };
-  let warn: jest.SpyInstance;
-
-  beforeEach(() => {
-    unhandled.length = 0;
-    warnings.length = 0;
-    process.on('unhandledRejection', onUnhandled);
-    process.on('warning', onWarning);
-    QueueEventsMock.mockImplementation(() => new FakeEvents());
-    warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-  });
-
-  afterEach(async () => {
-    // Let any stray promise settle before checking that none escaped.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    process.off('unhandledRejection', onUnhandled);
-    process.off('warning', onWarning);
-    expect(unhandled).toEqual([]);
-    expect(warnings).toEqual([]);
-    // Fixed text only: never the job id (a hash of the input) nor the input itself.
-    for (const [message] of warn.mock.calls) expect(String(message)).not.toMatch(/vr-|aziz|ref-1/);
-    warn.mockRestore();
-  });
-
-  function setup(options: { job?: StoredJob | Error; addError?: Error } = {}) {
-    const add = jest.fn(() =>
-      options.addError === undefined
-        ? Promise.resolve({ id: ID })
-        : Promise.reject(options.addError),
-    );
-    const stored = options.job ?? { state: 'waiting' };
-    const getJobState = jest.fn(() =>
-      stored instanceof Error ? Promise.reject(stored) : Promise.resolve(stored.state),
-    );
-    const getJob = jest.fn(() =>
-      stored instanceof Error
-        ? Promise.reject(stored)
-        : Promise.resolve({ returnvalue: stored.returnvalue }),
-    );
-    const remove = jest.fn(() => Promise.resolve(1));
-    const queue = { add, getJob, getJobState, remove } as unknown as Queue;
-    const client = new RecipientCheckClient(queue, config, WAIT_MS, { now: () => AT });
-    client.onModuleInit();
-    const events = QueueEventsMock.mock.results.at(-1)?.value as FakeEvents;
-    return { client, add, getJob, remove, events };
-  }
-
-  const code = async (promise: Promise<unknown>): Promise<string> => {
-    try {
-      await promise;
-    } catch (error) {
-      if (error instanceof AppError) return error.code;
-      throw error;
-    }
-    throw new Error('expected a failure');
-  };
-
-  const tick = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+  const { setup } = useClientHarness();
 
   it('adds the job under the bucket id and answers from the completed event', async () => {
     const { client, add, remove, events } = setup();

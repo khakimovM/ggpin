@@ -39,7 +39,19 @@ export class JobWaiters {
     for (const settle of set) settle(outcome);
   }
 
-  /** Number of job ids someone waits for (tests, and a bound check in the client). */
+  /** Settles every waiter of every job id (shutdown) and forgets them. */
+  settleAll(outcome: JobOutcome): void {
+    const all = [...this.waiting.values()];
+    this.waiting.clear();
+    for (const set of all) for (const settle of set) settle(outcome);
+  }
+
+  /** Whether anyone in this process still waits for this job id. */
+  has(jobId: string): boolean {
+    return this.waiting.has(jobId);
+  }
+
+  /** Number of job ids someone waits for (tests: every wait leaves the registry empty). */
   get size(): number {
     return this.waiting.size;
   }

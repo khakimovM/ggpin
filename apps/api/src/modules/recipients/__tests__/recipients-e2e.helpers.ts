@@ -23,6 +23,7 @@ import { TokenCodec } from '../../auth/token-codec';
 import { UsersService } from '../../users/users.service';
 import { quoteLimitKey } from '../../quotes/quotes.service';
 import { RECIPIENT_CHECK_WAIT_MS } from '../recipient-check.client';
+import { RecipientCheckGate } from '../recipient-check.gate';
 import { recipientTokenKey } from '../recipient-token.store';
 import { recipientCheckLimitKey } from '../recipients.service';
 import { buildRecipientFixtures, type RecipientFixtures } from './recipients-e2e.fixtures';
@@ -108,7 +109,14 @@ export function useRecipientsE2e() {
         if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
         return fakeAnswer(username);
       },
-      { connection: { url: env.REDIS_URL, maxRetriesPerRequest: null }, concurrency: 4 },
+      // No stalled-job checker: the stand-in never needs it, and a worker closed right after it
+      // starts (the events-stream test restarts it just before afterAll) can lose the race in
+      // BullMQ's checker loop and leave its 30 s timer behind ("Jest did not exit").
+      {
+        connection: { url: env.REDIS_URL, maxRetriesPerRequest: null },
+        concurrency: 4,
+        skipStalledCheck: true,
+      },
     );
   };
 
@@ -229,6 +237,7 @@ export function useRecipientsE2e() {
     logs,
     stderr: (): string => stderr.join(''),
     redis: () => app.get(RedisService).client,
+    gate: (): RecipientCheckGate => app.get(RecipientCheckGate),
     base,
     processed,
     fixtures: (): RecipientFixtures => {

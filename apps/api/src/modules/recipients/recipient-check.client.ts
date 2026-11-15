@@ -46,6 +46,33 @@ const unavailable = (): AppError => new AppError('RECIPIENT_CHECK_UNAVAILABLE');
 const NO_ANSWER: JobOutcome = { ok: false };
 
 /**
+ * How long shutdown waits for the events connection to close. A healthy close takes
+ * milliseconds; one that never connected never resolves (BullMQ awaits the first connect). 2 s
+ * keeps it well inside the container's stop grace period (docker: 10 s) with room for the other
+ * shutdown hooks (queues, Prisma, HTTP drain), and is far above a healthy close.
+ */
+export const EVENTS_CLOSE_TIMEOUT_MS = 2_000;
+
+// The event loop must not be held open by a timer whose only job is to give up.
+function delay(ms: number): { readonly done: Promise<void>; readonly cancel: () => void } {
+  let timer: NodeJS.Timeout | undefined;
+  const done = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+    timer.unref();
+  });
+  return { done, cancel: () => clearTimeout(timer) };
+}
+
+// Never the value: an ioredis error can quote the connection URL. An AggregateError (Node's
+// multi-address connect, e.g. ECONNREFUSED on ::1 and 127.0.0.1) has an empty message, so it
+// is described by its code or, failing that, its class name.
+function describeError(error: Error): string {
+  if (error.message !== '') return scrubSecretsInText(error.message);
+  const code: unknown = Reflect.get(error, 'code');
+  return typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code) ? code : error.name;
+}
+
+/**
  * Asks the worker (the only process that may reach Fragment or a supplier) who a recipient is,
  * over the `validate-recipient` queue, and waits for the answer. Every way of not getting a
  * usable answer in time (Redis refused the job, no worker, a slow worker, a failed job, an answer
@@ -67,6 +94,7 @@ export class RecipientCheckClient implements OnModuleInit, BeforeApplicationShut
   private readonly waiters = new JobWaiters();
   private events: QueueEvents | undefined;
   private lastError: string | undefined;
+  private closing = false;
 
   constructor(
     @InjectQueue(QUEUES.VALIDATE_RECIPIENT) private readonly queue: Queue,
@@ -88,8 +116,7 @@ export class RecipientCheckClient implements OnModuleInit, BeforeApplicationShut
       this.waiters.settle(jobId, NO_ANSWER);
     });
     events.on('error', (error: Error) => {
-      // ioredis messages can quote the connection URL (password), so scrub before logging.
-      const message = scrubSecretsInText(error.message);
+      const message = describeError(error);
       if (message === this.lastError) return;
       this.lastError = message;
       this.logger.warn(`queue events error: ${message}`);
@@ -97,8 +124,28 @@ export class RecipientCheckClient implements OnModuleInit, BeforeApplicationShut
     this.events = events;
   }
 
+  /**
+   * Every request still waiting answers 503 at once instead of holding the shutdown for its
+   * full wait, and new ones answer 503 without enqueueing. The events connection gets
+   * EVENTS_CLOSE_TIMEOUT_MS to close; one that hangs (Redis never reached) is left behind with a
+   * warning, so the rest of the shutdown runs.
+   */
   async beforeApplicationShutdown(): Promise<void> {
-    await this.events?.close();
+    this.closing = true;
+    const events = this.events;
+    this.events = undefined;
+    this.waiters.settleAll(NO_ANSWER);
+    if (events === undefined) return;
+    const timeout = delay(EVENTS_CLOSE_TIMEOUT_MS);
+    const closed = await Promise.race([
+      events.close().then(
+        () => true,
+        () => true,
+      ),
+      timeout.done.then(() => false),
+    ]);
+    timeout.cancel();
+    if (!closed) this.logger.warn('queue events connection did not close in time');
   }
 
   async check(request: RecipientCheckRequest): Promise<RecipientCheckResult> {
@@ -113,7 +160,8 @@ export class RecipientCheckClient implements OnModuleInit, BeforeApplicationShut
       throw unavailable();
     }
 
-    const outcome = await this.waitFor(events, jobId);
+    // An await above may have let shutdown start: its settleAll ran before this wait existed.
+    const outcome = this.closing ? NO_ANSWER : await this.waitFor(events, jobId);
     if (!outcome.ok) {
       this.logger.warn('recipient check gave no answer in time');
       await this.discard(jobId);
@@ -158,8 +206,10 @@ export class RecipientCheckClient implements OnModuleInit, BeforeApplicationShut
   // Redis error here is "no usable answer", answered as 503 by the caller.
   private async currentOutcome(events: QueueEvents, jobId: string): Promise<JobOutcome | null> {
     try {
-      // The events reader must be listening before the state is read, or an event that lands in
-      // between would be missed (it would then only time out).
+      // The events connection must be up before the state is read, or an event that lands in
+      // between would surely be missed. Ready means connected, not yet reading: on an empty
+      // stream the reader starts at `$` one round trip later, and an event in that gap is
+      // missed too; the wait then ends by its timer (503), never with a wrong answer.
       await events.waitUntilReady();
       // State first, data second: `completed` is final, so the job read after it holds the
       // answer. (Read the other way round, a job that completes between the two calls would be
@@ -179,7 +229,14 @@ export class RecipientCheckClient implements OnModuleInit, BeforeApplicationShut
   // Removes a waiting, delayed, failed, malformed or UNAVAILABLE job. A job a worker is
   // processing is locked and stays (remove answers 0); best effort: the caller already knows
   // what to answer either way.
+  //
+  // Not while another request in THIS process still waits for the same id (it joined later and
+  // its own wait runs on): the last one to leave removes it. A waiter in another API process is
+  // not seen, and its job can still be removed under it; it then answers 503 by its own timer.
+  // The same holds for a request of this process that joins after the check below: the removal
+  // already under way takes the job, and the newcomer answers 503 (fail closed, never a token).
   private async discard(jobId: string): Promise<void> {
+    if (this.waiters.has(jobId)) return;
     try {
       await this.queue.remove(jobId);
     } catch {
