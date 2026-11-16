@@ -251,7 +251,8 @@ export class OrderReviewService {
       return { ...outcome, effects: null };
     }
     const order = await this.repo.detail(p.orderId);
-    const userId = order?.userId ?? '';
+    // Not found (it should exist): null, so no `wallet:` key is deleted for an empty id (L-4).
+    const userId = order?.userId ?? null;
     const refunded = to === 'FAILED';
     const effects = await this.effects.afterResolve({
       orderId: p.orderId,

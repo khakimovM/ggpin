@@ -122,7 +122,7 @@ export class NotifySourcesRepository {
     });
   }
 
-  /** A TON transfer of a wallet alert: seqno, amount, destination and its order's # only. */
+  /** A TON transfer of a wallet alert: seqno, amount, destination, its order's # and status. */
   tonTransfer(id: string) {
     return this.prisma.client.tonTransfer.findUnique({
       where: { id },
@@ -131,7 +131,7 @@ export class NotifySourcesRepository {
         seqno: true,
         amountNanoTon: true,
         toAddress: true,
-        attempt: { select: { order: { select: { id: true, number: true } } } },
+        attempt: { select: { order: { select: { id: true, number: true, status: true } } } },
       },
     });
   }

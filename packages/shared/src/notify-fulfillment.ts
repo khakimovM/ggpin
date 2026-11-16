@@ -16,7 +16,8 @@ export const FULFILLMENT_ALERT_PARAMS = {
   fragmentAdapterDown: [],
   tonLowBalance: ['balance', 'address'],
   tonDailyLimit: ['number', 'ref'],
-  tonSeqnoUnmatched: ['seqno', 'ref'],
+  // D-64 (6), CR m9: the order # and the amount of the transfer whose seqno was used.
+  tonSeqnoUnmatched: ['number', 'seqno', 'amount', 'ref'],
   tonConsumedUnmatched: ['number', 'seqno', 'amount', 'to', 'ref'],
   tonBounced: ['number', 'amount', 'to', 'ref'],
   tonWalletBlocked: ['number', 'seqno', 'amount', 'ref'],
@@ -24,6 +25,9 @@ export const FULFILLMENT_ALERT_PARAMS = {
   tonWitnessConflict: ['number', 'seqno', 'ref'],
   queueStuck: ['number', 'minutes', 'ref'],
   workerDown: ['minutes'],
+  orderNoPurchase: ['number', 'product', 'ref'],
+  reconcileGuardRefused: ['number', 'status', 'ref'],
+  tonLateConfirmed: ['number', 'seqno', 'amount', 'to', 'status', 'ref'],
 } as const satisfies Readonly<Record<FulfillmentAlertKind, readonly string[]>>;
 
 /**
@@ -58,6 +62,10 @@ export const CRITICAL_OWNER_ALERTS: readonly OwnerAlertKind[] = Object.freeze([
   'tonWalletCompromised',
   'queueStuck',
   'workerDown',
+  // Phase 5 S9 (D-64 (6), (7)): a money anomaly, a refused reconcile write, a late-found payout.
+  'orderNoPurchase',
+  'reconcileGuardRefused',
+  'tonLateConfirmed',
 ]);
 
 /**

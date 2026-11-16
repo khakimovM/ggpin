@@ -32,10 +32,11 @@ const UNKNOWN = '?';
  * the raw refId (our own id, from the worker) to look it up.
  *
  * refIds (worker ton-notices, docs/06 "S6 uchun"): needsReview / reviewResolved /
- * heldExpiredRefunded = orderId (an abandoned fulfill-order job: `<orderId>_abandoned`, so the
- * plain id stays free for a later real review); held / tonDailyLimit = `<orderId>_<attemptId>`
- * (a core hold: `<orderId>_<HELD OrderEvent id>`); tonLowBalance = the WalletSnapshot; ton*
- * transfer alerts = the TonTransfer; workerDown = the outage start; queueStuck =
+ * heldExpiredRefunded / orderNoPurchase = orderId (an abandoned fulfill-order job:
+ * `<orderId>_abandoned`, so the plain id stays free for a later real review); held / tonDailyLimit
+ * = `<orderId>_<attemptId>` (a core hold: `<orderId>_<HELD OrderEvent id>`);
+ * reconcileGuardRefused = `<orderId>_<step or transferId>` (phase 5 S9); tonLowBalance = the
+ * WalletSnapshot; ton* transfer alerts (tonLateConfirmed too) = the TonTransfer; workerDown = the outage start; queueStuck =
  * `<jobId>_<first seen ms>` (the job id is the order id, alertRef.queueStuck). Composite refIds are
  * resolved to the order through refIdSubject.
  */
@@ -61,6 +62,8 @@ export class FulfillmentAlertRenderer {
       case 'held':
       case 'reviewResolved':
       case 'tonDailyLimit':
+      case 'orderNoPurchase':
+      case 'reconcileGuardRefused':
         return this.orderParams(refId);
       case 'heldExpiredRefunded':
         return this.orderParams(refId, { withRefund: true });
@@ -74,6 +77,7 @@ export class FulfillmentAlertRenderer {
       case 'tonWalletBlocked':
       case 'tonWalletCompromised':
       case 'tonWitnessConflict':
+      case 'tonLateConfirmed':
         return this.transferParams(refId);
       case 'tonLowBalance': {
         const snapshot = await this.sources.walletSnapshot(refId);
@@ -125,7 +129,10 @@ export class FulfillmentAlertRenderer {
     params['amount'] = tonText(transfer.amountNanoTon);
     params['to'] = shortTonAddress(transfer.toAddress);
     const order = transfer.attempt?.order;
-    if (order !== undefined) params['number'] = String(order.number);
+    if (order !== undefined) {
+      params['number'] = String(order.number);
+      params['status'] = order.status;
+    }
     return params;
   }
 }

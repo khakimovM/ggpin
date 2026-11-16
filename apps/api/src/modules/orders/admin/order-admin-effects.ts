@@ -4,10 +4,11 @@ import {
   NOTIFY_JOB_NAME,
   QUEUES,
   describeErrorForLog,
+  effectsOf,
   notifyJobId,
   notifyJobSchema,
-  type OrderNotifyKind,
-  type OwnerAlertKind,
+  type NotifyJob,
+  type OrderEffectsPlan,
 } from '@repo/shared';
 import type { Queue } from 'bullmq';
 import { FulfillOrderEnqueuer } from '../../../infra/queue/fulfill-order-enqueuer';
@@ -16,7 +17,8 @@ import { WalletCache } from '../../wallet/wallet-cache';
 /** What an owner order action asks for after its transaction committed. */
 export interface ResolvedEffects {
   readonly orderId: string;
-  readonly userId: string;
+  /** The order's owner; null when it could not be read (a replay): no wallet cache is deleted. */
+  readonly userId: string | null;
   readonly to: 'DELIVERED' | 'FAILED';
   /** True when the resolution wrote the REFUND entry (FAILED): cache and customer notice. */
   readonly refunded: boolean;
@@ -43,6 +45,10 @@ export interface EffectsReport {
  * re-run of the command after a crash queues each of them again without doubling any: the audit
  * row written in the transaction is the durable record they are derived from (I-3, see the
  * report). Best effort: a Redis failure is logged with ids only and reported as `false`.
+ *
+ * WHICH jobs, with which ids and in which order, is the shared `effectsOf` rule (phase 5 S9,
+ * order-effects-plan.ts); the worker's audit-effects step rebuilds the same plan from the audit
+ * row, so a restore after a crash between commit and queue repeats these exact ids.
  */
 @Injectable()
 export class OrderAdminEffects {
@@ -55,18 +61,31 @@ export class OrderAdminEffects {
   ) {}
 
   async afterResolve(e: ResolvedEffects): Promise<EffectsReport> {
-    if (e.refunded) await this.cache.invalidate(e.userId);
-    const kind: OrderNotifyKind = e.to === 'DELIVERED' ? 'ORDER_DELIVERED' : 'ORDER_REFUNDED';
-    const customerNotified =
-      e.to === 'DELIVERED' || e.refunded ? await this.notify(kind, e.orderId) : false;
-    // The critical one first: the wallet is in someone else's hands (owner decision A3).
-    const securityAlert =
-      e.compromisedTransferId === null
-        ? null
-        : await this.alert('tonWalletCompromised', e.compromisedTransferId);
-    const reviewResolved = await this.alert('reviewResolved', `${e.orderId}_${e.auditId}`);
-    const adminAction = await this.alert('adminAction', e.auditId);
-    return { customerNotified, adminAction, reviewResolved, securityAlert };
+    const plan = effectsOf({
+      kind: 'REVIEW_RESOLVED',
+      orderId: e.orderId,
+      auditId: e.auditId,
+      userId: e.userId,
+      delivered: e.to === 'DELIVERED',
+      refunded: e.refunded,
+      compromisedTransferId: e.compromisedTransferId,
+      byOperator: true,
+    });
+    const queued = await this.run(plan);
+    const of = (match: (job: NotifyJob) => boolean): boolean | null => {
+      const index = plan.notifyJobs.findIndex(match);
+      return index === -1 ? null : (queued[index] ?? false);
+    };
+    const isAlert = (job: NotifyJob, alert: string): boolean =>
+      job.kind === 'OWNER_ALERT' && job.alert === alert;
+    return {
+      customerNotified:
+        of((job) => job.kind === 'ORDER_DELIVERED' || job.kind === 'ORDER_REFUNDED') ?? false,
+      adminAction: of((job) => isAlert(job, 'adminAction')) ?? false,
+      reviewResolved: of((job) => isAlert(job, 'reviewResolved')) ?? false,
+      // The critical one goes before reviewResolved: the wallet is in someone else's hands (A3).
+      securityAlert: of((job) => isAlert(job, 'tonWalletCompromised')),
+    };
   }
 
   /**
@@ -88,23 +107,31 @@ export class OrderAdminEffects {
     }
   }
 
-  /** The owner's adminAction alert for any other audited action (fx:set). */
-  adminAction(auditId: string): Promise<boolean> {
-    return this.alert('adminAction', auditId);
-  }
-
-  private async notify(kind: OrderNotifyKind, orderId: string): Promise<boolean> {
-    return this.add(notifyJobSchema.parse({ kind, refId: orderId }), `${kind} ${orderId}`);
-  }
-
-  private async alert(alert: OwnerAlertKind, refId: string): Promise<boolean> {
-    return this.add(
-      notifyJobSchema.parse({ kind: 'OWNER_ALERT', alert, refId }),
-      `${alert} ${refId}`,
+  /** The owner's adminAction alert for any other audited action (fx:set, order:retry). */
+  async adminAction(auditId: string): Promise<boolean> {
+    const [queued = false] = await this.run(
+      effectsOf({ kind: 'ADMIN_ACTION', auditId, byOperator: true }),
     );
+    return queued;
   }
 
-  private async add(job: ReturnType<typeof notifyJobSchema.parse>, what: string): Promise<boolean> {
+  /**
+   * The cache first (a REFUND entry was written), then every job in the plan's order, one after
+   * the other. Each job is validated right before its add (an id that cannot be a job id throws,
+   * as before); a Redis failure only makes that job `false`. Requeue is not part of this run: it
+   * has its own outcome (`requeue`).
+   */
+  private async run(plan: OrderEffectsPlan): Promise<boolean[]> {
+    if (plan.invalidateWalletOf !== null) await this.cache.invalidate(plan.invalidateWalletOf);
+    const queued: boolean[] = [];
+    for (const job of plan.notifyJobs) {
+      const valid = notifyJobSchema.parse(job);
+      queued.push(await this.add(valid, describeJob(valid)));
+    }
+    return queued;
+  }
+
+  private async add(job: NotifyJob, what: string): Promise<boolean> {
     try {
       await this.queue.add(NOTIFY_JOB_NAME, job, { jobId: notifyJobId(job) });
       return true;
@@ -113,4 +140,9 @@ export class OrderAdminEffects {
       return false;
     }
   }
+}
+
+/** The log label of a job (ids only): `<alert> <refId>` or `<kind> <orderId>`, as before. */
+function describeJob(job: NotifyJob): string {
+  return job.kind === 'OWNER_ALERT' ? `${job.alert} ${job.refId}` : `${job.kind} ${job.refId}`;
 }

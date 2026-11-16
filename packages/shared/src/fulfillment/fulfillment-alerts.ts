@@ -51,6 +51,17 @@ export const FULFILLMENT_ALERT_KINDS = [
   // crash loop; one alert per stuck episode, docs/07).
   'queueStuck',
   'workerDown',
+  // CRITICAL money anomaly (D-64 (6)): a PAID order's PURCHASE entry is missing or its amount does
+  // not match. Nothing was sent; the order is HELD and stays with the owner (no automatic release,
+  // no refund). refId = the order (one per order).
+  'orderNoPurchase',
+  // CRITICAL (D-64 (6)): a database guard (GG001) refused a write of the order reconciler. Never
+  // retried automatically, never swallowed. refId = `<orderId>_<step or transferId>`.
+  'reconcileGuardRefused',
+  // CRITICAL (D-64 (7)): a transfer counted as "not sent" (EXPIRED or CONSUMED_UNMATCHED) was later
+  // found on the chain: money may have left twice. The order and the ledger are not touched.
+  // refId = the transfer.
+  'tonLateConfirmed',
 ] as const;
 
 export const FulfillmentAlertKindSchema = z.enum(FULFILLMENT_ALERT_KINDS);

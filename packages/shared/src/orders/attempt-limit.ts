@@ -4,6 +4,11 @@
 // `isAttemptHoldError`); the worker still keeps its own copy until it moves here (phase 5 S9), and
 // a test in apps/api (order-admin-rules.spec.ts) reads the worker's source to hold the two together.
 //
+// Phase 5 S9 (D-64 (5), D-66): an OWNER release starts the count again. The release's audit row
+// stores the highest attempt number at that moment (`before.maxAttemptNo`, S9b); only attempts
+// numbered above it (`releasedAfterAttemptNo`) count. An OPERATOR retry or a SYSTEM row resets
+// nothing (Q-20); choosing which row counts is the caller's job.
+//
 // The owner CLI (`order:retry`) uses it to recognise an order the worker would hold again at once:
 // it COUNTS the attempts under the order lock instead of reading the HELD event's note, so a change
 // of the note's wording can never make the check silently pass.
@@ -38,19 +43,81 @@ export function isAttemptHoldError(error: string | null): boolean {
   );
 }
 
-/** How many of the order's attempts count against MAX_SEND_ATTEMPTS. */
-export function sendAttemptsUsed(attempts: readonly { readonly error: string | null }[]): number {
-  return attempts.filter((attempt) => !isAttemptHoldError(attempt.error)).length;
+/** An attempt as the cap reads it: its `error` decides whether it counts. */
+export interface AttemptErrorRow {
+  readonly error: string | null;
+}
+
+/** An attempt with its number, for a count that starts at an operator release. */
+export interface NumberedAttemptRow extends AttemptErrorRow {
+  readonly attemptNo: number;
+}
+
+type MaybeNumberedAttemptRow = AttemptErrorRow & { readonly attemptNo?: number };
+
+function isPositiveInteger(value: number | undefined): value is number {
+  return value !== undefined && Number.isSafeInteger(value) && value > 0;
+}
+
+/**
+ * False only for an attempt the OWNER's release already covered: its `attemptNo` is at most
+ * `releasedAfterAttemptNo` (the highest attempt number when the OWNER released the order, stored
+ * in the release's audit row, D-66). Numbers, not clocks: one writer, no tie at the same ms, no
+ * Invalid Date. Fail-closed: a release, or an attempt number, that is not a positive integer never
+ * hides an attempt: counting too many holds the order sooner, never pays twice.
+ */
+function countsAfterRelease(
+  attempt: MaybeNumberedAttemptRow,
+  releasedAfterAttemptNo: number | null | undefined,
+): boolean {
+  if (releasedAfterAttemptNo === null || releasedAfterAttemptNo === undefined) return true;
+  if (!isPositiveInteger(releasedAfterAttemptNo)) return true;
+  const { attemptNo } = attempt;
+  if (!isPositiveInteger(attemptNo)) return true;
+  return attemptNo > releasedAfterAttemptNo;
+}
+
+/**
+ * How many of the order's attempts count against MAX_SEND_ATTEMPTS. With
+ * `releasedAfterAttemptNo` (the OWNER's latest release) only attempts numbered above it count.
+ */
+export function sendAttemptsUsed(attempts: readonly AttemptErrorRow[]): number;
+export function sendAttemptsUsed(
+  attempts: readonly NumberedAttemptRow[],
+  releasedAfterAttemptNo?: number | null,
+): number;
+export function sendAttemptsUsed(
+  attempts: readonly MaybeNumberedAttemptRow[],
+  releasedAfterAttemptNo?: number | null,
+): number {
+  return countSendAttempts(attempts, releasedAfterAttemptNo);
 }
 
 /**
  * True when the worker's next fresh run would hold the order again before any payout: every send
- * attempt it gets was used (fulfill-fresh.ts, the first check of `run`).
+ * attempt it gets was used (fulfill-fresh.ts, the first check of `run`). With
+ * `releasedAfterAttemptNo`, only the attempts after the OWNER's latest release count.
  */
+export function attemptLimitReached(attempts: readonly AttemptErrorRow[]): boolean;
 export function attemptLimitReached(
-  attempts: readonly { readonly error: string | null }[],
+  attempts: readonly NumberedAttemptRow[],
+  releasedAfterAttemptNo?: number | null,
+): boolean;
+export function attemptLimitReached(
+  attempts: readonly MaybeNumberedAttemptRow[],
+  releasedAfterAttemptNo?: number | null,
 ): boolean {
-  return sendAttemptsUsed(attempts) >= MAX_SEND_ATTEMPTS;
+  return countSendAttempts(attempts, releasedAfterAttemptNo) >= MAX_SEND_ATTEMPTS;
+}
+
+function countSendAttempts(
+  attempts: readonly MaybeNumberedAttemptRow[],
+  releasedAfterAttemptNo: number | null | undefined,
+): number {
+  return attempts.filter(
+    (attempt) =>
+      !isAttemptHoldError(attempt.error) && countsAfterRelease(attempt, releasedAfterAttemptNo),
+  ).length;
 }
 
 /** The note of a HELD event the core writes before any attempt existed (held-policy.ts). */

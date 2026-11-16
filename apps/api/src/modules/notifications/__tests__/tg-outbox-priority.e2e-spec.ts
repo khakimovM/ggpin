@@ -2,18 +2,83 @@ import { randomUUID } from 'node:crypto';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { QUEUE_JOB_DEFAULTS, QUEUES, ownerAlertPriority, tgOutboxJobId } from '@repo/shared';
 import { Queue, Worker } from 'bullmq';
+import type { Redis } from 'ioredis';
 import { ClockModule } from '../../../common/clock/clock.module';
 import { AppConfigModule } from '../../../config/config.module';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import { PrismaModule } from '../../../infra/prisma/prisma.module';
 import { QueueModule } from '../../../infra/queue/queue.module';
 import { RedisModule } from '../../../infra/redis/redis.module';
+import { RedisService } from '../../../infra/redis/redis.service';
 import { NotificationsModule } from '../notifications.module';
-import { TgOutboxConsumer } from '../tg-outbox.consumer';
+import { TgOutboxConsumer, chatGateKey } from '../tg-outbox.consumer';
 import { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
 import { TG_OUTBOX_SENDER } from '../tg-outbox.sender';
 import { TG_OUTBOX_CONCURRENCY, TG_OUTBOX_LIMITER } from '../tg-outbox.worker';
 import { FakeSender, waitFor } from './tg-outbox.e2e-helpers';
+
+/** The per-chat gap the consumer asks Redis for (`SET … PX`): asserted, never lowered. */
+const CHAT_GAP_MS = 1_000;
+
+// The consumer's gate command, run as one script that also returns the key's absolute expiry.
+const SET_NX_WITH_EXPIRY = `if redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2], 'NX') then
+  return redis.call('PEXPIRETIME', KEYS[1])
+end
+return false`;
+
+/** One successful take of a chat's gate. */
+interface GateTake {
+  readonly chatId: string;
+  /** The gate key's absolute expiry, Redis clock, integer ms (`PEXPIRETIME`). */
+  readonly expiresAt: number;
+  /** The PX the consumer asked for. */
+  readonly px: number;
+}
+
+/**
+ * Records every successful `SET tg-outbox:chat:<id> <v> PX <ms> NX` of the consumer (S9a fix
+ * round). The SET runs unchanged, inside a script that also reads the key's expiry: one clock (the
+ * Redis server's) and integers, so the check is exact, with no tolerance. A second NX on the key
+ * succeeds only once the first PX has expired, so consecutive expiries are at least PX apart. The
+ * first idea of this round (host `performance.now()` around the call) mixed two clocks: Redis runs
+ * in a VM, and one run measured 999.6 ms. Any other SET (another shape, another key) goes through
+ * untouched and is not recorded, so a gate taken without NX shows up as missing takes.
+ */
+function recordGateTakes(client: Redis): GateTake[] {
+  const takes: GateTake[] = [];
+  const prefix = chatGateKey('');
+  const original = client.set.bind(client) as unknown as (...args: unknown[]) => Promise<unknown>;
+  const spy = jest.spyOn(client, 'set') as unknown as jest.SpyInstance<Promise<unknown>, unknown[]>;
+  spy.mockImplementation(async (...args: unknown[]) => {
+    const [key, value, unit, px, mode] = args;
+    const gate =
+      args.length === 5 &&
+      typeof key === 'string' &&
+      key.startsWith(prefix) &&
+      typeof value === 'string' &&
+      unit === 'PX' &&
+      typeof px === 'number' &&
+      mode === 'NX';
+    if (!gate) return original(...args);
+    const expiresAt = await client.eval(SET_NX_WITH_EXPIRY, 1, key, value, String(px));
+    if (typeof expiresAt !== 'number') return null; // the gate is closed: SET NX answers null
+    takes.push({ chatId: key.slice(prefix.length), expiresAt, px });
+    return 'OK';
+  });
+  return takes;
+}
+
+/** The chat's takes: one per delivery, each expiring at least the gap after the previous one. */
+function expectGateHeld(takes: readonly GateTake[], chatId: string, deliveries: number): void {
+  const own = takes.filter((t) => t.chatId === chatId).sort((a, b) => a.expiresAt - b.expiresAt);
+  expect(own).toHaveLength(deliveries);
+  for (const take of own) expect(take.px).toBe(CHAT_GAP_MS);
+  for (let i = 1; i < own.length; i += 1) {
+    const prev = own[i - 1]?.expiresAt ?? 0;
+    const next = own[i]?.expiresAt ?? 0;
+    expect(next - prev).toBeGreaterThanOrEqual(CHAT_GAP_MS);
+  }
+}
 
 // Audit M-1 (b): a critical owner alert is sent before a flood of ordinary ones that were queued
 // earlier, and the 1 msg/s per-chat gate still holds. Real Redis (DB 15) and BullMQ, the real
@@ -32,6 +97,7 @@ describe('tg-outbox priority (real Redis + BullMQ, fake transport)', () => {
   const sender = new FakeSender();
   let moduleRef: TestingModule;
   let worker: Worker | undefined;
+  let takes: GateTake[] = [];
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -49,9 +115,11 @@ describe('tg-outbox priority (real Redis + BullMQ, fake transport)', () => {
       .compile();
     moduleRef.useLogger(false);
     await moduleRef.init();
+    takes = recordGateTakes(moduleRef.get(RedisService).client);
   });
 
   afterAll(async () => {
+    jest.restoreAllMocks();
     await worker?.close();
     await queue.obliterate({ force: true });
     await queue.close();
@@ -89,10 +157,8 @@ describe('tg-outbox priority (real Redis + BullMQ, fake transport)', () => {
     // The gated `held` jobs went to delayed and came back in their own (normal) tier: the next
     // deliveries are `held` ones, and the per-chat gate kept them a second apart.
     expect(sent.slice(1, 3).every((s) => s.job.text.startsWith('held '))).toBe(true);
-    for (let i = 1; i < 3; i += 1) {
-      const gap = (sent[i]?.at ?? 0) - (sent[i - 1]?.at ?? 0);
-      expect(gap).toBeGreaterThanOrEqual(950);
-    }
+    // The worker is closed: no take is waiting for its send, so takes and deliveries match.
+    expectGateHeld(takes, owner, sent.length);
   }, 30_000);
 
   // Re-review MAJOR: the flood is ALREADY cycling through the chat gate (delayed, back, gated
@@ -143,12 +209,10 @@ describe('tg-outbox priority (real Redis + BullMQ, fake transport)', () => {
         const at = sent.findIndex((s) => s.job.text === 'critical');
         const heldBetween = sent.slice(0, at).filter((s) => s.at >= queuedAt).length;
         expect(heldBetween).toBeLessThanOrEqual(1);
-        // The gate still holds: consecutive messages to the chat stay about a second apart.
+        // The gate still holds: all 11 messages of this chat went out a full gap apart (each
+        // take happened before its send, and this chat has no other job left).
         await waitFor(() => sender.deliveriesTo(owner).length >= 11, 40_000);
-        const times = sender.deliveriesTo(owner).map((s) => s.at);
-        for (let i = 1; i < times.length; i += 1) {
-          expect((times[i] ?? 0) - (times[i - 1] ?? 0)).toBeGreaterThanOrEqual(950);
-        }
+        expectGateHeld(takes, owner, 11);
       },
       120_000,
     );

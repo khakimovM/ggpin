@@ -160,4 +160,14 @@ describe('OrderReviewService (effects and proofs)', () => {
       expect.objectContaining({ compromisedTransferId: null }),
     );
   });
+
+  it('L-4: a replay whose order cannot be read passes userId null (no wallet key for "")', async () => {
+    const s = setup({ status: 'DELIVERED' });
+    s.repo.detail.mockResolvedValueOnce(detail('DELIVERED')).mockResolvedValue(null);
+    const done = await s.service.resolve(input());
+    expect(done).toMatchObject({ applied: false, auditId: 'audit0' });
+    expect(s.effects.afterResolve).toHaveBeenCalledWith(
+      expect.objectContaining({ auditId: 'audit0', userId: null }),
+    );
+  });
 });

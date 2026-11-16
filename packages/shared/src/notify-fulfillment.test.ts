@@ -30,6 +30,38 @@ describe('FULFILLMENT_ALERT_PARAMS', () => {
   });
 });
 
+describe('phase 5 S9 alerts (D-64 (6), (7))', () => {
+  const S9_KINDS = ['orderNoPurchase', 'reconcileGuardRefused', 'tonLateConfirmed'] as const;
+
+  it('declares the three new kinds with their placeholders', () => {
+    for (const kind of S9_KINDS) expect(FULFILLMENT_ALERT_KINDS).toContain(kind);
+    expect(FULFILLMENT_ALERT_PARAMS.orderNoPurchase).toEqual(['number', 'product', 'ref']);
+    expect(FULFILLMENT_ALERT_PARAMS.reconcileGuardRefused).toEqual(['number', 'status', 'ref']);
+    expect(FULFILLMENT_ALERT_PARAMS.tonLateConfirmed).toEqual([
+      'number',
+      'seqno',
+      'amount',
+      'to',
+      'status',
+      'ref',
+    ]);
+  });
+
+  it('tonSeqnoUnmatched now names the order # and the amount (CR m9)', () => {
+    expect(FULFILLMENT_ALERT_PARAMS.tonSeqnoUnmatched).toEqual([
+      'number',
+      'seqno',
+      'amount',
+      'ref',
+    ]);
+  });
+
+  it.each(S9_KINDS)('%s is critical: it jumps the tg-outbox queue', (kind) => {
+    expect(CRITICAL_OWNER_ALERTS).toContain(kind);
+    expect(ownerAlertPriority(kind)).toBe('critical');
+  });
+});
+
 describe('HELD_REASON_LABEL_KEYS', () => {
   it('labels only real order status reasons', () => {
     for (const reason of Object.keys(HELD_REASON_LABEL_KEYS)) {

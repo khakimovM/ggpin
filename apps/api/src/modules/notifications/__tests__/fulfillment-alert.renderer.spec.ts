@@ -17,7 +17,7 @@ const TRANSFER = {
   seqno: 42,
   amountNanoTon: 1_500_000_000n,
   toAddress: `0:${TO_HEX}`,
-  attempt: { order: { id: 'cmorder1', number: 1042 } },
+  attempt: { order: { id: 'cmorder1', number: 1042, status: 'REFUNDED' } },
 };
 const SNAPSHOT = { id: 'cmsnap1', address: `0:${WALLET_HEX}`, nanoTon: 250_000_000n };
 
@@ -39,6 +39,9 @@ const REF: Readonly<Record<FulfillmentAlertKind, string>> = {
   tonWitnessConflict: 'cmtransfer1',
   queueStuck: `cmorder1_${String(NOW.getTime() - 6 * 60_000)}`,
   workerDown: String(NOW.getTime() - 7 * 60_000),
+  orderNoPurchase: 'cmorder1',
+  reconcileGuardRefused: 'cmorder1_review',
+  tonLateConfirmed: 'cmtransfer1',
 };
 
 function renderer(fake: FakeSources): FulfillmentAlertRenderer {
@@ -141,5 +144,60 @@ describe('fulfillment alert texts (alerts.fulfillment.*)', () => {
   it('workerDown counts the minutes since the last sighting; a bad ref prints ?', async () => {
     expect(await full.render('workerDown', REF.workerDown)).toContain(' 7 daqiqadan');
     expect(await full.render('workerDown', 'bad')).toContain(' ? daqiqadan');
+  });
+
+  describe('phase 5 S9 alerts (D-64 (6), (7))', () => {
+    it('orderNoPurchase: the order #, product and id of the order with no PURCHASE entry', async () => {
+      const text = (await full.render('orderNoPurchase', 'cmorder1')).normalize('NFKC');
+      expect(text).toContain('#1042 buyurtmaning to‘lov (PURCHASE) yozuvi topilmadi');
+      expect(text).toContain('Telegram Stars × 500');
+      expect(text).toMatch(/Buyurtma: cmorder1$/);
+    });
+
+    it('reconcileGuardRefused: the order and its status from `<orderId>_<suffix>`', async () => {
+      const text = await full.render('reconcileGuardRefused', 'cmorder1_review');
+      expect(text).toContain('reconcile #1042 buyurtmani yozolmadi');
+      expect(text).toContain('(holat: HELD)');
+      expect(text).toMatch(/Buyurtma: cmorder1$/);
+      expect(text).not.toContain('cmorder1_review');
+    });
+
+    it('tonLateConfirmed: the transfer (shortened address) and its order status', async () => {
+      const text = (await full.render('tonLateConfirmed', 'cmtransfer1')).normalize('NFKC');
+      expect(text).toContain('#1042 buyurtmaning «yuborilmagan»');
+      expect(text).toContain('(seqno 42, 1.5 TON → 0:ffff...beef)');
+      expect(text).toContain('Buyurtma holati: REFUNDED.');
+      expect(text).toMatch(/Transfer: cmtransfer1$/);
+      expect(text).not.toContain(TO_HEX);
+    });
+
+    it('tonSeqnoUnmatched: the order # and the TON amount of the transfer (CR m9)', async () => {
+      const text = (await full.render('tonSeqnoUnmatched', 'cmtransfer1')).normalize('NFKC');
+      expect(text).toContain('seqno 42 raqami');
+      expect(text).toContain('(#1042 buyurtma, 1.5 TON)');
+      expect(text).toMatch(/Transfer: cmtransfer1$/);
+    });
+
+    it('a transfer without an order prints ? for the order # and status, keeps the rest', async () => {
+      const orphan = renderer({
+        tonTransfer: () => Promise.resolve({ ...TRANSFER, attempt: null }),
+      });
+      const seqno = (await orphan.render('tonSeqnoUnmatched', 'cmtransfer1')).normalize('NFKC');
+      expect(seqno).toContain('(#? buyurtma, 1.5 TON)');
+      const late = await orphan.render('tonLateConfirmed', 'cmtransfer1');
+      expect(late).toContain('#? buyurtmaning');
+      expect(late).toContain('Buyurtma holati: ?.');
+    });
+
+    it.each([
+      ['orderNoPurchase', 'cmorder1', '#? buyurtmaning'],
+      ['reconcileGuardRefused', 'cmorder1_review', '(holat: ?)'],
+      ['tonLateConfirmed', 'cmtransfer1', '(seqno ?, ? → ?)'],
+      ['tonSeqnoUnmatched', 'cmtransfer1', 'seqno ? raqami'],
+    ] as const)('%s: row not found prints ?, the ref stays', async (kind, ref, gap) => {
+      const text = await renderer({}).render(kind, ref);
+      expect(text).toContain(gap);
+      expect(text).toContain(ref === 'cmorder1_review' ? 'Buyurtma: cmorder1' : ref);
+    });
   });
 });
