@@ -89,11 +89,20 @@ describe('I-4: the CLI channel never exists in the HTTP application', () => {
     expect(using(/(?<![A-Za-z])type:\s*'CLI'/)).toEqual([CHANNEL]);
   });
 
-  it('re-review N5: only the owner repository calls resolveNeedsReview (no worker caller yet)', () => {
+  it('re-review N5: only the owner repository and the order reconciler call resolveNeedsReview', () => {
     // A resolver built elsewhere (say `const type = 'CLI' as const`) still has to reach this call.
     // The second scan also catches an aliased import (`resolveNeedsReview as resolve`).
-    const allowed = ['api/src/modules/orders/admin/order-admin.repository.ts'];
+    // Phase 5 S9c (D-64 (2)): the worker's one caller is the order reconciler, and it may vouch
+    // only as itself; no operator resolver (CLI or ADMIN) is ever built in the worker (I-4).
+    const RECONCILER = 'worker/src/reconcile/orders/review-resolver.ts';
+    const allowed = ['api/src/modules/orders/admin/order-admin.repository.ts', RECONCILER];
     expect(using(/\bresolveNeedsReview\s*\(/)).toEqual(allowed);
     expect(using(/\bresolveNeedsReview\b/)).toEqual(allowed);
+    const reconciler = code(join(ROOT, RECONCILER));
+    expect(reconciler.match(/\bresolveNeedsReview\s*\(/g)).toHaveLength(1);
+    expect(reconciler.match(/\bresolver\s*:/g)).toHaveLength(1);
+    expect(reconciler).toMatch(/\bresolver:\s*\{\s*kind:\s*'reconciler'\s*\}/);
+    const operatorResolver = /\bkind:\s*['"`]operator['"`]|\botpVerified\b|\bosUser\b/;
+    expect(using(operatorResolver).filter((file) => file.startsWith('worker/'))).toEqual([]);
   });
 });

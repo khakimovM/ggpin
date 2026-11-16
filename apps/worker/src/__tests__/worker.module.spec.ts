@@ -13,6 +13,7 @@ import { FragmentKeepaliveScheduler } from '../adapters/fragment/fragment-keepal
 import { HeartbeatService } from '../heartbeat/heartbeat.service';
 import { PriceSyncScheduler } from '../pricing-sync/price-sync.scheduler';
 import { TopupExpireScheduler } from '../bank-feed/topup-expire.scheduler';
+import { OrderReconcileScheduler } from '../reconcile/orders/order-reconcile.scheduler';
 import { PaymentReconcileScheduler } from '../reconcile/payment-reconcile.scheduler';
 import { WorkerModule } from '../worker.module';
 import { fakeRedisClient, withFakeInfra, type FakeQueue, type FakeRedisClient } from './fake-infra';
@@ -99,6 +100,14 @@ describe('WorkerModule', () => {
         { pattern: '30 3 * * *', tz: 'Asia/Tashkent' },
         { name: 'bank-text-purge', data: {} },
       ],
+    ]);
+  });
+
+  it('schedules the 10-minute order reconciler under a fixed scheduler id (D-64 (1))', async () => {
+    await moduleRef.init();
+    await moduleRef.get(OrderReconcileScheduler).whenScheduled();
+    expect(queues.get(QUEUES.RECONCILE)?.upsertJobScheduler.mock.calls).toEqual([
+      ['reconcile:orders', { every: 600_000 }, { name: 'orders', data: {} }],
     ]);
   });
 

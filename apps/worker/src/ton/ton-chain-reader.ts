@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TON_NOT_SENT_MARGIN_MS } from '@repo/shared';
-import type { Address, Transaction } from '@ton/core';
+import type { Address } from '@ton/core';
 import { parseTonAddress } from './ton-address';
 import {
   classifyDestination,
@@ -33,22 +33,24 @@ import {
   returnTxOf,
   type OutMessageFacts,
 } from './ton-tx-facts';
-import { NO_PROGRESS, advanceScan, type ScanProgress, type ScanStep } from './ton-tx-scan';
+import { advanceScan, type ScanProgress, type ScanStep } from './ton-tx-scan';
 import { seqnoOf, type W5Data } from './ton-w5';
 import type { TonWallet } from './ton-wallet';
+import { TonWatches, type Watch } from './ton-watches';
 
 // One look at the chain for one stored transfer (plan 6.4 step 6, 6.5). The scan of the wallet's
 // transactions goes on across looks (ton-tx-scan.ts: bounded by time, a few pages per look), and
 // its progress, our transaction once found and the start of the destination's grace are kept per
-// transfer in memory (a restart only reads again). The pure classifier decides; an EXPIRY
-// observation needs the database clock past validUntil + the margin too, the same state seen over
-// a new connection (audit M-1 (b), ton-fresh-look.ts) and the agreement of every expiry witness
-// (D-60 (2)); a witness that sees our message or a moved seqno is a WITNESS_CONFLICT (review m3),
-// and stays one for that transfer in this process (review RR2-4; the write layer bars EXPIRED after
-// it for good, a restart included). Nothing is written here. A gateway failure is a WAIT.
+// transfer in memory (ton-watches.ts). The primary source's scan progress is handed in and read
+// out (resumeScan / scanProgressOf), so TonConfirmService keeps it in the database across a
+// restart (phase 5 S9, L-2); the reader itself never writes. The pure classifier decides; an
+// EXPIRY observation needs the database clock past validUntil + the margin too, the same state
+// seen over a new connection (audit M-1 (b), ton-fresh-look.ts) and the agreement of every expiry
+// witness (D-60 (2)); a witness that sees our message or a moved seqno is a WITNESS_CONFLICT
+// (review m3), and stays one for that transfer in this process (review RR2-4; the write layer bars
+// EXPIRED after it for good, a restart included). Nothing is written here. A gateway failure is a
+// WAIT.
 
-/** Transfers watched at once: one unresolved per wallet, so a few; old ones are dropped first. */
-const MAX_WATCHES = 256;
 const MARGIN_SEC = Math.ceil(TON_NOT_SENT_MARGIN_MS / 1_000);
 
 export function transferFacts(transfer: StoredTransfer): TransferFacts {
@@ -61,26 +63,9 @@ export function transferFacts(transfer: StoredTransfer): TransferFacts {
   };
 }
 
-interface Watch {
-  progress: ScanProgress;
-  /** Our transaction once found: a transaction never changes, so it is not searched again. */
-  found: Transaction | null;
-  /**
-   * The destination's transaction that processed our message, once seen: a node that later
-   * answers "not found" (it lags) cannot turn a seen bounce into "not visible", hence delivered.
-   */
-  destTx: Transaction | null;
-  /** The chain time of the first successful "not found" answer of the destination lookup. */
-  notFoundSince: number | null;
-  /** A witness once contradicted "not sent": no later look offers an EXPIRY again (RR2-4). */
-  conflict: WitnessConflict | null;
-}
-
-type WitnessConflict = Extract<TonVerdict, { readonly kind: 'WITNESS_CONFLICT' }>;
-
 @Injectable()
 export class TonChainReader {
-  private readonly watches = new Map<string, Watch>();
+  private readonly watches = new TonWatches();
   /** Only the wallet's public data is kept, never the signer (audit I-1). */
   readonly #own: W5Data;
 
@@ -107,9 +92,26 @@ export class TonChainReader {
 
   /** The transfer is decided: what was kept for it is dropped. */
   forget(transferId: string): void {
-    for (let source = 0; source <= this.witnesses.length; source += 1) {
-      this.watches.delete(`${String(source)}:${transferId}`);
-    }
+    this.watches.forget(transferId, this.witnesses.length);
+  }
+
+  /** The primary source watches the transfer in this process (a look happened since boot). */
+  isWatching(transferId: string): boolean {
+    return this.watches.peek(0, transferId) !== null;
+  }
+
+  /**
+   * Starts the primary source's watch from a scan progress kept in the database (phase 5 S9, L-2;
+   * ton-scan-cursor.ts has bound it to this transfer and message). Ignored while a watch exists:
+   * what this process has seen itself is never replaced by an older copy.
+   */
+  resumeScan(transferId: string, progress: ScanProgress): void {
+    if (!this.isWatching(transferId)) this.watches.of(0, transferId, progress);
+  }
+
+  /** The primary source's scan progress for the transfer, or null when it is not watched. */
+  scanProgressOf(transferId: string): ScanProgress | null {
+    return this.watches.peek(0, transferId)?.progress ?? null;
   }
 
   private async examineChain(
@@ -264,20 +266,6 @@ export class TonChainReader {
 
   /** The watch of one source (0 = the gateway, 1.. = the witnesses), most recent last. */
   private watchOf(source: number, transferId: string): Watch {
-    const key = `${String(source)}:${transferId}`;
-    const watch = this.watches.get(key) ?? {
-      progress: NO_PROGRESS,
-      found: null,
-      destTx: null,
-      notFoundSince: null,
-      conflict: null,
-    };
-    this.watches.delete(key);
-    this.watches.set(key, watch);
-    for (const old of this.watches.keys()) {
-      if (this.watches.size <= MAX_WATCHES) break;
-      this.watches.delete(old);
-    }
-    return watch;
+    return this.watches.of(source, transferId);
   }
 }

@@ -9,6 +9,7 @@ import { FulfillOrderProcessor } from '../fulfillment/fulfill-order.processor';
 import { TopupExpireProcessor } from '../bank-feed/topup-expire.processor';
 import type { ScheduleRule } from '../infra/queue/boot-scheduler';
 import { PriceSyncProcessor } from '../pricing-sync/price-sync.processor';
+import { OrderReconcileProcessor } from '../reconcile/orders/order-reconcile.processor';
 import { PaymentReconcileProcessor } from '../reconcile/payment-reconcile.processor';
 import { RecipientJobSweeper } from '../recipients/recipient-job-sweeper';
 import { ValidateRecipientProcessor } from '../recipients/validate-recipient.processor';
@@ -61,6 +62,8 @@ export function withFakeInfra(
       .overrideProvider(TopupExpireProcessor)
       .useValue({})
       .overrideProvider(PaymentReconcileProcessor)
+      .useValue({})
+      .overrideProvider(OrderReconcileProcessor)
       .useValue({})
       .overrideProvider(FulfillOrderProcessor)
       .useValue({})

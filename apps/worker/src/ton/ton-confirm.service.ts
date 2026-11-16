@@ -7,8 +7,11 @@ import { tonNoticesFor } from './ton-notices';
 import { TonNotifier } from './ton-notifier';
 import { TonOutcomeRepository, type TonOutcome } from './ton-outcome.repository';
 import { isSettled, isUnresolved, type PayoutState } from './ton-payout';
+import { sameScanCursor } from './ton-scan-cursor';
+import { TonScanCursorRepository } from './ton-scan-cursor.repository';
 import { TON_TIMING, type TonTiming } from './ton-tokens';
-import { TonTransferRepository } from './ton-transfer.repository';
+import { TonTransferRepository, type StoredTransfer } from './ton-transfer.repository';
+import type { ScanProgress } from './ton-tx-scan';
 
 // The confirmation side (plan 6.4 step 6 - 6.5, docs/06): looks at the chain for an unresolved
 // transfer, writes what is PROVEN (TonOutcomeRepository) and tells the customer and the owner
@@ -18,6 +21,10 @@ import { TonTransferRepository } from './ton-transfer.repository';
 // SENDING commit an unknown outcome is a result, never an exception (rules/45 step 7). A message
 // is never broadcast again from here (plan 6.5). An EXPIRY observation is handed to the outcome
 // repository, which keeps the first and writes EXPIRED only on a second, later one (D-60 (2)).
+// The scan's progress of an ORDER transfer is kept in the database between looks (phase 5 S9,
+// L-2): a process that has not watched the transfer yet starts from it, and a look that moved it
+// writes it back. Losing it only costs pages (the scan starts over), so a failure there is logged
+// and the look goes on.
 
 export interface TonCheck {
   /** null: the transfer was already decided before this look. */
@@ -54,6 +61,7 @@ export class TonConfirmService {
     private readonly reader: TonChainReader,
     private readonly notifier: TonNotifier,
     @Inject(TON_TIMING) private readonly timing: TonTiming,
+    private readonly cursors: TonScanCursorRepository,
   ) {}
 
   /** One look at the chain; a decided verdict is written and announced. */
@@ -66,9 +74,13 @@ export class TonConfirmService {
       await this.notifier.send(tonNoticesFor(state));
       return { verdict: null, state };
     }
+    const before = await this.resumeScan(transfer);
     const verdict = await this.reader.examine(transfer, () => this.transfers.databaseNowMs());
     const outcome = outcomeOf(verdict, this.timing);
-    if (outcome === null) return { verdict, state: await this.outcomes.stateOf(transferId) };
+    if (outcome === null) {
+      await this.keepScan(transfer, before);
+      return { verdict, state: await this.outcomes.stateOf(transferId) };
+    }
     const applied = await this.outcomes.apply(transferId, outcome);
     if (applied.applied) {
       this.logger.log(
@@ -76,8 +88,34 @@ export class TonConfirmService {
       );
     }
     if (!isUnresolved(applied.state.transferStatus)) this.reader.forget(transferId);
+    else await this.keepScan(transfer, before);
     await this.notifier.send(tonNoticesFor(applied.state));
     return { verdict, state: applied.state };
+  }
+
+  /** The progress this look starts from: the kept cursor when this process has none yet. */
+  private async resumeScan(transfer: StoredTransfer): Promise<ScanProgress | null> {
+    if (transfer.attemptId !== null && !this.reader.isWatching(transfer.id)) {
+      try {
+        const kept = await this.cursors.load(transfer);
+        if (kept !== null) this.reader.resumeScan(transfer.id, kept);
+      } catch (error) {
+        this.logger.warn(`ton transfer ${transfer.id}: scan cursor not read (${errorKind(error)})`);
+      }
+    }
+    return this.reader.scanProgressOf(transfer.id);
+  }
+
+  /** Writes the scan's progress back when this look moved it (ORDER transfers only). */
+  private async keepScan(transfer: StoredTransfer, before: ScanProgress | null): Promise<void> {
+    if (transfer.attemptId === null) return;
+    const after = this.reader.scanProgressOf(transfer.id);
+    if (after === null || sameScanCursor(transfer, before, after)) return;
+    try {
+      await this.cursors.save(transfer, after);
+    } catch (error) {
+      this.logger.warn(`ton transfer ${transfer.id}: scan cursor not kept (${errorKind(error)})`);
+    }
   }
 
   /**

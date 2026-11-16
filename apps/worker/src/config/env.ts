@@ -10,6 +10,7 @@ import {
 } from './fragment-session-env';
 import { bankFeedKeySource, forgetBankFeedKey, type SecretFileReader } from './secret-file';
 import { apiSecretProblems, isBlank, productionSecretProblems } from './env-security';
+import { workerOrderReconcileShape } from './order-reconcile-env';
 import { simulatedPayeeProblems } from './simulated-payee';
 import { forgetWalletSecrets, walletKeySource, workerTonProblems, workerTonShape } from './ton-env';
 import { TonApiKey } from './ton-api-key';
@@ -66,6 +67,8 @@ const EnvSchema = z.object({
   ...workerTonShape,
   // Phase 5 S7: the Fragment session key file and the keep-alive period (fragment-session-env.ts).
   ...workerFragmentShape,
+  // Phase 5 S9: the order reconciler's period and the HELD age limit (order-reconcile-env.ts).
+  ...workerOrderReconcileShape,
   // Phase 4 (P2P top-ups): matcher knobs, equal to the API's (topup-env.ts).
   ...workerTopupShape,
   // Phase 4: pinned bank-bot ids and the matcher's lock wait (bank-feed-env.ts).

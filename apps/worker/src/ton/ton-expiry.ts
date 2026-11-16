@@ -128,3 +128,41 @@ export function storedFirstObservation(
   const first = { ...stored, lastTxLt: BigInt(stored.lastTxLt) };
   return isFirstFor(first, next) ? first : null;
 }
+
+const StoredPairSchema = z.object({
+  ton: z.object({ expiry: z.object({ first: ObservationSchema, second: ObservationSchema }) }),
+});
+
+/** The transfer an EXPIRED proof is about, as the reconciler reads it (phase 5 S9). */
+export interface ExpiredTransferFacts {
+  readonly id: string;
+  readonly extMsgHash: string;
+  readonly validUntil: Date;
+  readonly seqno: number;
+}
+
+/**
+ * The two observations (D-60 (2)) kept with an EXPIRED transfer's attempt, re-checked as the
+ * outcome repository checked them before it wrote EXPIRED: both about exactly this transfer,
+ * message, validUntil and seqno, the first a valid first for the second (audit L-3) and the second
+ * confirming it `gapSec` later (`confirmsExpiry`). Null when any of it does not hold: the
+ * reconciler then has no TON_NOT_SENT proof to offer (phase 5 S9, D-64 (2)).
+ */
+export function storedExpiryPair(
+  response: unknown,
+  transfer: ExpiredTransferFacts,
+  gapSec: number,
+): { readonly first: ExpiryObservation; readonly second: ExpiryObservation } | null {
+  const parsed = StoredPairSchema.safeParse(response);
+  if (!parsed.success) return null;
+  const { first: storedFirst, second: storedSecond } = parsed.data.ton.expiry;
+  const first = { ...storedFirst, lastTxLt: BigInt(storedFirst.lastTxLt) };
+  const second = { ...storedSecond, lastTxLt: BigInt(storedSecond.lastTxLt) };
+  const bound =
+    second.transferId === transfer.id &&
+    second.extMsgHash === transfer.extMsgHash &&
+    second.validUntilMs === transfer.validUntil.getTime() &&
+    second.seqno === transfer.seqno;
+  if (!bound || !isFirstFor(first, second) || !confirmsExpiry(first, second, gapSec)) return null;
+  return { first, second };
+}

@@ -17,6 +17,7 @@ import type { TonGateway } from './ton-gateway';
 import { TonWalletLock } from './ton-lock';
 import { TonNotifier } from './ton-notifier';
 import { TonOutcomeRepository } from './ton-outcome.repository';
+import { TonScanCursorRepository } from './ton-scan-cursor.repository';
 import { TonSenderService } from './ton-sender.service';
 import { TonSnapshotRepository } from './ton-snapshot.repository';
 import {
@@ -79,6 +80,7 @@ import type { TonWallet } from './ton-wallet';
     },
     TonTransferRepository,
     TonOutcomeRepository,
+    TonScanCursorRepository,
     TonSnapshotRepository,
     TonChainReader,
     TonNotifier,
@@ -87,6 +89,13 @@ import type { TonWallet } from './ton-wallet';
     TonBalanceMonitor,
   ],
   // TON_PAY_ADDRESSES: the fulfillment core checks a prepared payee before SENDING (S4 audit L-4).
-  exports: [TonSenderService, TonConfirmService, TON_HOT_WALLET_ADDRESS, TON_PAY_ADDRESSES],
+  // TON_TIMING: the order reconciler re-checks a stored expiry proof with the same gap (S9).
+  exports: [
+    TonSenderService,
+    TonConfirmService,
+    TON_HOT_WALLET_ADDRESS,
+    TON_PAY_ADDRESSES,
+    TON_TIMING,
+  ],
 })
 export class TonModule {}

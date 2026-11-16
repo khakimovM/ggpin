@@ -15,6 +15,7 @@ import {
 import { TonWalletLock } from '../ton/ton-lock';
 import { TonNotifier, type NoticeQueue } from '../ton/ton-notifier';
 import { TonOutcomeRepository } from '../ton/ton-outcome.repository';
+import { TonScanCursorRepository } from '../ton/ton-scan-cursor.repository';
 import { runTonSelftest, selftestRefusal, SelftestRefusedError } from '../ton/ton-selftest-flow';
 import { TON_WALLET_LOCK_KEY, signLagMaxSec } from '../ton/ton-tokens';
 import { TonSecretError } from '../ton/ton-mnemonic';
@@ -56,6 +57,8 @@ async function main(): Promise<number> {
     new TonChainReader(gateway, wallet, timing, tonExpiryWitnessesOf()),
     new TonNotifier(printNotices),
     timing,
+    // SELFTEST transfers have no attempt: their scan progress stays in this process's memory.
+    new TonScanCursorRepository(holder),
   );
   try {
     const report = await runTonSelftest({

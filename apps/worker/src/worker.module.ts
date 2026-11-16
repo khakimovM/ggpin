@@ -12,6 +12,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { PricingSyncModule } from './pricing-sync/pricing-sync.module';
+import { OrderReconcileModule } from './reconcile/orders/order-reconcile.module';
 import { ReconcileModule } from './reconcile/reconcile.module';
 import { RecipientsModule } from './recipients/recipients.module';
 import { TonModule } from './ton/ton.module';
@@ -51,6 +52,8 @@ export class WorkerModule {
         RecipientsModule,
         // Phase 5 S7: the Fragment session keep-alive (dry run: a synthetic page, no cookie read).
         FragmentSessionModule,
+        // Phase 5 S9: the order reconciler (`reconcile:orders`; never signs, never pays).
+        OrderReconcileModule,
       ],
     };
   }
