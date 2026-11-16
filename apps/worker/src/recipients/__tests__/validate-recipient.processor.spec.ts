@@ -65,12 +65,30 @@ describe('ValidateRecipientProcessor', () => {
     ['no product', { product: null }, 'NO_PRODUCT'],
     [
       'an inactive product',
-      { product: { id: PRODUCT_ID, slug: 's', isActive: false, inputSchema: TG_USERNAME_FORM } },
+      {
+        product: {
+          id: PRODUCT_ID,
+          slug: 's',
+          isActive: false,
+          allowCustomQty: true,
+          skus: [],
+          inputSchema: TG_USERNAME_FORM,
+        },
+      },
       'INACTIVE',
     ],
     [
       'a broken product form',
-      { product: { id: PRODUCT_ID, slug: 's', isActive: true, inputSchema: [{ key: 1 }] } },
+      {
+        product: {
+          id: PRODUCT_ID,
+          slug: 's',
+          isActive: true,
+          allowCustomQty: true,
+          skus: [],
+          inputSchema: [{ key: 1 }],
+        },
+      },
       'BAD_PRODUCT_INPUT',
     ],
     ['no route', { routes: [] }, 'NO_ADAPTER'],

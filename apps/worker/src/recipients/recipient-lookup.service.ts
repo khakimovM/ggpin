@@ -55,7 +55,8 @@ export function errorNameOf(error: unknown): string {
 
 /**
  * Who is this recipient (docs/04 `POST /recipients/validate`, docs/06 S3b)? Product -> adapter by
- * the router (enabled ProductRoute rows by priority, health OK) -> `validateRecipient` with the
+ * the router (enabled ProductRoute rows by priority, health OK, and only adapters charging in the
+ * currency of the product's newest fresh cost snapshot, S9g) -> `validateRecipient` with the
  * input normalized again against the product's own form. Fail-closed: whatever keeps us from a
  * provider's clear answer (no product, inactive, no healthy adapter, out of time, a throw, an
  * answer that does not parse) is UNAVAILABLE, never NOT_FOUND. Never throws.
@@ -98,7 +99,21 @@ export class RecipientLookupService {
       const input = normalizeRecipientInput(fields.data, request.input);
       if (!input.ok) return { kind: 'INVALID_INPUT', issues: input.issues.map((i) => i.code) };
 
-      const picked = await deadline.race(this.router.pick(product.id, null));
+      // D-62 (4), S9g: the adapter must be one that can fulfil the order this check leads to,
+      // i.e. one charging in the currency new quotes are priced in now. A handle of another
+      // currency's adapter would put a RESELLER: handle on a TON-priced order (HELD NO_ADAPTER).
+      // No healthy adapter in that currency -> UNAVAILABLE (503): never another currency's
+      // adapter (Q-9). Packs priced in different currencies -> UNAVAILABLE too: no one adapter fits
+      // whichever pack is bought (fail closed). No fresh snapshot -> the API quotes nothing anyway:
+      // any currency, as before.
+      const pricedBy = await deadline.race(this.products.pricedBy(product, new Date()));
+      if (pricedBy === TIMED_OUT) return unavailable('TIMEOUT');
+      if (pricedBy !== null && pricedBy.kind === 'mixed') return unavailable('NO_ADAPTER');
+      const picked = await deadline.race(
+        pricedBy === null
+          ? this.router.pick(product.id, null)
+          : this.router.pick(product.id, null, pricedBy.adapter, pricedBy.currency),
+      );
       if (picked === TIMED_OUT) return unavailable('TIMEOUT');
       if (picked === null) return unavailable('NO_ADAPTER');
       adapter = picked.code;

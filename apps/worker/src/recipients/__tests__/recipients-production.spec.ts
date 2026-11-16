@@ -19,7 +19,14 @@ import { TG_USERNAME_FORM } from './recipient-test-doubles';
 const PRODUCT_ID = 'cmprod0000000000000000001';
 
 async function lookupIn(config: WorkerConfig) {
-  const product = { id: PRODUCT_ID, slug: 'stars', isActive: true, inputSchema: TG_USERNAME_FORM };
+  const product = {
+    id: PRODUCT_ID,
+    slug: 'stars',
+    isActive: true,
+    allowCustomQty: true,
+    inputSchema: TG_USERNAME_FORM,
+    skus: [],
+  };
   const prisma = {
     client: {
       productRoute: { findMany: () => Promise.resolve([{ adapter: 'FRAGMENT' }]) },
@@ -29,7 +36,10 @@ async function lookupIn(config: WorkerConfig) {
     imports: [WorkerConfigModule.forRoot(config), PrismaModule, RedisModule, AdaptersModule],
     providers: [
       RecipientLookupService,
-      { provide: RecipientProductRepository, useValue: { find: () => Promise.resolve(product) } },
+      {
+        provide: RecipientProductRepository,
+        useValue: { find: () => Promise.resolve(product), pricedBy: () => Promise.resolve(null) },
+      },
     ],
   })
     .overrideProvider(PrismaService)

@@ -19,9 +19,18 @@ const MIN_CALL = 50;
 const REQUEST: RecipientCheckRequest = { productId: PRODUCT_ID, input: { username: 'aziz_k' } };
 
 function setup(adapters: readonly FulfillmentAdapter[]) {
-  const product = { id: PRODUCT_ID, slug: 'stars', isActive: true, inputSchema: TG_USERNAME_FORM };
+  const product = {
+    id: PRODUCT_ID,
+    slug: 'stars',
+    isActive: true,
+    allowCustomQty: true,
+    inputSchema: TG_USERNAME_FORM,
+    skus: [],
+  };
+  // No fresh cost snapshot: any currency (the snapshot rule: recipient-lookup-currency.spec.ts).
   const products = {
     find: jest.fn(() => Promise.resolve(product)),
+    pricedBy: jest.fn(() => Promise.resolve(null)),
   } as unknown as RecipientProductRepository;
   const findMany = jest.fn(() => Promise.resolve([{ adapter: 'FRAGMENT' }]));
   const prisma = { client: { productRoute: { findMany } } } as unknown as PrismaService;

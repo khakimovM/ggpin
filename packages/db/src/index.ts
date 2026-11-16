@@ -14,6 +14,12 @@ export { hasManualCredit, manualCreditsSince } from './payments/manual-credits.j
 export type { CreditSum, ManualCredits } from './payments/manual-credits.js';
 export { usedTopupBaseSince } from './payments/topup-usage.js';
 export {
+  costSnapshotKey,
+  freshCostSnapshotWindow,
+  latestCostSnapshot,
+  latestCostSnapshotsBetween,
+} from './pricing/cost-snapshots.js';
+export {
   hasOpenSecurityPause,
   liveCardsWithoutSecurityPause,
   lockBankFeedPause,

@@ -5,6 +5,7 @@ import type { PrismaService } from '../../infra/prisma/prisma.service';
 import type { RecipientCheckTiming } from '../recipient-check.config';
 import { RecipientLookupService } from '../recipient-lookup.service';
 import type {
+  ProductPricedBy,
   RecipientCheckProduct,
   RecipientProductRepository,
 } from '../recipient-product.repository';
@@ -34,15 +35,25 @@ export interface Setup {
   readonly product?: RecipientCheckProduct | null;
   readonly routes?: readonly string[];
   readonly adapters?: readonly FulfillmentAdapter[];
+  /** The newest fresh cost snapshot (S9g); default none: any currency, as before S9g. */
+  readonly pricedBy?: ProductPricedBy | null;
 }
 
 export function build(setup: Setup = {}) {
   const product =
     setup.product === undefined
-      ? { id: PRODUCT_ID, slug: 'stars', isActive: true, inputSchema: TG_USERNAME_FORM }
+      ? {
+          id: PRODUCT_ID,
+          slug: 'stars',
+          isActive: true,
+          allowCustomQty: true,
+          inputSchema: TG_USERNAME_FORM,
+          skus: [],
+        }
       : setup.product;
   const find = jest.fn(() => Promise.resolve(product));
-  const products = { find } as unknown as RecipientProductRepository;
+  const pricedBy = jest.fn(() => Promise.resolve(setup.pricedBy ?? null));
+  const products = { find, pricedBy } as unknown as RecipientProductRepository;
   const routes = setup.routes ?? ['FRAGMENT'];
   const findMany = jest.fn(() => Promise.resolve(routes.map((adapter) => ({ adapter }))));
   const prisma = { client: { productRoute: { findMany } } } as unknown as PrismaService;

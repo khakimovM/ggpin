@@ -31,6 +31,8 @@ export interface ProductOptions {
   readonly adapter?: string | null;
   readonly isActive?: boolean;
   readonly inputSchema?: Prisma.InputJsonValue;
+  /** A custom-quantity product (Stars, 50..10 000): priced from a product-level snapshot. */
+  readonly allowCustomQty?: boolean;
 }
 
 export class RecipientProducts {
@@ -56,6 +58,9 @@ export class RecipientProducts {
         deliveryType: 'TG_USERNAME',
         inputSchema: options.inputSchema ?? [...TG_USERNAME_FORM],
         isActive: options.isActive ?? true,
+        ...(options.allowCustomQty === true
+          ? { allowCustomQty: true, minQty: 50, maxQty: 10_000 }
+          : {}),
       },
     });
     this.productIds.push(product.id);
@@ -68,6 +73,9 @@ export class RecipientProducts {
 
   async removeAll(): Promise<void> {
     const db = this.db();
+    // Cost snapshots and packs a suite wrote for its products (S9g); nothing references them.
+    await db.costSnapshot.deleteMany({ where: { productId: { in: this.productIds } } });
+    await db.sku.deleteMany({ where: { productId: { in: this.productIds } } });
     await db.productRoute.deleteMany({ where: { productId: { in: this.productIds } } });
     await db.product.deleteMany({ where: { id: { in: this.productIds } } });
     await db.category.deleteMany({ where: { id: { in: this.categoryIds } } });

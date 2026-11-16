@@ -11,7 +11,11 @@ import {
 import { simulatedProviderRef } from '../../adapters/simulator/simulator-script';
 import { CostSyncService } from '../../pricing-sync/cost-sync.service';
 import { FxSyncService } from '../../pricing-sync/fx-sync.service';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 import { guardNetwork } from '../../recipients/__tests__/net-guard';
+import { TG_USERNAME_FORM } from '../../recipients/__tests__/recipient-test-doubles';
+import { RecipientLookupService } from '../../recipients/recipient-lookup.service';
+import { RecipientProductRepository } from '../../recipients/recipient-product.repository';
 import { AdapterRouter } from '../adapter-router';
 import { RECHECKED_REF_KEY } from '../fulfill-recipient';
 import { useFailoverKit } from './fragment-failover.kit';
@@ -22,8 +26,10 @@ import { orderAtCurrentPrice, starsProduct } from './fulfill-e2e.quote';
 // Acceptance criterion 5 (plan §1, phase 5 S7, review M1/M2): the dry-run keep-alive sees a
 // logged-out (synthetic) Fragment page twice -> the session is DEAD and the owner gets ONE
 // fragmentSessionDead -> the cost sync prices the product from its healthy backup (USDT) -> a new
-// order at that price is delivered by RESELLER_STARS. Orders priced in TON wait (HELD) instead of
-// going to a provider that cannot pay them. Real Postgres + Redis DB 15; nothing leaves the
+// order at that price is delivered by RESELLER_STARS. In the switch-over window (Fragment dead, the
+// newest price still TON) the recipient check answers UNAVAILABLE (the API: 503), so no new order
+// can be priced in TON and carry a reseller's handle (S9g, D-62 (4)). Orders priced in TON BEFORE
+// the death wait (HELD) instead of going to a provider that cannot pay them. Real Postgres + Redis DB 15; nothing leaves the
 // process (network guard, audit I-6). Orders that already have an attempt:
 // fragment-failover-attempts.e2e-spec.ts.
 
@@ -73,12 +79,25 @@ const newestSnapshot = (productId: string) =>
   });
 
 describe('criterion 5 end to end: Fragment dies, the backup prices and delivers', () => {
-  it('DEAD + one alert -> cost sync prices RESELLER_STARS (USDT) -> a new order -> DELIVERED', async () => {
+  it('DEAD + one alert -> window: check 503 -> cost sync prices RESELLER_STARS (USDT) -> order -> DELIVERED', async () => {
     const logs = captureLogs();
+    const { validate } = resellerSpies();
     const instance = await kit.boot({ pricing: true });
     const product = await starsProduct(t.db);
+    // The Stars form, so the recipient check can read a username.
+    await t.db.product.update({
+      where: { id: product.id },
+      data: { inputSchema: [...TG_USERNAME_FORM] },
+    });
     try {
       const router = instance.moduleRef.get(AdapterRouter);
+      // The validate-recipient consumer's lookup, on this worker's router and database.
+      const lookup = new RecipientLookupService(
+        new RecipientProductRepository(instance.moduleRef.get(PrismaService)),
+        router,
+      );
+      const username = `fo${Date.now().toString(36)}`;
+      const check = () => lookup.check({ productId: product.id, input: { username } }, 5_000, 100);
       const costSync = instance.moduleRef.get(CostSyncService);
       await instance.moduleRef.get(FxSyncService).run(new Date());
       // Alive: priced from Fragment, in TON.
@@ -94,6 +113,17 @@ describe('criterion 5 end to end: Fragment dies, the backup prices and delivers'
       expect(alerts[0]).toMatchObject({ kind: 'OWNER_ALERT', alert: 'fragmentSessionDead' });
       await expect(kit.redis.get('fragment:health')).resolves.toBe('down');
 
+      // The switch-over window: Fragment is dead but the newest price is still Fragment's (TON).
+      // The check refuses (UNAVAILABLE -> the API's 503) instead of handing out a reseller's
+      // handle that a TON-priced order could not use (HELD NO_ADAPTER): no such order can arise.
+      await expect(check()).resolves.toEqual({
+        kind: 'RESULT',
+        result: { status: 'UNAVAILABLE' },
+        reason: 'NO_ADAPTER',
+        adapter: null,
+      });
+      expect(validate).not.toHaveBeenCalled();
+
       // The next cost sync prices from the first HEALTHY route: the backup, in USDT.
       await costSync.run();
       await expect(newestSnapshot(product.id)).resolves.toEqual({
@@ -101,24 +131,26 @@ describe('criterion 5 end to end: Fragment dies, the backup prices and delivers'
         currency: 'USDT',
       });
 
-      // The recipient check (what RecipientLookupService does: the router, then the adapter).
-      const picked = await router.pick(product.id, null);
-      expect(picked?.code).toBe(RESELLER_STARS_ADAPTER);
-      if (picked === null) throw new Error('no adapter');
-      const username = `fo${Date.now().toString(36)}`;
-      const check = await picked.validateRecipient(
-        product,
-        { username },
-        new AbortController().signal,
+      // Priced in USDT now: the check asks the backup, which issues the handle.
+      const answer = await check();
+      expect(answer).toMatchObject({
+        kind: 'RESULT',
+        reason: 'ANSWERED',
+        adapter: RESELLER_STARS_ADAPTER,
+      });
+      expect(validate).toHaveBeenCalledTimes(1);
+      if (answer.kind !== 'RESULT' || answer.result.status !== 'FOUND') throw new Error('no FOUND');
+      const found = answer.result;
+      expect(found.providerRef).toBe(
+        namespacedProviderRef(RESELLER_STARS_ADAPTER, simulatedProviderRef(username)),
       );
-      if (check.status !== 'FOUND') throw new Error(`recipient ${check.status}`);
 
       // The quote and the order at the current price (fulfill-e2e.quote.ts says what is assumed).
       const order = await orderAtCurrentPrice(t.db, {
         productId: product.id,
         quantity: STARS,
-        recipient: { username, displayName: check.displayName },
-        providerRef: namespacedProviderRef(picked.code, check.providerRef),
+        recipient: { username, displayName: found.displayName },
+        providerRef: found.providerRef,
       });
       t.track(order.orderId);
       expect(order).toMatchObject({
