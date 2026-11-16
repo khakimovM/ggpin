@@ -90,6 +90,7 @@ export async function heldOrder(
 /**
  * A HELD order whose attempts were failed with these `error`s first (each born SENDING while the
  * order was PROCESSING, then FAILED, as the worker leaves them), held with the worker's note.
+ * `firstAttemptNo`: the number of the first one (an order released before has older attempts).
  */
 export async function heldAfterAttempts(
   db: Db,
@@ -98,13 +99,14 @@ export async function heldAfterAttempts(
   errors: readonly string[],
   note: string,
   reason: OrderStatusReason = 'ADAPTER_ERROR',
+  firstAttemptNo = 1,
 ): Promise<string> {
   const orderId = await processingOrder(db, catalog, userId);
   for (const [index, error] of errors.entries()) {
     const attempt = await db.fulfillmentAttempt.create({
       data: {
         orderId,
-        attemptNo: index + 1,
+        attemptNo: firstAttemptNo + index,
         adapter: 'FRAGMENT',
         status: 'SENDING',
         request: {},

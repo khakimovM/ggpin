@@ -275,6 +275,10 @@ export function useFulfillE2e() {
     async hasJob(job: NotifyJob): Promise<boolean> {
       return (await state.notify.getJob(notifyJobId(job))) !== undefined;
     },
+    /** When the notify job was queued (ms), or null: an unchanged value proves a dedupe. */
+    async jobQueuedAt(job: NotifyJob): Promise<number | null> {
+      return (await state.notify.getJob(notifyJobId(job)))?.timestamp ?? null;
+    },
     async dropJob(job: NotifyJob): Promise<void> {
       await (await state.notify.getJob(notifyJobId(job)))?.remove();
     },

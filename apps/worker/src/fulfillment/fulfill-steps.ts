@@ -15,16 +15,11 @@ import { TonAddressError, parseOrderPayoutAddress, rawAddress } from '../ton/ton
 // Pure decisions of the fulfillment core (plan 6.6), kept apart from the I/O so each rule has a
 // unit test of its own.
 
-/**
- * How many send attempts one order gets before it is HELD (ADAPTER_ERROR) instead of trying again.
- * A new attempt is made only after the previous one was PROVEN not sent (a TON transfer EXPIRED,
- * a supplier's NOT_SENT with proof). Two, not more: until the second, independent chain source
- * exists (D-60 (2), S12) an EXPIRED verdict rests on one provider, and a false one would pay twice.
- * One retry covers the usual case (a message that missed its block); a second "not sent" in a row
- * says something is wrong, and a human or the reconciler (release or, after HELD_MAX_AGE, refund,
- * D-56 (4)) decides.
- */
-export const MAX_SEND_ATTEMPTS = 2;
+// The attempt cap (MAX_SEND_ATTEMPTS, which attempts count, the OWNER's release) is the shared rule
+// of packages/shared orders/attempt-limit.ts (phase 5 S9b). Two attempts, not more: until the
+// second, independent chain source exists (D-60 (2), S12) an EXPIRED verdict rests on one provider,
+// and a false one would pay twice. A second "not sent" in a row says something is wrong, and a
+// human or the reconciler (refund after HELD_MAX_AGE, D-56 (4)) decides.
 
 /** The TON payment instruction an adapter hands over in `PreparedFulfillment.request.ton`. */
 export const TonInstructionSchema = z.strictObject({

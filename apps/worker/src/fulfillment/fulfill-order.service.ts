@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { describeErrorForLog, type OrderStatus } from '@repo/shared';
+import { MAX_SEND_ATTEMPTS, describeErrorForLog, type OrderStatus } from '@repo/shared';
 import type { LockStore } from '../bank-feed/client/leader-lock';
 import { AdapterRouter } from './adapter-router';
 import { AttemptsRepository, type AttemptRow } from './attempts.repository';
@@ -8,7 +8,7 @@ import { attemptProviderRef } from './fulfill-recipient';
 import { FulfillReplay } from './fulfill-replay';
 import { FulfillReviewer } from './fulfill-review';
 import { FulfillSettler, type SettleOutcome } from './fulfill-settle';
-import { MAX_SEND_ATTEMPTS, RetryLaterError, isLiveAttempt, isTonPaid } from './fulfill-steps';
+import { RetryLaterError, isLiveAttempt, isTonPaid } from './fulfill-steps';
 import { FulfillSupplierRunner } from './fulfill-supplier.runner';
 import { FulfillTonRunner, type RunStep } from './fulfill-ton.runner';
 import { FULFILL_TIMING, ORDER_LOCK_STORE, type FulfillTiming } from './fulfill-tokens';

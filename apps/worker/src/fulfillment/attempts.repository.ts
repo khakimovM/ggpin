@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { transitionOrder, type AttemptStatus, type Prisma, type Tx } from '@repo/db';
-import type { OrderStatusReason } from '@repo/shared';
+import { isAttemptHoldError, type OrderStatusReason } from '@repo/shared';
 import { isUniqueViolation } from '../bank-feed/prisma-errors';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { isGuardRefusal } from '../ton/ton-db-errors';
 import { lockAttempt, lockOrder } from '../ton/ton-row-locks';
 import { storedObject } from './attempt-json';
-import { isAttemptHoldError } from './held-policy';
 
 // FulfillmentAttempt writes of the core. Each runs in ONE transaction under the row locks of
 // docs/06 "Qulf tartibi" (order -> attempt), re-checks what it relies on, and lets the database

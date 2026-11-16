@@ -79,6 +79,32 @@ describe('fulfill-order: guards before and after SENDING', () => {
     expect(event.note).toContain('no matching PURCHASE debit');
     const ref = `${fixture.orderId}_${event.id}`;
     expect(await t.hasJob({ kind: 'OWNER_ALERT', alert: 'held', refId: ref })).toBe(true);
+    // S9b (D-64 (6)): a money anomaly, not only a hold: its own critical alert, refId = the order.
+    const anomaly = {
+      kind: 'OWNER_ALERT',
+      alert: 'orderNoPurchase',
+      refId: fixture.orderId,
+    } as const;
+    const firstAt = await t.jobQueuedAt(anomaly);
+    expect(firstAt).not.toBeNull();
+    // Released and run again: the debit is still wrong, so held again, the SAME alert (deduped).
+    await t.db.$transaction((tx) =>
+      transitionOrder(tx, {
+        orderId: fixture.orderId,
+        from: 'HELD',
+        to: 'QUEUED',
+        actor: 'system',
+      }),
+    );
+    await expect(t.main.service.run(fixture.orderId, { finalAttempt: false })).resolves.toBe(
+      'DONE',
+    );
+    expect((await orderRow(t.db, fixture.orderId)).status).toBe('HELD');
+    expect(await t.db.orderEvent.count({ where: { orderId: fixture.orderId, to: 'HELD' } })).toBe(
+      2,
+    );
+    expect(await t.jobQueuedAt(anomaly)).toBe(firstAt);
+    expect(await attemptsOf(t.db, fixture.orderId)).toHaveLength(0);
     expect(t.gateway.callCount('sendBoc')).toBe(0);
   });
 

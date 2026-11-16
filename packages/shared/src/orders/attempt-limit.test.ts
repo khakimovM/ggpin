@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ATTEMPT_LIMIT_HOLD_WHY,
   MAX_SEND_ATTEMPTS,
+  OrderRetryAuditSchema,
   attemptLimitReached,
   coreHoldNote,
   isAttemptHoldError,
@@ -91,5 +92,42 @@ describe('attempt limit (the worker rule, S10 fix round item 1)', () => {
       expect(attemptLimitReached([proven(1), proven(2)], null)).toBe(true);
       expect(attemptLimitReached([proven(1), proven(2)])).toBe(true);
     });
+  });
+});
+
+describe('OrderRetryAuditSchema (S9b, audit L-2): the release row its writers and the worker share', () => {
+  const row = {
+    before: { status: 'HELD', statusReason: 'ADAPTER_ERROR', holdNote: null, maxAttemptNo: 2 },
+    after: {
+      status: 'QUEUED',
+      operator: 'aziz',
+      osUser: 'ops',
+      actor: { type: 'CLI', role: 'OWNER' },
+    },
+  };
+
+  it('the CLI and panel shapes parse, other keys kept', () => {
+    expect(OrderRetryAuditSchema.parse(row)).toEqual(row);
+    const panel = {
+      ...row,
+      after: { status: 'QUEUED', actor: { type: 'ADMIN', role: 'OPERATOR' } },
+    };
+    expect(OrderRetryAuditSchema.safeParse(panel).success).toBe(true);
+    expect(OrderRetryAuditSchema.safeParse({ ...row, before: { maxAttemptNo: 0 } }).success).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['no maxAttemptNo', { ...row, before: { status: 'HELD' } }],
+    ['a negative maxAttemptNo', { ...row, before: { maxAttemptNo: -1 } }],
+    ['a fraction', { ...row, before: { maxAttemptNo: 1.5 } }],
+    ['a string', { ...row, before: { maxAttemptNo: '2' } }],
+    ['no actor', { ...row, after: { status: 'QUEUED' } }],
+    ['an unknown actor type', { ...row, after: { actor: { type: 'SYSTEM', role: 'OWNER' } } }],
+    ['an unknown role', { ...row, after: { actor: { type: 'ADMIN', role: 'owner' } } }],
+    ['an extra actor key', { ...row, after: { actor: { type: 'CLI', role: 'OWNER', x: 1 } } }],
+  ])('%s is refused', (_name, candidate) => {
+    expect(OrderRetryAuditSchema.safeParse(candidate).success).toBe(false);
   });
 });

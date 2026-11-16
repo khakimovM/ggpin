@@ -27,6 +27,7 @@ import {
   type TonPayer,
 } from './fulfill-tokens';
 import { FulfillmentNotifier } from './fulfillment-notifier';
+import { OperatorReleaseRepository } from './operator-release.repository';
 import { OrderStateRepository } from './order-state.repository';
 
 // The fulfillment core (phase 5 S4): the `fulfill-order` consumer and its steps. The TON payout is
@@ -62,6 +63,7 @@ import { OrderStateRepository } from './order-state.repository';
     WalletCacheInvalidator,
     OrderStateRepository,
     AttemptsRepository,
+    OperatorReleaseRepository,
     FulfillmentNotifier,
     FulfillReviewer,
     FulfillTonRunner,

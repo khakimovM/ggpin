@@ -6,7 +6,7 @@ import {
   type ResolveNeedsReviewInput,
   type ResolveNeedsReviewResult,
 } from '@repo/db';
-import type { OrderStatus } from '@repo/shared';
+import type { NumberedAttemptRow, OrderStatus } from '@repo/shared';
 import type { Db } from '../../../infra/prisma/db';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
@@ -182,9 +182,12 @@ export class OrderAdminRepository {
     });
   }
 
-  /** The `error` of every attempt of the order (the attempt cap counts them), read in `tx`. */
-  attemptErrors(tx: Db, orderId: string): Promise<{ readonly error: string | null }[]> {
-    return tx.fulfillmentAttempt.findMany({ where: { orderId }, select: { error: true } });
+  /** `attemptNo` and `error` of every attempt of the order (the attempt cap), read in `tx`. */
+  attemptErrors(tx: Db, orderId: string): Promise<NumberedAttemptRow[]> {
+    return tx.fulfillmentAttempt.findMany({
+      where: { orderId },
+      select: { attemptNo: true, error: true },
+    });
   }
 
   async resolution(orderId: string): Promise<Resolution | null> {

@@ -1,9 +1,8 @@
 import type { AttemptStatus } from '@repo/db';
-import { NeedsReviewProofSchema } from '@repo/shared';
+import { MAX_SEND_ATTEMPTS, NeedsReviewProofSchema } from '@repo/shared';
 import { beginCell } from '@ton/core';
 import type { PreparedFulfillment } from '../../adapters/fulfillment-adapter';
 import {
-  MAX_SEND_ATTEMPTS,
   isFinalAttempt,
   isLiveAttempt,
   judgePrepared,

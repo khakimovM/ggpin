@@ -1,11 +1,6 @@
 import { MAX_SEND_ATTEMPTS, ORDER_ADMIN_LIST_MAX_LIMIT } from '@repo/shared';
-import { AppError } from '../../common/exceptions/app-error';
 import { OrderAdminReadService } from '../../modules/orders/admin/order-admin-read.service';
-import {
-  ATTEMPT_LIMIT_NOT_SUPPORTED,
-  OrderRetryService,
-  type RetryOutcome,
-} from '../../modules/orders/admin/order-retry.service';
+import { OrderRetryService } from '../../modules/orders/admin/order-retry.service';
 import { printList, printShow } from '../order-view';
 import { ORDER_RESOLVE_COMMAND } from './order-resolve.command';
 import {
@@ -50,17 +45,17 @@ const show: CliCommand = {
 const RETRY_USAGE =
   `order:retry <orderId> ${ACTOR_USAGE}\n` +
   '   HELD -> QUEUED and a new fulfill-order job (jobId = orderId); the worker re-checks price,\n' +
-  '   limits and the recipient before any payout. An order whose send attempts are used up\n' +
-  '   (every attempt proven not sent) is refused: the worker would hold it again.';
+  '   limits and the recipient before any payout. This is the OWNER release: it also starts the\n' +
+  `   attempt count again (at most ${String(MAX_SEND_ATTEMPTS)} new send attempts, each only after the\n` +
+  '   previous one was proven NOT sent).';
 
-/** Why ATTEMPT_LIMIT_NOT_SUPPORTED, in words (plan Q5; the release itself comes with S9). */
-const ATTEMPT_LIMIT_EXPLAINED =
-  `refused: every send attempt of this order (${String(MAX_SEND_ATTEMPTS)}) was proven NOT sent; ` +
-  'the worker would hold it again at once. It is refunded when the hold ages out (plan Q5, ' +
-  'HELD_MAX_AGE; built in phase 5 S9). Nothing was written.';
-
-function isAttemptLimitRefusal(error: unknown): boolean {
-  return error instanceof AppError && error.details?.['reason'] === ATTEMPT_LIMIT_NOT_SUPPORTED;
+/** The OWNER release starts the worker's attempt count again (S9b, D-66 (2)): said in words. */
+export function attemptResetWarning(attemptsUsed: number): string {
+  return (
+    `warning: ${String(attemptsUsed)} send attempt(s) of this order were already proven NOT ` +
+    `sent; this release gives it at most ${String(MAX_SEND_ATTEMPTS)} more (each only after the ` +
+    'previous one is proven NOT sent)'
+  );
 }
 
 const retry: CliCommand = {
@@ -71,19 +66,13 @@ const retry: CliCommand = {
     const p = parse(argv, ACTOR_OPTIONS, 1);
     const { reason, actor } = actorOf(ctx, p);
     const orderId = positional(p, 0);
-    let done: RetryOutcome;
-    try {
-      done = await ctx.app.get(OrderRetryService).retry({
-        orderId,
-        reason,
-        operator: actor.operator,
-        ip: actor.ip ?? null,
-        osUser: actor.osUser ?? null,
-      });
-    } catch (error) {
-      if (isAttemptLimitRefusal(error)) ctx.io.err(ATTEMPT_LIMIT_EXPLAINED);
-      throw error;
-    }
+    const done = await ctx.app.get(OrderRetryService).retry({
+      orderId,
+      reason,
+      operator: actor.operator,
+      ip: actor.ip ?? null,
+      osUser: actor.osUser ?? null,
+    });
     report(ctx, {
       applied: done.applied,
       order: done.orderId,
@@ -92,6 +81,9 @@ const retry: CliCommand = {
       jobQueued: done.job === 'QUEUED',
       alertQueued: done.adminAction,
     });
+    if (done.attemptsUsed !== null && done.attemptsUsed > 0) {
+      ctx.io.err(attemptResetWarning(done.attemptsUsed));
+    }
     if (done.job === 'RUNNING') {
       ctx.io.err(
         'warning: the previous fulfill-order job of this order is still running and will not ' +

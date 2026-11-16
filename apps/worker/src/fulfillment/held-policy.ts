@@ -1,6 +1,5 @@
-import type { OrderStatusReason } from '@repo/shared';
+import { CORE_HOLD_NOTE_PREFIX, type OrderStatusReason } from '@repo/shared';
 import { heldNotices, type TonNotice } from '../ton/ton-notices';
-import type { HoldError } from '../ton/ton-sign-guards';
 
 // Who held an order and under which owner-alert id (rules/45: a hold is never silent; plan 6.3).
 //
@@ -31,33 +30,11 @@ import type { HoldError } from '../ton/ton-sign-guards';
 //                    an operator decides); TON module (second layer): payee not in
 //                    FRAGMENT_PAY_ADDRESSES
 
-/** The note of a HELD event written by the core before any attempt existed. */
-export const CORE_HOLD_NOTE_PREFIX = 'core hold: ';
-
-export function coreHoldNote(reason: OrderStatusReason, why: string): string {
-  return `${CORE_HOLD_NOTE_PREFIX}${reason} (${why})`;
-}
+// The attempt cap's rule, the core hold's note and the not-sent error prefix are the shared ones
+// (packages/shared orders/attempt-limit.ts, phase 5 S9b): the owner CLI counts with the same code.
 
 /** The note of the core's attempt hold after the wallet stayed unusable through the last retry. */
 export const NOT_SENT_HOLD_NOTE = 'ton: not sent through the last retry';
-
-/** `FulfillmentAttempt.error` of that hold: TON_NOT_SENT_<TonNotSentReason>. */
-export const TON_NOT_SENT_ERROR_PREFIX = 'TON_NOT_SENT_';
-
-/** The `error` values of an attempt that a hold failed (S5's HoldError, plus the core's own). */
-const S5_HOLD_ERRORS: readonly HoldError[] = [
-  'LIMIT_PER_ORDER',
-  'LIMIT_DAILY',
-  'LOW_BALANCE',
-  'PAY_ADDRESS_NOT_ALLOWED',
-];
-
-export function isAttemptHoldError(error: string | null): boolean {
-  if (error === null) return false;
-  return (
-    S5_HOLD_ERRORS.some((known) => known === error) || error.startsWith(TON_NOT_SENT_ERROR_PREFIX)
-  );
-}
 
 export function isCoreHold(note: string | null): boolean {
   return note !== null && note.startsWith(CORE_HOLD_NOTE_PREFIX);
@@ -78,6 +55,14 @@ export function reviewNotices(orderId: string): TonNotice[] {
     { kind: 'ORDER_REVIEW', orderId },
     { kind: 'ALERT', alert: 'needsReview', refId: orderId },
   ];
+}
+
+/**
+ * CRITICAL money anomaly (plan 28, D-64 (6)): the order has no PURCHASE debit of what it cost, so
+ * nothing is paid out and the order is held. refId = the order: stable, a repeat is one alert.
+ */
+export function noPurchaseNotice(orderId: string): TonNotice {
+  return { kind: 'ALERT', alert: 'orderNoPurchase', refId: orderId };
 }
 
 export function deliveredNotice(orderId: string): TonNotice {

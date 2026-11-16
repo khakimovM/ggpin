@@ -1,12 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import {
-  ATTEMPT_HOLD_ERRORS,
-  ATTEMPT_LIMIT_HOLD_WHY,
-  CORE_HOLD_NOTE_PREFIX,
-  MAX_SEND_ATTEMPTS,
-  TON_NOT_SENT_ERROR_PREFIX,
-} from '@repo/shared';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { ATTEMPT_HOLD_ERRORS } from '@repo/shared';
 import { asRefusal, isDeadlock, retryOnDeadlock } from '../order-admin-errors';
 import {
   assertBounceRecorded,
@@ -71,29 +65,102 @@ describe('deadlock retry', () => {
   });
 });
 
-const WORKER = join(__dirname, '../../../../../../worker/src/fulfillment');
-const workerFile = (name: string): string => readFileSync(join(WORKER, name), 'utf8');
+const WORKER_SRC = join(__dirname, '../../../../../../worker/src');
 
-describe('attempt limit (CR m5, fix round item 1): the shared rule is the worker rule', () => {
-  // The worker keeps its own copy until S9 moves it to packages/shared; until then its source is
-  // read here, so a change on either side fails this test instead of passing silently.
-  it('the same cap, the same hold errors, the same not-sent prefix and the same counting', () => {
-    expect(workerFile('fulfill-steps.ts')).toContain(
-      `export const MAX_SEND_ATTEMPTS = ${String(MAX_SEND_ATTEMPTS)};`,
-    );
-    const policy = workerFile('held-policy.ts');
-    const list = /const S5_HOLD_ERRORS[^=]*=\s*\[([^\]]*)\]/.exec(policy)?.[1] ?? '';
-    const workerErrors = [...list.matchAll(/'([A-Z_]+)'/g)].map((m) => m[1] ?? '');
-    expect(workerErrors.length).toBeGreaterThan(0);
-    expect(workerErrors.sort()).toEqual([...ATTEMPT_HOLD_ERRORS].sort());
-    expect(policy).toContain(`TON_NOT_SENT_ERROR_PREFIX = '${TON_NOT_SENT_ERROR_PREFIX}'`);
-    expect(policy).toContain(`CORE_HOLD_NOTE_PREFIX = '${CORE_HOLD_NOTE_PREFIX}'`);
-    expect(policy).toContain('return `${CORE_HOLD_NOTE_PREFIX}${reason} (${why})`;');
-    const fresh = workerFile('fulfill-fresh.ts');
-    expect(fresh).toContain(
-      'previous.filter((a) => !isAttemptHoldError(a.error)).length >= MAX_SEND_ATTEMPTS',
-    );
-    expect(fresh).toContain(`'${ATTEMPT_LIMIT_HOLD_WHY}'`);
+/** Every production .ts file of the worker (tests excluded), with its text. */
+function workerSources(dir = WORKER_SRC): { readonly path: string; readonly text: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return entry.name === '__tests__' ? [] : workerSources(path);
+    if (!entry.name.endsWith('.ts') || entry.name.includes('.spec.')) return [];
+    return [{ path, text: readFileSync(path, 'utf8') }];
+  });
+}
+
+/** The shared names the worker must import, never declare (any declaration form, typed or not). */
+const SHARED_NAMES = [
+  'MAX_SEND_ATTEMPTS',
+  'ATTEMPT_HOLD_ERRORS',
+  'isAttemptHoldError',
+  'CORE_HOLD_NOTE_PREFIX',
+  'coreHoldNote',
+  'TON_NOT_SENT_ERROR_PREFIX',
+  'attemptLimitReached',
+  'sendAttemptsUsed',
+];
+const DECLARATIONS = SHARED_NAMES.map(
+  (name) => new RegExp(`\\b(?:function\\s*\\*?\\s*|(?:const|let|var)\\s+)${name}\\b`),
+);
+/** Two hold-error literals in one array literal: a copy of ATTEMPT_HOLD_ERRORS under any name. */
+const HOLD_LITERAL = `['"](?:${ATTEMPT_HOLD_ERRORS.join('|')})['"]`;
+const HOLD_LIST = new RegExp(`\\[[^\\]]*${HOLD_LITERAL}[^\\]]*${HOLD_LITERAL}[^\\]]*\\]`);
+const LOCAL_COPIES = [...DECLARATIONS, HOLD_LIST];
+
+/**
+ * Known lists outside the core, each owned elsewhere and named here so a new one fails: the TON
+ * module's own lookup of its hold attempt (ton-transfer.repository.ts, typed HoldError).
+ */
+const KNOWN_LISTS = ['ton/ton-transfer.repository.ts'];
+
+function copiesIn(text: string): string[] {
+  return LOCAL_COPIES.filter((copy) => copy.test(text)).map(String);
+}
+
+describe('attempt limit (phase 5 S9b): the worker takes the shared rule, it keeps no copy', () => {
+  // Static: the owner CLI and the worker count with ONE implementation (packages/shared
+  // attempt-limit.ts). A local copy in the worker could drift from what the CLI reports.
+  it('the patterns catch every declaration form and a renamed hold-error list (CR L3)', () => {
+    for (const copy of [
+      'export const MAX_SEND_ATTEMPTS = 2;',
+      'const MAX_SEND_ATTEMPTS: number = 2;',
+      'let MAX_SEND_ATTEMPTS = 3',
+      'export function isAttemptHoldError(error: string | null): boolean {',
+      'const isAttemptHoldError = (e: string) => false;',
+      'export const coreHoldNote = (r: string, w: string) => `${r}${w}`;',
+      "const CORE_HOLD_NOTE_PREFIX: string = 'core hold: ';",
+      "const TON_NOT_SENT_ERROR_PREFIX = 'TON_NOT_SENT_';",
+      'function* sendAttemptsUsed() {}',
+      "const KNOWN = ['LIMIT_DAILY', 'LOW_BALANCE'];",
+      "const S5: readonly string[] = [\n  'LIMIT_PER_ORDER',\n  'X',\n  \"PAY_ADDRESS_NOT_ALLOWED\",\n];",
+    ]) {
+      expect({ copy, found: copiesIn(copy).length > 0 }).toEqual({ copy, found: true });
+    }
+  });
+
+  it('the patterns leave imports, uses and single literals alone', () => {
+    for (const clean of [
+      "import { MAX_SEND_ATTEMPTS, isAttemptHoldError } from '@repo/shared';",
+      'if (count >= MAX_SEND_ATTEMPTS) return hold();',
+      'return isAttemptHoldError(attempt.error);',
+      "const note = coreHoldNote('ADAPTER_ERROR', why);",
+      "const reason = 'LIMIT_DAILY'; const other = ['LOW_BALANCE'];",
+      "const reasons = ['LIMIT_DAILY', 'ADAPTER_ERROR'];",
+      'const MAX_SEND_ATTEMPTS_SHOWN = 2;',
+    ]) {
+      expect({ clean, found: copiesIn(clean) }).toEqual({ clean, found: [] });
+    }
+  });
+
+  it('no worker file defines the cap, the hold errors, the hold note or the not-sent prefix', () => {
+    const sources = workerSources();
+    expect(sources.length).toBeGreaterThan(50);
+    const copies = sources.flatMap(({ path, text }) => {
+      const file = relative(WORKER_SRC, path).replaceAll('\\', '/');
+      const found = copiesIn(text).filter(
+        (copy) => !(copy === String(HOLD_LIST) && KNOWN_LISTS.includes(file)),
+      );
+      return found.map((copy) => `${file}: ${copy}`);
+    });
+    expect(copies).toEqual([]);
+  });
+
+  it('the fresh run decides with the shared attemptLimitReached and the OWNER release', () => {
+    const fresh = readFileSync(join(WORKER_SRC, 'fulfillment/fulfill-fresh.ts'), 'utf8');
+    const shared = /import\s*\{([^}]*)\}\s*from\s*'@repo\/shared'/.exec(fresh)?.[1] ?? '';
+    expect(shared).toMatch(/\battemptLimitReached\b/);
+    expect(shared).toMatch(/\bATTEMPT_LIMIT_HOLD_WHY\b/);
+    expect(fresh).toContain('attemptLimitReached(previous, await this.releasedAfter(');
+    expect(fresh).toContain('clampRelease(await this.releases.lastOwnerRelease(');
   });
 });
 

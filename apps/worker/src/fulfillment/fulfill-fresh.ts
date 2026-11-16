@@ -1,5 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { describeErrorForLog, type OrderStatusReason } from '@repo/shared';
+import {
+  ATTEMPT_LIMIT_HOLD_WHY,
+  attemptLimitReached,
+  coreHoldNote,
+  describeErrorForLog,
+  type OrderStatusReason,
+} from '@repo/shared';
 import {
   hasProviderRef,
   type AttemptJson,
@@ -15,18 +21,13 @@ import { AdapterRouter } from './adapter-router';
 import { toAttemptJson } from './attempt-json';
 import { AttemptsRepository, type AttemptRow } from './attempts.repository';
 import { FulfillSupplierRunner } from './fulfill-supplier.runner';
-import {
-  MAX_SEND_ATTEMPTS,
-  isLiveAttempt,
-  isTonPaid,
-  judgePrepared,
-  purchaseAmountOf,
-} from './fulfill-steps';
+import { isLiveAttempt, isTonPaid, judgePrepared, purchaseAmountOf } from './fulfill-steps';
 import { FulfillTonRunner, type RunStep } from './fulfill-ton.runner';
 import { FULFILL_HOOKS, type FulfillHooks } from './fulfill-tokens';
 import { RECHECKED_REF_KEY, recipientFor } from './fulfill-recipient';
 import { FulfillmentNotifier } from './fulfillment-notifier';
-import { coreHoldNote, holdNotices, isAttemptHoldError } from './held-policy';
+import { holdNotices, noPurchaseNotice } from './held-policy';
+import { OperatorReleaseRepository, clampRelease } from './operator-release.repository';
 import { OrderStateRepository, type RunOrder } from './order-state.repository';
 
 // A new attempt of a PROCESSING order that has no unresolved attempt (plan 6.6 steps 5-9). Up to
@@ -80,6 +81,7 @@ export class FreshAttempt {
   constructor(
     private readonly orders: OrderStateRepository,
     private readonly attempts: AttemptsRepository,
+    private readonly releases: OperatorReleaseRepository,
     private readonly router: AdapterRouter,
     private readonly ton: FulfillTonRunner,
     private readonly supplier: FulfillSupplierRunner,
@@ -91,9 +93,10 @@ export class FreshAttempt {
   ) {}
 
   async run(order: RunOrder, previous: readonly AttemptRow[], final: boolean): Promise<RunStep> {
-    // Attempts a hold failed before signing do not count: only payouts PROVEN not sent do.
-    if (previous.filter((a) => !isAttemptHoldError(a.error)).length >= MAX_SEND_ATTEMPTS) {
-      return this.hold(order.id, 'ADAPTER_ERROR', 'every attempt was proven not sent');
+    // The shared cap (S9b): attempts a hold failed before signing do not count, only payouts
+    // PROVEN not sent do, and only those after the OWNER's latest release (null: all of them).
+    if (attemptLimitReached(previous, await this.releasedAfter(order.id, previous))) {
+      return this.hold(order.id, 'ADAPTER_ERROR', ATTEMPT_LIMIT_HOLD_WHY);
     }
     // S2 audit L2 / N2: no handle (null, empty, whitespace) -> never paid unchecked.
     if (!hasProviderRef({ fields: order.fields, providerRef: order.providerRef })) {
@@ -125,11 +128,23 @@ export class FreshAttempt {
     if (created.kind === 'STALE') return this.afterStale(order.id);
     if (created.kind === 'NO_PURCHASE') {
       this.logger.error(`order ${order.id}: no matching PURCHASE debit, nothing is sent`);
-      return this.hold(order.id, 'ADAPTER_ERROR', 'no matching PURCHASE debit');
+      const step = await this.hold(order.id, 'ADAPTER_ERROR', 'no matching PURCHASE debit');
+      // A money anomaly, not only a hold (D-64 (6)): its own critical alert, once per order.
+      await this.notifier.send([noPurchaseNotice(order.id)]);
+      return step;
     }
     await this.hooks.afterSendingCommitted(created.attempt.id);
     if (isTonPaid(order.costCurrency)) return this.ton.run(order.id, created.attempt, final);
     return this.supplier.run(decision.context, created.attempt, adapter, prepared);
+  }
+
+  /** The OWNER's latest release, if the order has attempts it could cover (fail-closed: null). */
+  private async releasedAfter(
+    orderId: string,
+    previous: readonly AttemptRow[],
+  ): Promise<number | null> {
+    if (previous.length === 0) return null;
+    return clampRelease(await this.releases.lastOwnerRelease(orderId), previous);
   }
 
   /** Refunded after the commit: the cached balance goes, the customer hears (stable ids). */

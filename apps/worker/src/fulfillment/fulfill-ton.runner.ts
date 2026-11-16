@@ -1,5 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { describeErrorForLog, type OrderStatusReason } from '@repo/shared';
+import {
+  TON_NOT_SENT_ERROR_PREFIX,
+  describeErrorForLog,
+  type OrderStatusReason,
+} from '@repo/shared';
 import { Cell } from '@ton/core';
 import type { TonPayRequest, TonPayResult } from '../ton/ton-payout';
 import { AttemptsRepository, type AttemptRow } from './attempts.repository';
@@ -7,7 +11,7 @@ import { RetryLaterError, tonInstructionOf } from './fulfill-steps';
 import { TON_PAYER, type TonPayer } from './fulfill-tokens';
 import { FulfillReviewer } from './fulfill-review';
 import { FulfillmentNotifier } from './fulfillment-notifier';
-import { NOT_SENT_HOLD_NOTE, TON_NOT_SENT_ERROR_PREFIX, holdNotices } from './held-policy';
+import { NOT_SENT_HOLD_NOTE, holdNotices } from './held-policy';
 
 /** What the core does after a step: stop, or make the next attempt (the last one was proven not sent). */
 export type RunStep = 'DONE' | 'NEXT_ATTEMPT';

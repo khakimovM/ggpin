@@ -1,21 +1,19 @@
-import { validationError } from '../../common/admin/admin-input';
-import {
-  ATTEMPT_LIMIT_NOT_SUPPORTED,
-  OrderRetryService,
-} from '../../modules/orders/admin/order-retry.service';
+import { MAX_SEND_ATTEMPTS } from '@repo/shared';
+import { OrderRetryService } from '../../modules/orders/admin/order-retry.service';
 import { WHO, runFake as run } from './fake-cli';
 
-// order:retry and the runner without a database (phase 5 S10 fix round, items 1, 6 and 10).
+// order:retry and the runner without a database (phase 5 S10 fix round, items 1, 6 and 10; S9b).
 
 const ORDER = 'ckorder0000000000000000001';
 
 describe('order:retry (no database)', () => {
-  const done = (job: string) => ({
+  const done = (job: string, attemptsUsed: number | null = 0) => ({
     applied: true,
     orderId: ORDER,
     auditId: 'a1',
     job,
     adminAction: true,
+    attemptsUsed,
   });
   const servicesFor = (retry: jest.Mock) =>
     new Map<unknown, unknown>([[OrderRetryService, { retry }]]);
@@ -37,22 +35,34 @@ describe('order:retry (no database)', () => {
     expect(out.err.join('\n')).toContain('run order:retry again');
   });
 
-  it('the attempt-limit refusal is explained (refund after HELD_MAX_AGE, S9); the old flag is gone', async () => {
-    const retry = jest
-      .fn()
-      .mockRejectedValue(validationError('order', ATTEMPT_LIMIT_NOT_SUPPORTED));
+  it('S9b: a release after attempts proven not sent warns how many more it gives; the old flag is gone', async () => {
+    const retry = jest.fn().mockResolvedValue(done('QUEUED', 2));
     const out = await run(['order:retry', ORDER, ...WHO], servicesFor(retry));
-    expect(out.code).toBe(1);
+    expect(out.code).toBe(0);
+    expect(out.out).toContain('applied=true');
     const err = out.err.join('\n');
-    expect(err).toContain('proven NOT sent');
-    expect(err).toContain('HELD_MAX_AGE');
-    expect(err).toContain('ATTEMPT_LIMIT_NOT_SUPPORTED');
+    expect(err).toContain('2 send attempt(s) of this order were already proven NOT sent');
+    expect(err).toContain(`at most ${String(MAX_SEND_ATTEMPTS)} more`);
     const flagged = await run(
       ['order:retry', ORDER, ...WHO, '--confirm-attempt-limit'],
       servicesFor(retry),
     );
     expect(flagged.code).toBe(2);
     expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('no warning when nothing was used yet, nor for a re-run that wrote nothing', async () => {
+    const none = await run(
+      ['order:retry', ORDER, ...WHO],
+      servicesFor(jest.fn().mockResolvedValue(done('QUEUED', 0))),
+    );
+    expect(none.err).toEqual([]);
+    const rerun = jest
+      .fn()
+      .mockResolvedValue({ ...done('QUEUED', null), applied: false, auditId: null });
+    const again = await run(['order:retry', ORDER, ...WHO], servicesFor(rerun));
+    expect(again.code).toBe(0);
+    expect(again.err).toEqual([]);
   });
 });
 

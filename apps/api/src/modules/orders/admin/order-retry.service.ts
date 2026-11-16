@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { attemptLimitReached } from '@repo/shared';
+import { OrderRetryAuditSchema, sendAttemptsUsed, type NumberedAttemptRow } from '@repo/shared';
 import { checkedId, checkedReason, validationError } from '../../../common/admin/admin-input';
 import { AppError } from '../../../common/exceptions/app-error';
 import { OrderAdminEffects, type RequeueResult } from './order-admin-effects';
 import { asRefusal, retryOnDeadlock } from './order-admin-errors';
 import { ORDER_RETRY_ACTION, OrderAdminRepository } from './order-admin.repository';
 import {
+  CLI_OWNER_AUDIT_ACTOR,
   OPERATOR_CHANNEL,
   assertOwnerChannel,
   checkedActor,
@@ -28,10 +29,24 @@ export interface RetryOutcome {
   /** QUEUED: a job will run; RUNNING: the old job is still running (re-run later); FAILED. */
   readonly job: RequeueResult;
   readonly adminAction: boolean;
+  /**
+   * Applied only: how many of the order's attempts were proven NOT sent before this release (all
+   * of them, earlier releases included). The CLI warns: the release starts the worker's count again.
+   */
+  readonly attemptsUsed: number | null;
 }
 
-/** The refusal of an order whose send attempts are used up (plan S10 fix round, item 1). */
-export const ATTEMPT_LIMIT_NOT_SUPPORTED = 'ATTEMPT_LIMIT_NOT_SUPPORTED';
+/** The highest `attemptNo` of the order (0: none): where the worker's next count starts. */
+function maxAttemptNoOf(attempts: readonly NumberedAttemptRow[]): number {
+  return attempts.reduce((max, attempt) => Math.max(max, attempt.attemptNo), 0);
+}
+
+/** The release row in the shared shape (OrderRetryAuditSchema), or a throw: nothing is written. */
+export function assertRetryAuditShape(before: object, after: object): void {
+  if (!OrderRetryAuditSchema.safeParse({ before, after }).success) {
+    throw new Error('order:retry: the release audit row does not match OrderRetryAuditSchema');
+  }
+}
 
 const OPERATOR_RELEASE_NOTE = 'operator retry';
 
@@ -43,11 +58,13 @@ const OPERATOR_RELEASE_NOTE = 'operator retry';
  * any payout), so no owner code is asked. A re-run after the release only queues the job again
  * (idempotent by jobId).
  *
- * An order whose send attempts are used up (MAX_SEND_ATTEMPTS attempts proven not sent, counted
- * under the lock with the worker's own rule, never read from the HELD note) is REFUSED
- * (`ATTEMPT_LIMIT_NOT_SUPPORTED`): the worker would hold it again before any payout. It leaves HELD
- * by the refund once the hold ages out (plan Q5, HELD_MAX_AGE), which phase 5 S9 builds, or by an
- * operator release once the worker supports one (S9).
+ * This is the OWNER's release (phase 5 S9b, D-64 (5), D-66 (2)): it also starts the attempt cap
+ * again. The audit row stores `before.maxAttemptNo`, the highest attempt number read under the
+ * order lock (no attempt can be added while the order is HELD), and `after.actor` = CLI / OWNER.
+ * The worker then counts only attempts numbered above it (shared attempt-limit.ts), so a release
+ * gives at most MAX_SEND_ATTEMPTS new attempts, each made only after the previous one was proven
+ * NOT sent: never a second payout. A re-run against the released (QUEUED) order writes nothing,
+ * so it gives no further attempt.
  */
 @Injectable()
 export class OrderRetryService {
@@ -62,7 +79,7 @@ export class OrderRetryService {
     const orderId = checkedId('orderId', input.orderId);
     const reason = checkedReason(input.reason);
     const actor = checkedActor(input);
-    let committed: { readonly auditId: string } | null;
+    let committed: { readonly auditId: string; readonly attemptsUsed: number } | null;
     try {
       committed = await retryOnDeadlock(() =>
         this.repo.transaction(async (tx) => {
@@ -78,18 +95,27 @@ export class OrderRetryService {
           }
           // Attempts are created only for a PROCESSING order, so under the order lock (status
           // HELD) none can be added while this transaction runs.
-          if (attemptLimitReached(await this.repo.attemptErrors(tx, orderId))) {
-            throw validationError('order', ATTEMPT_LIMIT_NOT_SUPPORTED);
-          }
+          const attempts = await this.repo.attemptErrors(tx, orderId);
+          const before = {
+            status: 'HELD',
+            statusReason: order.statusReason,
+            holdNote: last?.note ?? null,
+            maxAttemptNo: maxAttemptNoOf(attempts),
+          };
+          const after = {
+            status: 'QUEUED',
+            operator: actor.operator,
+            osUser: actor.osUser,
+            actor: CLI_OWNER_AUDIT_ACTOR,
+          };
+          // The worker reads this row with the same schema (audit L-2): a row it could not read
+          // is never written (the transaction rolls back, nothing is released).
+          assertRetryAuditShape(before, after);
           const audit = await this.repo.createAudit(tx, {
             action: ORDER_RETRY_ACTION,
             targetId: orderId,
-            before: {
-              status: 'HELD',
-              statusReason: order.statusReason,
-              holdNote: last?.note ?? null,
-            },
-            after: { status: 'QUEUED', operator: actor.operator, osUser: actor.osUser },
+            before,
+            after,
             reason,
             ip: actor.ip,
           });
@@ -99,7 +125,7 @@ export class OrderRetryService {
             actor.operator,
             `${OPERATOR_RELEASE_NOTE} ${audit.id}`,
           );
-          return { auditId: audit.id };
+          return { auditId: audit.id, attemptsUsed: sendAttemptsUsed(attempts) };
         }),
       );
     } catch (error) {
@@ -107,9 +133,23 @@ export class OrderRetryService {
     }
     const job = await this.effects.requeue(orderId);
     if (committed === null) {
-      return { applied: false, orderId, auditId: null, job, adminAction: false };
+      return {
+        applied: false,
+        orderId,
+        auditId: null,
+        job,
+        adminAction: false,
+        attemptsUsed: null,
+      };
     }
     const adminAction = await this.effects.adminAction(committed.auditId);
-    return { applied: true, orderId, auditId: committed.auditId, job, adminAction };
+    return {
+      applied: true,
+      orderId,
+      auditId: committed.auditId,
+      job,
+      adminAction,
+      attemptsUsed: committed.attemptsUsed,
+    };
   }
 }

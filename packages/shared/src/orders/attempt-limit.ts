@@ -1,17 +1,16 @@
 // The attempt cap of fulfillment (S4 review CR m5; plan S10 fix round, item 1): how many send
 // attempts an order gets before the core holds it, and which attempts count. This is the rule the
-// worker applies in apps/worker fulfill-fresh.ts (`MAX_SEND_ATTEMPTS`, held-policy.ts
-// `isAttemptHoldError`); the worker still keeps its own copy until it moves here (phase 5 S9), and
-// a test in apps/api (order-admin-rules.spec.ts) reads the worker's source to hold the two together.
+// worker applies in apps/worker fulfill-fresh.ts: since phase 5 S9b it imports it from here and
+// keeps no copy (apps/api order-admin-rules.spec.ts checks that statically).
 //
 // Phase 5 S9 (D-64 (5), D-66): an OWNER release starts the count again. The release's audit row
 // stores the highest attempt number at that moment (`before.maxAttemptNo`, S9b); only attempts
 // numbered above it (`releasedAfterAttemptNo`) count. An OPERATOR retry or a SYSTEM row resets
 // nothing (Q-20); choosing which row counts is the caller's job.
 //
-// The owner CLI (`order:retry`) uses it to recognise an order the worker would hold again at once:
-// it COUNTS the attempts under the order lock instead of reading the HELD event's note, so a change
-// of the note's wording can never make the check silently pass.
+// The owner CLI (`order:retry`) COUNTS the attempts under the order lock (never reads the HELD
+// event's note) to warn how many were already proven not sent before its release resets the count.
+import { z } from 'zod';
 
 /**
  * How many send attempts one order gets before it is HELD (ADAPTER_ERROR) instead of trying again.
@@ -130,3 +129,36 @@ export function coreHoldNote(reason: string, why: string): string {
 
 /** The `why` of the attempt-cap hold (fulfill-fresh.ts). Informational only: never matched on. */
 export const ATTEMPT_LIMIT_HOLD_WHY = 'every attempt was proven not sent';
+
+/**
+ * Who may write an ORDER_RETRY audit row (`after.actor.type`): the owner CLI channel, or the
+ * admin panel (phase 9). `AuditLog.actorType` of the row says the same; the worker reads both.
+ */
+export const ORDER_RETRY_ACTOR_TYPES = ['CLI', 'ADMIN'] as const;
+
+/** The admin roles a release may carry (`after.actor.role`): the values of Prisma `AdminRole`. */
+export const ORDER_RETRY_ACTOR_ROLES = ['OWNER', 'OPERATOR', 'SUPPORT'] as const;
+
+/** `before` of a release: the highest attemptNo of the order when it was released (0: none). */
+export const OrderRetryAuditBeforeSchema = z.looseObject({
+  maxAttemptNo: z.number().int().nonnegative(),
+});
+
+/** `after.actor` of a release (D-66 (2), docs/04 `retry`). */
+export const OrderRetryAuditActorSchema = z.strictObject({
+  type: z.enum(ORDER_RETRY_ACTOR_TYPES),
+  role: z.enum(ORDER_RETRY_ACTOR_ROLES),
+});
+
+export const OrderRetryAuditAfterSchema = z.looseObject({ actor: OrderRetryAuditActorSchema });
+
+/**
+ * The part of an ORDER_RETRY audit row the attempt cap relies on (phase 5 S9b, audit L-2): ONE
+ * shape for its writers (the owner CLI, the phase 9 panel: parsed BEFORE the row is written) and
+ * its reader (the worker's lastOwnerRelease). Other keys (status, holdNote, operator...) pass.
+ */
+export const OrderRetryAuditSchema = z.object({
+  before: OrderRetryAuditBeforeSchema,
+  after: OrderRetryAuditAfterSchema,
+});
+export type OrderRetryAudit = z.infer<typeof OrderRetryAuditSchema>;

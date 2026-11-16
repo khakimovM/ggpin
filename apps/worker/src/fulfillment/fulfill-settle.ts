@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { describeErrorForLog } from '@repo/shared';
+import { coreHoldNote, describeErrorForLog } from '@repo/shared';
 import type { TonNotice } from '../ton/ton-notices';
 import { ABANDON_COUNTER, MAX_ABANDONED_REQUEUES, type AbandonCounter } from './abandon-counter';
 import { AttemptsRepository } from './attempts.repository';
@@ -8,7 +8,7 @@ import { FulfillReplay } from './fulfill-replay';
 import { FulfillReviewer } from './fulfill-review';
 import { isLiveAttempt } from './fulfill-steps';
 import { FulfillmentNotifier } from './fulfillment-notifier';
-import { coreHoldNote, holdNotices } from './held-policy';
+import { holdNotices } from './held-policy';
 import { OrderStateRepository, type RunOrder } from './order-state.repository';
 
 // An order whose fulfill-order job failed FOR GOOD (CR M1, audit M-1): the last attempt threw, or

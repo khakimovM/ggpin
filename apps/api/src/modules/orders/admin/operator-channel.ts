@@ -42,6 +42,13 @@ export interface OwnerActor {
   readonly osUser: string | null;
 }
 
+/**
+ * The `after.actor` block of an owner CLI audit row (phase 5 S9b, D-66 (2), docs/04 `retry`): the
+ * worker restarts the attempt count only from a release written by the OWNER. Data in an audit row,
+ * not a resolver: it is minted here, next to the channel, like every other `type: 'CLI'` (I-4).
+ */
+export const CLI_OWNER_AUDIT_ACTOR = Object.freeze({ type: 'CLI', role: 'OWNER' } as const);
+
 export function checkedActor(input: {
   readonly operator: string;
   readonly ip?: string | null;
