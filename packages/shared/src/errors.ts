@@ -12,6 +12,8 @@ export const ERROR_CODES = [
   'PURCHASE_FROZEN',
   'NOT_FOUND',
   'IDEMPOTENCY_CONFLICT',
+  // Admin action on an order whose state changed meanwhile (phase 9, D-63 (2)).
+  'ORDER_STATE_CONFLICT',
   'QUOTE_EXPIRED',
   'QUOTE_ALREADY_USED',
   'PAYLOAD_TOO_LARGE',
@@ -50,6 +52,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   PURCHASE_FROZEN: 403,
   NOT_FOUND: 404,
   IDEMPOTENCY_CONFLICT: 409,
+  ORDER_STATE_CONFLICT: 409,
   QUOTE_EXPIRED: 410,
   QUOTE_ALREADY_USED: 409,
   PAYLOAD_TOO_LARGE: 413,

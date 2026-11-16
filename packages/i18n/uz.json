@@ -1236,6 +1236,7 @@
     "PURCHASE_FROZEN": "Xaridlar vaqtincha cheklangan. Yordam xizmatiga murojaat qiling.",
     "NOT_FOUND": "Topilmadi.",
     "IDEMPOTENCY_CONFLICT": "Bu so‘rov kaliti boshqa maʼlumot bilan allaqachon ishlatilgan.",
+    "ORDER_STATE_CONFLICT": "Buyurtma holati o‘zgardi. Sahifani yangilang.",
     "QUOTE_EXPIRED": "Narx muddati tugadi. Narxni yangilab, qayta urinib ko‘ring.",
     "QUOTE_ALREADY_USED": "Bu narx bilan buyurtma allaqachon yaratilgan. Buyurtmalaringizni tekshiring.",
     "PAYLOAD_TOO_LARGE": "So‘rov hajmi juda katta.",

@@ -26,6 +26,7 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 404  | `NOT_FOUND`                                                                    | resurs yo‘q yoki boshqa foydalanuvchiniki                                                                                                                                                            |
 | 409  | `IDEMPOTENCY_CONFLICT` (to‘lov so‘rovida `details: {intentId}`)                | bir xil kalit, boshqa body; to‘lov so‘rovida yana: bir xil body, lekin so‘rov endi `PENDING`/muddatli emas                                                                                           |
 | 409  | `TOPUP_ALREADY_PENDING` (`details: {intentId}`)                                | foydalanuvchida kutilayotgan to‘ldirish so‘rovi bor                                                                                                                                                  |
+| 409  | `ORDER_STATE_CONFLICT`                                                         | faqat admin: buyurtma amal kutgan holatda emas (masalan worker uni allaqachon o‘tkazgan); hech narsa yozilmaydi (D-63 (2))                                                                           |
 | 410  | `QUOTE_EXPIRED`                                                                | kotirovka muddati tugagan                                                                                                                                                                            |
 | 413  | `PAYLOAD_TOO_LARGE`                                                            | so‘rov tanasi ruxsat etilgan hajmdan katta                                                                                                                                                           |
 | 422  | `INSUFFICIENT_BALANCE` (`details: {balance, required, shortfall}`)             | balans yetmaydi                                                                                                                                                                                      |
@@ -44,6 +45,9 @@ Buzilgan percent-kodlashli URL (masalan `%ZZ`) marshrutlashdan oldin HTTP qatlam
 Kodlar va HTTP holatlari ro‘yxati — `packages/shared/src/errors.ts` (`ERROR_CODES`, `ERROR_HTTP_STATUS`); bu jadval u bilan aynan mos turadi.
 
 - `details.fields` — `[{ path, code }]`: faqat maydon yo‘li va Zod xato kodi; rad etilgan qiymatning o‘zi javobga chiqmaydi.
+  Admin yo‘llarida `code` domen kodi ham bo‘lishi mumkin: `OTP_REQUIRED`, `AMOUNT_MISMATCH`, `OTP_LOCKED`,
+  `OTP_UNAVAILABLE`, `OTP_NOT_REQUIRED`, `RATE_MISMATCH` (`ADMIN_FIELD_ERROR_CODES`) va servis sabab kodlari («Admin» →
+  «Xatolar (admin)»).
 - Kodsiz framework xatolari holat bo‘yicha xaritalanadi: `415` (qo‘llab-quvvatlanmaydigan `Content-Type`) — `400 VALIDATION_ERROR`;
   umumiy `403` (guard, rol yoki CSRF/Origin rad etgani) — `404 NOT_FOUND` (D-26); jadvalda kodi yo‘q boshqa holat — `500 INTERNAL_ERROR`.
   Biznes `403` lari (`USER_BLOCKED`, `PURCHASE_FROZEN`) o‘z kodini saqlaydi.
@@ -897,17 +901,534 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
 | GET  | `/discounts/tiers` · POST `/discounts/codes` `{ tierId }` · GET `/discounts/codes` | chegirma kodlari                                                   |
 | POST | `/bonus-codes/redeem`                                                              | `{ code }` → mukofot                                               |
 
-## Admin (`/api/v1/admin/*`) — batafsil `docs/09-ADMIN-PANEL.md`
+## Admin (`/api/v1/admin/*`)
 
-`auth/*`, `dashboard`, `orders` (+ `retry`, `mark-delivered`, `fail-and-refund`, `cancel`),
-`users` (+ `block`, `adjust-wallet`), `products`, `skus`, `routes`, `pricing/settings`,
-`payments` (+ reconcile hisobotlari), `suppliers` (balanslar, holat), `wallet` (TON balans, limitlar),
-`fragment/session` (holat, yangilash), `bonus-codes`, `discount-tiers`, `broadcasts`, `audit-log`,
-`settings`, `admins` (faqat OWNER).
+> **LOYIHA (DRAFT) — 9-bosqich S1 (D-63 (2), D-65, D-66).** Admin panel shartnomasi SPA va API parallel qurilishi uchun
+> oldindan yozildi; S13 da haqiqiy javoblardan yakunlanadi. Zod sxemalari — `packages/shared/src/admin/` (shu bo‘lim bilan
+> 1:1), rol matritsasi — `packages/shared/src/admin/admin-permissions.ts`. **5-bosqichga tayanuvchi shakllar** (buyurtmalar,
+> urinishlar, TON transferlari, Fragment sessiyasi, qo‘lda kurs) `feat/p5-stars-order` kodidan olingan va 9-B to‘lqinida
+> (5-bosqich `main` ga tushgach) tekshiriladi. Foydalanuvchi yo‘llarining birortasi o‘zgarmaydi. Bo‘lim mazmuni — `docs/09`,
+> qarorlar — D-63, D-65, D-66.
+>
+> **9-B ro‘yxati (5-bosqich nusxalari).** `ADMIN_MANUAL_FX_PAIRS`, `ADMIN_TON_TRANSFER_STATUSES`, `ADMIN_ATTEMPT_STATUSES`,
+> `ADMIN_RESOLVE_PROOF_KINDS`, `AdminResolveProofSchema` (p5 `NeedsReviewProofSchema` dan `reason` va
+> `TON_UNMATCHED_RESOLVED` siz), `PAYMENT_STATUSES` / `PAYMENT_PROVIDERS` va `AdminAttemptFactsSchema` manba yo‘llari 9-B da
+> 5-bosqich eksportlariga almashtiriladi, har biriga tenglik testi yoziladi. Istisno — `AdminResolveProofSchema` matn
+> maydonlari (`evidence`, `requestRef`) 5-bosqichdan qattiqroq (bitta ko‘rinadigan qator), shuning uchun u uchun test
+> tenglik emas, **«panel ⊂ p5»**: panel qabul qilgan har isbotni 5-bosqich sxemasi ham qabul qiladi.
 
-4-bosqichda hamyon va to‘ldirish bo‘yicha ega amallari (`review:credit`, `wallet:adjust`, `payment:reverse`, kartalar) uchun **HTTP yo‘li yo‘q**:
-ular faqat VPS’dagi ega CLI orqali (`docs/05-PAYMENTS.md` 7- va 9-bo‘limlar, D-46). Yuqoridagi `payments`, `users` (+ `adjust-wallet`)
-yo‘llari admin panel bosqichida (9) shu servislar ustiga quriladi.
+### Umumiy qoidalar
+
+- **Konvert, xatolar, sahifalash** — fayl boshidagi qoidalar: `?page=1&limit=20` (`limit` 1..100, `page` 1..10 000),
+  `meta: { page, limit, total }`. Pul — tiyin string (`TiyinString`; ishorali joylar alohida aytilgan), boshqa minimal
+  birliklar (`…NanoTon`, `…MicroUsdt`, `costMinor`) ham string. Vaqt — ISO 8601 UTC. Har javob `Cache-Control: no-store`.
+- **Sessiya.** Login (`/admin/auth/*`) dan keyin bitta cookie: production’da `__Host-adm_session`, development/test’da
+  `adm_session` (`adminSessionCookieName`); `HttpOnly`, `Secure` (development’dan tashqari), `SameSite=Strict`, `Path=/`,
+  `Domain` yo‘q. Qiymati 256 bit tasodifiy token, DB’da faqat `sha256` (`AdminSession.tokenHash`). Muddat: 8 soat mutlaq,
+  1 soat harakatsizlik (`ADMIN_SESSION_TTL_SEC`, `ADMIN_SESSION_IDLE_SEC`; env emas). Foydalanuvchi cookie’lari va Mini App
+  Bearer token admin yo‘lida hech narsa bermaydi; admin cookie foydalanuvchi yo‘lida — `401 UNAUTHORIZED`.
+- **Tekshiruv tartibi** (login yo‘llaridan tashqari har so‘rovda): (1) CORS/Origin, (2) **AdminGuard** — sessiya (bekor
+  qilinmagan, muddati va harakatsizlik) → `AdminUser.isActive` → `telegramId ∈ ADMIN_TELEGRAM_IDS` (config’dan, har safar)
+  → rol (DB’dan) → yozuvda CSRF, (3) shundan keyingina `Idempotency-Key` va Zod tekshiruvi. Sessiyasiz so‘rov hech qachon
+  `400` yoki `409` olmaydi — doim `404` (SA-L5). Pul tranzaksiyasi ichida rol `AdminUser` `FOR SHARE` bilan yana o‘qiladi.
+- **Ruxsatsiz → `404 NOT_FOUND`.** Sessiya yo‘q yoki o‘lik, allowlist’da yo‘q, nofaol, rol yetmaydi, OPERATOR limitdan
+  oshdi, CSRF/Origin xato, noma’lum `/admin/*` yo‘l — hammasi bir xil `404` (tana va sarlavhalar bir xil, D-26). SPA `404`
+  ni `GET /admin/auth/me` da «kirilmagan» deb tushunadi.
+- **CORS va Origin (SA-H2).** `/api/v1/admin/*` uchun CORS ruxsat etilgan origin’lari faqat `[ADMIN_URL]`; foydalanuvchi
+  yo‘llarining CORS ro‘yxatidan `ADMIN_URL` olib tashlanadi (S2, `cors-origins.ts`). Har admin so‘rovida (GET ham) `Origin`
+  sarlavhasi kelsa va `ADMIN_URL` ga teng bo‘lmasa — `404`; `Sec-Fetch-Site: cross-site` — `404`;
+  `Sec-Fetch-Mode: no-cors` yoki `navigate` — `404` (N5: boshqa sayt `<img>`/`<script>`/havola bilan Origin’siz GET yubora
+  olmaydi; SPA har doim `fetch` — `cors` rejimi). Audit CSV ham SPA’dan `fetch` + `Blob` bilan yuklanadi, to‘g‘ridan-to‘g‘ri
+  havola emas. S2 e2e talablari: `Origin: WEB_URL` bilan admin GET → javobda `Access-Control-Allow-Origin` yo‘q va `404`;
+  `Sec-Fetch-Mode: navigate` va `no-cors` bilan (to‘g‘ri sessiya cookie’si bilan ham) admin GET → `404`.
+- **CSRF.** Har yozuv so‘rovida (POST/PATCH) `X-CSRF-Token` sarlavhasi va `Origin` aynan `ADMIN_URL` ga teng bo‘lishi
+  shart (ochiq login yo‘llarida ham); `WEB_URL` admin yo‘lida qabul qilinmaydi. Aks holda `404`.
+- **`Idempotency-Key`** — barcha admin yozuv yo‘llarida majburiy (`/admin/auth/*` va `POST /admin/confirmations` dan
+  tashqari). Format fayldagi bilan bir xil: 8–128 belgi, `A–Z a–z 0–9 _ -`; yo‘q yoki noto‘g‘ri — `400 VALIDATION_ERROR`.
+  Kalit `(adminId, kalit)` bo‘yicha amalning audit qatoriga bog‘lanadi: takror (o‘sha body) — birinchi natija
+  `applied: false` bilan, ikkinchi yozuvsiz; takror **holat tekshiruvlaridan va kod tekshiruvidan OLDIN** aniqlanadi (D-49
+  naqshi; ishlatilgan kod takrorni buzmaydi). O‘sha kalit, boshqa body — `409 IDEMPOTENCY_CONFLICT`. SPA kalitni dialog
+  ochilganda bir marta yaratadi.
+- **`reason`** (`AdminReasonSchema`): trim’dan keyin 10–500 belgi, ko‘rinmas/boshqaruv belgisiz, kamida bitta harf yoki
+  raqam. Pul, holat, admin boshqaruvi va navbat retry amallarida majburiy; katalog yozuvlarida ixtiyoriy (berilsa — shu
+  qoida).
+- **Matn maydonlari.** Admin kiritadigan bir qatorli matn (katalog nomi, label, tab, `supplierSku`, `regionBadge`, admin
+  ismi, `MANUAL` isbotining `evidence` i va `FRAGMENT_STATUS` ning `requestRef` i) boshqaruv/format belgisi (NUL, bidi,
+  zero-width) va qator ajratgichlarisiz (`\p{Cc}\p{Cf}\p{Zl}\p{Zp}`, `\n` ham); tavsif va yordam matnida faqat `\n` ruxsat.
+  Admin ismida `<` va `>` ham yo‘q, kamida bitta harf yoki raqam (`\p{L}`/`\p{N}`) bo‘lishi shart va bo‘sh ko‘rinadigan
+  belgilar (U+115F, U+1160, U+3164, U+FFA0, U+2800) taqiqlangan (N9).
+- **Javob.** Har yozuv javobida `auditId` (yozilgan `AuditLog` qatori) va `applied` bor. Holat amali yoki katalog yozuvi
+  hech narsani o‘zgartirmasa (narsa allaqachon so‘ralgan holatda) — hech narsa yozilmaydi: `applied: false`,
+  `auditId: null` (CLI qoidasi). Har yozuv `AuditLog` (`actorType = "ADMIN"`, `actorId = AdminUser.id`, `action`,
+  `before`/`after`, `reason`, `ip`) bilan bitta tranzaksiyada; amal nomlari — `ADMIN_AUDIT_ACTIONS` (ega CLI’si yozadigan
+  nomlar bilan bir xil).
+- **Limitlar.** Sessiya bo‘yicha 120 so‘rov/daqiqa, yozuv yo‘llari 30/daqiqa, audit CSV 5/daqiqa; sessiyasiz `/admin/*`
+  so‘rovlariga IP bo‘yicha alohida limit — 60/daqiqa/IP (IPv6 /64; SA-L6). Login yo‘llarining (`/admin/auth/*`) o‘z
+  limitlari bor («Auth» bandida) va bu 60 ga qo‘shilmaydi. Oshsa — `429 RATE_LIMITED` +
+  `Retry-After` (sessiyasiz so‘rovda ham bir xil shakl).
+- **Hech qachon javobda emas:** TON mnemonic va kalitlar, Fragment cookie’lari, bank-feed sessiyasi, ta’minotchi kalitlari,
+  to‘liq karta raqami (`pan`), pay token va uning hash’i, `providerRef`, `providerTxnId`, provayder `raw`, idempotentlik
+  kaliti va `requestHash`, OTP kodi, imzolangan BOC. **Maydon darajasidagi qoidalar:** bank xabarining `text`,
+  `balanceAfterTiyin` va `channel` — faqat OWNER’ga, boshqalarga `null` (`payments.bankMessageRaw`); telefon — OWNER va
+  OPERATOR’ga (`users.phoneFull`); audit `ip` — OWNER’ga to‘liq, boshqalarga maskalangan (`audit.ipFull`). Urinishning
+  saqlangan JSON’i hech qachon o‘zi chiqmaydi — faqat `facts` proyeksiyasi («Buyurtmalar»); audit `before`/`after` —
+  `redactAuditJson` orqali (allowlist + butun kalit deny-list + so‘z qoidasi, «Audit log»). Javob sxemalari ham shu
+  tasnifdan (`isAuditSecretKey`) o‘tadi; uchta atayin istisno: `auth/me` dagi `session` (sessiya metama’lumoti),
+  confirmation `challengeId`, foydalanuvchi `referralCode`.
+
+**Rol matritsasi** (`ADMIN_PERMISSIONS`; SPA tugmalarini `GET /admin/auth/me` `permissions` bo‘yicha yashiradi — bu himoya
+emas, faqat UX):
+
+| Amal                                                                     | SUPPORT                  | OPERATOR                                     | OWNER            | Kod (OTP)                                    |
+| ------------------------------------------------------------------------ | ------------------------ | -------------------------------------------- | ---------------- | -------------------------------------------- |
+| Buyurtmalar, foydalanuvchilar, to‘lovlar — o‘qish                        | ha (telefon maskalangan) | ha                                           | ha               | —                                            |
+| Dashboard, katalog (price-preview bilan), sozlamalar — o‘qish (D-65 D4)  | yo‘q                     | ha                                           | ha               | —                                            |
+| Audit log, infra — o‘qish                                                | yo‘q                     | ha (audit `ip` maskalangan)                  | ha               | —                                            |
+| Adminlar ro‘yxati, audit CSV, bank xabari xom maydonlari, review preview | yo‘q                     | yo‘q                                         | ha               | —                                            |
+| Izoh (buyurtma, foydalanuvchi)                                           | ha                       | ha                                           | ha               | —                                            |
+| Buyurtma retry (HELD→QUEUED)                                             | yo‘q                     | attempt-cap va NO_PURCHASE’dan tashqari HELD | ha               | —                                            |
+| Buyurtma cancel, HELD→FAILED + refund                                    | yo‘q                     | to‘liq summa ≤ limit, NO_PURCHASE emas       | ha               | chegaradan katta                             |
+| NEEDS_REVIEW resolve                                                     | yo‘q                     | yo‘q                                         | ha               | isbot turi talab qilsa yoki chegaradan katta |
+| DELIVERED→REFUNDED (to‘liq/qisman)                                       | yo‘q                     | yo‘q                                         | ha               | **har doim** (D-65 D1)                       |
+| Bloklash, xaridni muzlatish, sessiyalarni tugatish                       | yo‘q                     | ha                                           | ha               | —                                            |
+| Blokni ochish (D-65 D2), muzlatishni ochish                              | yo‘q                     | yo‘q                                         | ha               | —                                            |
+| Balans tuzatish                                                          | yo‘q                     | yo‘q                                         | ha               | kirim — har doim; chiqim — chegaradan katta  |
+| P2P review credit                                                        | yo‘q                     | yo‘q                                         | ha               | **har doim** (D-66)                          |
+| To‘ldirishni qaytarish (reverse)                                         | yo‘q                     | yo‘q                                         | ha               | chegaradan katta                             |
+| Karta: pauza, limit, retire                                              | yo‘q                     | yo‘q                                         | ha               | —                                            |
+| Karta: davom (resume)                                                    | yo‘q                     | yo‘q                                         | ha               | SECURITY pauzani ochishda (D-65 D3)          |
+| Katalog yozuvi                                                           | yo‘q                     | yo‘q                                         | ha               | —                                            |
+| Qo‘lda kurs                                                              | yo‘q                     | yo‘q                                         | ha               | sakrash qoidasi (D-56 (3))                   |
+| Adminlar (qo‘shish, o‘zgartirish, sessiyalar)                            | yo‘q                     | yo‘q                                         | ha               | har doim                                     |
+| Navbat job retry (`notify`, `tg-outbox`)                                 | yo‘q                     | yo‘q                                         | ha               | —                                            |
+| Karta qo‘shish (to‘liq raqam), OWNER yaratish, `TON_UNMATCHED_RESOLVED`  | —                        | —                                            | faqat ega CLI’si | —                                            |
+
+«Chegara» — `ADMIN_CONFIRM_THRESHOLD_TIYIN` (summa moduli bo‘yicha; chegaraning o‘zida kod so‘ralmaydi); «limit» —
+`ADMIN_OPERATOR_REFUND_MAX_TIYIN`. OPERATOR limitdan oshsa yoki rol yetmasa — `404`, hech narsa yozilmaydi.
+
+**Faqat OWNER’ning HELD buyurtmalari (M-1, D-64 (6), p5 S9a).** Server buyurtma qulfi ostida ikki belgini hisoblaydi va
+`adminMayPerform` ga beradi (`AdminOrderContext`): `attemptCapHold` — HELD urinishlar chegarasida (p5
+`attemptLimitReached`, `attemptNo` bo‘yicha sanaladi) va `noPurchaseHold` — HELD sababi NO_PURCHASE (PURCHASE yozuvisiz
+buyurtma). OPERATOR uchun: `attemptCapHold` — `retry` `404`; `noPurchaseHold` — `retry`, `cancel`, `fail-and-refund`
+`404` (bu buyurtma faqat egada). Kontekstsiz OPERATOR so‘rovi rad etiladi (fail-closed). Kod chiqarish
+(`POST /admin/confirmations`) ham shu tekshiruvdan o‘tadi. To‘liq jadval (rol × ruxsat × kod × limit × hold) —
+`admin-matrix.test.ts`.
+
+**Qo‘lda yaratiladigan pul cheki (D-63 (5), D-65 D1).** Musbat balans tuzatish, P2P review credit va DELIVERED buyurtma
+refund’i (to‘liq va qisman) Toshkent kunida `ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN` (standart 5 000 000 so‘m, CLI va panel
+uchun umumiy) chekiga qo‘shiladi; oshsa — rad (`400`, `fields[].code` — servis sabab kodi). HELD/FAILED refund va cancel
+chekka kirmaydi (mahsulot yetkazilmagan).
+
+**Tasdiq kodi (step-up, D-63 (4)).** Kod kerak bo‘lgan amalda klient avval `POST /admin/confirmations` chaqiradi, kod
+amalni bajarayotgan adminning o‘z Telegram’iga keladi (`OWNER_ALERT_CHAT_ID` ga emas, D-53 (5)), keyin amal so‘rovi
+tanasida:
+
+```json
+{
+  "reason": "…",
+  "confirmAmountTiyin": "150000000",
+  "otp": { "challengeId": "<32 hex>", "code": "123456" }
+}
+```
+
+- **Binding (SA-M2, m-4).** Kod confirmation tanasining HAR maydoniga (parse qilingan, standart qiymatlar to‘ldirilgan,
+  kalitlari tartiblangan kanonik JSON — `adminConfirmationCanonical`), server flaglariga, `adminId` va `sessionId` ga
+  bog‘lanadi. Hisob yagona funksiyada — `adminConfirmationBinding({ body, serverFlags, adminId, sessionId })` =
+  `sha256(JSON.stringify([canonical(body), sorted(serverFlags), adminId, sessionId]))` (hex); kod chiqarish ham, amal ham
+  aynan shu funksiyani chaqiradi. Amal o‘z so‘rovidan xuddi shu tanani quradi va solishtiradi: bitta maydon yoki flag farq
+  qilsa — `422 CODE_INVALID`. Flaglar klientdan olinmaydi: server ularni qulf ostida hisoblaydi (tartibi ahamiyatsiz).
+- **Kod kerakmi (SA-M3)** — `adminOtpRequired` **qulf ostidagi haqiqiy server summasidan** hisoblanadi (buyurtma jami,
+  review summasi, to‘lov summasi), klientning `confirmAmountTiyin` yoki confirmation `amountTiyin` qiymatidan emas.
+  Tranzaksiya ichida `true` chiqsa va tasdiqlangan kod bo‘lmasa — `400`, `fields[{ path: "otp", code: "OTP_REQUIRED" }]`,
+  rollback. Summasi yo‘q amallarda HTTP qatlami summa uzatmaydi: adminlar boshqaruvi — `ALWAYS`; `fx.set` — server
+  hisoblagan sakrash flagi (`ruleRequiresCode`); `cards.resume` — kartaning joriy pauza sababi SECURITY ekanligi;
+  `orders.resolve` — isbot turi (`MANUAL`, `TON_NOT_DEBITED`, `TON_BOUNCED`) yoki buyurtma jami chegaradan katta.
+- `confirmAmountTiyin` — admin qayta kiritgan summa (balans tuzatishda ishorali). Kod tranzaksiyadan oldin tekshiriladi
+  (urinish solishtirishdan oldin sanaladi, 4-bosqich qoidasi), summa tranzaksiya ichida qayta solishtiriladi (D-46).
+  Kod kerak bo‘lmagan amalda ikkalasi shart emas; kod berilsa — baribir tekshiriladi.
+- Kod 3 daqiqa, bir martalik, 5 urinish; har admin uchun kuniga ko‘pi bilan `ADMIN_OTP_DAILY_MAX` (standart 30, Toshkent
+  kuni) kod. Kvota tugasa — amal ega CLI’si orqali bajariladi (D-46 zaxira yo‘li; runbook: `docs/05` 7- va 9-bo‘limlar).
+
+### Xatolar (admin)
+
+| Status | Kod                                                                                   | Qachon                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR` + `details.fields: [{ path, code }]`                               | Zod xatosi (`code` — Zod kodi) yoki quyidagi domen kodlari (`ADMIN_FIELD_ERROR_CODES`)                          |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_REQUIRED" }]`                   | kod kerak, lekin `otp` berilmagan yoki tasdiqlanmagan (tranzaksiya ichida ham)                                  |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "confirmAmountTiyin", code: "AMOUNT_MISMATCH" }]` | faqat pul amallarida: kod kerak, qayta kiritilgan summa yo‘q yoki haqiqiy summaga teng emas (tranzaksiyada ham) |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "confirmRate", code: "RATE_MISMATCH" }]`          | `POST /admin/fx`: sakrash qoidasi `confirmRate` talab qiladi, u yo‘q yoki `rate` ga teng emas                   |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "action", code: "OTP_NOT_REQUIRED" }]`            | `POST /admin/confirmations`: amal hozir kod talab qilmaydi — kod chiqarilmaydi va yuborilmaydi                  |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_LOCKED" }]`                     | shu challenge’ga 5 urinish tugagan                                                                              |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_UNAVAILABLE" }]`                | kodni yuborib bo‘lmadi (bot adminga yoza olmaydi) — `POST /admin/confirmations`                                 |
+| 404    | `NOT_FOUND`                                                                           | ruxsatsiz (yuqoridagi barcha holatlar) yoki resurs yo‘q                                                         |
+| 409    | `IDEMPOTENCY_CONFLICT`                                                                | o‘sha `Idempotency-Key`, boshqa body                                                                            |
+| 409    | `ORDER_STATE_CONFLICT`                                                                | buyurtma amal kutgan holatda emas (masalan cancel paytida `PROCESSING` ga o‘tib bo‘lgan); hech narsa yozilmaydi |
+| 422    | `CODE_INVALID` + `details.attemptsLeft`                                               | kod noto‘g‘ri yoki boshqa binding uchun chiqarilgan (ikkalasi bir xil javob — oracle yo‘q)                      |
+| 422    | `CODE_EXPIRED`                                                                        | challenge noma’lum, muddati o‘tgan yoki ishlatilgan; login’da — fayldagi «Auth» qoidasi                         |
+| 429    | `RATE_LIMITED` + `Retry-After`                                                        | throttler; kunlik kod limiti                                                                                    |
+
+**Bitta lug‘at (D-65 D5).** OTP servisi (ega CLI’si va panel uchun umumiy) `VALIDATION_ERROR {field, reason}` bilan rad
+etadi; admin HTTP xaritalovchisi (`adminOtpHttpError`) uni shunday beradi: `OTP_REQUIRED`, `AMOUNT_MISMATCH` (S6 da umumiy
+servisga qo‘shiladi, CLI ham oladi), `OTP_LOCKED`, `OTP_UNAVAILABLE` → `400`, `details.fields: [{ path, code }]`;
+`OTP_INVALID`, `OTP_MISMATCH` → `422 CODE_INVALID` + `attemptsLeft`; `OTP_EXPIRED`, noma’lum va ishlatilgan kod →
+`422 CODE_EXPIRED`. Admin yo‘lidan xom `OTP_EXPIRED`, `OTP_MISMATCH`, `OTP_INVALID` hech qachon chiqmaydi.
+
+Amalning o‘z domen rad etishlari (masalan karta holati, review turi) ham `400 VALIDATION_ERROR` + `fields[{ path, code }]`
+shaklida, `code` — ega CLI servislarining sabab kodi (`RECENT_AUTO_TOPUP`, `BANK_VERIFICATION_REQUIRED`, `ALREADY_CREDITED`
+va h.k.). Admin yo‘llarida `403` yo‘q.
+
+### Auth (`/admin/auth/*`)
+
+| Metod | Yo‘l                        | Kim       | So‘rov → javob                                                       |
+| ----- | --------------------------- | --------- | -------------------------------------------------------------------- |
+| POST  | `/admin/auth/start`         | ochiq     | `{}` → `{ nonce, botUrl: "https://t.me/<bot>?start=admin_<nonce>" }` |
+| GET   | `/admin/auth/status/:nonce` | ochiq     | → `{ status: "PENDING" \| "CODE_SENT" \| "DENIED" \| "EXPIRED" }`    |
+| POST  | `/admin/auth/verify`        | ochiq     | `{ nonce, code }` → cookie + `{ admin }`                             |
+| POST  | `/admin/auth/logout`        | har admin | `{}` → `{}`; cookie tozalanadi, sessiya bekor                        |
+| GET   | `/admin/auth/me`            | har admin | → `{ admin, permissions, limits, session }`                          |
+
+- Oqim web login’ning naqshi (D-27): `LoginRequest(kind ADMIN)`, nonce 43 belgi, 10 daqiqa; kod 6 raqam, 3 daqiqa, 5 urinish,
+  bir martalik. Bot kodni faqat `from.id ∈ ADMIN_TELEGRAM_IDS` va `AdminUser.isActive` bo‘lsa yuboradi; boshqalarga
+  «havola eskirgan», status `PENDING` qoladi (oracle yo‘q). «Bu men emasman» → `DENIED`. Telefon so‘ralmaydi.
+- Bot kod xabarida «kodni faqat admin.ggpin.uz ga kiriting» ogohlantirishi va `/admin/auth/start` chaqirilgan IP hamda
+  User-Agent ko‘rsatiladi (S2, SA-L4); domen nomi brend konfiguratsiyasidan olinadi.
+- `verify` xatolari: `422 CODE_INVALID` (+ `attemptsLeft`), `422 CODE_EXPIRED`. Muvaffaqiyatli kirish `ADMIN_LOGIN` audit
+  qatori va xabar: adminning o‘ziga (sessiyani yopish tugmasi bilan) va barcha `OWNER_ALERT_CHAT_ID` ga. `logout` —
+  `ADMIN_LOGOUT`.
+- Limitlar: `start` 10/daqiqa/IP, `verify` 30/daqiqa/IP, `status` 300/daqiqa/IP; bot bitta akkauntga 10 daqiqada 5 kod.
+- `admin` = `{ id, name, role: "OWNER" | "OPERATOR" | "SUPPORT", telegramIdMasked }`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "admin": {
+      "id": "cm3admin000000000000001",
+      "name": "Aziz",
+      "role": "OPERATOR",
+      "telegramIdMasked": "12******89"
+    },
+    "permissions": ["dashboard.read", "orders.read", "orders.retry", "orders.cancel", "…"],
+    "limits": {
+      "operatorRefundMaxTiyin": "50000000",
+      "confirmThresholdTiyin": "100000000"
+    },
+    "session": {
+      "expiresAt": "2026-11-15T18:00:00.000Z",
+      "idleExpiresAt": "2026-11-15T11:00:00.000Z"
+    }
+  }
+}
+```
+
+### Tasdiq kodi — `POST /admin/confirmations`
+
+Kim: `confirmations.create` ruxsati bor rol (OWNER, OPERATOR), **va** shu paytda aynan shu amalni bajara oladigan admin
+(`adminCodeIssueDecision`, SA-M1): rol, OPERATOR uchun buyurtma limiti va faqat-OWNER hold’lari — yo‘q bo‘lsa `404`
+(amalning o‘zidagidek).
+Amal kod talab qilmasa (`adminOtpRequired` server summasi bo‘yicha `false`) kod chiqarilmaydi va yuborilmaydi — `400`,
+`fields[{ path: "action", code: "OTP_NOT_REQUIRED" }]`. Kod ishlatilganda amalning o‘z ruxsati yana tekshiriladi.
+`Idempotency-Key` kerak emas. Bu — `AuditLog` qatori yozmaydigan yagona admin yozuv yo‘li (N8): kod chiqarish hech
+narsani o‘zgartirmaydi, tasdiqlangan amal esa o‘z audit qatorida `otpVerified` ni yozadi. Body — `action` bo‘yicha (`AdminConfirmationBodySchema`), amal o‘zi yuboradigan maydonlar
+bilan; har maydon binding’ga kiradi:
+
+| `action`                                                    | Maydonlar (hammasi binding’da)                                                                                                            |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `orders.cancel`, `orders.failAndRefund`, `payments.reverse` | `targetId`, `amountTiyin` (musbat)                                                                                                        |
+| `orders.refund`                                             | `targetId`, `amountTiyin` (musbat; FULL — qolgan summa, PARTIAL — qisman summa), `mode` (`FULL` \| `PARTIAL`), `returnTxHash?` (N3)       |
+| `orders.resolve`                                            | `targetId`, `amountTiyin` (buyurtma jami), `outcome`, `proof`, `deliveredOutsideSystem`, `reason` (p5 `proofDigest` uni o‘z ichiga oladi) |
+| `payments.reviewCredit`                                     | `targetId` (review), `amountTiyin`, `userId` yoki `intentId` (bittasi), `confirmOverride`, `bankVerified`                                 |
+| `users.adjustWallet`                                        | `targetId` (user), `amountTiyin` (ishorali, 0 emas), `confirmOverrideSet?`, `idempotencyKey` (= amal so‘rovidagi `Idempotency-Key`)       |
+| `cards.resume`                                              | `targetId` (karta), `confirmOverride`, `confirmSecurityPause`                                                                             |
+| `fx.set`                                                    | `pair` (`USDT_UZS` \| `TON_USDT`) va `rate` — ikkalasi bog‘lanadi                                                                         |
+| `admins.create`                                             | `telegramId`, `name`, `role` (`OPERATOR` \| `SUPPORT`)                                                                                    |
+| `admins.update`                                             | `targetId` va o‘zgaradigan har maydon (`name?`, `role?`, `isActive?`; kamida bittasi)                                                     |
+| `admins.sessionsRevoke`, `sessions.revoke`                  | `targetId`                                                                                                                                |
+
+Javob: `{ challengeId, expiresInSec }` — `challengeId` 128 bit (32 hex) brauzerga qaytadi (D-46 dagi «faqat CLI
+xotirasida» qoidasining HTTP varianti): yolg‘iz o‘zi yetmaydi, kod, o‘sha sessiya va o‘sha binding kerak. Xatolar: `404`,
+`400` (shakl; `OTP_NOT_REQUIRED`; `OTP_UNAVAILABLE`), `429` (kunlik limit).
+
+### Dashboard — `GET /admin/dashboard?period=today|week|month|range&from=&to=`
+
+OWNER va OPERATOR (D-65 D4). `range` da `from` va `to` majburiy (≤ 366 kun), boshqa davrlarda berilmaydi. Kunlar —
+Toshkent kalendar kuni.
+
+- `period: { from, to }`;
+- `kpi`: `revenueTiyin`, `ordersCount`, `deliveredCount`, `deliveryRateBps|null`, `avgDeliverySec|null`,
+  `grossProfitTiyin` (ishorali), `newUsersCount`, `topupsTiyin`, `topupsCount` — `revenueTiyin` = davrda `DELIVERED`
+  bo‘lgan va keyin qaytarilmagan buyurtmalarning `priceTiyin − discountTiyin` yig‘indisi; foyda — tannarx buyurtmaning
+  kurs snapshoti bo‘yicha so‘mda;
+- `charts`: `revenue: [{ day, revenueTiyin, profitTiyin }]`, `productShare: [{ productId, productName, revenueTiyin,
+ordersCount }]`, `topupBankShare: [{ bank: "HUMO" | "UZCARD", amountTiyin, count }]`;
+- `alerts: [{ kind, severity: "warning" | "critical", count|null, since|null }]`, `kind` ∈ `ORDERS_NEEDS_REVIEW`, `ORDERS_HELD`,
+  `PAYMENT_REVIEWS_OPEN`, `FRAGMENT_SESSION_DEAD`, `TON_BALANCE_LOW`, `TON_DAILY_LIMIT_HIGH`, `QUEUE_FAILED_JOBS`,
+  `RECONCILE_MISMATCH`, `BANK_FEED_SILENT`. Bo‘sh ro‘yxat — «hammasi joyida».
+
+### Buyurtmalar (LOYIHA — 5-bosqich shakllari, 9-B da tekshiriladi)
+
+| Metod | Yo‘l                                | Rol                     | So‘rov → javob                                                                  |
+| ----- | ----------------------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| GET   | `/admin/orders`                     | hamma                   | filtrlar → `AdminOrderRow[]` + `meta`                                           |
+| GET   | `/admin/orders/review-queue`        | hamma                   | `?status=NEEDS_REVIEW\|HELD` → qator + `{ enteredAt, ageSec }`, eskisi birinchi |
+| GET   | `/admin/orders/:id`                 | hamma                   | → tafsilot                                                                      |
+| POST  | `/admin/orders/:id/retry`           | OPERATOR (hold), OWNER  | `{ reason }` — HELD→QUEUED                                                      |
+| POST  | `/admin/orders/:id/cancel`          | OPERATOR (limit), OWNER | `{ reason, confirmAmountTiyin?, otp? }` — PAID/QUEUED/HELD→CANCELLED→REFUNDED   |
+| POST  | `/admin/orders/:id/fail-and-refund` | OPERATOR (limit), OWNER | `{ reason, confirmAmountTiyin?, otp? }` — HELD→FAILED→REFUNDED                  |
+| POST  | `/admin/orders/:id/resolve`         | OWNER                   | `{ outcome, proof, deliveredOutsideSystem, reason, confirmAmountTiyin?, otp? }` |
+| POST  | `/admin/orders/:id/refund`          | OWNER                   | `{ mode, amountTiyin?, returnTxHash?, reason, confirmAmountTiyin?, otp? }`      |
+| POST  | `/admin/orders/:id/notes`           | hamma                   | `{ text }` (1–1000) → `{ note, auditId, applied }`                              |
+
+- **Ro‘yxat filtrlari:** `status` (bitta yoki vergulli bir nechta xom holat), `productId`, `adapter`, `userId`, `from`/`to`
+  (`createdAt`), `minTiyin`/`maxTiyin` (`totalTiyin`, `min ≤ max`), `q` (`#1042`, `@username` yoki TON tx hash), `page`,
+  `limit`.
+- **`AdminOrderRow`:** `id`, `number`, `createdAt`, `user: { id, username }`, `product: { id, slug, name }`,
+  `sku: { id, label } | null`, `quantity`, `recipient: { displayName, fields }`, `priceTiyin`, `discountTiyin`,
+  `totalTiyin`, `costCurrency`, `costMinor`, `profitTiyin|null` (ishorali, DELIVERED gacha `null`), `status`,
+  `statusReason|null`, `adapter|null`, `deliveredAt|null`.
+- **Tafsilot** = qator + `events[{ from|null, to, actor, note|null, createdAt }]`,
+  `attempts[{ id, attemptNo, adapter, status, externalRef, error, facts, createdAt }]`,
+  `tonTransfers[{ id, attemptId, status, network, walletAddress, toAddress, amountNanoTon, feeNanoTon, seqno, validUntil,
+extMsgHash, txHash, txLt, explorerUrl, confirmedAt, createdAt }]` (`explorerUrl` — server tarmoqqa qarab beradi),
+  `ledger[{ id, kind, amountTiyin, refType, createdAt }]`, `refundedTiyin`,
+  `quote{ id, priceTiyin, costMinor, maxCostMinor, costCurrency, createdAt, expiresAt }`,
+  `fxRate{ id, pair, rate, source, createdAt }`, `notes[]`. Witness nizosi bo‘lgan transfer «yuborilmagan» deb
+  ko‘rsatilmaydi (5-bosqich S5 sharhi) — aniq shakli 9-B da.
+- **Urinish `facts` (SA-M4)** — saqlangan JSON emas, server quradigan qat’iy proyeksiya (`AdminAttemptFactsSchema`):
+  `{ ton: { toAddress|null, amountNanoTon|null, bounce: { txHash, txLt, returnTxHash, returnLt, returnedNanoTon } | null,
+expiry: { seqno, observedAt } | null, witnessConflict } | null }`. Urinishning `request` i (unda `recheckedProviderRef`
+  va payload BOC bor) javobga umuman chiqmaydi; `response` dan faqat shu faktlar olinadi. Manba yo‘llari
+  (`response.ton.*`) 9-B da tekshiriladi.
+- **Amallar** holat mashinasi orqali (`order-state.ts`); pul qaytsa `REFUND` ledger yozuvi va holat o‘zgarishi bitta
+  tranzaksiyada hamyon qulfi bilan. Javob: `{ order: AdminOrderRow, refundTiyin|null, auditId, applied }`. Buyurtma
+  kutilgan holatda emas — `409 ORDER_STATE_CONFLICT` (worker bilan poyga — CAS).
+- **No-op va takror (CR-L8).** Takror so‘rov (o‘sha `Idempotency-Key`) — birinchi javob, `applied: false`. Kalitsiz
+  «allaqachon bajarilgan» holat faqat o‘z amalimiz natijasi bo‘lsa no-op bo‘ladi: QUEUED buyurtmaga `retry` — oxirgi
+  HELD→QUEUED o‘tishi shu admin amalining `ORDER_RETRY` audit qatori bo‘lsa `applied: false` (`auditId` — o‘sha qator),
+  aks holda (worker yoki boshqa admin o‘tkazgan) `409 ORDER_STATE_CONFLICT` (p5 `order-retry.service` naqshi). `cancel`,
+  `fail-and-refund`, `resolve`, `refund` da no-op yo‘q: kutilgan holat bo‘lmasa — `409`.
+- `retry` (M-1, p5 S9a): OPERATOR har HELD buyurtmani qayta navbatga qo‘ya oladi, attempt-cap (`attemptCapHold`) va
+  NO_PURCHASE (`noPurchaseHold`) hold’laridan tashqari — ular faqat OWNER’niki, OPERATOR’ga `404`. Release audit qatori
+  (`ORDER_RETRY`) `before.maxAttemptNo` (shu paytgacha eng katta `attemptNo`) va `after.actor.role` ni yozadi. Urinishlar
+  hisobini faqat **OWNER** release’i nollaydi (worker keyingi urinishlarni o‘sha OWNER qatoridagi `maxAttemptNo` dan
+  keyin sanaydi); OPERATOR retry’i va tizim retry’i nollamaydi.
+- `cancel`/`fail-and-refund` doim **to‘liq** summa; OPERATOR faqat `totalTiyin ≤ ADMIN_OPERATOR_REFUND_MAX_TIYIN` da va
+  NO_PURCHASE hold bo‘lmasa (aks holda `404`), qisman refund OPERATOR’da yo‘q. Bu refundlar qo‘lda yaratiladigan pul
+  chekiga kirmaydi.
+- `resolve`: `outcome` `DELIVERED` yoki `FAILED` (+ refund); `proof` — `AdminResolveProofSchema`, `kind` bo‘yicha qat’iy
+  (`TON_TX`, `TON_NOT_SENT`, `TON_NOT_DEBITED`, `TON_BOUNCED`, `FRAGMENT_STATUS`, `MANUAL`), maydonlari 5-bosqich
+  `NeedsReviewProofSchema` bilan bir xil, `reason` siz (body `reason` i server tomonida ko‘chiriladi; `proof.reason` —
+  `400`), satrlar uzunligi chegaralangan. `TON_UNMATCHED_RESOLVED` — faqat ega CLI’si (D-59 (3)). Kod: `MANUAL`,
+  `TON_NOT_DEBITED`, `TON_BOUNCED` va chegaradan katta summada. `deliveredOutsideSystem` — I-8 tasdig‘i. HTTP tanasidagi
+  `type: "CLI"` resolver rad etiladi (I-4).
+- `refund` (OWNER, kod **har doim**, D-65 D1): `mode` majburiy (N3). `mode: "FULL"` — `amountTiyin` yo‘q (berilsa `400`),
+  qolgan to‘liq summa, DELIVERED→REFUNDED (`REFUND`, `ORDER/<orderId>`); `mode: "PARTIAL"` — `amountTiyin` majburiy,
+  holat DELIVERED qoladi (`REFUND`, `ADMIN_ACTION/<auditId>`). `mode` va `returnTxHash` kod binding’ida: qolgan summaga
+  teng qisman refund kodi to‘liq refundni tasdiqlamaydi. Summa qo‘lda
+  yaratiladigan pul chekiga qo‘shiladi. Jonli urinish yoki `SIGNED`/`BROADCAST`/`CONSUMED_UNMATCHED`/`BOUNCED` transfer
+  bo‘lsa DB rad etadi. `returnTxHash` (64 hex) audit isbotiga yoziladi, qayta ishlatilmaydi (I-7).
+
+### Foydalanuvchilar
+
+| Metod | Yo‘l                               | Rol       | So‘rov → javob                                                                                    |
+| ----- | ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------- |
+| GET   | `/admin/users`                     | hamma     | `?q&status&from&to&page&limit` → `AdminUserRow[]` + `meta`                                        |
+| GET   | `/admin/users/:id`                 | hamma     | → qator + `{ lastName, photoUrl, phone, referralCode, referredBy, activeSessionsCount, notes[] }` |
+| GET   | `/admin/users/:id/orders`          | hamma     | `?page&limit` → `AdminOrderRow[]`                                                                 |
+| GET   | `/admin/users/:id/ledger`          | hamma     | `?page&limit` → `[{ id, kind, amountTiyin, refType, refId, createdAt }]`                          |
+| GET   | `/admin/users/:id/payments`        | hamma     | `?page&limit` → `AdminPaymentRow[]`                                                               |
+| GET   | `/admin/users/:id/referrals`       | hamma     | `?page&limit` → `[{ id, username, createdAt }]`                                                   |
+| GET   | `/admin/users/:id/sessions`        | hamma     | `?page&limit` → `[{ id, userAgent, ipMasked, createdAt, expiresAt, revokedAt }]`                  |
+| POST  | `/admin/users/:id/block`           | OPERATOR+ | `{ reason }` → `AdminUserState`                                                                   |
+| POST  | `/admin/users/:id/unblock`         | OWNER     | `{ reason }` → `AdminUserState` (D-65 D2)                                                         |
+| POST  | `/admin/users/:id/freeze`          | OPERATOR+ | `{ reason }` → `AdminUserState`                                                                   |
+| POST  | `/admin/users/:id/unfreeze`        | OWNER     | `{ reason }` → `AdminUserState`                                                                   |
+| POST  | `/admin/users/:id/sessions/revoke` | OPERATOR+ | `{ reason }` → `{ userId, revokedSessions, auditId, applied }`                                    |
+| POST  | `/admin/users/:id/adjust-wallet`   | OWNER     | `{ amountTiyin, reason, confirmOverrideSet?, confirmAmountTiyin?, otp? }`                         |
+| POST  | `/admin/users/:id/notes`           | hamma     | `{ text }` → `{ note, auditId, applied }`                                                         |
+
+- `q`: `@username`, Telegram id yoki user id; `status`: `ACTIVE`, `BLOCKED`, `FROZEN`, `BOT_BLOCKED`; `from`/`to` — `createdAt`.
+- **`AdminUserRow`:** `{ id, telegramId (string), username, firstName, locale, createdAt, lastSeenAt, balanceTiyin (ishorali),
+ordersCount, ordersTotalTiyin, referralsCount, isBlocked, purchaseFrozen, botBlocked }`. `phone` — OWNER/OPERATOR’ga to‘liq,
+  SUPPORT’ga maskalangan, ulashilmagan bo‘lsa `null`. `notes` — oxirgi 20 ta (`{ id, text, createdAt, author: { id, name } }`).
+- **`AdminUserState`:** `{ userId, isBlocked, purchaseFrozen, revokedSessions, auditId|null, applied }`. Bloklash hamyon qulfi
+  ostida va foydalanuvchining barcha web sessiyalarini shu tranzaksiyada yopadi (D-63 (9)).
+- `adjust-wallet` (`WALLET_ADJUST`, mavjud servis): `amountTiyin` ishorali, 0 emas (+ kirim, − chiqim); `confirmOverrideSet` —
+  oxirgi avtomatik to‘ldirishlar to‘plamining 12 hex id’si (CLI `--confirm-override=<set>`); `confirmAmountTiyin` ishorali.
+  Kod: kirimda (musbat) **har doim**, chiqimda chegaradan katta bo‘lsa (D-65 D1); confirmation’dagi `idempotencyKey` amal
+  so‘rovidagi `Idempotency-Key` sarlavhasiga teng bo‘lishi shart (bitta kod — bitta pul harakati). Javob:
+  `{ ledgerEntryId, balanceTiyin, frozen, auditId, applied }`. Musbat tuzatish qo‘lda yaratiladigan pul chekiga qo‘shiladi
+  («Rol matritsasi» ostidagi band).
+
+### To‘lovlar (P2P)
+
+| Metod | Yo‘l                                         | Rol   | So‘rov → javob                                                                                                                                                         |
+| ----- | -------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET   | `/admin/payments/intents`                    | hamma | `?status&userId&cardId&from&to&page&limit` → `[{ id, userId, status, amountTiyin, baseAmountTiyin, card: { id, bank, last4 } \| null, createdAt, expiresAt, paidAt }]` |
+| GET   | `/admin/payments`                            | hamma | `?status&userId&from&to&page&limit` → `AdminPaymentRow[]`                                                                                                              |
+| GET   | `/admin/payments/reviews`                    | hamma | `?status=OPEN\|RESOLVED&kind&cardId&from&to&page&limit` → `AdminReviewRow[]` (`status` standarti `OPEN`)                                                               |
+| GET   | `/admin/payments/reviews/:id`                | hamma | → `AdminReviewRow` + `{ bankMessage, payment, note, resolvedAuditId }`                                                                                                 |
+| GET   | `/admin/payments/reviews/:id/credit-preview` | OWNER | `?userId` yoki `?intentId` → credit oldidan ko‘rinish                                                                                                                  |
+| GET   | `/admin/payments/bank-messages/:id`          | hamma | → `AdminBankMessage` (`text`, `balanceAfterTiyin`, `channel` faqat OWNER’ga)                                                                                           |
+| GET   | `/admin/payments/cards`                      | hamma | → `AdminCard[]`                                                                                                                                                        |
+| GET   | `/admin/payments/reconcile`                  | hamma | `?from&to&page&limit` → kunlik hisobotlar                                                                                                                              |
+| POST  | `/admin/payments/reviews/:id/credit`         | OWNER | `{ userId \| intentId, reason, confirmOverride, bankVerified, confirmAmountTiyin?, otp? }` — kod **har doim** (D-66), summadan qat’i nazar                             |
+| POST  | `/admin/payments/:id/reverse`                | OWNER | `{ reason, confirmAmountTiyin?, otp? }`                                                                                                                                |
+| POST  | `/admin/payments/cards/:id/pause`            | OWNER | `{ reason }`                                                                                                                                                           |
+| POST  | `/admin/payments/cards/:id/resume`           | OWNER | `{ reason, confirmOverride, confirmSecurityPause, otp? }` — SECURITY pauzani ochishda kod (D-65 D3)                                                                    |
+| POST  | `/admin/payments/cards/:id/limit`            | OWNER | `{ receiveLimitTiyin, monthlyLimitTiyin?, reason }` (`null` — oylik chek olib tashlanadi)                                                                              |
+| POST  | `/admin/payments/cards/:id/retire`           | OWNER | `{ reason, emergency }`                                                                                                                                                |
+
+- **`AdminPaymentRow`:** `{ id, userId, intentId, provider, amountTiyin, status: "CREATED" | "CONFIRMED" | "CANCELLED", bankMessageId,
+reviewId, createdAt, confirmedAt, cancelledAt }` — `providerTxnId` va `raw` yo‘q.
+- **`AdminReviewRow`:** `{ id, kind, status, resolution|null, card|null, intentId, bankMessageId, amountTiyin|null, direction|null,
+bankTxnAt|null, createdAt, resolvedAt|null }`.
+- **`AdminBankMessage`:** `{ id, source, parseStatus, rejectReason, direction, amountTiyin, balanceAfterTiyin, last4, cardId, channel,
+tgDate, bankTxnAt, createdAt, text|null }`. `text`, `balanceAfterTiyin` va `channel` — faqat OWNER’ga, boshqalarga
+  `null` (`payments.bankMessageRaw`, SA-M5).
+- **credit-preview** (CLI `review:credit` chiqaradigan ma’lumot): `{ amountTiyin, userId, blocked, purchaseFrozen, accountAgeDays,
+overLimit, overrideNeeded|null, needsBankVerification, manualCreditsSinceRequest: { adjust: { count, sumTiyin }, reviewCredit:
+{ count, sumTiyin }, since } }`.
+- **`AdminCard`:** `{ id, bank, last4, holderName, status, receiveLimitTiyin, monthlyLimitTiyin|null, receivedTiyin,
+receivedMonthTiyin, reservedTiyin, usagePercent, autoCreditPaused, verifiedAt, retiredAt, createdAt }` — to‘liq raqam yo‘q.
+- **Reconcile kuni:** `{ day, auditId, createdAt, ok, checkedMessages, debits, openReviews, historyScan, mismatches: { <kod>: son },
+examples: { <kod>: id[] } }` — worker’ning `PAYMENT_RECONCILE` audit qatori; kodlar `RECONCILE_MISMATCH_CODES`.
+- Javoblar: credit → `{ reviewId, paymentId, userId, intentId, amountTiyin, auditId, applied }`; reverse → `{ paymentId, userId,
+ledgerEntryId, balanceTiyin (ishorali), frozen, auditId, applied }`; karta amallari → `{ card: AdminCard, cancelledIntents,
+auditId|null, applied }`. Servislar ega CLI’siniki (D-46), amal nomlari bir xil (`REVIEW_CREDIT`, `PAYMENT_REVERSE`,
+  `CARD_PAUSE`, `CARD_RESUME`, `CARD_LIMIT`, `CARD_RETIRE`, `CARD_RETIRE_EMERGENCY`).
+- **Faqat CLI:** `card:add` (to‘liq karta raqami, D-63 (6)) va review yopish (`review:ignore`, `review:returned-offline`,
+  `review:accept-chain`) — bu loyihada panel yo‘li yo‘q.
+
+### Katalog
+
+| Metod | Yo‘l                                | Rol       | So‘rov → javob                                                                                                                                                                      |
+| ----- | ----------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET   | `/admin/categories`                 | OPERATOR+ | → `[{ id, slug, nameUz, nameRu, sort, productsCount }]`                                                                                                                             |
+| GET   | `/admin/products`                   | OPERATOR+ | → `[{ id, slug, categoryId, nameUz, nameRu, imageUrl, deliveryType, isActive, isFeatured, sort, activeSkusCount, routesEnabledCount }]`                                             |
+| GET   | `/admin/products/:id`               | OPERATOR+ | → qator + uz/ru tavsif va yordam, `regionBadge`, `isAuto`, `allowCustomQty`, `minQty`, `maxQty`, `skus[]`, `routes[]`, `updatedAt`                                                  |
+| GET   | `/admin/products/:id/price-preview` | OPERATOR+ | `?skuId` yoki `?quantity` (+ `markupBps?`, `minMarginTiyin?`) → `{ costCurrency, costMinor, fxRate, markupBps, minMarginTiyin, priceTiyin, marginTiyin, belowMinMargin }`           |
+| PATCH | `/admin/categories/:id`             | OWNER     | `{ nameUz?, nameRu?, sort?, reason? }` → `{ category, auditId \| null, applied }`                                                                                                   |
+| PATCH | `/admin/products/:id`               | OWNER     | `{ nameUz?, nameRu?, descriptionUz?, descriptionRu?, helpUz?, helpRu?, regionBadge?, imageUrl?, isActive?, isFeatured?, sort?, reason? }` → `{ product, auditId \| null, applied }` |
+| POST  | `/admin/products/reorder`           | OWNER     | `{ productIds: [...] }` (har biri bir marta, tartib = indeks) → `{ products: [{ id, sort }], auditId \| null, applied }`                                                            |
+| POST  | `/admin/products/:id/skus`          | OWNER     | `{ tab?, labelUz, labelRu, quantity, supplierSku?, markupBps, minMarginTiyin, isActive, sort, reason? }` → `{ sku, auditId \| null, applied }`                                      |
+| PATCH | `/admin/skus/:id`                   | OWNER     | yuqoridagilarning ixtiyoriy qismi → `{ sku, auditId \| null, applied }`                                                                                                             |
+| PATCH | `/admin/routes/:id`                 | OWNER     | `{ priority?, isEnabled?, reason? }` → `{ route, auditId \| null, applied }`                                                                                                        |
+
+- SKU: `{ id, tab, labelUz, labelRu, quantity, supplierSku, markupBps, minMarginTiyin, isActive, sort }`; route: `{ id, adapter,
+priority, isEnabled, health: "OK" | "DEGRADED" | "DOWN" | "UNKNOWN", healthCheckedAt }`.
+- GET’lar OWNER va OPERATOR uchun (D-65 D4). Yozuv hech narsani o‘zgartirmasa (har maydon allaqachon so‘ralgan qiymatda) —
+  audit qatori yozilmaydi: `auditId: null`, `applied: false` (CR-M2). Nom, label, tab, `supplierSku`, `regionBadge` — bir
+  qatorli ko‘rinadigan matn; tavsif va yordamda faqat `\n` ruxsat («Umumiy qoidalar» → «Matn maydonlari»).
+- `price-preview` so‘rovidagi `quantity` (1..1 000 000) va `markupBps` (0..10 000) — faqat oddiy o‘nlik raqam (`0x10`, `1e3`,
+  `+5`, `05` — `400`). Javobdagi `fxRate` — `null` bo‘lishi mumkin (tannarx so‘mda bo‘lsa).
+- PATCH’da kamida bitta maydon o‘zgarishi shart. `markupBps` 0–10 000, `minMarginTiyin ≥ 0` (D-63 (8)). `imageUrl` — faqat
+  `/assets/…` ichidagi yo‘l (rasm yuklash yo‘q). Erkin miqdorli mahsulotda bir xil miqdorli ikkinchi faol paket — rad.
+  O‘zgarish mavjud kotirovkalarga ta’sir qilmaydi (narx kotirovkada qulflangan). Preview hisobi faqat `money-pricing.ts`.
+- Yo‘q: yangi mahsulot, `inputSchema`, `deliveryType`, voucherlar (G-bosqichlar).
+
+### Sozlamalar va kurs
+
+| Metod | Yo‘l                | Rol       | So‘rov → javob                                                                                                      |
+| ----- | ------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| GET   | `/admin/settings`   | OPERATOR+ | → `{ items: [{ key, value, unit: "TIYIN" \| "BPS" \| "MS" \| "COUNT", source: "env" \| "constant" }] }`             |
+| GET   | `/admin/fx/history` | OPERATOR+ | `?pair&page&limit` → `[{ id, pair, rate, source, createdAt }]`                                                      |
+| POST  | `/admin/fx`         | OWNER     | `{ pair, rate, reason, confirmRate?, otp? }` → `{ fxRate, derived, auditId, applied }` (LOYIHA, 5-bosqich `fx:set`) |
+
+- Ikkala GET OWNER va OPERATOR uchun (D-65 D4). `key` — oq ro‘yxat (`ADMIN_SETTING_KEYS`): to‘ldirish chegaralari, narx toleransi, kotirovka va kurs muddatlari, admin chegaralari
+  va limitlari; `value` — o‘nlik string. Sozlamalar faqat o‘qish uchun (D-63 (8)); TON limitlari — `GET /admin/infra/wallet`.
+- `POST /admin/fx`: `pair` faqat `USDT_UZS` yoki `TON_USDT` (`TON_UZS` hosila, `derived`); `rate` — musbat o‘nlik (≤ 18 kasr).
+  Sakrash qoidasi (24 soatdagi qo‘lda kurslarga nisbatan > 10 %, D-56 (3)) belgilasa — `confirmRate` (qayta kiritilgan kurs) va
+  kod. `confirmRate` yo‘q yoki `rate` ga teng emas — `400`, `fields[{ path: "confirmRate", code: "RATE_MISMATCH" }]`
+  (`ADMIN_RATE_MISMATCH_ERROR`; kurs pul emas, shuning uchun `AMOUNT_MISMATCH` emas, m-5). `FX_SET`.
+
+### Infra (OWNER, OPERATOR o‘qiydi; LOYIHA — 5-bosqich ma’lumoti)
+
+| Metod | Yo‘l                                       | Rol       | Javob                                                                                                                                                                                                                                                         |
+| ----- | ------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET   | `/admin/infra/wallet`                      | OPERATOR+ | `{ network, address, balance: { nanoTon, microUsdt, snapshotAt } \| null, used24hNanoTon, limits: { perOrderMaxNanoTon, dailyMaxNanoTon, minBalanceAlertNanoTon }, recentTransfers[{ id, orderId, status, amountNanoTon, txHash, explorerUrl, createdAt }] }` |
+| GET   | `/admin/infra/fragment`                    | OPERATOR+ | `{ status: "ACTIVE" \| "DEAD" \| "NONE", lastOkAt, deadAt, updatedAt }`                                                                                                                                                                                       |
+| GET   | `/admin/infra/adapters`                    | OPERATOR+ | `[{ adapter, health, checkedAt }]`                                                                                                                                                                                                                            |
+| GET   | `/admin/infra/queues`                      | OPERATOR+ | `[{ name, waiting, active, delayed, failed, paused, retryable }]`                                                                                                                                                                                             |
+| POST  | `/admin/infra/queues/:name/jobs/:id/retry` | OWNER     | `{ reason }` → `{ queue, jobId, auditId, applied }`                                                                                                                                                                                                           |
+
+- `used24hNanoTon` — 24 soatlik oynadagi chiqib ketishi mumkin bo‘lgan har transfer, `EXPIRED` ham (D-60 (2)); limitlar worker
+  env’idan, faqat o‘qish. Fragment sessiyasini yangilash — panelda runbook matni (CLI `fragment:session-import`).
+- `recentTransfers[].orderId` — `null` bo‘lishi mumkin (buyurtmaga bog‘lanmagan transfer).
+- Retry (`reason` majburiy — mijozga xabar qayta yuboriladi) faqat `notify` va `tg-outbox` navbatlarining failed job’lari uchun (`:name` boshqa — `400`); `fulfill-order`,
+  `validate-recipient`, `bank-message` — hech qachon (buyurtma uchun «retry» amali bor). `QUEUE_JOB_RETRY`.
+
+### Audit log
+
+| Metod | Yo‘l                          | Rol       | So‘rov → javob                                                                         |
+| ----- | ----------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| GET   | `/admin/audit-log`            | OPERATOR+ | `?actorType&actorId&action&targetType&targetId&from&to&page&limit` → `AdminAuditRow[]` |
+| GET   | `/admin/audit-log/export.csv` | OWNER     | xuddi shu filtrlar + `limit` (≤ 10 000, sahifasiz) → `text/csv`                        |
+
+- **`AdminAuditRow`:** `{ id, createdAt, actor: { type: "ADMIN" | "CLI" | "SYSTEM", id|null, name|null }, action, targetType,
+targetId, before|null, after|null, reason|null, ip|null }`. `action` filtri — istalgan katta harfli nom (CLI va worker
+  yozganlari ham).
+- `before`/`after` — server tomonida `redactAuditJson(json, view)` dan o‘tadi (SA-M4, M-2/N2; tasnif —
+  `admin-audit-keys.ts`, javob sxemalari testi ham shu `isAuditSecretKey` ni ishlatadi). Kalit normallashtiriladi (katta-kichik
+  harf farqsiz, `_` va `-` olib tashlanadi, camelCase so‘zlarga bo‘linadi) va istalgan chuqurlikda uch qatlamdan o‘tadi:
+  1. **Allowlist (doim ko‘rinadi, deny’dan ustun):** `otpVerified`, `otpRequired`, `txHash`, `txLt`, `lt`, `returnTxHash`,
+     `returnLt`, `extMsgHash`, `consumingTxHash`, `proofDigest`, `recentAutoTopups`, `statusReason`, `rejectReason`,
+     `errorCode`, `reasonCode`, `statusCode`, `countryCode` (`AUDIT_VISIBLE_KEYS`).
+  2. **Butun kalit deny-list (`AUDIT_SECRET_KEYS`):** karta (`pan`, `fullPan`, `cardPan`, `cardNumber`), kodlar (`code`,
+     `otp`, `otpCode`, `codeHash`, `challengeId`, `bonusCode`, `promoCode`, `discountCode`), kalit va sirlar (`mnemonic`,
+     `seed`, `privateKey`, `secretKey`, `apiKey`, `apiHash`, `password`, `passphrase`), sessiya (`cookie`, `cookies`,
+     `session`, `sessionString`, `bankFeedSession`, `authKey`, `initData`), token va hash’lar (`token`, `accessToken`,
+     `refreshToken`, `payToken`, `tokenHash`, `payTokenHash`, `refreshHash`, `requestHash`, `textSha256`,
+     `idempotencyKey`), provayder (`providerRef`, `recheckedProviderRef`, `providerTxnId`, `raw`), imzolar (`signature`,
+     `boc`, `signedBoc`, `payloadBoc`) va `verifyAmountTiyin`.
+  3. **So‘z qoidasi (yangi kalitlar uchun fail-closed, `AUDIT_SECRET_TOKENS`):** kalit so‘zlaridan biri (yoki qo‘shni
+     so‘zlar birikmasi, ko‘plik `-s`/`-es` bilan) `secret`, `password`, `mnemonic`, `cookie`, `token`, `boc`, `apikey`,
+     `privatekey`, `verifyamount`, `providerref`, `providertxn`, `otp`, `code` yoki `hash` bo‘lsa — yashiriladi
+     (`fooSecret`, `newMnemonic`, `xCookie`, `walletHash`). Bu substring emas: `codex`, `hashtag` ko‘rinadi; `session` so‘z
+     qoidasida yo‘q (`revokedSessions` — son, ko‘rinadi).
+
+  Yashirilgan qiymat — `"[redacted]"`, hamma rol uchun. Rolga bog‘liq maydonlar (istalgan chuqurlikda): `ip`, `sshClient`,
+  `remoteAddr` — OWNER’ga to‘liq, boshqalarga API’ning `maskIp` i bilan (IPv4 /24, IPv6 /48; manzil bo‘lmasa `null`,
+  `audit.ipFull`); `text`, `rawText`, `balanceAfterTiyin`, `channel` — OWNER’ga, boshqalarga `null`
+  (`payments.bankMessageRaw`). Qatorning o‘z `ip` ustuni ham `audit.ipFull` bo‘yicha. Xom qator faqat ega CLI’sida. Haqiqiy
+  `before`/`after` shakllari (WALLET_ADJUST, PAYMENT_REVERSE, REVIEW_CREDIT, FX_SET, ORDER_REVIEW_RESOLVE, ORDER_RETRY,
+  CARD\_\*, SECURITY_PAUSE) — `admin-audit-golden.test.ts` da «ko‘rinadi / yashirin» ro‘yxatlari bilan.
+
+- CSV (SA-M8): konvertsiz, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment`, oqim (streaming)
+  bilan; limit 5 eksport/daqiqa. Ustunlar `AUDIT_EXPORT_COLUMNS` tartibida, eng yangisi birinchi; qatorlar CRLF bilan.
+  SPA faylni `fetch` + `Blob` bilan oladi (to‘g‘ridan-to‘g‘ri havola emas: `Sec-Fetch-Mode: navigate` — `404`, N5).
+  `limit` — faqat o‘nlik raqamlar (`1e3`, `0x10`, ` 5` — `400`, N6). Har katak RFC 4180 bo‘yicha `"…"` ichida, ichki
+  `"` → `""` (`csvCell`; JSON ichidagi `bigint` string bo‘ladi, m-7). Formula himoyasi `JSON.stringify` dan KEYINGI
+  matnga qo‘llanadi: boshidagi bo‘shliqdan keyin `=`, `+`, `-`, `@` yoki to‘liq kenglikdagi `＝ ＋ － ＠` bilan, yoki tab/CR
+  bilan boshlangan katak oldiga `'` qo‘shiladi. Har eksport `AUDIT_EXPORT` sifatida audit qilinadi (filtrlar `after` da).
+  Xato bo‘lsa — oddiy JSON konverti.
+
+### Adminlar (OWNER)
+
+| Metod | Yo‘l                                | So‘rov → javob                                                                                         |
+| ----- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| GET   | `/admin/admins`                     | → `AdminAccount[]`                                                                                     |
+| GET   | `/admin/admins/:id/sessions`        | → `[{ id, createdAt, lastUsedAt, expiresAt, idleExpiresAt, revokedAt, ipMasked, userAgent, current }]` |
+| POST  | `/admin/admins`                     | `{ telegramId, name, role: "OPERATOR" \| "SUPPORT", reason, otp }` → `{ admin, auditId, applied }`     |
+| PATCH | `/admin/admins/:id`                 | `{ name?, role?, isActive?, reason, otp }` → `{ admin, auditId, applied }`                             |
+| POST  | `/admin/admins/:id/sessions/revoke` | `{ reason, otp }` → `{ revokedSessions, currentRevoked, auditId, applied }`                            |
+| POST  | `/admin/sessions/:id/revoke`        | `{ reason, otp }` → `{ revokedSessions, currentRevoked, auditId, applied }`                            |
+
+- **`AdminAccount`:** `{ id, telegramId (string), name, role, isActive, allowlisted, lastLoginAt, activeSessions, createdAt }`.
+  `allowlisted: false` — id `ADMIN_TELEGRAM_IDS` da yo‘q: devops qo‘shmaguncha kira olmaydi (ikki kalit).
+- Har yozuvda kod majburiy (D-63 (4)). Panel faqat OPERATOR va SUPPORT beradi; OWNER — faqat CLI (`admin:add`), OWNER
+  qatorini panel o‘zgartira olmaydi. `isActive: false` uning sessiyalarini shu tranzaksiyada bekor qiladi. O‘z joriy
+  sessiyasini yopsa cookie ham tozalanadi (`currentRevoked: true`). `userAgent` 9-B migratsiyasigacha `null`.
+
+**Ega CLI’si (D-46) saqlanadi.** 4-bosqichda hamyon va to‘ldirish bo‘yicha ega amallari (`review:credit`, `wallet:adjust`,
+`payment:reverse`, kartalar) faqat VPS’dagi CLI orqali edi (`docs/05-PAYMENTS.md` 7- va 9-bo‘limlar). 9-bosqichda yuqoridagi
+`users` va `payments` yo‘llari o‘sha servislar ustiga quriladi (9-A, S6), buyurtma va kurs yo‘llari 5-bosqich servislari ustiga
+(9-B). CLI va panel bir xil servis, bir xil audit amal nomi va bir xil kunlik limitlarni ishlatadi; `card:add`, review yopish va
+`TON_UNMATCHED_RESOLVED` faqat CLI’da qoladi.
+
+**9-bosqichda yo‘q (D-63 (8)):** `mark-delivered` (OPERATOR uchun olib tashlangan; yetkazilganlik faqat OWNER `resolve` orqali),
+ta’minotchilar va voucherlar (G-bosqichlar), bonus kodlar, chegirma darajalari va xabar tarqatish (10-bosqich), yangi mahsulot
+va rasm yuklash, foydalanuvchiga erkin matnli xabar, Fragment’ga panel orqali qayta kirish.
 
 ## Health
 
