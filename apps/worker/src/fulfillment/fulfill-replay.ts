@@ -28,7 +28,11 @@ export class FulfillReplay {
   async replay(order: RunOrder): Promise<boolean> {
     switch (order.status) {
       case 'HELD':
-        await this.held(order);
+        if (!(await this.held(order))) {
+          this.logger.warn(
+            `order ${order.id} is HELD by a hold the core cannot name: nothing re-sent`,
+          );
+        }
         return true;
       case 'NEEDS_REVIEW':
         await this.notifier.send(reviewNotices(order.id));
@@ -48,18 +52,33 @@ export class FulfillReplay {
     }
   }
 
-  private async held(order: RunOrder): Promise<void> {
+  /**
+   * The order reconciler's resend (phase 5 S9d, D-64 (3)): the order as it is NOW, replayed only
+   * while it is HELD or NEEDS_REVIEW (the stable ids make a repeat a no-op for BullMQ). Called
+   * under the order lock; reads and queues notices, never writes the order. UNNAMED (S9d fix CR
+   * F5): HELD by a hold the core cannot name (neither a core hold event nor an attempt hold), so
+   * nothing was sent; the caller counts and logs it on its own (once), it is never `RESENT`.
+   */
+  async resendHeldOrReview(orderId: string): Promise<'MISSING' | 'MOVED' | 'RESENT' | 'UNNAMED'> {
+    const order = await this.orders.load(orderId);
+    if (order === null) return 'MISSING';
+    if (order.status === 'HELD') return (await this.held(order)) ? 'RESENT' : 'UNNAMED';
+    if (order.status !== 'NEEDS_REVIEW') return 'MOVED';
+    await this.replay(order);
+    return 'RESENT';
+  }
+
+  /** The hold's notices again; false when the hold cannot be named (nothing sent). */
+  private async held(order: RunOrder): Promise<boolean> {
     const reason = order.statusReason ?? 'ADAPTER_ERROR';
     const event = await this.orders.latestHold(order.id);
     if (event !== null && isCoreHold(event.note)) {
       await this.notifier.send(holdNotices(order.id, event.eventId, reason));
-      return;
+      return true;
     }
     const attempt = await this.attempts.latestAttemptHold(order.id);
-    if (attempt === null) {
-      this.logger.warn(`order ${order.id} is HELD by a hold the core cannot name: nothing re-sent`);
-      return;
-    }
+    if (attempt === null) return false;
     await this.notifier.send(holdNotices(order.id, attempt.id, reason));
+    return true;
   }
 }

@@ -58,6 +58,7 @@ export const FULFILL_TEST_TIMING: FulfillTiming = {
   pollMs: 50,
   confirmTimeoutMs: 1_500,
   orderLockTtlMs: 10_000,
+  settleBusyPauseMs: 200,
 };
 export const WALLET_BALANCE = parseMajor('TON', '100');
 

@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { RedisLockStore } from '../../../bank-feed/client/leader-lock';
 import { WorkerConfigModule } from '../../../config/config.module';
+import { FulfillOrderProcessor } from '../../../fulfillment/fulfill-order.processor';
 import { OrderLock } from '../../../fulfillment/order-lock';
 import { PrismaModule } from '../../../infra/prisma/prisma.module';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
@@ -33,12 +34,14 @@ import { OrderReconcileProcessor } from '../order-reconcile.processor';
 import { OrderReconcileRepository } from '../order-reconcile.repository';
 import { OrderReconcileScheduler } from '../order-reconcile.scheduler';
 import { OrderReconcileService, type TickReport } from '../order-reconcile.service';
+import { OrderSweepsRepository } from '../order-sweeps.repository';
 import { RECONCILE_ORDER_LOCK } from '../reconcile-order-lock';
 import { ReviewResolver } from '../review-resolver';
 import {
   GrantingLockStore,
   ReconcilerTraps,
   ScopedReconcileRepository,
+  ScopedSweepsRepository,
 } from './reconcile-e2e.fakes';
 
 // Real Postgres (the scratch `_test` database) + Redis DB 15, through the e2e lock: the TON module
@@ -140,6 +143,15 @@ export function useReconcileE2e() {
       .overrideProvider(OrderReconcileRepository)
       .useFactory({
         factory: (prisma: PrismaService) => new ScopedReconcileRepository(prisma, orders),
+        inject: [PrismaService],
+      })
+      // S9d: the module imports FulfillmentModule; no fulfill-order consumer opens here, and the
+      // job-less / lock / notice sweeps see this run's orders only.
+      .overrideProvider(FulfillOrderProcessor)
+      .useValue({})
+      .overrideProvider(OrderSweepsRepository)
+      .useFactory({
+        factory: (prisma: PrismaService) => new ScopedSweepsRepository(prisma, orders),
         inject: [PrismaService],
       });
     if (options.grantingLock === true) {

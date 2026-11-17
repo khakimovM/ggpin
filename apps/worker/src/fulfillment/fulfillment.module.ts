@@ -6,7 +6,13 @@ import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import { RedisService } from '../infra/redis/redis.service';
 import { TonSenderService } from '../ton/ton-sender.service';
 import { TonModule } from '../ton/ton.module';
-import { ABANDON_COUNTER, RedisAbandonCounter } from './abandon-counter';
+import {
+  ABANDON_COUNTER,
+  ABANDON_PEEK,
+  RedisAbandonCounter,
+  abandonPeekOf,
+  type AbandonCounter,
+} from './abandon-counter';
 import { AttemptsRepository } from './attempts.repository';
 import { FulfillEnqueuer } from './fulfill-enqueuer';
 import { FreshAttempt } from './fulfill-fresh';
@@ -60,6 +66,11 @@ import { OrderStateRepository } from './order-state.repository';
       inject: [RedisService],
       useFactory: (redis: RedisService) => new RedisAbandonCounter(redis.client),
     },
+    {
+      provide: ABANDON_PEEK,
+      inject: [ABANDON_COUNTER],
+      useFactory: (counter: AbandonCounter) => abandonPeekOf(counter),
+    },
     WalletCacheInvalidator,
     OrderStateRepository,
     AttemptsRepository,
@@ -75,6 +86,9 @@ import { OrderStateRepository } from './order-state.repository';
     FulfillEnqueuer,
     FulfillOrderProcessor,
   ],
-  exports: [FulfillOrderService, FulfillEnqueuer],
+  // The order reconciler (phase 5 S9d) uses the enqueuer, the replay's resend and the abandon
+  // count read only (ABANDON_PEEK, no bump). It never injects the run, the settle or the counter
+  // itself (order-reconcile-static.spec.ts), and the payer is never exported: it never fulfills.
+  exports: [FulfillOrderService, FulfillEnqueuer, FulfillReplay, ABANDON_PEEK],
 })
 export class FulfillmentModule {}

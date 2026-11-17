@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { MAX_SEND_ATTEMPTS, describeErrorForLog, type OrderStatus } from '@repo/shared';
 import type { LockStore } from '../bank-feed/client/leader-lock';
@@ -31,6 +32,9 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 
 export type RunOutcome = 'MISSING' | 'BUSY' | 'NOOP' | 'REPLAYED' | 'DONE';
 
+/** Tries of a settle that meets a held lease (audit L-1): 3 tries, a pause between two. */
+export const SETTLE_BUSY_TRIES = 3;
+
 export interface RunOptions {
   /** The job's last attempt: what would be retried is decided instead (HELD / NEEDS_REVIEW). */
   readonly finalAttempt: boolean;
@@ -40,6 +44,7 @@ export interface RunOptions {
 export class FulfillOrderService {
   private readonly logger = new Logger(FulfillOrderService.name);
   private readonly lock: OrderLock;
+  private readonly settleBusyPauseMs: number;
 
   constructor(
     private readonly orders: OrderStateRepository,
@@ -55,6 +60,7 @@ export class FulfillOrderService {
     @Inject(FULFILL_TIMING) timing: FulfillTiming,
   ) {
     this.lock = new OrderLock(store, timing.orderLockTtlMs);
+    this.settleBusyPauseMs = timing.settleBusyPauseMs;
   }
 
   async run(orderId: string, options: RunOptions): Promise<RunOutcome> {
@@ -74,14 +80,19 @@ export class FulfillOrderService {
 
   /**
    * The order's job failed for good (CR M1): settled under the order lock. Never throws. BUSY:
-   * another run holds the order and decides it; ALERTED: Redis could not even give the lock.
+   * another run held the order through SETTLE_BUSY_TRIES tries and decides it (a short reconciler
+   * lease is waited out, so its failure is still counted: audit L-1); ALERTED: Redis could not even
+   * give the lock.
    */
   async settleAbandoned(orderId: string): Promise<SettleOutcome | 'BUSY'> {
     try {
-      const locked = await this.lock.run(orderId, () =>
-        this.settler.settle(orderId, { requeue: true }),
-      );
-      if (!locked.busy) return locked.value;
+      for (let attempt = 1; attempt <= SETTLE_BUSY_TRIES; attempt += 1) {
+        const locked = await this.lock.run(orderId, () =>
+          this.settler.settle(orderId, { requeue: true }),
+        );
+        if (!locked.busy) return locked.value;
+        if (attempt < SETTLE_BUSY_TRIES) await sleep(this.settleBusyPauseMs);
+      }
       this.logger.warn(`order ${orderId}: its job failed for good while another run holds it`);
       return 'BUSY';
     } catch (error) {

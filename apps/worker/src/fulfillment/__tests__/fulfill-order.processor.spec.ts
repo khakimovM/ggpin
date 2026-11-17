@@ -94,6 +94,19 @@ describe('FulfillOrderProcessor', () => {
     await expect(processor.onFailed(undefined)).resolves.toBeUndefined();
   });
 
+  it('S9d F1: a run that ended BUSY is never queued again (the lease holder decides)', async () => {
+    const { processor, statusOf, enqueue } = setup();
+    statusOf.mockResolvedValue('QUEUED');
+    enqueue.mockResolvedValue('replace');
+    await processor.onCompleted({ ...job(4), returnvalue: 'BUSY' });
+    expect(enqueue).not.toHaveBeenCalled();
+    // Every other outcome of a still-QUEUED order: queued again, as before.
+    for (const returnvalue of ['DONE', 'NOOP', 'REPLAYED', 'MISSING', undefined]) {
+      await processor.onCompleted({ ...job(0), returnvalue });
+    }
+    expect(enqueue).toHaveBeenCalledTimes(5);
+  });
+
   it('a job failed for good (last attempt, or stalled: finishedOn) is settled, not left silent', async () => {
     const { processor, settleAbandoned, statusOf } = setup();
     settleAbandoned.mockResolvedValue('REVIEW');

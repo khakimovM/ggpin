@@ -49,7 +49,22 @@ const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['the chain reader', /TonChainReader/],
   ['the outcome writes', /TonOutcomeRepository/],
   ['a back door to any provider', /\bModuleRef\b/],
+  // S9d: an order is queued again only through FulfillEnqueuer (decideEnqueue, jobId = orderId);
+  // the reconciler never runs or settles fulfillment itself and never counts an abandon.
+  ['the fulfill-order queue', /QUEUES\.FULFILL_ORDER|FULFILL_ORDER_JOB_NAME/],
+  ['the fulfill-order queue by its name', /['"`]fulfill-order['"`]/],
+  ['a fulfill queue injected', /InjectQueue\(\s*(QUEUES\.)?FULFILL/],
+  ['a queue looked up by hand', /getQueue\(/],
+  ['the fulfill run or its settle', /FulfillOrderService|settleAbandoned|FulfillSettler/],
+  // S9d fix (CR F6): the count is read through ABANDON_PEEK (no bump), never the counter itself.
+  ['a count of the abandon counter', /\.bump\s*\(|ABANDON_COUNTER/],
+  // S9d fix (CR F6): notices only through resendHeldOrReview (it re-reads HELD / NEEDS_REVIEW).
+  ['a bare replay', /\.replay\s*\(/],
 ];
+
+/** Writes a Redis client could make; the stuck-lease walk (S9d, Q-17) has none of them. */
+const KEY_WRITE =
+  /\.(del|unlink|set|setex|psetex|expire|pexpire|persist|getdel|getset|eval|evalsha|rename|hset|call|sendCommand|multi|pipeline)\s*\(/;
 
 describe('the order reconciler (static)', () => {
   const files = sources(RECONCILER);
@@ -62,6 +77,11 @@ describe('the order reconciler (static)', () => {
         'transfer-sweep.step.ts',
         'review-sweep.step.ts',
         'review-resolver.ts',
+        'stale-orders.step.ts',
+        'order-lock-stuck.step.ts',
+        'notice-resend.step.ts',
+        'order-lock-keys.ts',
+        'order-sweeps.repository.ts',
       ]),
     );
   });
@@ -69,6 +89,26 @@ describe('the order reconciler (static)', () => {
   it.each(FORBIDDEN_IN_RECONCILER)('never uses %s', (_what, pattern) => {
     const hits = files.filter((file) => pattern.test(code(file)));
     expect(hits.map((f) => relative(WORKER_SRC, f))).toEqual([]);
+  });
+
+  it('the lease walk calls Redis with SCAN and GET only (S9d fix)', () => {
+    const walk = files.filter((file) => relative(RECONCILER, file) === 'order-lock-keys.ts');
+    const calls = walk.flatMap((file) =>
+      [...code(file).matchAll(/\bthis\.redis\.(\w+)\s*\(/g)].map((m) => m[1]),
+    );
+    expect([...new Set(calls)].sort()).toEqual(['get', 'scan']);
+  });
+
+  it('touches Redis only for its own lease and the read-only walk over order leases (S9d)', () => {
+    const redis = files.filter((file) => /\bRedisService\b/.test(code(file)));
+    expect(redis.map((f) => relative(RECONCILER, f)).sort()).toEqual([
+      'order-lock-keys.ts',
+      'reconcile-order-lock.ts',
+    ]);
+    // A stuck lease may belong to a live holder: never deleted, rewritten or given a new TTL.
+    const walk = files.filter((file) => relative(RECONCILER, file) === 'order-lock-keys.ts');
+    expect(walk).toHaveLength(1);
+    expect(walk.filter((file) => KEY_WRITE.test(code(file)))).toEqual([]);
   });
 
   it('moves money only through resolveNeedsReview (or failAndRefundOrder)', () => {

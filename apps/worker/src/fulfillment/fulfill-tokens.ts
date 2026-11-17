@@ -32,6 +32,11 @@ export interface FulfillTiming {
   readonly confirmTimeoutMs: number;
   /** TTL of `lock:order:{id}`; renewed while the run lasts, so a dead worker frees it soon. */
   readonly orderLockTtlMs: number;
+  /**
+   * Pause between the tries of a settle that met a held order lease (S9d fix, audit L-1): the
+   * reconciler's short leases end within seconds, so the count is not lost to one of them.
+   */
+  readonly settleBusyPauseMs: number;
 }
 
 export const DEFAULT_SUPPLIER_POLL_MS = 3_000;
@@ -41,12 +46,14 @@ export const DEFAULT_SUPPLIER_POLL_MS = 3_000;
  * the time its job runs again.
  */
 export const DEFAULT_ORDER_LOCK_TTL_MS = 60_000;
+export const DEFAULT_SETTLE_BUSY_PAUSE_MS = 1_000;
 
 export function fulfillTimingOf(config: WorkerConfig): FulfillTiming {
   return {
     pollMs: DEFAULT_SUPPLIER_POLL_MS,
     confirmTimeoutMs: config.TON_CONFIRM_TIMEOUT_MS,
     orderLockTtlMs: DEFAULT_ORDER_LOCK_TTL_MS,
+    settleBusyPauseMs: DEFAULT_SETTLE_BUSY_PAUSE_MS,
   };
 }
 

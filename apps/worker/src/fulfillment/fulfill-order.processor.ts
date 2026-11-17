@@ -16,8 +16,10 @@ import { isFinalAttempt } from './fulfill-steps';
 export const fulfillOrderJobSchema = z.strictObject({ orderId: ResourceIdSchema });
 
 // `finishedOn` is typed number | undefined, but Job.retry() sets it to null (bullmq job.js).
+// `returnvalue` is what process() returned (a completed job): a RunOutcome.
 type JobLike = Pick<Job, 'id' | 'data' | 'attemptsMade' | 'opts'> & {
   readonly finishedOn?: number | null;
+  readonly returnvalue?: unknown;
 };
 
 /**
@@ -38,6 +40,11 @@ export function isFailedForGood(job: JobLike): boolean {
  * finished (completed or failed), the order's status is read again; still QUEUED (released from
  * HELD while this job ran, its enqueue dropped as `keep`) -> enqueued again through the worker's
  * enqueuer. Only now can a new job take the id: during `process` the job is still active.
+ * Not after a run that ended BUSY (S9d fix F1): its last retry never took the order, so whoever
+ * holds the lease decides it. A live run carries the QUEUED order on itself (and its own end-of-run
+ * re-check follows); a poisoned lease would only make the new job meet BUSY again, for ever, and
+ * keep a job alive that hides the lease. Left job-less, the order is the reconciler's: queued
+ * again once the lease is gone (stale step), or the owner's alert while it stays (lock step).
  * A job that failed FOR GOOD (CR M1) is settled instead: its order never stays silent
  * (FulfillOrderService.settleAbandoned, fulfill-settle.ts).
  * Logs carry the order id and an error description only (describeErrorForLog), never secrets.
@@ -93,6 +100,7 @@ export class FulfillOrderProcessor extends WorkerHost {
   async requeueIfQueued(job: JobLike): Promise<void> {
     const parsed = fulfillOrderJobSchema.safeParse(job.data);
     if (!parsed.success) return;
+    if (job.returnvalue === 'BUSY') return; // F1: the lease's holder decides (see the class doc)
     const { orderId } = parsed.data;
     try {
       if ((await this.service.statusOf(orderId)) !== 'QUEUED') return;

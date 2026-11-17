@@ -1,8 +1,9 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Queue, Worker, type Job } from 'bullmq';
+import { Redis } from 'ioredis';
 import { pinChain } from '../../ton/__tests__/ton-e2e.harness';
 import type { TonPayResult } from '../../ton/ton-payout';
-import { MAX_ABANDONED_REQUEUES } from '../abandon-counter';
+import { MAX_ABANDONED_REQUEUES, abandonKey } from '../abandon-counter';
 import { AttemptsRepository } from '../attempts.repository';
 import { FulfillOrderProcessor } from '../fulfill-order.processor';
 import { abandonedAlertRef } from '../fulfill-settle';
@@ -125,6 +126,20 @@ describe('fulfill-order: a job that failed for good is settled (no BullMQ Worker
     await expect(t.main.service.settleAbandoned(fixture.orderId)).resolves.toBe('ALERTED');
     expect(await t.hasJob({ ...alert, refId: ref })).toBe(true);
     expect((await orderRow(t.db, fixture.orderId)).status).toBe('PAID');
+  });
+
+  it('S9d L-1: a settle that meets a short lease (the reconciler) waits it out and still counts', async () => {
+    const fixture = await t.order();
+    const redis = new Redis(t.env.REDIS_URL);
+    try {
+      // A reconcile step's lease, gone after 300 ms: the settle's 2nd or 3rd try gets the order.
+      await redis.set(`lock:order:${fixture.orderId}`, 'a-reconcile-lease', 'PX', 300);
+      await expect(t.main.service.settleAbandoned(fixture.orderId)).resolves.toBe('REQUEUED');
+      expect(await redis.get(abandonKey(fixture.orderId))).toBe('1');
+      expect(await t.fulfillQueue.getJob(fixture.orderId)).toBeDefined();
+    } finally {
+      redis.disconnect();
+    }
   });
 
   it('a last attempt that throws on PAID counts once per failure (R2: not run + failed event)', async () => {

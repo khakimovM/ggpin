@@ -10,6 +10,8 @@ import {
   type ReviewCursor,
   type WalletScope,
 } from '../order-reconcile.repository';
+import { OrderSweepsRepository } from '../order-sweeps.repository';
+import type { PrismaService } from '../../../infra/prisma/prisma.service';
 
 // The order reconciler e2e's stand-ins and row helpers (reconcile-e2e.harness.ts).
 
@@ -76,6 +78,20 @@ export class ScopedReconcileRepository extends OrderReconcileRepository {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: limit,
     });
+  }
+}
+
+/** The real sweep reads (their production bodies), every list narrowed to the orders of this run. */
+export class ScopedSweepsRepository extends OrderSweepsRepository {
+  constructor(
+    prisma: PrismaService,
+    private readonly orders: ReadonlySet<string>,
+  ) {
+    super(prisma);
+  }
+
+  protected override scope(): Prisma.OrderWhereInput {
+    return { id: { in: [...this.orders] } };
   }
 }
 

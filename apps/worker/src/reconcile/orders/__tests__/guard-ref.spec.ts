@@ -33,6 +33,16 @@ describe('episodeRef', () => {
     expect(nextHour).not.toBe(ref);
   });
 
+  it('a stuck order lease (S9d, Q-17): <orderId>_lock_<hour> on needsReview, never the plain id', () => {
+    const ref = episodeRef(ORDER, 'lock', AT);
+    expect(ref).toBe(`${ORDER}_lock_${String(Math.floor(AT / HOUR))}`);
+    if (ref === null) throw new Error('no ref');
+    expect(refIdSubject(ref)).toBe(ORDER);
+    const alert = { kind: 'OWNER_ALERT', alert: 'needsReview', refId: ref } as const;
+    expect(notifyJobSchema.safeParse(alert).success).toBe(true);
+    expect(ref).not.toBe(ORDER);
+  });
+
   it('is the same within an hour and a new alert id in the next one (mutant: no episode)', () => {
     const first = episodeRef(ORDER, 'review', AT);
     const sameHour = episodeRef(ORDER, 'review', AT + 30 * 60_000);
