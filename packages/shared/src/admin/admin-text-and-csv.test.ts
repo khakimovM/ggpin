@@ -86,7 +86,13 @@ describe('audit JSON redaction', () => {
     returnTxHash: 'ab',
     otpVerified: true,
   };
-  const view = { ipFull: true, bankMessageRaw: true, maskIp: () => null };
+  const view = {
+    ipFull: true,
+    bankMessageRaw: true,
+    maskIp: () => null,
+    identityFull: true,
+    maskTelegramId: () => null,
+  };
 
   it('replaces every secret-named key at any depth and keeps the rest', () => {
     expect(a.findAuditSecretPaths(row)).toEqual([

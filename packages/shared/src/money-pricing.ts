@@ -169,3 +169,50 @@ export function balanceAfterPurchase(balanceTiyin: string, totalTiyin: string): 
   const left = BigInt(balanceTiyin) - BigInt(totalTiyin);
   return left < 0n ? null : left.toString();
 }
+
+/**
+ * Admin price preview (`GET /admin/products/:id/price-preview`): the price `priceFromCost` gives
+ * for these inputs, and the margin it leaves (price − cost in so'm). `belowMinMargin` is true when
+ * that margin is under `minMarginTiyin`: never for a price made here, but the flag keeps the
+ * screen honest if the rule changes.
+ */
+export interface PricePreview extends PriceFromCost {
+  readonly marginTiyin: bigint;
+  readonly belowMinMargin: boolean;
+}
+
+export function pricePreview(input: PriceFromCostInput): PricePreview {
+  const { costTiyin, priceTiyin } = priceFromCost(input);
+  const marginTiyin = priceTiyin - costTiyin;
+  return { costTiyin, priceTiyin, marginTiyin, belowMinMargin: marginTiyin < input.minMarginTiyin };
+}
+
+export interface OrderProfitInput {
+  readonly priceTiyin: bigint;
+  readonly discountTiyin: bigint;
+  /** `Order.costCurrency` as stored. */
+  readonly costCurrency: string;
+  /** `Order.costMinor`: the locked cost in TON nano / USDT micro. */
+  readonly costMinor: bigint;
+  /** The order's own FX snapshot (`Order.fxRateId`): its pair and rate. */
+  readonly fxPair: string;
+  readonly rate: string;
+}
+
+/**
+ * Gross profit of one order in tiyin (docs/03 «Nima qayerda hisoblanadi»): what the customer
+ * paid (price − discount) minus the locked cost in so'm at the order's own FX snapshot. The cost
+ * rounds UP, so the profit is never over-stated; it may be negative. Throws MoneyError when the
+ * stored currency or the snapshot's pair cannot price this cost (never a guessed rate).
+ */
+export function orderGrossProfitTiyin(input: OrderProfitInput): bigint {
+  const currency = COST_CURRENCIES.find((code) => code === input.costCurrency);
+  if (currency === undefined) throw new MoneyError('unknown cost currency');
+  const pair = COST_FX_PAIR[currency];
+  if (input.fxPair !== pair) throw new MoneyError(`the FX snapshot is not ${pair}`);
+  requireBigInt(input.costMinor, 'cost', 0n);
+  const paid = totalAfterDiscount(input.priceTiyin, input.discountTiyin);
+  return (
+    paid - convertPairForCost({ amount: input.costMinor, pair, from: currency, rate: input.rate })
+  );
+}

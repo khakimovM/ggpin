@@ -26,6 +26,7 @@ import { AdminLoginService } from '../auth/admin-login.service';
 import {
   adminAnonymousLimitKey,
   adminCodeRefusedLogKey,
+  adminExportLimitKey,
   adminSessionLimitKey,
   adminWriteLimitKey,
 } from '../common/admin-throttle';
@@ -126,7 +127,11 @@ export function useAdminE2e(options: AdminE2eOptions = {}): AdminE2e {
     }
     const keys = [
       ...[...ips].map(adminAnonymousLimitKey),
-      ...sessions.flatMap(({ id }) => [adminSessionLimitKey(id), adminWriteLimitKey(id)]),
+      ...sessions.flatMap(({ id }) => [
+        adminSessionLimitKey(id),
+        adminWriteLimitKey(id),
+        adminExportLimitKey(id),
+      ]),
       ...[...nonces].map((n) => `adm:login-origin:${createHash('sha256').update(n).digest('hex')}`),
       ...telegramIds.map((id) => adminCodeRefusedLogKey(maskTelegramId(id))),
     ];

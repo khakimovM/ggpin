@@ -15,11 +15,14 @@ export const ADMIN_ANONYMOUS_LIMIT: AdminLimit = { max: 60, windowSec: 60 };
 export const ADMIN_SESSION_LIMIT: AdminLimit = { max: 120, windowSec: 60 };
 /** State-changing requests (POST/PATCH) of one admin session, on top of the limit above. */
 export const ADMIN_WRITE_LIMIT: AdminLimit = { max: 30, windowSec: 60 };
+/** Audit CSV exports of one admin session (up to 10 000 rows each), on top of the above. */
+export const ADMIN_EXPORT_LIMIT: AdminLimit = { max: 5, windowSec: 60 };
 
 export const adminAnonymousLimitKey = (ip: string): string =>
   `rl:adm:ip:${normalizeIp(ip, IPV6_CLIENT_PREFIX)}`;
 export const adminSessionLimitKey = (sessionId: string): string => `rl:adm:s:${sessionId}`;
 export const adminWriteLimitKey = (sessionId: string): string => `rl:adm:w:${sessionId}`;
+export const adminExportLimitKey = (sessionId: string): string => `rl:adm:csv:${sessionId}`;
 /** One window per masked Telegram id for the ADMIN_CODE_REFUSED warn line (S2-m3). */
 export const adminCodeRefusedLogKey = (maskedTelegramId: string): string =>
   `adm:log:code-refused:${maskedTelegramId}`;
@@ -60,6 +63,11 @@ export class AdminThrottle {
     await this.enforce(adminSessionLimitKey(sessionId), ADMIN_SESSION_LIMIT, sessionId, 'session');
     if (write)
       await this.enforce(adminWriteLimitKey(sessionId), ADMIN_WRITE_LIMIT, sessionId, 'write');
+  }
+
+  /** Counts one audit CSV export of a live session; throws 429 past 5 a minute (docs/04). */
+  async countExport(sessionId: string): Promise<void> {
+    await this.enforce(adminExportLimitKey(sessionId), ADMIN_EXPORT_LIMIT, sessionId, 'export');
   }
 
   /**

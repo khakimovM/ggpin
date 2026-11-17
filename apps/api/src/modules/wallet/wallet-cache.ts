@@ -79,6 +79,47 @@ export class WalletCache {
     }
   }
 
+  /**
+   * Many cached balances in ONE round trip (MGET), for list screens. A miss, a corrupt value or
+   * any Redis failure leaves that user out of the map (the caller sums the ledger for it).
+   */
+  async getMany(userIds: readonly string[]): Promise<Map<string, bigint>> {
+    const found = new Map<string, bigint>();
+    if (userIds.length === 0) return found;
+    try {
+      const raws = await withTimeout(
+        this.redis.client.mget(...userIds.map(walletCacheKey)),
+        READ_TIMEOUT_MS,
+      );
+      userIds.forEach((id, index) => {
+        const value = decodeCachedBalance(raws[index] ?? null);
+        if (value !== null) found.set(id, value);
+      });
+    } catch (error) {
+      this.warn('mget', error);
+    }
+    return found;
+  }
+
+  /** Many balances in ONE pipelined round trip, each with the usual TTL. Best effort. */
+  async setMany(balances: ReadonlyMap<string, bigint>): Promise<void> {
+    if (balances.size === 0) return;
+    try {
+      const pipeline = this.redis.client.pipeline();
+      for (const [userId, balance] of balances) {
+        pipeline.set(
+          walletCacheKey(userId),
+          encodeCachedBalance(balance),
+          'EX',
+          WALLET_CACHE_TTL_SEC,
+        );
+      }
+      await withTimeout(pipeline.exec(), READ_TIMEOUT_MS);
+    } catch (error) {
+      this.warn('pipeline set', error);
+    }
+  }
+
   // No key and no value in the log: the key holds a user id, the value a balance.
   private warn(op: string, error: unknown): void {
     // ioredis messages can quote the connection URL (password): scrubbed like every Redis error.

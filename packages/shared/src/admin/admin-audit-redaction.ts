@@ -3,7 +3,13 @@
 // many services (CLI, worker, panel), so the panel never trusts them to be clean: a secret key's
 // value is replaced at any depth for every role (admin-audit-keys.ts says which), and the IP and
 // bank message fields follow the reader's role. The owner CLI still reads the raw row.
-import { isAuditBankMessageKey, isAuditIpKey, isAuditSecretKey } from './admin-audit-keys';
+import {
+  isAuditBankMessageKey,
+  isAuditIpKey,
+  isAuditOsUserKey,
+  isAuditSecretKey,
+  isAuditTelegramIdKey,
+} from './admin-audit-keys';
 
 export const AUDIT_REDACTED = '[redacted]';
 
@@ -15,12 +21,31 @@ export interface AuditRedactionView {
   readonly bankMessageRaw: boolean;
   /** The API's IP mask (IPv4 /24, IPv6 /48); `null` for anything that is not an address. */
   readonly maskIp: (ip: string) => string | null;
+  /**
+   * The OWNER's view of who an admin is outside the panel (SA-S4-3): Telegram ids as written and
+   * the CLI's `osUser`; otherwise `maskTelegramId` of the id and `null` for `osUser`.
+   */
+  readonly identityFull: boolean;
+  /** The API's Telegram id mask (`12******89`); `null` for anything that is not a plain id. */
+  readonly maskTelegramId: (id: string) => string | null;
+}
+
+function maskedTelegramId(child: unknown, view: AuditRedactionView): unknown {
+  if (Array.isArray(child)) return child.map((item) => maskedTelegramId(item, view));
+  if (typeof child === 'string' || typeof child === 'number' || typeof child === 'bigint') {
+    return view.maskTelegramId(String(child));
+  }
+  return null;
 }
 
 function redactField(key: string, child: unknown, view: AuditRedactionView): unknown {
   if (isAuditSecretKey(key)) return AUDIT_REDACTED;
   if (isAuditIpKey(key) && !view.ipFull) {
     return typeof child === 'string' ? view.maskIp(child) : null;
+  }
+  if (!view.identityFull) {
+    if (isAuditTelegramIdKey(key)) return maskedTelegramId(child, view);
+    if (isAuditOsUserKey(key)) return null;
   }
   if (isAuditBankMessageKey(key) && !view.bankMessageRaw) return null;
   return redactAuditJson(child, view);

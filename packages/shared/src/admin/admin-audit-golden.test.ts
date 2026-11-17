@@ -14,6 +14,8 @@ const OWNER_VIEW: a.AuditRedactionView = {
   ipFull: true,
   bankMessageRaw: true,
   maskIp: () => 'masked',
+  identityFull: true,
+  maskTelegramId: () => 'masked',
 };
 const HASH = 'a'.repeat(64);
 const cli = { operator: 'aziz', osUser: 'deploy' };
@@ -268,6 +270,8 @@ describe('audit IP and bank message fields by role', () => {
     ipFull: false,
     bankMessageRaw: false,
     maskIp: (ip) => (ip.startsWith('203.') ? '203.0.113.x' : null),
+    identityFull: false,
+    maskTelegramId: () => '12***89',
   };
 
   it('masks IP fields and nulls the bank message fields for a non-owner', () => {

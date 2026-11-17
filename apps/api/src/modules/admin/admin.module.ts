@@ -2,7 +2,9 @@ import { Module, type OnModuleInit } from '@nestjs/common';
 import { APP_GUARD, HttpAdapterHost } from '@nestjs/core';
 import type { FastifyAdapter } from '@nestjs/platform-fastify';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PricingModule } from '../pricing/pricing.module';
 import { UsersModule } from '../users/users.module';
+import { WalletModule } from '../wallet/wallet.module';
 import { AdminAccountsService } from './admins/admin-accounts.service';
 import { AdminLifecycleService } from './admins/admin-lifecycle.service';
 import { AdminUsersRepository } from './admins/admin-users.repository';
@@ -19,6 +21,7 @@ import { registerAdminNotFoundGate } from './common/admin-not-found.hook';
 import { AdminRequestGate } from './common/admin-request-gate';
 import { AdminThrottle } from './common/admin-throttle';
 import { AdminGuard } from './common/admin.guard';
+import { ADMIN_READ_CONTROLLERS, ADMIN_READ_PROVIDERS } from './read/admin-read.providers';
 
 // The admin panel's API (`/api/v1/admin/*`, docs/04 «Admin», phase 9). Prisma, Redis, Clock and
 // config come from global modules.
@@ -33,10 +36,10 @@ import { AdminGuard } from './common/admin.guard';
 // The bot (TelegramModule) imports this module for the admin login and session ends; this module
 // never imports the bot: its messages go through the tg-outbox.
 @Module({
-  imports: [UsersModule, NotificationsModule],
+  imports: [UsersModule, NotificationsModule, WalletModule, PricingModule],
   // AdminFallbackController claims every unknown /admin/* path the router can match (real routes
   // win); registerAdminNotFoundGate covers what the router still sends to its not-found handler.
-  controllers: [AdminAuthController, AdminFallbackController],
+  controllers: [AdminAuthController, ...ADMIN_READ_CONTROLLERS, AdminFallbackController],
   providers: [
     // The owner CLI's account services (admin:*); here too so the app that serves the panel
     // resolves the same instances (the e2e suites drive the CLI against it).
@@ -51,6 +54,7 @@ import { AdminGuard } from './common/admin.guard';
     AdminLoginService,
     AdminThrottle,
     AdminRequestGate,
+    ...ADMIN_READ_PROVIDERS,
     { provide: APP_GUARD, useClass: AdminCsrfGuard },
     { provide: APP_GUARD, useClass: AdminGuard },
   ],
