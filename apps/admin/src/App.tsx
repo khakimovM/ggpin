@@ -1,14 +1,23 @@
-import uz from '@repo/i18n/uz.json';
-import { BRAND } from '@repo/shared';
+import { ThemeProvider } from '@repo/ui';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { useState } from 'react';
+import { RouterProvider } from 'react-router';
+import { IntlProvider } from 'use-intl';
+import { createAdminRouter } from './app/router';
+import { ADMIN_LOCALE, ADMIN_TIME_ZONE, messages } from './lib/i18n';
+import { makeQueryClient } from './lib/query-client';
 
-// Phase-0 placeholder; the admin shell is built from the design handoff in phase 9.
-// Admin UI is Uzbek only (D-05), but its strings still come from the i18n catalog.
+/** Providers of the admin SPA: server state, Uzbek texts (D-05), theme, then the routes. */
 export function App() {
-  const title = `${BRAND.name} · ${uz.admin.shell.title}`;
+  const [queryClient] = useState(makeQueryClient);
+  const [router] = useState(createAdminRouter);
   return (
-    <main>
-      <title>{title}</title>
-      <h1>{title}</h1>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <IntlProvider locale={ADMIN_LOCALE} messages={messages} timeZone={ADMIN_TIME_ZONE}>
+        <ThemeProvider variant="web">
+          <RouterProvider router={router} />
+        </ThemeProvider>
+      </IntlProvider>
+    </QueryClientProvider>
   );
 }

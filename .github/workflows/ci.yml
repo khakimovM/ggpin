@@ -132,6 +132,46 @@ jobs:
   # SEO on every indexable page, uz and ru, mobile and desktop, median of 3 runs. Runs only when
   # something the website is built from changed (a skipped step still gives a green check, so the
   # job can be a required check).
+  # The admin SPA (phase 9): its production build must refuse the mock API and ship none of it
+  # (prod-build-check), and its journeys run on the Vite dev server with the in-browser mock (the
+  # only place mocks are allowed). No Postgres, no Redis: the mock answers every admin request.
+  e2e-admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      # The packages admin is built from (shared compiles to dist). The admin build itself is made
+      # by prod-build-check, with production values: a production build has no env defaults.
+      - run: npx turbo run build --filter="admin^..."
+      - run: node scripts/prod-build-check.mjs
+        working-directory: apps/admin
+      # Same cache key as e2e-web: both need only Chromium.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/admin
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: apps/admin
+      - run: npx playwright test
+        working-directory: apps/admin
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-admin
+          path: apps/admin/playwright-report
+          retention-days: 7
   lighthouse-web:
     runs-on: ubuntu-latest
     # The final 14 pages x 2 form factors x 3 runs are 84 Lighthouse runs, about 15 seconds each

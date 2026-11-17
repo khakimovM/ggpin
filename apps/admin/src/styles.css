@@ -1,0 +1,7 @@
+/*
+ * The admin's whole stylesheet: the shared entry (tokens, theme.css, the `dark` variant, the
+ * Tailwind theme map) and the admin sources to scan. Nothing else belongs here (acceptance 5).
+ */
+@import '@repo/ui/styles.css';
+
+@source '.';

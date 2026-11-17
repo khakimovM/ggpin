@@ -43,6 +43,14 @@ export { StockChip, type StockChipProps } from './components/StockChip';
 export { Card, type CardProps } from './components/Card';
 export { Avatar, initialsOf, type AvatarProps } from './components/Avatar';
 export { Sheet, type SheetProps } from './components/Sheet';
+export { Dialog, type DialogProps } from './components/Dialog';
+export {
+  Sidebar,
+  type SidebarGroup,
+  type SidebarItem,
+  type SidebarLinkProps,
+  type SidebarProps,
+} from './components/Sidebar';
 export { Tabs, type TabItem, type TabsProps } from './components/Tabs';
 export { Accordion, type AccordionItem, type AccordionProps } from './components/Accordion';
 export { Toast, type ToastProps } from './components/Toast';
@@ -72,4 +80,4 @@ export {
   useReducedMotion,
 } from './lib/motion';
 export { cn } from './lib/cn';
-export { HIT_AREA_44, HIT_AREA_44_Y, HIT_AREA_LINK } from './lib/styles';
+export { FIELD_FOCUS, FOCUS_RING, HIT_AREA_44, HIT_AREA_44_Y, HIT_AREA_LINK } from './lib/styles';

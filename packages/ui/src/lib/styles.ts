@@ -28,8 +28,8 @@ export const HIT_AREA_44_Y =
 /**
  * Hit area of a text link or a small inline control, whose size comes from the context:
  * `--hit-min` is 44 px in a touch context (the Mini App, a viewport under 768 px, a coarse pointer)
- * and 24 px on a desktop (WCAG 2.2 AA 2.5.8); see globals.css. The drawn link does not change. The
- * element needs `relative` and must be a box (flex/grid item, `inline-block`), not a plain inline.
+ * and 24 px on a desktop (WCAG 2.2 AA 2.5.8); see packages/ui/styles.css. The drawn link does not
+ * change. The element needs `relative` and must be a box (flex/grid item, `inline-block`), not a plain inline.
  */
 export const HIT_AREA_LINK =
   "before:absolute before:top-1/2 before:left-1/2 before:h-[max(100%,var(--hit-min,44px))] before:w-[max(100%,var(--hit-min,44px))] before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";

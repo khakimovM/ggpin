@@ -1,0 +1,138 @@
+{
+  "admin": {
+    "shell": {
+      "title": "Admin panel",
+      "badge": "ADMIN",
+      "menu": "Admin menyu",
+      "skipToContent": "Asosiy qismga o‘tish",
+      "themeToDark": "Qorong‘i mavzuga o‘tish",
+      "themeToLight": "Yorug‘ mavzuga o‘tish",
+      "logout": "Chiqish",
+      "account": "{name}, {role}"
+    },
+    "env": {
+      "DEV": "DEV",
+      "STAGING": "STAGING",
+      "PRODUCTION": "PRODUCTION"
+    },
+    "role": {
+      "OWNER": "OWNER",
+      "OPERATOR": "OPERATOR",
+      "SUPPORT": "SUPPORT"
+    },
+    "nav": {
+      "groups": {
+        "main": "Asosiy",
+        "catalog": "Katalog",
+        "finance": "Moliya",
+        "infra": "Infratuzilma",
+        "system": "Tizim"
+      },
+      "dashboard": "Dashboard",
+      "orders": "Buyurtmalar",
+      "review": "Tekshiruv navbati",
+      "users": "Foydalanuvchilar",
+      "products": "Mahsulotlar",
+      "pricing": "Narx va sozlamalar",
+      "payments": "To‘lovlar",
+      "recon": "Solishtirish",
+      "wallet": "Hamyon (TON)",
+      "fragment": "Fragment sessiyasi",
+      "queues": "Navbatlar",
+      "audit": "Audit log",
+      "admins": "Adminlar"
+    },
+    "login": {
+      "title": "Admin panel",
+      "subtitle": "Kirish kodi Telegramʼdagi {brand} botiga keladi.",
+      "staffOnly": "Faqat ruxsat berilgan xodimlar kira oladi",
+      "start": "Telegram orqali kirish",
+      "starting": "Telegram ochilmoqda…",
+      "steps": {
+        "open": "Telegramʼda botimiz ochiladi.",
+        "start": "Start tugmasini bosing.",
+        "enter": "Bot yuborgan 6 xonali kodni shu yerga kiriting."
+      },
+      "openTelegram": "Telegramʼni ochish",
+      "waiting": "Telegramʼdan javob kutilmoqda…",
+      "cancel": "Bekor qilish",
+      "codeSent": "Kod Telegramʼga yuborildi",
+      "codeLabel": "{bot} yuborgan 6 xonali kod",
+      "codeGroup": "Tasdiqlash kodi",
+      "codeBox": "Kod, {position}-raqam",
+      "attemptsLeft": "{count, plural, one {Kod noto‘g‘ri. Yana # ta urinish qoldi} other {Kod noto‘g‘ri. Yana # ta urinish qoldi}}",
+      "expired": "Kod muddati tugadi",
+      "timer": "Kod {time} amal qiladi",
+      "verify": "Tasdiqlash",
+      "verifying": "Tekshirilmoqda…",
+      "newCode": "Yangi kod olish",
+      "rejected": {
+        "title": "So‘rov Telegramʼda rad etildi.",
+        "hint": "Bu siz bo‘lsangiz, qaytadan boshlang."
+      },
+      "restart": "Qaytadan boshlash",
+      "success": "Kirildi. Panel ochilmoqda…",
+      "sessionEnded": "Sessiya tugadi. Davom etish uchun qayta kiring.",
+      "security": "Kodni hech kimga bermang — xodimlarimiz uni hech qachon so‘ramaydi.",
+      "error": {
+        "title": "Telegram orqali kirish vaqtincha ishlamayapti",
+        "hint": "Bir necha daqiqadan so‘ng qayta urinib ko‘ring.",
+        "rateLimited": "Urinishlar juda ko‘p. Qayta urinish uchun kuting: {time}",
+        "verifyFailed": "Kodni tekshirib bo‘lmadi. Qayta urinib ko‘ring."
+      }
+    },
+    "states": {
+      "loading": "Yuklanmoqda…",
+      "network": "Internet bilan aloqa yo‘q. Ulanishni tekshirib, qayta urinib ko‘ring.",
+      "retry": "Qayta urinish",
+      "loadFailed": "Maʼlumotni yuklab bo‘lmadi",
+      "forbidden": {
+        "title": "Bu bo‘lim faqat {roles} uchun",
+        "role": "Sizning rolingiz: {role}"
+      },
+      "placeholder": {
+        "title": "Bo‘lim tayyorlanmoqda",
+        "body": "Bu ekran keyingi bosqichda ulanadi."
+      },
+      "notFound": {
+        "title": "Sahifa topilmadi",
+        "body": "Havola eskirgan yoki manzilda xato bor.",
+        "cta": "Bosh sahifaga"
+      }
+    },
+    "dialogs": {
+      "reason": {
+        "label": "Sabab",
+        "required": "majburiy",
+        "hint": "Kamida {min} ta belgi",
+        "tooShort": "Sabab kamida {min} ta belgidan iborat bo‘lsin",
+        "tooLong": "Sabab {max} ta belgidan oshmasin",
+        "invalid": "Sababda harf yoki raqam bo‘lsin, boshqaruv belgilarisiz"
+      },
+      "cancel": "Bekor",
+      "close": "Yopish",
+      "audit": "Bu amal audit logga yoziladi · {name} ({role})",
+      "failed": "Amal bajarilmadi"
+    },
+    "confirm": {
+      "title": "Telegram tasdiqlash kodi",
+      "hint": "Kod Telegramʼingizga keladi. Uni hech kimga bermang.",
+      "request": "Kodni olish",
+      "sent": "Kod Telegramʼga yuborildi",
+      "label": "6 xonali kod",
+      "timer": "Kod {time} amal qiladi",
+      "expired": "Kod muddati tugadi. Yangi kod oling.",
+      "newCode": "Yangi kod olish",
+      "wrong": "{count, plural, one {Kod noto‘g‘ri. Yana # ta urinish qoldi} other {Kod noto‘g‘ri. Yana # ta urinish qoldi}}",
+      "locked": "Urinishlar tugadi. Yangi kod oling.",
+      "unavailable": "Kodni Telegramʼga yuborib bo‘lmadi. Botni bloklamaganingizni tekshiring.",
+      "required": "Bu amal uchun tasdiqlash kodi kerak.",
+      "rateLimited": "Kodlar juda ko‘p so‘raldi. Keyinroq urinib ko‘ring."
+    },
+    "probe": {
+      "title": "Mavzu tekshiruvi",
+      "danger": "Xavfli amal",
+      "premium": "Premium"
+    }
+  }
+}

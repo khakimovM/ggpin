@@ -1144,11 +1144,6 @@
       }
     }
   },
-  "admin": {
-    "shell": {
-      "title": "Admin panel"
-    }
-  },
   "bot": {
     "start": {
       "welcome": "👋 Xush kelibsiz, {name}! Telegram Stars, Premium va o‘yin donatlari — tez, xavfsiz va qulay narxda.",

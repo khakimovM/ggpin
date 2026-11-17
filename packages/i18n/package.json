@@ -4,11 +4,13 @@
   "private": true,
   "exports": {
     "./uz.json": "./uz.json",
-    "./ru.json": "./ru.json"
+    "./ru.json": "./ru.json",
+    "./admin.uz.json": "./admin.uz.json"
   },
   "files": [
     "uz.json",
-    "ru.json"
+    "ru.json",
+    "admin.uz.json"
   ],
   "scripts": {
     "lint": "eslint .",
