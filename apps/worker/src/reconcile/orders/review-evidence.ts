@@ -159,6 +159,17 @@ function refund(
   };
 }
 
+/**
+ * The CONSUMED_UNMATCHED transfers of the order (audit I-2): only the owner can say where that
+ * seqno's value went, whatever else the evidence says (a witness conflict, a suspect transaction,
+ * an attempt without a transfer), so the reminder never depends on the decision.
+ */
+export function consumedTransferIds(attempts: readonly ReviewAttempt[]): string[] {
+  return attempts.flatMap((a) =>
+    a.transfer !== null && a.transfer.status === 'CONSUMED_UNMATCHED' ? [a.transfer.id] : [],
+  );
+}
+
 export function decideReview(
   attempts: readonly ReviewAttempt[],
   context: EvidenceContext,

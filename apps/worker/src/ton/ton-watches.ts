@@ -24,6 +24,12 @@ export interface Watch {
   notFoundSince: number | null;
   /** A witness once contradicted "not sent": no later look offers an EXPIRY again (RR2-4). */
   conflict: WitnessConflict | null;
+  /** STALE looks of an advisory cursor (ton-scan-trust.ts, audit L-1); 0 for any other. */
+  staleLooks: number;
+  /** Failed listings at the same pass of an advisory cursor (audit R-1); 0 for any other. */
+  gatewayLooks: number;
+  /** The progress came from the database and no pass of this process has completed since. */
+  advisory: boolean;
 }
 
 function keyOf(source: number, transferId: string): string {
@@ -42,6 +48,9 @@ export class TonWatches {
       destTx: null,
       notFoundSince: null,
       conflict: null,
+      staleLooks: 0,
+      gatewayLooks: 0,
+      advisory: false,
     };
     this.watches.delete(key);
     this.watches.set(key, watch);

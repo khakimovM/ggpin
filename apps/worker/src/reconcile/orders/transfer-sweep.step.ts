@@ -40,14 +40,23 @@ export class TransferSweepStep implements ReconcileStep {
 
   async run(context: ReconcileContext): Promise<StepReport> {
     const tally = new StepTally(this.name);
-    const transfers = await this.repository.pendingTransfers(RECONCILE_BATCH_LIMIT);
+    const transfers = await this.repository.pendingTransfers(this.wallet, RECONCILE_BATCH_LIMIT);
+    const foreign = await this.repository.foreignPendingCount(this.wallet);
+    if (foreign > 0) {
+      // A count only: another wallet's address is not this worker's to log.
+      tally.addMany('foreign', foreign);
+      this.logger.warn(
+        `${String(foreign)} unresolved ton transfer(s) of another wallet or network, not checked`,
+      );
+    }
     for (const transfer of transfers) {
       if (
         transfer.network !== this.wallet.network ||
         transfer.walletAddress !== this.wallet.rawAddress
       ) {
+        // The query already leaves them out: a row here is a bug, counted and never touched.
         tally.add('foreign');
-        this.logger.warn(`ton transfer ${transfer.id}: another wallet or network, not checked`);
+        this.logger.error(`ton transfer ${transfer.id}: another wallet or network in the batch`);
         continue;
       }
       if (transfer.orderId === null) {

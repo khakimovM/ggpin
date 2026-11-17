@@ -92,6 +92,19 @@ export interface ScanProgress {
 
 export const NO_PROGRESS: ScanProgress = Object.freeze({ covered: null, pass: null });
 
+/**
+ * Why a look ended STALE (S9c second fix round: ton-scan-trust.ts treats them apart).
+ * - FLOOR: the state is older than what an earlier pass covered (a lagging node, or a covered
+ *   transaction that is not on the chain at all);
+ * - RACE: the index's newest transaction is not the state's last one (a state/index race: the
+ *   progress is not to blame);
+ * - PASS: the listing does not continue the pass in flight (an empty page, or a transaction that
+ *   is not the pass's `next`);
+ * - FORK: the anchor's verified chain skips the covered transaction (that one was the lie): the
+ *   scan has already dropped every progress.
+ */
+export type StaleCause = 'FLOOR' | 'RACE' | 'PASS' | 'FORK';
+
 export type ScanStep =
   | { readonly kind: 'FOUND'; readonly tx: Transaction }
   /** Read in full up to the anchor's last transaction: our message is not among them. */
@@ -106,7 +119,7 @@ export type ScanStep =
       readonly cause: 'BUDGET' | 'GATEWAY';
     }
   /** The listing contradicts the state or itself (a lagging or lying index): ask again. */
-  | { readonly kind: 'STALE'; readonly progress: ScanProgress };
+  | { readonly kind: 'STALE'; readonly progress: ScanProgress; readonly cause: StaleCause };
 
 export interface ScanRequest {
   readonly fetchPage: (page: TxPage) => Promise<readonly Transaction[]>;
@@ -158,13 +171,13 @@ async function passOf(
   const last = anchor.state.lastTx;
   // A state older than what an earlier pass covered is a stale state.
   if (covered !== null && (last === null || last.lt < covered.lt)) {
-    return { kind: 'STALE', progress: kept };
+    return { kind: 'STALE', progress: kept, cause: 'FLOOR' };
   }
   const settled = last === null || (covered !== null && sameRef(last, covered));
   const head = await listing(request, { limit: settled ? 1 : SCAN_PAGE_SIZE });
   if (head === null) return { kind: 'PARTIAL', progress: kept, cause: 'GATEWAY' };
   // M-1 (a): the index knows a transaction the state does not (or lags it): no pass rests on it.
-  if (!headIs(head, last)) return { kind: 'STALE', progress: kept };
+  if (!headIs(head, last)) return { kind: 'STALE', progress: kept, cause: 'RACE' };
   if (last === null || settled) return complete(anchor);
   return { anchor, next: last, head };
 }
@@ -193,17 +206,19 @@ export async function advanceScan(
     prefetched = null;
     if (txs === null) return { kind: 'PARTIAL', progress: here(), cause: 'GATEWAY' };
     // An empty page is a bad answer, not a fact: the same cursor is asked again next time.
-    if (txs.length === 0) return { kind: 'STALE', progress: here() };
+    if (txs.length === 0) return { kind: 'STALE', progress: here(), cause: 'PASS' };
     for (const tx of txs) {
       // The listing must follow the account's chain exactly: a skipped or foreign transaction
       // would make "not found" a lie.
-      if (!sameRef(txRef(tx), next)) return { kind: 'STALE', progress: here() };
+      if (!sameRef(txRef(tx), next)) return { kind: 'STALE', progress: here(), cause: 'PASS' };
       if (isOwnExternal(tx, request.address, request.extMsgHash)) return { kind: 'FOUND', tx };
       const prev = prevRef(tx);
       if (tx.now < request.sinceUtime || prev === null) return complete(pass.anchor);
       if (covered !== null && sameRef(prev, covered)) return complete(pass.anchor);
       // The anchor's verified chain skips the covered transaction: that one was the lie.
-      if (covered !== null && prev.lt < covered.lt) return { kind: 'STALE', progress: NO_PROGRESS };
+      if (covered !== null && prev.lt < covered.lt) {
+        return { kind: 'STALE', progress: NO_PROGRESS, cause: 'FORK' };
+      }
       next = prev;
     }
   }

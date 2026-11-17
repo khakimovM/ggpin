@@ -40,6 +40,11 @@ export class StepTally {
     if (id !== undefined) this.decided.push(id);
   }
 
+  /** The same outcome for rows only counted (never decided one by one). */
+  addMany(outcome: string, count: number): void {
+    if (count > 0) this.counts.set(outcome, (this.counts.get(outcome) ?? 0) + count);
+  }
+
   report(): StepReport {
     return {
       step: this.step,

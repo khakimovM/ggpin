@@ -178,6 +178,24 @@ describe('fulfillment alert texts (alerts.fulfillment.*)', () => {
       expect(text).toMatch(/Transfer: cmtransfer1$/);
     });
 
+    it('tonConsumedUnmatched with an hourly episode (S9 I-2): the transfer is read back from the ref', async () => {
+      const asked: string[] = [];
+      const reminder = renderer({
+        // FakeSources types the source without its argument: the id is read from the call.
+        tonTransfer: (...args: unknown[]) => {
+          asked.push(String(args[0]));
+          return Promise.resolve(TRANSFER);
+        },
+      });
+      const text = (
+        await reminder.render('tonConsumedUnmatched', 'cmtransfer1_cu_493001')
+      ).normalize('NFKC');
+      expect(asked).toEqual(['cmtransfer1']);
+      expect(text).toContain('#1042');
+      expect(text).toMatch(/cmtransfer1$/);
+      expect(text).not.toContain('_cu_');
+    });
+
     it('a transfer without an order prints ? for the order # and status, keeps the rest', async () => {
       const orphan = renderer({
         tonTransfer: () => Promise.resolve({ ...TRANSFER, attempt: null }),

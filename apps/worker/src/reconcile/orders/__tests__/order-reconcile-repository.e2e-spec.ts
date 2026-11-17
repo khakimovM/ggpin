@@ -1,16 +1,44 @@
+import { randomBytes } from 'node:crypto';
 import { createPrismaClient, type PrismaClient } from '@repo/db';
 import { RECONCILE_BATCH_LIMIT } from '@repo/shared';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
+import { processingOrder } from '../../../ton/__tests__/ton-e2e.fixtures';
+import { dryRunTonWallet } from '../../../ton/ton-wallet';
 import { OrderReconcileRepository, type ReviewCursor } from '../order-reconcile.repository';
 
 // The reconciler's real lists on the shared test database (which keeps the rows of earlier runs:
 // the other e2e files narrow them to their own orders). Only properties that hold whatever else is
-// there: ORDER transfers that wait for the chain, oldest first; NEEDS_REVIEW orders after the
+// there: this wallet's ORDER transfers that wait for the chain (never another wallet's), oldest first; NEEDS_REVIEW orders after the
 // cursor, oldest first; never more than a batch.
 
 const env = buildE2eEnv();
 let db: PrismaClient;
 let repository: OrderReconcileRepository;
+
+const hex = (): string => randomBytes(32).toString('hex');
+
+/** An unresolved (SIGNED) ORDER transfer of an order of its own, on this network and wallet. */
+async function pendingRow(network: string, walletAddress: string): Promise<string> {
+  const fixture = await processingOrder(db);
+  const row = await db.tonTransfer.create({
+    data: {
+      purpose: 'ORDER',
+      attemptId: fixture.attemptId,
+      network,
+      walletAddress,
+      seqno: 0,
+      validUntil: new Date(Date.now() + 60_000),
+      toAddress: `0:${hex()}`,
+      amountNanoTon: 1n,
+      payloadHash: hex(),
+      extMsgHash: hex(),
+      bocBase64: 'te6cc',
+      status: 'SIGNED',
+    },
+    select: { id: true },
+  });
+  return row.id;
+}
 
 const after = (a: ReviewCursor, b: ReviewCursor): boolean =>
   a.createdAt.getTime() > b.createdAt.getTime() ||
@@ -31,28 +59,33 @@ describe('OrderReconcileRepository (real queries)', () => {
     expect(Math.abs(now - Date.now())).toBeLessThan(60_000);
   });
 
-  it('lists only ORDER transfers waiting for the chain, oldest first, a batch at most', async () => {
-    const listed = await repository.pendingTransfers(1_000);
-    expect(listed.length).toBeLessThanOrEqual(RECONCILE_BATCH_LIMIT);
-    const rows = await db.tonTransfer.findMany({
-      where: { id: { in: listed.map((l) => l.id) } },
-      select: { id: true, purpose: true, status: true, createdAt: true },
-    });
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    const ordered = listed.map((l) => byId.get(l.id));
-    for (const row of ordered) {
-      expect(row?.purpose).toBe('ORDER');
-      expect(['SIGNED', 'BROADCAST']).toContain(row?.status);
-    }
-    for (let i = 1; i < ordered.length; i += 1) {
-      expect(ordered[i]?.createdAt.getTime()).toBeGreaterThanOrEqual(
-        ordered[i - 1]?.createdAt.getTime() ?? 0,
-      );
-    }
-    const waiting = await db.tonTransfer.count({
+  it('lists only the own wallet unresolved ORDER transfers: foreign rows never take the batch (CR3)', async () => {
+    // TonTransfer rows are never deleted (a DB guard): these three stay, as other suites' rows do.
+    const own = dryRunTonWallet('testnet').rawAddress;
+    const otherWallet = await pendingRow('testnet', dryRunTonWallet('testnet').rawAddress);
+    const otherNetwork = await pendingRow('mainnet', dryRunTonWallet('testnet').rawAddress);
+    const mine = await pendingRow('testnet', own);
+    const wallet = { network: 'testnet', rawAddress: own };
+    // Oldest first, one place: without the filter it is an older row of another wallet.
+    expect((await repository.pendingTransfers(wallet, 1)).map((row) => row.id)).toEqual([mine]);
+    const listed = await repository.pendingTransfers(wallet, 1_000);
+    expect(listed).toEqual([
+      expect.objectContaining({ id: mine, network: 'testnet', walletAddress: own }),
+    ]);
+    expect(listed.map((row) => row.id)).not.toContain(otherWallet);
+    expect(listed.map((row) => row.id)).not.toContain(otherNetwork);
+    const foreign = await repository.foreignPendingCount(wallet);
+    const pending = await db.tonTransfer.count({
       where: { purpose: 'ORDER', status: { in: ['SIGNED', 'BROADCAST'] } },
     });
-    expect(listed.length).toBe(Math.min(waiting, RECONCILE_BATCH_LIMIT));
+    expect(foreign).toBeGreaterThanOrEqual(2);
+    expect(foreign).toBe(pending - 1);
+  });
+
+  it('never more than a batch', async () => {
+    const wallet = { network: 'testnet', rawAddress: dryRunTonWallet('testnet').rawAddress };
+    expect(await repository.pendingTransfers(wallet, 10_000)).toEqual([]);
+    expect(RECONCILE_BATCH_LIMIT).toBeLessThanOrEqual(100);
   });
 
   it('walks NEEDS_REVIEW orders after the cursor, oldest first, without skipping one', async () => {

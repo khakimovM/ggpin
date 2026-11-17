@@ -36,6 +36,7 @@ import {
 import { advanceScan, type ScanProgress, type ScanStep } from './ton-tx-scan';
 import { seqnoOf, type W5Data } from './ton-w5';
 import type { TonWallet } from './ton-wallet';
+import { trustAfterLook, trustBeforeLook } from './ton-scan-trust';
 import { TonWatches, type Watch } from './ton-watches';
 
 // One look at the chain for one stored transfer (plan 6.4 step 6, 6.5). The scan of the wallet's
@@ -106,7 +107,7 @@ export class TonChainReader {
    * what this process has seen itself is never replaced by an older copy.
    */
   resumeScan(transferId: string, progress: ScanProgress): void {
-    if (!this.isWatching(transferId)) this.watches.of(0, transferId, progress);
+    if (!this.isWatching(transferId)) this.watches.of(0, transferId, progress).advisory = true;
   }
 
   /** The primary source's scan progress for the transfer, or null when it is not watched. */
@@ -143,6 +144,7 @@ export class TonChainReader {
     databaseNowMs: () => Promise<number>,
   ): Promise<ScanStep> {
     const facts = transferFacts(transfer);
+    trustBeforeLook(watch, state);
     const step = await advanceScan(
       {
         fetchPage: (page) => gateway.getTransactions(address, page),
@@ -160,7 +162,7 @@ export class TonChainReader {
         return { state, atMs: candidate ? await databaseNowMs() : null };
       },
     );
-    if (step.kind !== 'FOUND') watch.progress = step.progress;
+    if (step.kind !== 'FOUND') trustAfterLook(watch, step);
     return step;
   }
 

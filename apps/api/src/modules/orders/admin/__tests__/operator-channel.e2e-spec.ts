@@ -102,6 +102,12 @@ describe('I-4: the CLI channel never exists in the HTTP application', () => {
     expect(reconciler.match(/\bresolveNeedsReview\s*\(/g)).toHaveLength(1);
     expect(reconciler.match(/\bresolver\s*:/g)).toHaveLength(1);
     expect(reconciler).toMatch(/\bresolver:\s*\{\s*kind:\s*'reconciler'\s*\}/);
+    // CR6: the argument is one inline object literal without a spread, so no field (a resolver
+    // among them) can come in from an object built elsewhere.
+    const call = /\bresolveNeedsReview\s*\(([\s\S]*?)\)\s*;/.exec(reconciler)?.[1] ?? '';
+    expect(call).toMatch(/^\s*tx\s*,\s*\{[\s\S]*\}\s*,?\s*$/);
+    expect(call).not.toContain('...');
+    expect(call).toMatch(/\bresolver:\s*\{\s*kind:\s*'reconciler'\s*\}/);
     const operatorResolver = /\bkind:\s*['"`]operator['"`]|\botpVerified\b|\bosUser\b/;
     expect(using(operatorResolver).filter((file) => file.startsWith('worker/'))).toEqual([]);
   });

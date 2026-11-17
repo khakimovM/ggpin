@@ -1,5 +1,5 @@
 import { NeedsReviewProofSchema, RECONCILER_PROOF_REASON } from '@repo/shared';
-import { decideReview, evidenceKey } from '../review-evidence';
+import { consumedTransferIds, decideReview, evidenceKey } from '../review-evidence';
 import {
   CHECKED_AT,
   CONTEXT,
@@ -199,6 +199,42 @@ describe('decideReview', () => {
         ton: { expiry: expiryPair(t), witnessConflict: { detail: 'SEQNO_MOVED', witness: 1 } },
       });
       expect(evidenceKey([{ ...conflicted, id: before.id }])).not.toBe(key);
+    });
+  });
+
+  describe('consumedTransferIds (audit I-2): the owner hears of a CU transfer whatever the decision', () => {
+    it('lists it next to a witness conflict, a suspect transaction or an attempt without a transfer', () => {
+      const cu = transfer({ status: 'CONSUMED_UNMATCHED' });
+      const cases = [
+        {
+          reason: 'WITNESS_CONFLICT',
+          attempts: [attempt(cu, { ton: { witnessConflict: { at: 1 } } })],
+        },
+        { reason: 'SUSPECT', attempts: [attempt(cu, { ton: { suspect: { at: 1 } } })] },
+        {
+          reason: 'TRANSFERLESS_ATTEMPT',
+          attempts: [attempt(cu, { status: 'FAILED' }), attempt(null)],
+        },
+      ] as const;
+      for (const { reason, attempts } of cases) {
+        expect(decideReview(attempts, CONTEXT)).toEqual({ kind: 'SKIP', reason });
+        expect(consumedTransferIds(attempts)).toEqual([cu.id]);
+      }
+    });
+
+    it('lists every CU transfer and nothing else', () => {
+      const [a, b] = [
+        transfer({ status: 'CONSUMED_UNMATCHED' }),
+        transfer({ status: 'CONSUMED_UNMATCHED' }),
+      ];
+      const attempts = [
+        attempt(a, { status: 'FAILED' }),
+        attempt(transfer()),
+        attempt(b),
+        attempt(null),
+      ];
+      expect(consumedTransferIds(attempts)).toEqual([a.id, b.id]);
+      expect(consumedTransferIds([attempt(transfer()), attempt(confirmed())])).toEqual([]);
     });
   });
 });

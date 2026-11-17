@@ -1,9 +1,9 @@
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
-import { setTimeout as sleep } from 'node:timers/promises';
 import tls from 'node:tls';
-import { PAST_VALID_SEC, pinChain } from '../../../ton/__tests__/ton-e2e.harness';
+import { PAST_VALID_SEC, TEST_TIMING, pinChain } from '../../../ton/__tests__/ton-e2e.harness';
+import { untilSecondLook } from '../../../ton/__tests__/ton-e2e.fixtures';
 import { countsOf, useReconcileE2e } from './reconcile-e2e.harness';
 
 // Plan §8 / rules/45 for the order reconciler: with FULFILLMENT_DRY_RUN=true its ticks (a chain
@@ -89,7 +89,7 @@ describe('dry run: the order reconciler reaches only Postgres and Redis (plan §
     const refunded = await r.timedOut(rec, 'LOSE');
     pinChain(t.gateway, PAST_VALID_SEC);
     await rec.service.tick();
-    await sleep(1_500);
+    await untilSecondLook(t.db, refunded.attemptId, TEST_TIMING.expiryGapSec);
     expect(countsOf(await rec.service.tick(), 'review')).toEqual({ refunded: 1 });
     expect((await r.moneyOf(delivered.orderId)).order.status).toBe('DELIVERED');
     expect((await r.moneyOf(refunded.orderId)).order.status).toBe('REFUNDED');

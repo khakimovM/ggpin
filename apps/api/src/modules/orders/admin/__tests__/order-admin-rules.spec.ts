@@ -96,12 +96,6 @@ const HOLD_LITERAL = `['"](?:${ATTEMPT_HOLD_ERRORS.join('|')})['"]`;
 const HOLD_LIST = new RegExp(`\\[[^\\]]*${HOLD_LITERAL}[^\\]]*${HOLD_LITERAL}[^\\]]*\\]`);
 const LOCAL_COPIES = [...DECLARATIONS, HOLD_LIST];
 
-/**
- * Known lists outside the core, each owned elsewhere and named here so a new one fails: the TON
- * module's own lookup of its hold attempt (ton-transfer.repository.ts, typed HoldError).
- */
-const KNOWN_LISTS = ['ton/ton-transfer.repository.ts'];
-
 function copiesIn(text: string): string[] {
   return LOCAL_COPIES.filter((copy) => copy.test(text)).map(String);
 }
@@ -146,10 +140,8 @@ describe('attempt limit (phase 5 S9b): the worker takes the shared rule, it keep
     expect(sources.length).toBeGreaterThan(50);
     const copies = sources.flatMap(({ path, text }) => {
       const file = relative(WORKER_SRC, path).replaceAll('\\', '/');
-      const found = copiesIn(text).filter(
-        (copy) => !(copy === String(HOLD_LIST) && KNOWN_LISTS.includes(file)),
-      );
-      return found.map((copy) => `${file}: ${copy}`);
+      // No exception left (S9c fix round): the TON module reads the shared ATTEMPT_HOLD_ERRORS too.
+      return copiesIn(text).map((copy) => `${file}: ${copy}`);
     });
     expect(copies).toEqual([]);
   });

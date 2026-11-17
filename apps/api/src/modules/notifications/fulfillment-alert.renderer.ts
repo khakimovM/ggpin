@@ -78,7 +78,8 @@ export class FulfillmentAlertRenderer {
       case 'tonWalletCompromised':
       case 'tonWitnessConflict':
       case 'tonLateConfirmed':
-        return this.transferParams(refId);
+        // A reminder may carry an episode (`<transferId>_cu_<hour>`, phase 5 S9 audit I-2).
+        return this.transferParams(refIdSubject(refId) ?? refId);
       case 'tonLowBalance': {
         const snapshot = await this.sources.walletSnapshot(refId);
         if (snapshot === null) return {};

@@ -21,6 +21,18 @@ describe('episodeRef', () => {
     expect(episodeRef(ORDER, 'ton', AT)).toBe(`${ORDER}_ton_${String(Math.floor(AT / HOUR))}`);
   });
 
+  it('a CONSUMED_UNMATCHED reminder (I-2): <transferId>_cu_<hour>, read back as the transfer', () => {
+    const transferId = 'cmh1transfer000000000001';
+    const ref = episodeRef(transferId, 'cu', AT);
+    expect(ref).toBe(`${transferId}_cu_${String(Math.floor(AT / HOUR))}`);
+    if (ref === null) throw new Error('no ref');
+    expect(refIdSubject(ref)).toBe(transferId);
+    const reminder = { kind: 'OWNER_ALERT', alert: 'tonConsumedUnmatched', refId: ref } as const;
+    expect(notifyJobSchema.safeParse(reminder).success).toBe(true);
+    const nextHour = episodeRef(transferId, 'cu', AT + HOUR);
+    expect(nextHour).not.toBe(ref);
+  });
+
   it('is the same within an hour and a new alert id in the next one (mutant: no episode)', () => {
     const first = episodeRef(ORDER, 'review', AT);
     const sameHour = episodeRef(ORDER, 'review', AT + 30 * 60_000);

@@ -37,6 +37,19 @@ describe('worker env: the order reconciler (S9)', () => {
     expect(problemsOf(set('-1'))).toContain('HELD_MAX_AGE_MS');
   });
 
+  it('accepts the ceilings and refuses one millisecond more (CR2, audit L-3)', () => {
+    const tick = (value: string) => ({ ...TEST_ENV_SOURCE, ORDER_RECONCILE_EVERY_MS: value });
+    expect(loadEnv(tick('3600000')).ORDER_RECONCILE_EVERY_MS).toBe(3_600_000);
+    expect(problemsOf(tick('3600001'))).toContain('ORDER_RECONCILE_EVERY_MS');
+    const held = (value: string) => ({ ...TEST_ENV_SOURCE, HELD_MAX_AGE_MS: value });
+    expect(loadEnv(held('604800000')).HELD_MAX_AGE_MS).toBe(604_800_000);
+    expect(problemsOf(held('604800001'))).toContain('HELD_MAX_AGE_MS');
+    for (const huge of ['9007199254740993', '1e300', 'Infinity']) {
+      expect(problemsOf(tick(huge))).toContain('ORDER_RECONCILE_EVERY_MS');
+      expect(problemsOf(held(huge))).toContain('HELD_MAX_AGE_MS');
+    }
+  });
+
   it('documents both, with their defaults, in the worker template', () => {
     const template = readFileSync(join(__dirname, '../../../.env.example'), 'utf8');
     expect(template).toMatch(/^ORDER_RECONCILE_EVERY_MS=600000$/m);

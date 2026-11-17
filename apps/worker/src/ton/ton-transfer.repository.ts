@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, TonTransferStatus, Tx } from '@repo/db';
-import { checkTonLimits, type TonLimits } from '@repo/shared';
+import { ATTEMPT_HOLD_ERRORS, checkTonLimits, type TonLimits } from '@repo/shared';
 import { isUniqueViolation } from '../bank-feed/prisma-errors';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { isGuardRefusal } from './ton-db-errors';
@@ -105,13 +105,6 @@ export interface TonHold {
   readonly attemptId: string;
 }
 
-const HOLD_ERRORS: readonly HoldError[] = [
-  'LIMIT_PER_ORDER',
-  'LIMIT_DAILY',
-  'LOW_BALANCE',
-  'PAY_ADDRESS_NOT_ALLOWED',
-];
-
 @Injectable()
 export class TonTransferRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaHolder) {}
@@ -167,7 +160,11 @@ export class TonTransferRepository {
       orderBy: { attemptNo: 'desc' },
       select: { id: true, status: true, error: true },
     });
-    const error = HOLD_ERRORS.find((known) => known === attempt?.error);
+    // The shared list (packages/shared attempt-limit.ts) is exactly the errors hold() writes; the
+    // core's own TON_NOT_SENT_* holds are not the TON module's (isAttemptHoldError counts both).
+    const error: HoldError | undefined = ATTEMPT_HOLD_ERRORS.find(
+      (known) => known === attempt?.error,
+    );
     if (attempt?.status !== 'FAILED' || error === undefined) return null;
     const reason = holdReasonOf(error);
     return order.statusReason === reason ? { reason, attemptId: attempt.id } : null;

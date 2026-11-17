@@ -86,11 +86,11 @@ describe('advanceScan: progress survives bad answers', () => {
     expect(covered).toEqual(current.lastTx);
     // A state older than what was covered.
     const behind = await advanceScan(request(), progressOf(done), anchorAt(old));
-    expect(behind).toEqual({ kind: 'STALE', progress: { covered, pass: null } });
+    expect(behind).toEqual({ kind: 'STALE', progress: { covered, pass: null }, cause: 'FLOOR' });
     // M-1 (a): the index lists a transaction the state does not know yet.
     gateway.receiveSpam(wallet.address, 1);
     const ahead = await advanceScan(request(), progressOf(done), anchorAt(current));
-    expect(ahead).toEqual({ kind: 'STALE', progress: { covered, pass: null } });
+    expect(ahead).toEqual({ kind: 'STALE', progress: { covered, pass: null }, cause: 'RACE' });
     // The next pass reads only what is new, down to the covered transaction: one listing.
     const fresh = await gateway.getAccountState(wallet.address);
     pages.length = 0;
@@ -109,12 +109,23 @@ describe('advanceScan: progress survives bad answers', () => {
     expect(failed).toEqual({ kind: 'PARTIAL', cause: 'GATEWAY', progress: progressOf(first) });
     gateway.emptyNext = 1;
     const empty = await advanceScan(request(1), progressOf(failed), noNewPass);
-    expect(empty).toEqual({ kind: 'STALE', progress: progressOf(first) });
+    expect(empty).toEqual({ kind: 'STALE', progress: progressOf(first), cause: 'PASS' });
     const second = await advanceScan(request(1), progressOf(empty), noNewPass);
     expect(second).toMatchObject({ kind: 'PARTIAL', cause: 'BUDGET' });
     expect((await advanceScan(request(1), progressOf(second), noNewPass)).kind).toBe('COMPLETE');
     // 251 transactions in three pages, plus the failed and the empty listing: nothing read twice.
     expect(pages).toHaveLength(5);
+  });
+
+  it('a verified chain that skips the covered transaction ends STALE FORK, every progress dropped', async () => {
+    const { gateway, wallet, request } = setup(5);
+    const state = await gateway.getAccountState(wallet.address);
+    const [, , third] = [...gateway.transactionsOf(wallet.address)].reverse();
+    if (third === undefined) throw new Error('no third transaction');
+    // The lt of a real transaction with another hash: the walk passes below it without a match.
+    const covered = { lt: third.lt, hash: 'ee'.repeat(32) };
+    const step = await advanceScan(request(), { covered, pass: null }, anchorAt(state));
+    expect(step).toEqual({ kind: 'STALE', progress: NO_PROGRESS, cause: 'FORK' });
   });
 
   it('a failing head listing of a new pass keeps covered', async () => {

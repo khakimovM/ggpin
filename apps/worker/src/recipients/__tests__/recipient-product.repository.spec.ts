@@ -149,8 +149,11 @@ describe('RecipientProductRepository.pricedBy', () => {
     });
   });
 
-  it('a currency the API cannot price is no answer (null), never a guess', async () => {
+  it('a currency the API cannot price fails closed (mixed), never null and never a guess (S9g L1)', async () => {
     const { repository } = repositoryWith([row('odd', null, 'BTC')]);
-    await expect(repository.pricedBy(STARS, NOW)).resolves.toBeNull();
+    await expect(repository.pricedBy(STARS, NOW)).resolves.toEqual({
+      kind: 'mixed',
+      currencies: [],
+    });
   });
 });

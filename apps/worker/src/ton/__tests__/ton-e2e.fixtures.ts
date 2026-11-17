@@ -206,3 +206,44 @@ export function tonFactOf(response: unknown, key: string): unknown {
   if (typeof ton !== 'object' || ton === null) return null;
   return Reflect.get(ton, key) ?? null;
 }
+
+/**
+ * One backwards step of the test database's clock and then some: the Docker VM's time sync steps
+ * it back by up to ~1.6 s about every half minute (measured in the S9c fix round). Production
+ * keeps the rule as it is (a step back only restarts the proof, the safe direction).
+ */
+const CLOCK_STEP_MS = 1_800;
+
+const pause = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
+
+const field = (value: unknown, key: string): unknown =>
+  typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined;
+
+/**
+ * Until a second look can confirm the kept first expiry observation: a later chain second (the
+ * fake chain ticks with this process's clock) AND the database clock `gapSec` plus one clock step
+ * past the first observation. A fixed sleep alone lets a step back of the database clock land the
+ * two looks closer than the gap, and the TON module then rightly starts the proof over.
+ */
+export async function untilSecondLook(
+  db: PrismaClient,
+  attemptId: string,
+  gapSec: number,
+): Promise<void> {
+  const row = await db.fulfillmentAttempt.findUniqueOrThrow({
+    where: { id: attemptId },
+    select: { response: true },
+  });
+  const atMs = field(field(tonFactOf(row.response, 'expiry'), 'first'), 'atMs');
+  if (typeof atMs !== 'number') throw new Error('no first expiry observation is kept');
+  await pause(gapSec * 1_000 + 300);
+  const due = atMs + gapSec * 1_000 + CLOCK_STEP_MS;
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const [now] = await db.$queryRaw<{ ms: string }[]>`
+      SELECT floor(extract(epoch from now()) * 1000)::bigint::text AS "ms"`;
+    if (Number(now?.ms) >= due) return;
+    await pause(50);
+  }
+  throw new Error('the database clock never passed the expiry gap');
+}

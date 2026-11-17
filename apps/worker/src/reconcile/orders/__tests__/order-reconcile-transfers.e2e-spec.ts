@@ -1,6 +1,6 @@
-import { setTimeout as sleep } from 'node:timers/promises';
-import { rowsOf, tonFactOf } from '../../../ton/__tests__/ton-e2e.fixtures';
-import { PAST_VALID_SEC, pinChain } from '../../../ton/__tests__/ton-e2e.harness';
+import { rowsOf, tonFactOf, untilSecondLook } from '../../../ton/__tests__/ton-e2e.fixtures';
+import { PAST_VALID_SEC, TEST_TIMING, pinChain } from '../../../ton/__tests__/ton-e2e.harness';
+import { TON_WALLET_LOCK_KEY } from '../../../ton/ton-tokens';
 import { countsOf, useReconcileE2e } from './reconcile-e2e.harness';
 
 // Phase 5 S9 (D-64 (1), (2)) on the real database: a NEEDS_REVIEW order whose payout the chain
@@ -9,8 +9,15 @@ import { countsOf, useReconcileE2e } from './reconcile-e2e.harness';
 
 const r = useReconcileE2e();
 const { t } = r;
-/** More than TEST_TIMING.expiryGapSec, and a later chain second, between two observations. */
-const PAST_GAP_MS = 1_500;
+
+/**
+ * CR5 / audit L-2: the tick took the order's lock in Redis (so the monitor saw it) and never the
+ * wallet lock (TON_WALLET_LOCK_KEY): the reconciler signs and sends nothing.
+ */
+function neverTheWalletLock(commands: readonly string[], orderId: string): void {
+  expect(commands.some((c) => c.includes(`lock:order:${orderId}`))).toBe(true);
+  expect(commands.filter((c) => c.includes(TON_WALLET_LOCK_KEY))).toEqual([]);
+}
 
 describe('order reconciler: transfers and NEEDS_REVIEW proofs (S9c)', () => {
   it('a timed-out payout lands later: transfer CONFIRMED, order DELIVERED by TON_TX', async () => {
@@ -18,7 +25,8 @@ describe('order reconciler: transfers and NEEDS_REVIEW proofs (S9c)', () => {
     const fixture = await r.timedOut(rec, 'HOLD');
     t.gateway.releaseHeld();
 
-    const report = await rec.service.tick();
+    const { value: report, commands } = await r.redisCommandsDuring(() => rec.service.tick());
+    neverTheWalletLock(commands, fixture.orderId);
     expect(countsOf(report, 'transfers')).toEqual({ confirmed: 1 });
     expect(countsOf(report, 'review')).toEqual({ delivered: 1 });
     const { order, audits, ledger } = await r.moneyOf(fixture.orderId);
@@ -41,6 +49,7 @@ describe('order reconciler: transfers and NEEDS_REVIEW proofs (S9c)', () => {
       await r.hasJob({ kind: 'OWNER_ALERT', alert: 'adminAction', refId: audit?.id ?? '' }),
     ).toBe(false);
     expect(t.gateway.callCount('sendBoc')).toBe(1);
+    expect(rec.traps.calls()).toEqual({ pay: 0, walletLock: 0 });
   });
 
   it('a lost message: two observations -> EXPIRED -> FAILED + REFUND of exactly the PURCHASE', async () => {
@@ -59,8 +68,9 @@ describe('order reconciler: transfers and NEEDS_REVIEW proofs (S9c)', () => {
     expect((await r.moneyOf(fixture.orderId)).order.status).toBe('NEEDS_REVIEW');
     expect(await r.cached(fixture.userId)).toBe(true);
 
-    await sleep(PAST_GAP_MS);
-    const second = await rec.service.tick();
+    await untilSecondLook(t.db, fixture.attemptId, TEST_TIMING.expiryGapSec);
+    const { value: second, commands } = await r.redisCommandsDuring(() => rec.service.tick());
+    neverTheWalletLock(commands, fixture.orderId);
     expect(countsOf(second, 'transfers')).toEqual({ expired: 1 });
     expect(countsOf(second, 'review')).toEqual({ refunded: 1 });
     const { order, ledger, audits } = await r.moneyOf(fixture.orderId);
@@ -81,6 +91,7 @@ describe('order reconciler: transfers and NEEDS_REVIEW proofs (S9c)', () => {
     const refId = `${fixture.orderId}_${audits[0]?.id ?? ''}`;
     expect(await r.hasJob({ kind: 'OWNER_ALERT', alert: 'reviewResolved', refId })).toBe(true);
     expect(t.gateway.callCount('sendBoc')).toBe(1);
+    expect(rec.traps.calls()).toEqual({ pay: 0, walletLock: 0 });
   });
 
   it('a second tick and a restarted worker change nothing (idempotent replay)', async () => {
@@ -88,7 +99,7 @@ describe('order reconciler: transfers and NEEDS_REVIEW proofs (S9c)', () => {
     const fixture = await r.timedOut(rec, 'LOSE');
     pinChain(t.gateway, PAST_VALID_SEC);
     await rec.service.tick();
-    await sleep(PAST_GAP_MS);
+    await untilSecondLook(t.db, fixture.attemptId, TEST_TIMING.expiryGapSec);
     expect(countsOf(await rec.service.tick(), 'review')).toEqual({ refunded: 1 });
     const before = await r.moneyOf(fixture.orderId);
     const jobs = await r.jobIdsLike(`order-${fixture.orderId}`);

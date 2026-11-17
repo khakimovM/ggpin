@@ -26,7 +26,12 @@ import {
   type ReconcileStep,
   type StepReport,
 } from './reconcile-step';
-import { decideReview, evidenceKey, type EvidenceContext } from './review-evidence';
+import {
+  consumedTransferIds,
+  decideReview,
+  evidenceKey,
+  type EvidenceContext,
+} from './review-evidence';
 import { EvidenceChangedError, ReviewResolver, type ReconcilerResolution } from './review-resolver';
 
 // Step 2 of the tick (phase 5 S9, D-64 (2)): NEEDS_REVIEW orders, oldest first, a batch per tick
@@ -88,19 +93,39 @@ export class ReviewSweepStep implements ReconcileStep {
 
   private async reviewOne(orderId: string, context: ReconcileContext): Promise<Outcome> {
     const attempts = await this.repository.payoutOf(orderId);
+    const consumed = await this.remindConsumed(orderId, consumedTransferIds(attempts), context);
     const decision = decideReview(attempts, this.evidenceContext());
     switch (decision.kind) {
       case 'SKIP':
-        return { outcome: `skip:${decision.reason}`, decided: false };
+        return {
+          outcome: consumed ? 'consumedUnmatched' : `skip:${decision.reason}`,
+          decided: false,
+        };
       case 'ALERT_CONSUMED':
-        // Only the owner can say where the value went (TON_UNMATCHED_RESOLVED, CLI): an alert.
-        await this.notifier.alert('tonConsumedUnmatched', decision.transferId);
         return { outcome: 'consumedUnmatched', decided: false };
       case 'DELIVER':
         return this.resolve(orderId, { to: 'DELIVERED', proof: decision.proof }, attempts, context);
       case 'REFUND':
         return this.resolve(orderId, { to: 'FAILED', proof: decision.proof }, attempts, context);
     }
+  }
+
+  /**
+   * Only the owner can say where a CONSUMED_UNMATCHED seqno's value went (TON_UNMATCHED_RESOLVED,
+   * CLI): one reminder per transfer and hour of the database clock, whatever the decision (I-2).
+   */
+  private async remindConsumed(
+    orderId: string,
+    transferIds: readonly string[],
+    context: ReconcileContext,
+  ): Promise<boolean> {
+    for (const transferId of transferIds) {
+      const ref = episodeRef(transferId, 'cu', context.nowMs);
+      if (ref === null)
+        this.logger.error(`order ${orderId}: no alert id for transfer ${transferId}`);
+      else await this.notifier.alert('tonConsumedUnmatched', ref);
+    }
+    return transferIds.length > 0;
   }
 
   private async resolve(
@@ -115,7 +140,7 @@ export class ReviewSweepStep implements ReconcileStep {
     );
     if (!resolved.ok) return this.refused(orderId, resolved.error, context);
     const { result, auditId } = resolved.value;
-    const refunded = result.refund !== null;
+    const refunded = result.refund?.outcome === 'REFUNDED';
     this.logger.log(
       `order ${orderId}: NEEDS_REVIEW -> ${result.to} by the reconciler (${resolution.proof.kind}, audit ${auditId})`,
     );

@@ -9,7 +9,7 @@ import {
   type TonGatewayOperation,
   type TxPage,
 } from './ton-gateway';
-import { txRef } from './ton-tx-scan';
+import { sameRef, txRef } from './ton-tx-scan';
 import { buildW5Data, type W5Data } from './ton-w5';
 import { FakeChainState, type FakeDestinationScenario } from './fake-ton-state';
 
@@ -47,6 +47,13 @@ export class FakeTonGateway implements TonGateway {
   readonly calls = new Map<TonGatewayOperation, number>();
   readonly sentBocs: Buffer[] = [];
   latencyMs: number;
+  /**
+   * What a listing from a cursor (`at`) the chain does not hold answers: 'BELOW' (the default) the
+   * transactions under its lt; 'ERROR' a TonGatewayError (getTransactions, HTTP). 'ERROR' is what
+   * toncenter is ASSUMED to answer for an unknown `(lt, hash)` (S9c audit R-1): an assumption
+   * until the S12 testnet fixture records the real answer.
+   */
+  unknownCursor: 'BELOW' | 'ERROR' = 'BELOW';
   private readonly chain = new FakeChainState();
   private readonly sendScenarios: FakeSendScenario[] = [];
   private readonly failures = new Map<TonGatewayOperation, FailReason[]>();
@@ -174,11 +181,13 @@ export class FakeTonGateway implements TonGateway {
   async getTransactions(address: Address, page: TxPage): Promise<readonly Transaction[]> {
     await this.enter('getTransactions');
     const at = page.at;
-    return this.chain
-      .visible(address)
-      .reverse()
-      .filter((tx) => at === undefined || tx.lt <= at.lt)
-      .slice(0, page.limit);
+    const listed = this.chain.visible(address).reverse();
+    if (at !== undefined && this.unknownCursor === 'ERROR') {
+      if (!listed.some((tx) => sameRef(txRef(tx), at))) {
+        throw new TonGatewayError('getTransactions', 'HTTP');
+      }
+    }
+    return listed.filter((tx) => at === undefined || tx.lt <= at.lt).slice(0, page.limit);
   }
 
   /**

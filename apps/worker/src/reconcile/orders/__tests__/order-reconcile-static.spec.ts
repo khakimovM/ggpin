@@ -44,6 +44,11 @@ const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['a hand-made transition', /transitionOrder|applyTransition/],
   ['a hand-made ledger write', /ledgerEntry\s*\.\s*create|appendLedgerEntry/],
   ['a hand-made status write', /order\s*\.\s*update(Many)?\s*\(/],
+  // S9c review CR5: no way to the chain or the outcome writes around TonConfirmService.check.
+  ['the chain gateway', /TON_GATEWAY|\bTonGateway\b/],
+  ['the chain reader', /TonChainReader/],
+  ['the outcome writes', /TonOutcomeRepository/],
+  ['a back door to any provider', /\bModuleRef\b/],
 ];
 
 describe('the order reconciler (static)', () => {

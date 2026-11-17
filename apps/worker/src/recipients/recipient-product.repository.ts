@@ -17,8 +17,9 @@ export interface RecipientCheckProduct {
 /**
  * How the API prices the product now (phase 5 S9g, D-62 (4)):
  * - `priced`: every fresh row a quote could use is in ONE currency; the newest row names it;
- * - `mixed`: fresh rows a quote could use are in different currencies (fail closed: the check
- *   cannot know which pack will be bought, so no adapter is right for all of them).
+ * - `mixed`: fresh rows a quote could use are in different currencies, or one is in a currency
+ *   the API cannot price (fail closed: the check cannot know which pack will be bought, so no
+ *   adapter is right for all of them).
  */
 export type ProductPricedBy =
   | {
@@ -77,14 +78,18 @@ export class RecipientProductRepository {
     const first = usable[0];
     if (first === undefined) return null;
     const currencies: CostCurrency[] = [];
+    let unknown = false;
     for (const row of usable) {
       const currency = COST_CURRENCIES.find((c) => c === row.currency);
-      // A CHECK keeps the column to TON | USDT; a row the API cannot price is no answer.
-      if (currency === undefined) return null;
-      if (!currencies.includes(currency)) currencies.push(currency);
+      // A CHECK keeps the column to TON | USDT. A row it would let through anyway is no currency
+      // to route by: fail closed (mixed: UNAVAILABLE), never null (null routes to any currency).
+      if (currency === undefined) unknown = true;
+      else if (!currencies.includes(currency)) currencies.push(currency);
     }
     const [currency] = currencies;
-    if (currencies.length > 1 || currency === undefined) return { kind: 'mixed', currencies };
+    if (unknown || currencies.length > 1 || currency === undefined) {
+      return { kind: 'mixed', currencies };
+    }
     return { kind: 'priced', snapshotId: first.id, adapter: first.adapter, currency };
   }
 }

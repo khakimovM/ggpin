@@ -2,7 +2,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { QUEUES, notifyJobId, walletCacheKey, type NotifyJob } from '@repo/shared';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { RedisLockStore, type LockStore } from '../../../bank-feed/client/leader-lock';
+import { RedisLockStore } from '../../../bank-feed/client/leader-lock';
 import { WorkerConfigModule } from '../../../config/config.module';
 import { OrderLock } from '../../../fulfillment/order-lock';
 import { PrismaModule } from '../../../infra/prisma/prisma.module';
@@ -28,18 +28,18 @@ import type { TonChainWitness } from '../../../ton/ton-gateway';
 import { TonConfirmService } from '../../../ton/ton-confirm.service';
 import { TonSenderService } from '../../../ton/ton-sender.service';
 import type { TonTiming } from '../../../ton/ton-tokens';
-import type { PrismaHolder } from '../../../ton/ton-transfer.repository';
 import { OrderReconcileModule } from '../order-reconcile.module';
 import { OrderReconcileProcessor } from '../order-reconcile.processor';
-import {
-  OrderReconcileRepository,
-  type PendingTransfer,
-  type ReviewCursor,
-} from '../order-reconcile.repository';
+import { OrderReconcileRepository } from '../order-reconcile.repository';
 import { OrderReconcileScheduler } from '../order-reconcile.scheduler';
 import { OrderReconcileService, type TickReport } from '../order-reconcile.service';
 import { RECONCILE_ORDER_LOCK } from '../reconcile-order-lock';
 import { ReviewResolver } from '../review-resolver';
+import {
+  GrantingLockStore,
+  ReconcilerTraps,
+  ScopedReconcileRepository,
+} from './reconcile-e2e.fakes';
 
 // Real Postgres (the scratch `_test` database) + Redis DB 15, through the e2e lock: the TON module
 // on the in-memory chain (FakeTonGateway, FULFILLMENT_DRY_RUN=true) and the order reconciler, with
@@ -50,67 +50,21 @@ import { ReviewResolver } from '../review-resolver';
 // (append-only rows), more than one batch of them, so the reconciler's two LISTS are scoped to
 // this run's orders here; everything else (the payout reads, the locks, the money helper, the
 // effects) is the real code. order-reconcile-repository.e2e-spec.ts covers the real lists.
-
-/** A lock store that always grants: only the database fence stands between two reconcilers. */
-class GrantingLockStore implements LockStore {
-  acquire(): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  renew(): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  release(): Promise<void> {
-    return Promise.resolve();
-  }
-}
-
-/** The real repository, its two lists narrowed to the orders this run created. */
-class ScopedReconcileRepository extends OrderReconcileRepository {
-  constructor(
-    private readonly holder: PrismaHolder,
-    private readonly orders: ReadonlySet<string>,
-  ) {
-    super(holder);
-  }
-
-  override async pendingTransfers(limit: number): Promise<PendingTransfer[]> {
-    const rows = await this.holder.client.tonTransfer.findMany({
-      where: {
-        purpose: 'ORDER',
-        status: { in: ['SIGNED', 'BROADCAST'] },
-        attempt: { orderId: { in: [...this.orders] } },
-      },
-      select: {
-        id: true,
-        network: true,
-        walletAddress: true,
-        attempt: { select: { orderId: true } },
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      take: limit,
-    });
-    return rows.map((r) => ({ ...r, orderId: r.attempt?.orderId ?? null }));
-  }
-
-  override reviewPage(_after: ReviewCursor | null, limit: number): Promise<ReviewCursor[]> {
-    return this.holder.client.order.findMany({
-      where: { status: 'NEEDS_REVIEW', id: { in: [...this.orders] } },
-      select: { id: true, createdAt: true },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      take: limit,
-    });
-  }
-}
+//
+// The payout a test starts is paid by a separate TON instance (the fulfill worker: `sender` and
+// `hooks` below are ITS). The reconciler's own module holds trap stubs for the sender and the
+// wallet lock (reconcile-e2e.fakes.ts): after every test both must show zero calls.
 
 export interface Reconciler {
   readonly moduleRef: TestingModule;
   readonly service: OrderReconcileService;
   readonly resolver: ReviewResolver;
   readonly confirm: TonConfirmService;
+  /** The fulfill worker's sender and hooks (another TON instance on the same wallet and chain). */
   readonly sender: TonSenderService;
   readonly hooks: TestSenderHooks;
+  /** The reconciler module's sender and wallet lock calls (always zero). */
+  readonly traps: ReconcilerTraps;
 }
 
 export interface ReconcilerOptions {
@@ -125,6 +79,9 @@ export function useReconcileE2e() {
   const t = useTonE2e();
   const orders = new Set<string>();
   const modules: TestingModule[] = [];
+  const traps: ReconcilerTraps[] = [];
+  /** The Redis database of the run (REDIS_URL's path, /15 in the e2e-lock command). */
+  const redisDb = new URL(t.env.REDIS_URL).pathname.replace('/', '') || '0';
   const state = {} as { redis: Redis; notify: Queue };
 
   beforeAll(() => {
@@ -139,7 +96,9 @@ export function useReconcileE2e() {
   });
 
   afterEach(async () => {
+    const calls = traps.splice(0).map((trap) => trap.calls());
     for (const moduleRef of modules.splice(0)) await moduleRef.close();
+    for (const call of calls) expect(call).toEqual({ pay: 0, walletLock: 0 });
   });
 
   afterAll(async () => {
@@ -148,7 +107,10 @@ export function useReconcileE2e() {
   });
 
   async function boot(options: ReconcilerOptions = {}): Promise<Reconciler> {
-    const hooks = new TestSenderHooks();
+    const timing = { confirmTimeoutMs: 1_500, ...options.timing };
+    const payer = await t.boot({ wallet: t.wallet, gateway: t.gateway, timing });
+    const trap = new ReconcilerTraps();
+    traps.push(trap);
     let builder = overrideTon(
       Test.createTestingModule({
         imports: [
@@ -162,12 +124,15 @@ export function useReconcileE2e() {
       {
         wallet: t.wallet,
         gateway: t.gateway,
-        timing: { ...TEST_TIMING, confirmTimeoutMs: 1_500, ...options.timing },
-        hooks,
+        timing: { ...TEST_TIMING, ...timing },
+        hooks: new TestSenderHooks(),
+        walletLock: trap.walletLock(),
         payAddresses: E2E_PAY_ADDRESSES,
         ...(options.witnesses === undefined ? {} : { witnesses: options.witnesses }),
       },
     )
+      .overrideProvider(TonSenderService)
+      .useValue(trap.sender())
       .overrideProvider(OrderReconcileProcessor)
       .useValue({})
       .overrideProvider(OrderReconcileScheduler)
@@ -191,8 +156,9 @@ export function useReconcileE2e() {
       service: moduleRef.get(OrderReconcileService),
       resolver: moduleRef.get(ReviewResolver),
       confirm: moduleRef.get(TonConfirmService),
-      sender: moduleRef.get(TonSenderService),
-      hooks,
+      sender: payer.sender,
+      hooks: payer.hooks,
+      traps: trap,
     };
   }
 
@@ -237,6 +203,19 @@ export function useReconcileE2e() {
       const run = await new OrderLock(new RedisLockStore(state.redis), 60_000).run(orderId, fn);
       if (run.busy) throw new Error('the order lock was taken already');
       return run.value;
+    },
+    /** Every Redis command of the run's database while `fn` runs (MONITOR, its own client). */
+    async redisCommandsDuring<T>(fn: () => Promise<T>): Promise<{ value: T; commands: string[] }> {
+      const monitor = await state.redis.monitor();
+      const commands: string[] = [];
+      monitor.on('monitor', (_time: string, args: string[], _source: string, db: string) => {
+        if (db === redisDb) commands.push(args.join(' '));
+      });
+      try {
+        return { value: await fn(), commands };
+      } finally {
+        monitor.disconnect();
+      }
     },
     async hasJob(job: NotifyJob): Promise<boolean> {
       return (await state.notify.getJob(notifyJobId(job))) !== undefined;

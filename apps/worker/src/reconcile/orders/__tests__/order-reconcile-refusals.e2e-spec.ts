@@ -1,10 +1,27 @@
 import { Address, type Transaction } from '@ton/core';
-import { payRequest, rowsOf, tonFactOf } from '../../../ton/__tests__/ton-e2e.fixtures';
-import { PAST_VALID_SEC, SIGN_AT_SEC, pinChain } from '../../../ton/__tests__/ton-e2e.harness';
+import {
+  payRequest,
+  rowsOf,
+  tonFactOf,
+  untilSecondLook,
+} from '../../../ton/__tests__/ton-e2e.fixtures';
+import {
+  PAST_VALID_SEC,
+  SIGN_AT_SEC,
+  TEST_TIMING,
+  pinChain,
+} from '../../../ton/__tests__/ton-e2e.harness';
 import type { FakeTonGateway } from '../../../ton/fake-ton.gateway';
 import type { TonAccountState, TonChainWitness, TxPage } from '../../../ton/ton-gateway';
 import { buildW5Data, type W5Data } from '../../../ton/ton-w5';
-import { countsOf, useReconcileE2e, type ReconcileE2e } from './reconcile-e2e.harness';
+import { episodeRef } from '../guard-ref';
+import { writeTonFact } from './reconcile-e2e.fakes';
+import {
+  countsOf,
+  useReconcileE2e,
+  type ReconcileE2e,
+  type Reconciler,
+} from './reconcile-e2e.harness';
 
 // Plan §4.4 on the real database: without a proof the reconciler writes nothing. No CONFIRMED and
 // no expiry yet, one observation only, a witness conflict, CONSUMED_UNMATCHED (only its alert) and
@@ -29,6 +46,25 @@ class MovedSeqnoWitness implements TonChainWitness {
   getTransactions(address: Address, page: TxPage): Promise<readonly Transaction[]> {
     return this.chain.getTransactions(address, page);
   }
+}
+
+/** A payout whose seqno was used by another message (CONSUMED_UNMATCHED: NEEDS_REVIEW). */
+async function consumedUnmatched(rec: Reconciler) {
+  rec.hooks.afterStoredFn = () => {
+    t.gateway.consumeSeqnoForeign(t.wallet.address);
+    return Promise.resolve();
+  };
+  const fixture = await r.order();
+  expect(await rec.sender.pay(payRequest(fixture))).toMatchObject({
+    status: 'REVIEW',
+    transferStatus: 'CONSUMED_UNMATCHED',
+  });
+  return { fixture, transferId: (await rowsOf(t.db, fixture)).transfer?.id ?? '' };
+}
+
+function reminder(transferId: string, nowMs: number) {
+  const refId = episodeRef(transferId, 'cu', nowMs) ?? '';
+  return { kind: 'OWNER_ALERT', alert: 'tonConsumedUnmatched', refId } as const;
 }
 
 /** Nothing of the order moved: still NEEDS_REVIEW, PURCHASE only, no resolution audit row. */
@@ -74,26 +110,22 @@ describe('order reconciler: no proof, nothing written (S9c, plan §4.4)', () => 
     await untouched(r, fixture.orderId);
   });
 
-  it('CONSUMED_UNMATCHED: only the tonConsumedUnmatched alert, the owner decides', async () => {
+  it('CONSUMED_UNMATCHED: only the tonConsumedUnmatched reminder (one per hour), the owner decides', async () => {
     const rec = await r.boot();
-    rec.hooks.afterStoredFn = () => {
-      t.gateway.consumeSeqnoForeign(t.wallet.address);
-      return Promise.resolve();
-    };
-    const fixture = await r.order();
-    expect(await rec.sender.pay(payRequest(fixture))).toMatchObject({
-      status: 'REVIEW',
-      transferStatus: 'CONSUMED_UNMATCHED',
-    });
-    const transferId = (await rowsOf(t.db, fixture)).transfer?.id ?? '';
+    const { fixture, transferId } = await consumedUnmatched(rec);
     const report = await rec.service.tick();
     expect(countsOf(report, 'review')).toEqual({ consumedUnmatched: 1 });
-    const alert = {
-      kind: 'OWNER_ALERT',
-      alert: 'tonConsumedUnmatched',
-      refId: transferId,
-    } as const;
-    expect(await r.hasJob(alert)).toBe(true);
+    expect(await r.hasJob(reminder(transferId, report.nowMs))).toBe(true);
+    await untouched(r, fixture.orderId);
+  });
+
+  it('I-2: the CU reminder comes even when another fact (a witness conflict) stops the decision', async () => {
+    const rec = await r.boot();
+    const { fixture, transferId } = await consumedUnmatched(rec);
+    await writeTonFact(t.db, fixture.attemptId, 'witnessConflict', { test: true });
+    const report = await rec.service.tick();
+    expect(countsOf(report, 'review')).toEqual({ consumedUnmatched: 1 });
+    expect(await r.hasJob(reminder(transferId, report.nowMs))).toBe(true);
     await untouched(r, fixture.orderId);
   });
 
@@ -113,7 +145,7 @@ describe('order reconciler: no proof, nothing written (S9c, plan §4.4)', () => 
     const a = await r.timedOut(rec, 'LOSE');
     pinChain(t.gateway, PAST_VALID_SEC);
     await rec.confirm.check(a.transferId);
-    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    await untilSecondLook(t.db, a.attemptId, TEST_TIMING.expiryGapSec);
     expect((await rec.confirm.check(a.transferId)).state.transferStatus).toBe('EXPIRED');
     pinChain(t.gateway, SIGN_AT_SEC);
     const b = await r.timedOut(rec, 'LOSE');

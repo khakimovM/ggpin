@@ -1,6 +1,21 @@
 import type { Prisma } from '@repo/db';
-import { payRequest, rowsOf, tonFactOf, type PayoutFixture } from './ton-e2e.fixtures';
-import { useTonE2e, type TonInstance } from './ton-e2e.harness';
+import { scanCursorJson } from '../ton-scan-cursor';
+import { ADVISORY_LOOKS_BEFORE_RESCAN } from '../ton-scan-trust';
+import {
+  payRequest,
+  rowsOf,
+  tonFactOf,
+  untilSecondLook,
+  type PayoutFixture,
+} from './ton-e2e.fixtures';
+import {
+  PAST_VALID_SEC,
+  SIGN_AT_SEC,
+  TEST_TIMING,
+  pinChain,
+  useTonE2e,
+  type TonInstance,
+} from './ton-e2e.harness';
 
 // Phase 5 S9 L-2 (Q-14) on the real database: the scan's progress of an ORDER transfer is kept in
 // `attempt.response.ton.scan`, so a restarted worker goes on from it instead of reading a spammed
@@ -61,6 +76,28 @@ async function spammedInReview(
   return { fixture, transferId: (await rowsOf(t.db, fixture)).transfer?.id ?? '' };
 }
 
+/** The kept cursor rewritten to cover a transaction above every real one. */
+async function hugeCursor(fixture: PayoutFixture, transferId: string): Promise<void> {
+  const transfer = (await rowsOf(t.db, fixture)).transfer;
+  if (transfer === null) throw new Error('no transfer');
+  const binding = { id: transferId, extMsgHash: transfer.extMsgHash };
+  const huge = { lt: 10n ** 18n, hash: 'cd'.repeat(32) };
+  await rewriteScan(fixture, { ...scanCursorJson(binding, { covered: huge, pass: null }) });
+}
+
+/** The kept cursor rewritten to a pass whose next transaction does not exist; its message hash. */
+async function bogusPass(fixture: PayoutFixture, transferId: string): Promise<string> {
+  const transfer = (await rowsOf(t.db, fixture)).transfer;
+  if (transfer === null) throw new Error('no transfer');
+  const fresh = await t.gateway.getAccountState(t.wallet.address);
+  if (fresh.lastTx === null) throw new Error('no transactions');
+  const next = { lt: fresh.lastTx.lt - 1n, hash: 'ee'.repeat(32) };
+  const binding = { id: transferId, extMsgHash: transfer.extMsgHash };
+  const pass = { anchor: { state: fresh, atMs: null }, next };
+  await rewriteScan(fixture, { ...scanCursorJson(binding, { covered: null, pass }) });
+  return transfer.extMsgHash;
+}
+
 describe('TON scan cursor kept in the database (S9 L-2)', () => {
   it('a restarted worker goes on from the kept cursor: a page instead of the whole spam', async () => {
     const { fixture, transferId } = await spammedInReview();
@@ -98,5 +135,62 @@ describe('TON scan cursor kept in the database (S9 L-2)', () => {
     expect(await keptScan(fixture)).toEqual(before);
     await worker.confirm.check(transferId);
     expect(await keptScan(fixture)).toEqual(before);
+  });
+
+  // Audit L-1: a kept cursor the chain contradicts is a hint only. It is dropped (and the drop is
+  // kept), the scan starts over, and the transfer is decided as if there had been no cursor.
+  it('L-1: a cursor covering a transaction above the chain is dropped at once', async () => {
+    const { fixture, transferId } = await spammedInReview('HOLD');
+    await hugeCursor(fixture, transferId);
+    t.gateway.releaseHeld();
+    const worker = await t.boot({ wallet: t.wallet, gateway: t.gateway });
+    expect((await worker.confirm.check(transferId)).state.transferStatus).toBe('CONFIRMED');
+  });
+
+  it('L-1: a kept pass whose next transaction does not exist: dropped after the limit, then confirmed', async () => {
+    const { fixture, transferId } = await spammedInReview('HOLD');
+    t.gateway.releaseHeld();
+    const extMsgHash = await bogusPass(fixture, transferId);
+    const worker = await t.boot({ wallet: t.wallet, gateway: t.gateway });
+    for (let look = 0; look < ADVISORY_LOOKS_BEFORE_RESCAN; look += 1) {
+      const result = await worker.confirm.check(transferId);
+      expect(result.verdict).toEqual({ kind: 'WAIT', detail: 'INDEX_STALE' });
+    }
+    // The drop is kept: a restart now starts over too, never from the contradicted pass.
+    expect(await keptScan(fixture)).toEqual({ transferId, extMsgHash, covered: null, pass: null });
+    expect((await worker.confirm.check(transferId)).state.transferStatus).toBe('CONFIRMED');
+  });
+
+  // Audit R-1: the same pass, but the listing from the unknown cursor fails. That toncenter answers
+  // so is an ASSUMPTION (TAXMIN) until the S12 testnet fixture records its real answer.
+  it('R-1: a kept pass whose next is answered with an error: forgotten after the limit', async () => {
+    const { fixture, transferId } = await spammedInReview('HOLD');
+    t.gateway.releaseHeld();
+    t.gateway.unknownCursor = 'ERROR';
+    const extMsgHash = await bogusPass(fixture, transferId);
+    const worker = await t.boot({ wallet: t.wallet, gateway: t.gateway });
+    for (let look = 0; look < ADVISORY_LOOKS_BEFORE_RESCAN; look += 1) {
+      const result = await worker.confirm.check(transferId);
+      expect(result.verdict).toEqual({ kind: 'WAIT', detail: 'GATEWAY' });
+    }
+    expect(await keptScan(fixture)).toEqual({ transferId, extMsgHash, covered: null, pass: null });
+    expect((await worker.confirm.check(transferId)).state.transferStatus).toBe('CONFIRMED');
+  });
+
+  // Review m1: the drop never costs the "not sent" proof of a payout that truly never landed.
+  it('L-1: a lost payout under a cursor above the chain: dropped, two observations, EXPIRED', async () => {
+    pinChain(t.gateway, SIGN_AT_SEC);
+    const { fixture, transferId } = await spammedInReview('LOSE');
+    await hugeCursor(fixture, transferId);
+    pinChain(t.gateway, PAST_VALID_SEC);
+    const worker = await t.boot({ wallet: t.wallet, gateway: t.gateway });
+    expect((await worker.confirm.check(transferId)).verdict?.kind).toBe('EXPIRY_SEEN');
+    const head = await t.gateway.getAccountState(t.wallet.address);
+    expect(await keptScan(fixture)).toMatchObject({ covered: { lt: head.lastTx?.lt.toString() } });
+    await untilSecondLook(t.db, fixture.attemptId, TEST_TIMING.expiryGapSec);
+    expect((await worker.confirm.check(transferId)).state).toMatchObject({
+      transferStatus: 'EXPIRED',
+      orderStatus: 'NEEDS_REVIEW',
+    });
   });
 });

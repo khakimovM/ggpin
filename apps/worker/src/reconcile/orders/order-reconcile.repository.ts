@@ -9,6 +9,18 @@ import type { ReviewAttempt } from './review-evidence';
 // facts, `resolveNeedsReview` writes a resolution (review-resolver.ts). Every list is bounded by
 // RECONCILE_BATCH_LIMIT (<= 100) and ordered oldest first.
 
+/** The worker's own network and hot wallet (TON_HOT_WALLET_ADDRESS). */
+export interface WalletScope {
+  readonly network: string;
+  readonly rawAddress: string;
+}
+
+/** An unresolved ORDER transfer (SELFTEST rows are the CLI's, never looked at). */
+const PENDING_ORDER = {
+  purpose: 'ORDER',
+  status: { in: ['SIGNED' as const, 'BROADCAST' as const] },
+};
+
 /** An ORDER transfer still waiting for the chain (SIGNED or BROADCAST). */
 export interface PendingTransfer {
   readonly id: string;
@@ -79,10 +91,14 @@ export class OrderReconcileRepository {
     return ms;
   }
 
-  /** Unresolved ORDER transfers, oldest first (SELFTEST rows are the CLI's, never looked at). */
-  async pendingTransfers(limit: number): Promise<PendingTransfer[]> {
+  /**
+   * Unresolved ORDER transfers of this worker's network and hot wallet, oldest first (SELFTEST
+   * rows are the CLI's, never looked at). Filtered in the query (S9c review CR3): rows of another
+   * wallet or network never take a place in the batch, however many there are.
+   */
+  async pendingTransfers(wallet: WalletScope, limit: number): Promise<PendingTransfer[]> {
     const rows = await this.prisma.client.tonTransfer.findMany({
-      where: { purpose: 'ORDER', status: { in: ['SIGNED', 'BROADCAST'] } },
+      where: { ...PENDING_ORDER, network: wallet.network, walletAddress: wallet.rawAddress },
       select: {
         id: true,
         network: true,
@@ -98,6 +114,16 @@ export class OrderReconcileRepository {
       walletAddress: row.walletAddress,
       orderId: row.attempt?.orderId ?? null,
     }));
+  }
+
+  /** How many unresolved ORDER transfers belong to another network or wallet (logged as a count). */
+  foreignPendingCount(wallet: WalletScope): Promise<number> {
+    return this.prisma.client.tonTransfer.count({
+      where: {
+        ...PENDING_ORDER,
+        OR: [{ network: { not: wallet.network } }, { walletAddress: { not: wallet.rawAddress } }],
+      },
+    });
   }
 
   /** NEEDS_REVIEW orders after the cursor, oldest first (the `status, createdAt` index). */
