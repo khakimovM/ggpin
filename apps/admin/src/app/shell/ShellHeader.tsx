@@ -59,6 +59,14 @@ export function ShellHeader() {
             <RoleBadge role={admin.role} />
           </span>
         </div>
+        {logout.isError ? (
+          <p
+            role="alert"
+            className="m-0 max-w-40 text-[11px] leading-[14px] font-bold text-danger-text lg:max-w-none"
+          >
+            {t('admin.shell.logoutFailed')}
+          </p>
+        ) : null}
         <button
           type="button"
           className={HEADER_BUTTON}
@@ -66,7 +74,7 @@ export function ShellHeader() {
           disabled={logout.isPending}
           onClick={() =>
             logout.mutate(undefined, {
-              onSettled: () => void navigate('/login', { replace: true }),
+              onSuccess: () => void navigate('/login', { replace: true }),
             })
           }
         >

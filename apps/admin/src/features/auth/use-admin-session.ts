@@ -2,6 +2,7 @@ import type { AdminMeResponse, AdminPermission } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { getAdminMe, logoutAdmin } from '../../lib/api/auth';
 import { isApiError } from '../../lib/api/errors';
+import { dropPlainActions } from '../../lib/idempotency';
 import { isPrivateQuery, qk } from '../../lib/query-keys';
 
 /**
@@ -36,13 +37,30 @@ export function hasPermission(
   return session?.permissions.includes(permission) ?? false;
 }
 
-/** Sign out: the API ends the session and clears the cookie; the cache follows. */
+/**
+ * `POST /admin/auth/logout`, resolved only when the session is surely over (SA L-1): a 2xx, or a
+ * 404 in our own envelope (the session was already dead, D-26). Anything else (network, 5xx, a
+ * proxy page) may have left the session alive, so it stays an error and the operator retries.
+ */
+export async function signOut(): Promise<'signedOut' | 'alreadyGone'> {
+  try {
+    await logoutAdmin();
+    return 'signedOut';
+  } catch (error) {
+    if (isApiError(error) && error.status === 404 && error.fromServer) return 'alreadyGone';
+    throw error;
+  }
+}
+
+/** Sign out: the API ends the session and clears the cookie; the cache follows on success. */
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: logoutAdmin,
-    onSettled: () => {
-      // Whatever the answer (a dead session answers 404), this browser is signed out now.
+    mutationFn: signOut,
+    onSuccess: (result) => {
+      // Only a confirmed sign-out drops keys, and only plain ones (SA L-1): an unknown or
+      // in-conflict key outlives the session; after a lost session (404) nothing is dropped.
+      if (result === 'signedOut') dropPlainActions();
       queryClient.removeQueries({ predicate: (query) => isPrivateQuery(query.queryKey) });
       queryClient.setQueryData(qk.auth.me(), null);
     },

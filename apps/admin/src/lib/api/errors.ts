@@ -96,3 +96,20 @@ export function attemptsLeftOf(error: unknown): number | undefined {
   const parsed = attemptsDetails.safeParse(error.details);
   return parsed.success ? parsed.data.attemptsLeft : undefined;
 }
+
+/**
+ * Whether a failed write may still have been applied by the server (SA M-1): no answer at all
+ * (NETWORK, status 0), an answer not in our envelope (a proxy said it), any 5xx, or a 409
+ * IDEMPOTENCY_CONFLICT (the key was already used, so an earlier attempt may have run). Only a
+ * 4xx in our own envelope proves the action did not happen.
+ */
+export function isOutcomeUnknown(error: unknown): boolean {
+  if (!isApiError(error)) return true;
+  if (!error.fromServer || error.status === 0 || error.status >= 500) return true;
+  return error.code === 'IDEMPOTENCY_CONFLICT';
+}
+
+/** 409 IDEMPOTENCY_CONFLICT: the key was already used with another body (docs/04 "Admin"). */
+export function isIdempotencyConflict(error: unknown): boolean {
+  return isApiError(error) && error.code === 'IDEMPOTENCY_CONFLICT';
+}

@@ -6,20 +6,37 @@ import {
 } from '@repo/shared';
 import { Button, Dialog, Icon, cn } from '@repo/ui';
 import type { LucideIcon } from 'lucide-react';
-import { CircleAlert, ScrollText } from 'lucide-react';
-import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { CircleAlert, CircleHelp, ScrollText } from 'lucide-react';
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
-import { isApiError } from '../../lib/api/errors';
-import { createIdempotencyKey } from '../../lib/idempotency';
+import { isApiError, isIdempotencyConflict, isOutcomeUnknown } from '../../lib/api/errors';
+import {
+  beginActionAttempt,
+  endRefusedAttempt,
+  markActionOutcomeUnknown,
+  pendingAction,
+  settleActionIdempotencyKey,
+  type AdminActionId,
+} from '../../lib/idempotency';
 
 export interface ReasonSubmit {
   /** Trimmed, checked with the shared AdminReasonSchema (10-500 visible characters). */
   reason: string;
-  /** Created when the dialog opened; the same for every retry of this one action. */
+  /**
+   * The action's key from the registry, written to it before the request leaves: the same for
+   * every attempt until a 2xx, also across closing and reopening the dialog and a reload.
+   */
   idempotencyKey: string;
 }
 
 export interface ReasonDialogProps {
+  /**
+   * `adminActionId(adminId, kind, targetId)`: names the Idempotency-Key in the registry. A step-up code
+   * is requested with `actionIdempotencyKey(action)` too (docs/04). After an unknown outcome the
+   * reason field is refilled from the registry; the parent refills its own fields (amount...)
+   * from `pendingAction(action)`, and never an OTP code.
+   */
+  action: AdminActionId;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -40,6 +57,13 @@ export interface ReasonDialogProps {
 }
 
 type ReasonIssue = 'tooShort' | 'tooLong' | 'invalid';
+type Notice = 'unknownOutcome' | 'idempotencyConflict';
+
+function noticeOf(action: AdminActionId): Notice | null {
+  const pending = pendingAction(action);
+  if (!pending?.unknown) return null;
+  return pending.conflict ? 'idempotencyConflict' : 'unknownOutcome';
+}
 
 function reasonIssue(value: string): ReasonIssue | null {
   if (AdminReasonSchema.safeParse(value).success) return null;
@@ -51,12 +75,22 @@ function reasonIssue(value: string): ReasonIssue | null {
 
 /**
  * Every admin action that changes something asks for a reason first (Admin.dc.html dialogs,
- * docs/04 `reason`). The form lives only while the dialog is open, so each opening starts empty
- * and gets its own Idempotency-Key.
+ * docs/04 `reason`). The form lives only while the dialog is open: an opening starts empty,
+ * except after an unknown outcome, when the reason that was sent is refilled from the registry
+ * (memory only) so the same body can be resent. The Idempotency-Key lives in the registry by
+ * `action` until a 2xx, so a retry after a refusal or an unknown outcome sends the same key
+ * (lib/idempotency.ts). While a request is out, leaving the page asks first (beforeunload).
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const t = useTranslations();
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    // A reload now would lose the answer; the key itself is already written ahead (SA M-2).
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [busy]);
   return (
     <Dialog
       open={props.open}
@@ -76,6 +110,7 @@ export function ReasonDialog(props: ReasonDialogProps) {
 }
 
 function ReasonForm({
+  action,
   onOpenChange,
   tone = 'primary',
   submitLabel,
@@ -90,10 +125,10 @@ function ReasonForm({
 }: ReasonDialogProps & { busy: boolean; setBusy: (busy: boolean) => void }) {
   const t = useTranslations();
   const fieldId = useId();
-  const [idempotencyKey] = useState(createIdempotencyKey);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(() => pendingAction(action)?.reason ?? '');
   const [touched, setTouched] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [notice, setNotice] = useState(() => noticeOf(action));
   const issue = reasonIssue(reason);
   const showIssue = touched && issue !== null;
 
@@ -103,11 +138,24 @@ function ReasonForm({
     if (issue !== null || !extraValid || busy) return;
     setBusy(true);
     setFailure(null);
+    const sent = { reason: reason.trim(), idempotencyKey: beginActionAttempt(action) };
     try {
-      await onSubmit({ reason: reason.trim(), idempotencyKey });
+      await onSubmit(sent);
+      settleActionIdempotencyKey(action, sent.idempotencyKey);
       setBusy(false);
       onOpenChange(false);
     } catch (error) {
+      // Only a 2xx ends the key. A refusal (4xx, 404, 429) keeps it and its flags, an unknown
+      // outcome marks it; this runs even if the dialog unmounted meanwhile.
+      if (isOutcomeUnknown(error)) {
+        markActionOutcomeUnknown(action, sent.idempotencyKey, {
+          reason: sent.reason,
+          conflict: isIdempotencyConflict(error),
+        });
+      } else {
+        endRefusedAttempt(action, sent.idempotencyKey);
+      }
+      setNotice(noticeOf(action));
       setBusy(false);
       setFailure(isApiError(error) ? t(error.messageKey) : t('admin.dialogs.failed'));
     }
@@ -155,6 +203,15 @@ function ReasonForm({
         </span>
       </div>
       {children}
+      {notice !== null ? (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-sm bg-warning-soft px-3 py-2.5 text-[13px] leading-[18px] font-bold text-warning-text"
+        >
+          <Icon icon={CircleHelp} size={16} className="mt-px flex-none" />
+          {t(`admin.dialogs.${notice}`)}
+        </div>
+      ) : null}
       {failure === null ? null : (
         <div
           role="alert"

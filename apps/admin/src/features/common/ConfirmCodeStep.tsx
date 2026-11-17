@@ -25,8 +25,15 @@ export interface ConfirmCodeStepProps {
   requestCode: () => Promise<AdminConfirmationResponse>;
   /** The answer to put in the action body, or null while incomplete or expired. */
   onChange: (answer: AdminOtpAnswer | null) => void;
-  /** The action's last refusal that concerns the code (see `confirmProblemOf`). */
+  /**
+   * The action's last refusal that concerns the code (see `confirmProblemOf`). Contract: the
+   * parent keeps it in state (one object per refusal) and clears it in `onCodeRequested`. The step
+   * also ignores, by identity, the refusal that was showing when a new code was requested: a
+   * locked or expired refusal belongs to the old challenge and must not hide the new one.
+   */
   problem?: ConfirmCodeProblem | null;
+  /** A new code was requested: the parent should drop the refusal of the old challenge. */
+  onCodeRequested?: () => void;
   disabled?: boolean;
 }
 
@@ -51,7 +58,8 @@ type Challenge = { id: string; deadline: number };
 export function ConfirmCodeStep({
   requestCode,
   onChange,
-  problem,
+  problem: givenProblem,
+  onCodeRequested,
   disabled,
 }: ConfirmCodeStepProps) {
   const t = useTranslations();
@@ -59,6 +67,8 @@ export function ConfirmCodeStep({
   const [code, setCode] = useState('');
   const [requesting, setRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [staleProblem, setStaleProblem] = useState<ConfirmCodeProblem | null>(null);
+  const problem = givenProblem && givenProblem !== staleProblem ? givenProblem : null;
   const left = useCountdown(challenge?.deadline ?? null);
   const expired = challenge !== null && left === 0;
   const stale = problem?.kind === 'locked' || problem?.kind === 'expired';
@@ -66,6 +76,8 @@ export function ConfirmCodeStep({
   const request = async () => {
     setRequesting(true);
     setRequestError(null);
+    setStaleProblem(givenProblem ?? null);
+    onCodeRequested?.();
     setCode('');
     onChange(null);
     try {

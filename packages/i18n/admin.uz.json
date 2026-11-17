@@ -8,6 +8,7 @@
       "themeToDark": "Qorong‘i mavzuga o‘tish",
       "themeToLight": "Yorug‘ mavzuga o‘tish",
       "logout": "Chiqish",
+      "logoutFailed": "Chiqib bo‘lmadi. Qayta bosing.",
       "account": "{name}, {role}"
     },
     "env": {
@@ -112,7 +113,9 @@
       "cancel": "Bekor",
       "close": "Yopish",
       "audit": "Bu amal audit logga yoziladi · {name} ({role})",
-      "failed": "Amal bajarilmadi"
+      "failed": "Amal bajarilmadi",
+      "unknownOutcome": "Natija nomaʼlum: amal bajarilgan bo‘lishi mumkin. Avval audit logni tekshiring. Shu oynada qayta yuborsangiz, amal ikki marta bajarilmaydi.",
+      "idempotencyConflict": "Bu amal avval boshqa maʼlumot bilan bajarilgan. Audit logni tekshiring."
     },
     "confirm": {
       "title": "Telegram tasdiqlash kodi",

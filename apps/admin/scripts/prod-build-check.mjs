@@ -5,8 +5,9 @@
 //
 // 1. `vite build` with VITE_API_MOCKS filled          -> must FAIL (the build-time guard).
 // 2. `vite build` with a plain-http remote API URL     -> must FAIL (https in production).
-// 3. `vite build` with VITE_API_MOCKS empty            -> must PASS.
-// 4. `dist` holds no mock identifier, fixture literal or dev-only route; a literal the production
+// 3. `vite build` with NODE_ENV=development             -> must FAIL (a dev build keeps dev code).
+// 4. `vite build` with VITE_API_MOCKS empty            -> must PASS.
+// 5. `dist` holds no mock identifier, fixture literal or dev-only route; a literal the production
 //    bundle does contain is searched the same way, to prove the search works.
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -37,12 +38,15 @@ const FORBIDDEN = [
 // Written in src/lib/api/client.ts as the production branch of the mock loader.
 const CONTROL = 'does not exist in production builds';
 
+// npx is a .cmd shim on Windows, which spawn can start only through a shell; there the command is
+// one fixed string (args next to `shell: true` are deprecated, DEP0190). Elsewhere: no shell.
+const WINDOWS = process.platform === 'win32';
+
 function build(extra) {
-  const run = spawnSync('npx', ['vite', 'build'], {
-    env: { ...ENV, ...extra },
-    encoding: 'utf8',
-    shell: true,
-  });
+  const options = { env: { ...ENV, ...extra }, encoding: 'utf8', shell: WINDOWS };
+  const run = WINDOWS
+    ? spawnSync('npx vite build', options)
+    : spawnSync('npx', ['vite', 'build'], options);
   return { code: run.status, out: `${run.stdout}\n${run.stderr}` };
 }
 
@@ -74,6 +78,13 @@ check(
 const plainHttp = build({ VITE_API_MOCKS: '', VITE_API_URL: 'http://api.example.test/api/v1' });
 check(plainHttp.code !== 0, `build with a plain-http remote API fails (exit ${plainHttp.code})`);
 check(plainHttp.out.includes('must use https'), 'the failure names the https rule');
+
+const devNodeEnv = build({ VITE_API_MOCKS: '', NODE_ENV: 'development' });
+check(devNodeEnv.code !== 0, `build with NODE_ENV=development fails (exit ${devNodeEnv.code})`);
+check(
+  devNodeEnv.out.includes('NODE_ENV must be "production"'),
+  'the failure is the NODE_ENV guard message',
+);
 
 const empty = build({ VITE_API_MOCKS: '' });
 check(empty.code === 0, `build with VITE_API_MOCKS empty passes (exit ${empty.code})`);

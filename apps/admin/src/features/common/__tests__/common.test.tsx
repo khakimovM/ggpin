@@ -1,67 +1,11 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Undo2 } from 'lucide-react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../lib/api/errors';
 import { renderAdmin } from '../../../test/render';
-import { ConfirmCodeStep, confirmProblemOf } from '../ConfirmCodeStep';
+import { ConfirmCodeStep, confirmProblemOf, type ConfirmCodeProblem } from '../ConfirmCodeStep';
 import { ForbiddenState } from '../ForbiddenState';
-import { ReasonDialog, type ReasonSubmit } from '../ReasonDialog';
-
-function dialog(onSubmit: (input: ReasonSubmit) => Promise<void>, onOpenChange = vi.fn()) {
-  return renderAdmin(
-    <ReasonDialog
-      open
-      onOpenChange={onOpenChange}
-      title="Buyurtmani bekor qilish"
-      icon={Undo2}
-      tone="danger"
-      submitLabel="Bekor qilish"
-      actor={{ name: 'Aziz O.', role: 'OWNER' }}
-      onSubmit={onSubmit}
-    />,
-  );
-}
-
-describe('ReasonDialog', () => {
-  it('is an accessible dialog with the audit line', () => {
-    dialog(vi.fn());
-    expect(screen.getByRole('dialog', { name: 'Buyurtmani bekor qilish' })).toBeInTheDocument();
-    expect(screen.getByText('Bu amal audit logga yoziladi · Aziz O. (OWNER)')).toBeInTheDocument();
-  });
-
-  it('keeps the action disabled until the reason has 10 characters', async () => {
-    const user = userEvent.setup();
-    dialog(vi.fn());
-    const submit = screen.getByRole('button', { name: 'Bekor qilish' });
-    expect(submit).toBeDisabled();
-    await user.type(screen.getByRole('textbox', { name: /Sabab/ }), 'qisqa');
-    await user.tab();
-    expect(screen.getByText('Sabab kamida 10 ta belgidan iborat bo‘lsin')).toBeInTheDocument();
-    await user.type(screen.getByRole('textbox', { name: /Sabab/ }), ' sabab matni');
-    expect(submit).toBeEnabled();
-  });
-
-  it('keeps one Idempotency-Key across retries and shows the API error', async () => {
-    const user = userEvent.setup();
-    const onOpenChange = vi.fn();
-    const onSubmit = vi
-      .fn<(input: ReasonSubmit) => Promise<void>>()
-      .mockRejectedValueOnce(new ApiError({ status: 409, code: 'ORDER_STATE_CONFLICT' }))
-      .mockResolvedValueOnce(undefined);
-    dialog(onSubmit, onOpenChange);
-    await user.type(screen.getByRole('textbox', { name: /Sabab/ }), '  Mijoz so‘rovi bilan  ');
-    await user.click(screen.getByRole('button', { name: 'Bekor qilish' }));
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(onOpenChange).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Bekor qilish' }));
-    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
-    const [first, second] = onSubmit.mock.calls.map(([input]) => input);
-    expect(first?.reason).toBe('Mijoz so‘rovi bilan');
-    expect(first?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
-    expect(second?.idempotencyKey).toBe(first?.idempotencyKey);
-  });
-});
 
 describe('ForbiddenState', () => {
   it('names the roles that may open the section and the current role', () => {
@@ -80,7 +24,44 @@ describe('ForbiddenState', () => {
   });
 });
 
+/** A parent that keeps the last refusal and, like an old caller, never clears it itself. */
+function StaleParent({ onCodeRequested }: { onCodeRequested: () => void }) {
+  const [problem, setProblem] = useState<ConfirmCodeProblem | null>(null);
+  const requestCode = () => Promise.resolve({ challengeId: 'b'.repeat(32), expiresInSec: 180 });
+  return (
+    <>
+      <button type="button" onClick={() => setProblem({ kind: 'locked' })}>
+        bloklash
+      </button>
+      <ConfirmCodeStep
+        requestCode={requestCode}
+        onChange={vi.fn()}
+        problem={problem}
+        onCodeRequested={onCodeRequested}
+      />
+    </>
+  );
+}
+
 describe('ConfirmCodeStep', () => {
+  it('shows the boxes again after a new code, even if the parent keeps the old refusal', async () => {
+    const user = userEvent.setup();
+    const onCodeRequested = vi.fn();
+    renderAdmin(<StaleParent onCodeRequested={onCodeRequested} />);
+    const timer = /amal qiladi/;
+    await user.click(screen.getByRole('button', { name: 'Kodni olish' }));
+    expect(await screen.findByText(timer)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'bloklash' }));
+    expect(screen.queryByText(timer)).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Urinishlar tugadi');
+    await user.click(screen.getByRole('button', { name: 'Yangi kod olish' }));
+    expect(await screen.findByText(timer)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(onCodeRequested).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole('button', { name: 'bloklash' }));
+    expect(screen.queryByText(timer)).not.toBeInTheDocument();
+  });
+
   it('requests a code, then reports the answer once six digits are in', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

@@ -128,10 +128,6 @@ jobs:
           name: playwright-report-webkit
           path: apps/web/playwright-report
           retention-days: 7
-  # Lighthouse gate of the website (phase 8): Performance and Accessibility >= 90 on every page,
-  # SEO on every indexable page, uz and ru, mobile and desktop, median of 3 runs. Runs only when
-  # something the website is built from changed (a skipped step still gives a green check, so the
-  # job can be a required check).
   # The admin SPA (phase 9): its production build must refuse the mock API and ship none of it
   # (prod-build-check), and its journeys run on the Vite dev server with the in-browser mock (the
   # only place mocks are allowed). No Postgres, no Redis: the mock answers every admin request.
@@ -172,6 +168,10 @@ jobs:
           name: playwright-report-admin
           path: apps/admin/playwright-report
           retention-days: 7
+  # Lighthouse gate of the website (phase 8): Performance and Accessibility >= 90 on every page,
+  # SEO on every indexable page, uz and ru, mobile and desktop, median of 3 runs. Runs only when
+  # something the website is built from changed (a skipped step still gives a green check, so the
+  # job can be a required check).
   lighthouse-web:
     runs-on: ubuntu-latest
     # The final 14 pages x 2 form factors x 3 runs are 84 Lighthouse runs, about 15 seconds each
