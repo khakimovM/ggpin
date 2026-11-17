@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import { AdminLoginService } from '../admin/auth/admin-login.service';
+import { AdminSessionService } from '../admin/auth/admin-session.service';
 import { OtpLoginService } from '../auth/otp-login.service';
 import { WebSessionService } from '../auth/web-session.service';
 import { UsersService } from '../users/users.service';
@@ -22,6 +24,8 @@ export class BotHandlersService implements OnModuleInit {
     private readonly users: UsersService,
     private readonly login: OtpLoginService,
     private readonly sessions: WebSessionService,
+    private readonly adminLogin: AdminLoginService,
+    private readonly adminSessions: AdminSessionService,
     private readonly loginContact: LoginContactStore,
     private readonly setup: BotSetupService,
   ) {}
@@ -31,11 +35,14 @@ export class BotHandlersService implements OnModuleInit {
       users: this.users,
       login: this.login,
       sessions: this.sessions,
+      adminLogin: this.adminLogin,
+      adminSessions: this.adminSessions,
       loginContact: this.loginContact,
       clock: this.clock,
       // Only what the bot needs: AppConfig holds every secret.
       config: {
         TELEGRAM_BOT_USERNAME: this.config.TELEGRAM_BOT_USERNAME,
+        ADMIN_URL: this.config.ADMIN_URL,
         NODE_ENV: this.config.NODE_ENV,
         MINI_APP_URL: this.config.MINI_APP_URL,
         TELEGRAM_NEWS_CHANNEL_URL: this.config.TELEGRAM_NEWS_CHANNEL_URL,

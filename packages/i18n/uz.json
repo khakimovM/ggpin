@@ -1210,7 +1210,12 @@
       "alreadyEnded": "ℹ️ Bu sessiya allaqachon tugatilgan."
     },
     "admin": {
-      "linkExpired": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring."
+      "linkExpired": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring.",
+      "code": "🛡 {brand} admin paneliga kirish kodi: <code>{code}</code>\n\n⚠️ Kodni faqat {domain} sahifasiga kiriting. Kod 3 daqiqa amal qiladi, uni hech kimga bermang.\n\nKirish so‘ralgan joy:\nQurilma: {device}\nIP: {ip}\n\nBu siz bo‘lmasangiz, pastdagi tugmani bosing.",
+      "alreadySent": "✅ Admin paneli uchun kod allaqachon yuborilgan. Yuqoridagi xabarni tekshiring.",
+      "denied": "🚫 Admin paneliga kirish bekor qilindi. Kod endi ishlamaydi.",
+      "newLogin": "🛡 {brand} admin paneliga yangi kirish\n\nQurilma: {device}\nIP: {ip}\nVaqt: {time}\n\nBu siz bo‘lmasangiz, pastdagi tugmani bosing: sessiya darhol yopiladi.",
+      "sessionEnded": "🚫 Admin sessiyasi yopildi. Bu qurilma paneldan chiqarildi."
     },
     "errors": {
       "blocked": "Hisobingiz bloklangan. Yordam xizmatiga murojaat qiling."
@@ -1324,6 +1329,7 @@
     "limitReason": {
       "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",
       "NEW_ACCOUNT_DAILY_LIMIT": "yangi akkaunt: kuniga {cap}"
-    }
+    },
+    "adminLogin": "🛡 Admin paneliga kirish: {name} ({role})\nQurilma: {device}\nIP: {ip}\nVaqt: {time}"
   }
 }

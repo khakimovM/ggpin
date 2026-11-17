@@ -1,3 +1,4 @@
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { CSRF_HEADER } from '@repo/shared';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
 import { AppError } from '../../exceptions/app-error';
@@ -66,18 +67,29 @@ describe('CsrfGuard', () => {
     expect(denial({ method: 'POST', headers: { [CSRF_HEADER]: '1', origin } })).toBe('NOT_FOUND');
   });
 
-  it('accepts every first-party origin (web, admin, Mini App)', () => {
-    for (const origin of [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'https://app.ggpin.test',
-    ]) {
+  it('accepts the store origins (web, Mini App)', () => {
+    for (const origin of ['http://localhost:3000', 'https://app.ggpin.test']) {
       expect(check({ method: 'POST', headers: { [CSRF_HEADER]: '1', origin } })).toBe(true);
     }
   });
 
+  it('refuses the admin origin on store routes (phase 9: the two surfaces are split)', () => {
+    const headers = { [CSRF_HEADER]: '1', origin: config.ADMIN_URL };
+    expect(denial({ method: 'POST', headers })).toBe('NOT_FOUND');
+  });
+
   it('applies to @Public() routes too (login CSRF): no authUser, no token -> NOT_FOUND', () => {
     expect(denial({ method: 'POST' })).toBe('NOT_FOUND');
+  });
+
+  it('admin routes are exempt here: AdminCsrfGuard checks them against ADMIN_URL', () => {
+    const admin = { [PATH_METADATA]: 'admin/auth/logout' };
+    expect(check({ method: 'POST', headers: { origin: 'https://evil.example' } }, admin)).toBe(
+      true,
+    );
+    expect(denial({ method: 'POST', headers: { origin: 'https://evil.example' } })).toBe(
+      'NOT_FOUND',
+    );
   });
 
   it('@SkipCsrf() routes are exempt', () => {

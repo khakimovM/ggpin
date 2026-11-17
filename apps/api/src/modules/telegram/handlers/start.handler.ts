@@ -2,6 +2,7 @@ import { parseStartPayload } from '@repo/shared';
 import type { BotContext } from '../bot-context';
 import type { BotDeps } from '../bot-deps';
 import type { TelegramBot } from '../bot.provider';
+import { handleAdminLoginStart } from './admin-login.handler';
 import { handleLoginStart } from './login.handler';
 import { languageKeyboard, startKeyboard } from '../keyboards';
 
@@ -13,8 +14,7 @@ export function registerStart(bot: TelegramBot, deps: BotDeps): void {
     const payload = parseStartPayload(ctx.match);
     switch (payload.kind) {
       case 'admin':
-        // Admin login ships in phase 9; until then the link is dead for everyone.
-        await ctx.reply(ctx.t('bot.admin.linkExpired'), { parse_mode: 'HTML' });
+        await handleAdminLoginStart(ctx, deps, payload.nonce);
         return;
       case 'login':
         await handleLoginStart(ctx, deps, payload.nonce);

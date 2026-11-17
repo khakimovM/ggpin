@@ -14,6 +14,7 @@ import { WebSessionService } from '../../modules/auth/web-session.service';
 import { UsersService } from '../../modules/users/users.service';
 import { CLOCK, type Clock } from '../clock/clock';
 import { AppError } from '../exceptions/app-error';
+import { isAdminRoute } from './admin-route';
 import type { AuthRequest, AuthUser } from './auth-user';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
@@ -41,6 +42,9 @@ export class UserAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Admin routes have their own guard (AdminGuard) and their own cookie: a user cookie or a
+    // Mini App token is not even read there, so it can never stand in for an admin session.
+    if (isAdminRoute(context)) return true;
     const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),

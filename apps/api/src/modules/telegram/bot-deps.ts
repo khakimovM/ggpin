@@ -1,5 +1,7 @@
 import type { Locale } from '@repo/shared';
 import type { Clock } from '../../common/clock/clock';
+import type { AdminLoginService } from '../admin/auth/admin-login.service';
+import type { AdminSessionService } from '../admin/auth/admin-session.service';
 import type { OtpLoginService } from '../auth/otp-login.service';
 import type { WebSessionService } from '../auth/web-session.service';
 import type { UsersService } from '../users/users.service';
@@ -7,6 +9,8 @@ import type { KeyboardConfig } from './keyboards';
 
 export interface BotConfig extends KeyboardConfig {
   readonly TELEGRAM_BOT_USERNAME: string;
+  /** The admin panel's origin: its host is the only place an admin code may be typed. */
+  readonly ADMIN_URL: string;
   readonly NODE_ENV: 'development' | 'test' | 'production';
 }
 
@@ -35,6 +39,8 @@ export interface BotDeps {
   >;
   readonly login: Pick<OtpLoginService, 'issueCode' | 'deny' | 'status' | 'releaseCode'>;
   readonly sessions: Pick<WebSessionService, 'endSessionFromBot'>;
+  readonly adminLogin: Pick<AdminLoginService, 'issueCode' | 'deny' | 'releaseCode'>;
+  readonly adminSessions: Pick<AdminSessionService, 'endFromBot'>;
   readonly loginContact: PendingLoginStore;
   readonly clock: Clock;
   readonly config: BotConfig;

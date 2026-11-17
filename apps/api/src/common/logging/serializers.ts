@@ -19,11 +19,12 @@ export function pathWithoutQuery(url: string): string {
   return end === -1 ? url : url.slice(0, end);
 }
 
-// The web login nonce travels in the PATH of GET /auth/telegram/status/:nonce. Anyone who reads
-// it from a log could poll that login request, so the segment never reaches a log line. The
-// match runs on the decoded path (a client may encode "telegram" or the slash), is
-// case-insensitive, ignores the version prefix, and swallows everything after "status/".
-const NONCE_ROUTE = /\/auth\/telegram\/status\/(.+)$/is;
+// The login nonce travels in the PATH of GET /auth/telegram/status/:nonce (web) and of
+// GET /admin/auth/status/:nonce (admin panel). Anyone who reads it from a log could poll that
+// login request, so the segment never reaches a log line. The match runs on the decoded path (a
+// client may encode "telegram" or the slash), is case-insensitive, ignores the version prefix,
+// and swallows everything after "status/".
+const NONCE_ROUTE = /\/(?:auth\/telegram|admin\/auth)\/status\/(.+)$/is;
 
 // Malformed escapes ("%zz", a lone "%") make decodeURIComponent throw; a client can send
 // them on purpose to dodge the redaction, so fall back to decoding byte by byte.
@@ -37,7 +38,7 @@ function decodeForMatching(path: string): string {
   }
 }
 
-/** Replaces the nonce in `/auth/telegram/status/<nonce>` paths with the redaction marker. */
+/** Replaces the nonce in `/auth/telegram|admin/auth` `/status/<nonce>` paths with the marker. */
 export function redactLoginNonce(path: string): string {
   const decoded = decodeForMatching(path);
   const match = NONCE_ROUTE.exec(decoded);

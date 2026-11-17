@@ -50,7 +50,7 @@ exports[`/start a user created by this /start gets the bilingual language picker
 ]
 `;
 
-exports[`/start admin_<nonce> answers "link expired" to everyone 1`] = `
+exports[`/start admin_<nonce> answers "link expired" to anyone who may not use the panel 1`] = `
 [
   {
     "sendMessage": {

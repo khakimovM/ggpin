@@ -1,5 +1,6 @@
 import type { BotDeps } from './bot-deps';
 import type { TelegramBot } from './bot.provider';
+import { registerAdminLogin } from './handlers/admin-login.handler';
 import { registerChatMember } from './handlers/chat-member.handler';
 import { registerHelp } from './handlers/help.handler';
 import { registerLang } from './handlers/lang.handler';
@@ -28,6 +29,7 @@ export function installHandlers(bot: TelegramBot, deps: BotDeps): void {
   registerLang(bot, deps);
   registerLogin(bot, deps);
   registerSession(bot, deps);
+  registerAdminLogin(bot, deps);
   registerHelp(bot);
   registerRef(bot, deps);
   registerShop(bot, deps);

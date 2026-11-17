@@ -6,6 +6,10 @@ import { AppConfigModule, type AppConfig } from '../config/config.module';
 import { PrismaModule } from '../infra/prisma/prisma.module';
 import { QueueModule } from '../infra/queue/queue.module';
 import { RedisModule } from '../infra/redis/redis.module';
+import { AdminAccountsService } from '../modules/admin/admins/admin-accounts.service';
+import { AdminLifecycleService } from '../modules/admin/admins/admin-lifecycle.service';
+import { AdminUsersRepository } from '../modules/admin/admins/admin-users.repository';
+import { AdminSessionRepository } from '../modules/admin/auth/admin-session.repository';
 import { CardAdminRepository } from '../modules/payments/card-admin.repository';
 import { CardAdminService } from '../modules/payments/card-admin.service';
 import { CARD_LOCK_TIMING, DEFAULT_CARD_LOCK_TIMING } from '../modules/payments/card-lock-timing';
@@ -48,6 +52,10 @@ export class OpsCliModule {
       ],
       providers: [
         { provide: CARD_LOCK_TIMING, useValue: DEFAULT_CARD_LOCK_TIMING },
+        AdminAccountsService,
+        AdminLifecycleService,
+        AdminSessionRepository,
+        AdminUsersRepository,
         CardAdminRepository,
         CardAdminService,
         CardListing,

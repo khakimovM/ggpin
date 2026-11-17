@@ -86,7 +86,8 @@ export function newLoginJobId(familyId: string): string {
   return tgOutboxJobId('newlogin', familyId.replaceAll('-', ''));
 }
 
-function formatTime(date: Date, locale: Locale): string {
+/** A notice time as people in Uzbekistan read it (Tashkent), in the reader's locale. */
+export function formatTime(date: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',

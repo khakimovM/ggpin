@@ -55,9 +55,21 @@ describe('redactLoginNonce', () => {
       '/api/v1/orders/123',
       '/api/v1/auth/telegram/webapp',
       '/api/v1/auth/%zz',
+      '/api/v1/admin/auth/me',
+      '/api/v1/admin/auth/status',
     ]) {
       expect(redactLoginNonce(path)).toBe(path);
     }
+  });
+
+  it('redacts the admin login nonce too (GET /admin/auth/status/:nonce)', () => {
+    const admin = '/api/v1/admin/auth/status';
+    expect(redactLoginNonce(`${admin}/${NONCE}`)).toBe(`${admin}/${REDACTED}`);
+    expect(redactLoginNonce(`/api/v1/%61dmin/auth%2Fstatus/${NONCE}`)).not.toContain(NONCE);
+    expect(redactLoginNonce(`/API/V1/Admin/Auth/Status/${NONCE}/x`)).toBe(
+      `/API/V1/Admin/Auth/Status/${REDACTED}`,
+    );
+    expect(loggablePath(`${admin}/${NONCE}?t=1`)).toBe(`${admin}/${REDACTED}`);
   });
 });
 

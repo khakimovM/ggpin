@@ -48,6 +48,22 @@ describe('owner alert texts (alerts.bankFeed.*)', () => {
   });
 });
 
+describe('admin login texts (bot.admin.*, alerts.adminLogin; phase 9 S2)', () => {
+  it.each(CATALOGS)(
+    '%s takes exactly the values the API passes, never a code in the alert',
+    (_l, c) => {
+      expect(placeholders(c.bot.admin.code)).toEqual(['brand', 'code', 'device', 'domain', 'ip']);
+      expect(c.bot.admin.code).toContain('<code>{code}</code>');
+      expect(placeholders(c.bot.admin.newLogin)).toEqual(['brand', 'device', 'ip', 'time']);
+      for (const key of ['alreadySent', 'denied', 'sessionEnded', 'linkExpired'] as const) {
+        expect(placeholders(c.bot.admin[key]), key).toEqual([]);
+      }
+      expect(placeholders(c.alerts.adminLogin)).toEqual(['device', 'ip', 'name', 'role', 'time']);
+      expect(c.alerts.adminLogin).not.toMatch(/\{\s*\w+\s*,/);
+    },
+  );
+});
+
 describe('wallet notifications (bot.wallet.*)', () => {
   it.each(CATALOGS)('%s credit texts take {amount} and {balance}', (_l, catalog) => {
     for (const key of ['topupCredited', 'topupLateCredited'] as const) {

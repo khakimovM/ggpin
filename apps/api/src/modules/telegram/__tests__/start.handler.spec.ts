@@ -34,10 +34,12 @@ describe('/start', () => {
     expect(new Set(texts).size).toBe(1);
   });
 
-  it('admin_<nonce> answers "link expired" to everyone', async () => {
+  it('admin_<nonce> answers "link expired" to anyone who may not use the panel', async () => {
     const h = createHarness({ users: [makeUser(BigInt(ID), { locale: 'ru' })] });
     await h.send(textUpdate({ id: ID }, `/start admin_${'b'.repeat(43)}`));
     expect(h.payloads()).toMatchSnapshot();
+    // The admin login service decides (allowlist + active AdminUser), not the start handler.
+    expect(h.adminCalls).toEqual([{ method: 'issueCode', ref: 'b'.repeat(43) }]);
   });
 
   it('escapes HTML in first_name', async () => {

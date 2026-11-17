@@ -4,6 +4,7 @@ import { CSRF_HEADER } from '@repo/shared';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { AppError } from '../exceptions/app-error';
 import { corsOrigins } from '../http/cors-origins';
+import { isAdminRoute } from './admin-route';
 import type { AuthRequest } from './auth-user';
 import { SKIP_CSRF_KEY } from './skip-csrf.decorator';
 
@@ -30,6 +31,8 @@ export class CsrfGuard implements CanActivate {
   }
 
   canActivate(context: ExecutionContext): boolean {
+    // Admin routes: AdminCsrfGuard, with the admin origin only (this allowlist lacks it).
+    if (isAdminRoute(context)) return true;
     const request = context.switchToHttp().getRequest<AuthRequest>();
     if (SAFE_METHODS.has(request.method.toUpperCase())) return true;
 

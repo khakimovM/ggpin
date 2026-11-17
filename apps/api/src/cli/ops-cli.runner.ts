@@ -3,6 +3,7 @@ import { scrubSecretsInText } from '@repo/shared';
 import { AppError } from '../common/exceptions/app-error';
 import type { CliIo } from './cli-io';
 import type { CliSession } from './cli-session';
+import { ADMIN_COMMANDS } from './commands/admin.commands';
 import { CARD_COMMANDS } from './commands/card.commands';
 import { UsageError, type CliCommand } from './commands/command';
 import { REVIEW_COMMANDS } from './commands/review.commands';
@@ -12,6 +13,7 @@ export const OPS_COMMANDS: readonly CliCommand[] = [
   ...REVIEW_COMMANDS,
   ...CARD_COMMANDS,
   ...WALLET_COMMANDS,
+  ...ADMIN_COMMANDS,
 ];
 
 /** 0 done, 1 refused or failed (nothing half-written: every command is one transaction), 2 usage. */

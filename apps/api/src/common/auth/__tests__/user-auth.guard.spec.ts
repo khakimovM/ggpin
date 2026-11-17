@@ -1,3 +1,4 @@
+import { PATH_METADATA } from '@nestjs/common/constants';
 import type { User } from '@repo/db';
 import { ACCESS_COOKIE_NAME, authCookieNames } from '@repo/shared';
 import { TokenCodec, type TokenPayload } from '../../../modules/auth/token-codec';
@@ -56,6 +57,17 @@ async function codeOf(promise: Promise<unknown>): Promise<string> {
 }
 
 describe('UserAuthGuard', () => {
+  it('passes an admin route untouched: no user token is read there (AdminGuard decides)', async () => {
+    const { run, findById } = setup();
+    const headers = { authorization: 'Bearer not-even-a-token' };
+    const { request, result } = run({ headers }, { [PATH_METADATA]: 'admin/auth/me' });
+    await expect(result).resolves.toBe(true);
+    expect(request.authUser).toBeUndefined();
+    expect(findById).not.toHaveBeenCalled();
+    // The same request on a store route is refused.
+    await expect(codeOf(run({ headers }).result)).resolves.toBe('UNAUTHORIZED');
+  });
+
   it('skips @Public() routes without touching tokens or the database', async () => {
     const { run, findById } = setup();
     const { request, result } = run({}, { [IS_PUBLIC_KEY]: true });

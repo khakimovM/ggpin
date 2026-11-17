@@ -169,11 +169,16 @@ describe('HTTP pipeline (envelope, errors, validation, headers, CORS, limits)', 
     });
 
     describe('CORS', () => {
-      it.each([WEB, ADMIN])('allows %s with credentials', async (origin) => {
-        const res = await http().get(`${BASE}/ok`).set('Origin', origin).expect(200);
-        expect(res.headers['access-control-allow-origin']).toBe(origin);
+      it('allows the store origin with credentials', async () => {
+        const res = await http().get(`${BASE}/ok`).set('Origin', WEB).expect(200);
+        expect(res.headers['access-control-allow-origin']).toBe(WEB);
         expect(res.headers['access-control-allow-credentials']).toBe('true');
         expect(res.headers['vary']).toContain('Origin');
+      });
+
+      it('withholds Access-Control-Allow-Origin from the admin origin on store routes (phase 9 split)', async () => {
+        const res = await http().get(`${BASE}/ok`).set('Origin', ADMIN).expect(200);
+        expect(res.headers['access-control-allow-origin']).toBeUndefined();
       });
 
       it('answers a disallowed origin normally but withholds Access-Control-Allow-Origin', async () => {

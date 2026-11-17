@@ -1,5 +1,6 @@
 import { TOPUP_DEFAULTS, parseOwnerAlertChatIds, testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
+import { adminOriginProblems } from './admin-origin-env';
 import {
   duplicateSecretProblems,
   isBlank,
@@ -268,6 +269,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
         problems.push(`${name}: must use https in production`);
       }
     }
+    problems.push(...adminOriginProblems(clean));
     // The Mini App button and bot links cannot work without it; dev may leave it empty.
     if (clean.MINI_APP_URL === undefined) problems.push('MINI_APP_URL: is required in production');
     // Bank-feed alerts (reviews, DEBITs, chain breaks) are the owner's only signal that money

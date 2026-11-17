@@ -930,7 +930,10 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
 - **Tekshiruv tartibi** (login yo‘llaridan tashqari har so‘rovda): (1) CORS/Origin, (2) **AdminGuard** — sessiya (bekor
   qilinmagan, muddati va harakatsizlik) → `AdminUser.isActive` → `telegramId ∈ ADMIN_TELEGRAM_IDS` (config’dan, har safar)
   → rol (DB’dan) → yozuvda CSRF, (3) shundan keyingina `Idempotency-Key` va Zod tekshiruvi. Sessiyasiz so‘rov hech qachon
-  `400` yoki `409` olmaydi — doim `404` (SA-L5). Pul tranzaksiyasi ichida rol `AdminUser` `FOR SHARE` bilan yana o‘qiladi.
+  `400` yoki `409` olmaydi — doim `404` (SA-L5). Istisnolar: body’ni umuman o‘qib bo‘lmasa (buzuq JSON, noto‘g‘ri
+  `Content-Type`) yoki u juda katta bo‘lsa (`400 VALIDATION_ERROR` / `413`), yoki URL’da buzuq `%` bo‘lsa (`400`) — Fastify
+  bularni guard’lardan oldin beradi; mavjud va noma’lum yo‘lda bir xil, shuning uchun yo‘l borligini bildirmaydi (S2R-6).
+  Pul tranzaksiyasi ichida rol `AdminUser` `FOR SHARE` bilan yana o‘qiladi.
 - **Ruxsatsiz → `404 NOT_FOUND`.** Sessiya yo‘q yoki o‘lik, allowlist’da yo‘q, nofaol, rol yetmaydi, OPERATOR limitdan
   oshdi, CSRF/Origin xato, noma’lum `/admin/*` yo‘l — hammasi bir xil `404` (tana va sarlavhalar bir xil, D-26). SPA `404`
   ni `GET /admin/auth/me` da «kirilmagan» deb tushunadi.
@@ -938,7 +941,11 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
   yo‘llarining CORS ro‘yxatidan `ADMIN_URL` olib tashlanadi (S2, `cors-origins.ts`). Har admin so‘rovida (GET ham) `Origin`
   sarlavhasi kelsa va `ADMIN_URL` ga teng bo‘lmasa — `404`; `Sec-Fetch-Site: cross-site` — `404`;
   `Sec-Fetch-Mode: no-cors` yoki `navigate` — `404` (N5: boshqa sayt `<img>`/`<script>`/havola bilan Origin’siz GET yubora
-  olmaydi; SPA har doim `fetch` — `cors` rejimi). Audit CSV ham SPA’dan `fetch` + `Blob` bilan yuklanadi, to‘g‘ridan-to‘g‘ri
+  olmaydi; SPA har doim `fetch` — `cors` rejimi). So‘rovda `Sec-Fetch-Site` bo‘lsa (ya’ni brauzer), `Origin` ham majburiy
+  va `ADMIN_URL` ga teng bo‘lishi shart — aks holda `404` (S2-5); ikkala sarlavha ham yo‘q bo‘lsa (CLI, curl) bu qoida
+  qo‘llanmaydi. Production’da `ADMIN_URL` origin’i `WEB_URL`, `MINI_APP_URL` va API’ning ommaviy origin’idan
+  (`TELEGRAM_WEBHOOK_URL` origin’i) farq qilishi va host
+  `BRAND.domain` ning subdomeni bo‘lishi shart, aks holda API ishga tushmaydi (S2-2). Audit CSV ham SPA’dan `fetch` + `Blob` bilan yuklanadi, to‘g‘ridan-to‘g‘ri
   havola emas. S2 e2e talablari: `Origin: WEB_URL` bilan admin GET → javobda `Access-Control-Allow-Origin` yo‘q va `404`;
   `Sec-Fetch-Mode: navigate` va `no-cors` bilan (to‘g‘ri sessiya cookie’si bilan ham) admin GET → `404`.
 - **CSRF.** Har yozuv so‘rovida (POST/PATCH) `X-CSRF-Token` sarlavhasi va `Origin` aynan `ADMIN_URL` ga teng bo‘lishi
@@ -965,7 +972,13 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
 - **Limitlar.** Sessiya bo‘yicha 120 so‘rov/daqiqa, yozuv yo‘llari 30/daqiqa, audit CSV 5/daqiqa; sessiyasiz `/admin/*`
   so‘rovlariga IP bo‘yicha alohida limit — 60/daqiqa/IP (IPv6 /64; SA-L6). Login yo‘llarining (`/admin/auth/*`) o‘z
   limitlari bor («Auth» bandida) va bu 60 ga qo‘shilmaydi. Oshsa — `429 RATE_LIMITED` +
-  `Retry-After` (sessiyasiz so‘rovda ham bir xil shakl).
+  `Retry-After` (sessiyasiz so‘rovda ham bir xil shakl). Noma’lum `/admin/*` yo‘llar ham shu 60 ga sanaladi: mavjud va
+  mavjud bo‘lmagan yo‘l bir xil `404`, keyin bir xil `429` oladi (yo‘l borligini limit orqali bilib bo‘lmaydi; S2-1).
+  Router yo‘naltirmaydigan admin yo‘llar ham — bo‘sh parametr (`/admin/orders//refund`, `/admin/auth/status/`),
+  percent-kodlangan shakllar (router ularni qaysi yo‘lga yuborsa ham), hech bir admin route’da bo‘lmagan metod yoki `HEAD`
+  — xuddi shu `404`/`429` ni oladi:
+  sessiyasiz bo‘lsa anonim 60 ga, tirik sessiya bilan sessiya limitiga sanaladi (S2R-1). Admin’ga faqat o‘xshagan yo‘llar
+  (`/api/v1/adminx`, `/api/v1/administrator`) oddiy global `404` oladi va sanalmaydi.
 - **Hech qachon javobda emas:** TON mnemonic va kalitlar, Fragment cookie’lari, bank-feed sessiyasi, ta’minotchi kalitlari,
   to‘liq karta raqami (`pan`), pay token va uning hash’i, `providerRef`, `providerTxnId`, provayder `raw`, idempotentlik
   kaliti va `requestHash`, OTP kodi, imzolangan BOC. **Maydon darajasidagi qoidalar:** bank xabarining `text`,
@@ -1416,8 +1429,15 @@ targetId, before|null, after|null, reason|null, ip|null }`. `action` filtri — 
 
 - **`AdminAccount`:** `{ id, telegramId (string), name, role, isActive, allowlisted, lastLoginAt, activeSessions, createdAt }`.
   `allowlisted: false` — id `ADMIN_TELEGRAM_IDS` da yo‘q: devops qo‘shmaguncha kira olmaydi (ikki kalit).
-- Har yozuvda kod majburiy (D-63 (4)). Panel faqat OPERATOR va SUPPORT beradi; OWNER — faqat CLI (`admin:add`), OWNER
-  qatorini panel o‘zgartira olmaydi. `isActive: false` uning sessiyalarini shu tranzaksiyada bekor qiladi. O‘z joriy
+- Har yozuvda kod majburiy (D-63 (4)). Panel faqat OPERATOR va SUPPORT beradi; OWNER — faqat CLI (`admin:add`,
+  `admin:set-role`), OWNER qatorini panel o‘zgartira olmaydi. CLI’da oxirgi faol OWNER’ni o‘chirish (`admin:deactivate`)
+  yoki rolini pasaytirish (`admin:set-role`) faqat `--confirm-last-owner` bayrog‘i bilan bajariladi (ogohlantirish bilan;
+  o‘g‘irlangan OWNER’ni tez o‘chirish uchun); «oxirgi» deganda faol va `ADMIN_TELEGRAM_IDS` dagi OWNER’lar sanaladi.
+  Tiklash — `admin:reactivate`: o‘sha tranzaksiyada qolgan barcha sessiyalari bekor qilinadi, yangi login kerak. Rol har
+  qanday o‘zgarsa (pasaysa ham, ko‘tarilsa ham) sessiyalari shu tranzaksiyada bekor qilinadi. Login tasdig‘i sessiyani
+  ochishdan oldin `AdminUser` qatorini tranzaksiya ichida `FOR SHARE` bilan qayta o‘qiydi: davom etayotgan o‘chirish yoki
+  rol o‘zgarishi tugashini kutadi, admin endi kira olmasa `422 CODE_EXPIRED` beradi va sessiya ochilmaydi. Hammasi
+  `ADMIN_UPDATE` audit bilan. `isActive: false` uning sessiyalarini shu tranzaksiyada bekor qiladi. O‘z joriy
   sessiyasini yopsa cookie ham tozalanadi (`currentRevoked: true`). `userAgent` 9-B migratsiyasigacha `null`.
 
 **Ega CLI’si (D-46) saqlanadi.** 4-bosqichda hamyon va to‘ldirish bo‘yicha ega amallari (`review:credit`, `wallet:adjust`,

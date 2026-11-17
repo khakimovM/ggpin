@@ -34,6 +34,7 @@ export function fakeContext(
     Reflect.defineMetadata(key, value, handler);
   }
   const context = {
+    getType: () => 'http',
     getHandler: () => handler,
     getClass: () => FakeController,
     switchToHttp: () => ({ getRequest: () => request }),

@@ -9,6 +9,7 @@ import { AppConfigModule, type AppConfig } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
@@ -52,6 +53,7 @@ export class AppModule {
         QuotesModule,
         // After HttpPipelineModule: its APP_GUARDs must run after the throttler.
         AuthModule,
+        AdminModule,
         NotificationsModule,
         TelegramModule,
       ],

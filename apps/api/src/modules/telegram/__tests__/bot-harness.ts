@@ -22,6 +22,8 @@ export interface BotHarness extends FakeTelegram {
   readonly releaseCalls: { nonce: string; telegramId: bigint; code: string }[];
   /** Family ids passed to endSessionFromBot, in order. */
   readonly endedFamilies: string[];
+  /** Every admin login / admin session call (nonce or session id), in order. */
+  readonly adminCalls: { method: string; ref: string }[];
   send(update: Update): Promise<void>;
   /** Calls made to the Bot API, without the boot-independent noise: payloads only. */
   payloads(): unknown[];
@@ -32,6 +34,9 @@ export interface HarnessOptions {
   readonly users?: readonly User[];
   readonly login?: Partial<BotDeps['login']>;
   readonly sessions?: Partial<BotDeps['sessions']>;
+  /** Default: nobody may use the panel (issueCode is `expired`, deny `expired`). */
+  readonly adminLogin?: Partial<BotDeps['adminLogin']>;
+  readonly adminSessions?: Partial<BotDeps['adminSessions']>;
   readonly usersOverride?: Partial<BotDeps['users']>;
 }
 
@@ -67,6 +72,7 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     TELEGRAM_BOT_USERNAME: 'ggpin_test_bot',
     NODE_ENV: 'test',
     MINI_APP_URL: 'https://app.example.test/tg',
+    ADMIN_URL: 'https://admin.example.test',
     ...options.config,
   };
 
@@ -135,6 +141,33 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
       return options.sessions?.endSessionFromBot?.(input) ?? Promise.resolve(true);
     },
   };
+  const adminCalls: BotHarness['adminCalls'] = [];
+  const adminLogin: BotDeps['adminLogin'] = {
+    issueCode: (input) => {
+      adminCalls.push({ method: 'issueCode', ref: input.nonce });
+      return (
+        options.adminLogin?.issueCode?.(input) ??
+        Promise.resolve({ ok: false, reason: 'expired' as const })
+      );
+    },
+    deny: (input) => {
+      adminCalls.push({ method: 'deny', ref: input.nonce });
+      return options.adminLogin?.deny?.(input) ?? Promise.resolve('expired' as const);
+    },
+    releaseCode: (input) => {
+      adminCalls.push({ method: 'releaseCode', ref: input.nonce });
+      return options.adminLogin?.releaseCode?.(input) ?? Promise.resolve(true);
+    },
+  };
+  const adminSessions: BotDeps['adminSessions'] = {
+    endFromBot: (sessionId, telegramId, now) => {
+      adminCalls.push({ method: 'endFromBot', ref: sessionId });
+      return (
+        options.adminSessions?.endFromBot?.(sessionId, telegramId, now) ??
+        Promise.resolve('alreadyEnded' as const)
+      );
+    },
+  };
   const loginContact: BotDeps['loginContact'] = {
     remember: (telegramId, nonce) => {
       pendingContacts.set(telegramId, nonce);
@@ -152,6 +185,8 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     users,
     login,
     sessions,
+    adminLogin,
+    adminSessions,
     loginContact,
     clock: CLOCK,
     config,
@@ -168,6 +203,7 @@ export function createHarness(options: HarnessOptions = {}): BotHarness {
     loginCalls,
     releaseCalls,
     endedFamilies,
+    adminCalls,
     send: (update) => fake.bot.handleUpdate(update),
     payloads: () => fake.calls.map((c) => ({ [c.method]: c.payload })),
   };

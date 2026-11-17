@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminModule } from '../admin/admin.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
@@ -10,7 +11,7 @@ import { LoginContactStore } from './login-contact-store';
 import { TelegramWebhookController } from './telegram-webhook.controller';
 
 @Module({
-  imports: [UsersModule, AuthModule, NotificationsModule],
+  imports: [UsersModule, AuthModule, AdminModule, NotificationsModule],
   controllers: [TelegramWebhookController],
   providers: [
     botProvider,

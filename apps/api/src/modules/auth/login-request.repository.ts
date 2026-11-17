@@ -31,12 +31,19 @@ export interface CodeClaim {
 
 const MS = 1000;
 
+/** Which login flow a repository serves (`LoginRequest.kind`, CHECKed in the database). */
+export type LoginRequestKind = 'USER' | 'ADMIN';
+
 // All Prisma access for web/bot login requests. Every state change is a single guarded
 // `updateMany` (the WHERE carries status, expiry and attempts) and the returned count, not a
 // prior read, decides the outcome: that is what keeps parallel requests honest.
+// Every query is scoped to one `kind`: the user flow (this class) and the admin panel
+// (AdminLoginRequestRepository) can never claim, deny, attempt or count each other's rows.
 @Injectable()
 export class LoginRequestRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  protected readonly kind: LoginRequestKind = 'USER';
+
+  constructor(protected readonly prisma: PrismaService) {}
 
   transaction<T>(fn: (tx: Db) => Promise<T>): Promise<T> {
     return this.prisma.client.$transaction(fn);
@@ -47,7 +54,7 @@ export class LoginRequestRepository {
     await this.prisma.client.loginRequest.create({
       data: {
         nonce: input.nonce,
-        kind: 'USER',
+        kind: this.kind,
         status: 'PENDING',
         expiresAt: input.expiresAt,
         createdAt: input.now,
@@ -79,7 +86,7 @@ export class LoginRequestRepository {
   countCodesIssuedSince(telegramId: bigint, issuedSince: Date, db: Db): Promise<number> {
     return db.loginRequest.count({
       where: {
-        kind: 'USER',
+        kind: this.kind,
         telegramId,
         codeHash: { not: null },
         expiresAt: { gte: new Date(issuedSince.getTime() + OTP_CODE_TTL_SEC * MS) },
@@ -92,7 +99,7 @@ export class LoginRequestRepository {
     const { count } = await db.loginRequest.updateMany({
       where: {
         nonce: claim.nonce,
-        kind: 'USER',
+        kind: this.kind,
         status: 'PENDING',
         expiresAt: { gt: claim.now },
         OR: [{ telegramId: null }, { telegramId: claim.telegramId }],
@@ -111,7 +118,7 @@ export class LoginRequestRepository {
   /** CODE_SENT -> DENIED, only for the account that holds the code; returns the row id or null. */
   async deny(nonce: string, telegramId: bigint, now: Date): Promise<string | null> {
     const rows = await this.prisma.client.loginRequest.updateManyAndReturn({
-      where: { nonce, kind: 'USER', status: 'CODE_SENT', telegramId, expiresAt: { gt: now } },
+      where: { nonce, kind: this.kind, status: 'CODE_SENT', telegramId, expiresAt: { gt: now } },
       data: { status: 'DENIED' },
       select: { id: true },
     });
@@ -135,7 +142,7 @@ export class LoginRequestRepository {
           "expiresAt" = "createdAt" + (${LOGIN_NONCE_TTL_SEC}::int * interval '1 second'),
           "updatedAt" = ${now}
       WHERE "nonce" = ${nonce}
-        AND "kind" = 'USER'
+        AND "kind" = ${this.kind}
         AND "status" = 'CODE_SENT'
         AND "telegramId" = ${telegramId}
         AND "codeHash" = ${codeHash}
@@ -149,7 +156,7 @@ export class LoginRequestRepository {
    */
   async denyUsed(nonce: string, telegramId: bigint, db: Db): Promise<boolean> {
     const { count } = await db.loginRequest.updateMany({
-      where: { nonce, kind: 'USER', status: 'USED', telegramId, sessionFamilyId: { not: null } },
+      where: { nonce, kind: this.kind, status: 'USED', telegramId, sessionFamilyId: { not: null } },
       data: { status: 'DENIED' },
     });
     return count === 1;
@@ -176,7 +183,7 @@ export class LoginRequestRepository {
       const { count } = await tx.loginRequest.updateMany({
         where: {
           nonce,
-          kind: 'USER',
+          kind: this.kind,
           status: 'CODE_SENT',
           expiresAt: { gt: now },
           attempts: { lt: OTP_MAX_ATTEMPTS },

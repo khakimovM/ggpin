@@ -1,0 +1,180 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`admin "this was not me" buttons ae:<sessionId> ends the admin session and says so 1`] = `
+[
+  {
+    "editMessageText": {
+      "chat_id": 700901,
+      "message_id": 1,
+      "parse_mode": "HTML",
+      "reply_markup": {
+        "inline_keyboard": [],
+      },
+      "text": "🚫 Сеанс админ-панели завершён. Это устройство вышло из панели.",
+    },
+  },
+  {
+    "answerCallbackQuery": {
+      "callback_query_id": "cb-1019",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (ru) answers the alreadySent outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "✅ Код для админ-панели уже отправлен. Проверьте сообщение выше.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (ru) answers the expired outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "⌛ Ссылка устарела. Попробуйте ещё раз.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (ru) answers the rateLimited outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "⏳ Слишком много запросов кода. Попробуйте ещё раз через несколько минут.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (ru) answers the usedByOther outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "⌛ Ссылка устарела. Попробуйте ещё раз.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (ru) sends the code in <code>, protected, with where it was asked from and the deny button 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "protect_content": true,
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "ad:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "text": "🚫 Это не я",
+            },
+          ],
+        ],
+      },
+      "text": "🛡 Код для входа в админ-панель ggpin: <code>615243</code>
+
+⚠️ Вводите код только на странице admin.example.test. Код действует 3 минуты, никому его не сообщайте.
+
+Откуда запрошен вход:
+Устройство: Chrome, Windows
+IP: 203.0.113.x
+
+Если это были не вы, нажмите кнопку ниже.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (uz) answers the alreadySent outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "✅ Admin paneli uchun kod allaqachon yuborilgan. Yuqoridagi xabarni tekshiring.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (uz) answers the expired outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (uz) answers the rateLimited outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "⏳ Juda ko‘p kod so‘raldi. Bir necha daqiqadan keyin qayta urinib ko‘ring.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (uz) answers the usedByOther outcome without any code 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "text": "⌛ Havola eskirgan. Qaytadan urinib ko‘ring.",
+    },
+  },
+]
+`;
+
+exports[`admin login code in the bot (uz) sends the code in <code>, protected, with where it was asked from and the deny button 1`] = `
+[
+  {
+    "sendMessage": {
+      "chat_id": 700901,
+      "parse_mode": "HTML",
+      "protect_content": true,
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "callback_data": "ad:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "text": "🚫 Bu men emasman",
+            },
+          ],
+        ],
+      },
+      "text": "🛡 ggpin admin paneliga kirish kodi: <code>615243</code>
+
+⚠️ Kodni faqat admin.example.test sahifasiga kiriting. Kod 3 daqiqa amal qiladi, uni hech kimga bermang.
+
+Kirish so‘ralgan joy:
+Qurilma: Chrome, Windows
+IP: 203.0.113.x
+
+Bu siz bo‘lmasangiz, pastdagi tugmani bosing.",
+    },
+  },
+]
+`;

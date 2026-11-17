@@ -25,6 +25,11 @@ describe('owner CLI (no database)', () => {
       'wallet:adjust',
       'payment:reverse',
       'user:unfreeze',
+      'admin:add',
+      'admin:list',
+      'admin:deactivate',
+      'admin:reactivate',
+      'admin:set-role',
     ]);
     const help = helpText().join('\n');
     for (const name of names) expect(help).toContain(name);
@@ -34,7 +39,8 @@ describe('owner CLI (no database)', () => {
 
   it('every changing command refuses to run without --reason or --operator (usage error, service untouched)', async () => {
     const changing = OPS_COMMANDS.filter((c) => c.usage.includes('--reason'));
-    expect(changing.length).toBe(12);
+    // + admin:add, admin:deactivate, admin:reactivate, admin:set-role (phase 9 S2)
+    expect(changing.length).toBe(16);
     for (const command of changing) {
       const positional = command.usage.startsWith(`${command.name} <`)
         ? ['cm0000000000000000000000']

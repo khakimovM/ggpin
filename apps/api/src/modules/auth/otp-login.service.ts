@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { LoginRequest } from '@repo/db';
 import {
   BOT_CODE_ISSUE_LIMIT,
   LOGIN_NONCE_PATTERN,
@@ -13,6 +12,7 @@ import { AppError } from '../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import { toMe } from '../users/entities/me.mapper';
 import { UsersService } from '../users/users.service';
+import { publicLoginStatus, unclaimableReason, type IssueCodeFailure } from './login-claim';
 import { LoginRequestRepository } from './login-request.repository';
 import { NewLoginNoticeService } from './new-login-notice.service';
 import { generateNonce, generateOtpCode, hashOtpCode, otpCodeMatches } from './otp-code';
@@ -25,8 +25,7 @@ import { WebSessionService, type SessionLogin, type SessionMeta } from './web-se
  */
 export type DenyResult = 'denied' | 'sessionEnded' | 'expired';
 
-/** Why the bot may not hand out a code for a login link. */
-export type IssueCodeFailure = 'expired' | 'alreadySent' | 'usedByOther' | 'rateLimited';
+export type { IssueCodeFailure } from './login-claim';
 
 export type IssueCodeResult =
   | { readonly ok: true; readonly code: string }
@@ -98,13 +97,7 @@ export class OtpLoginService {
   async status(nonce: string, now: Date): Promise<LoginStatusResponse> {
     const row = await this.requests.findByNonce(nonce);
     if (row === null || row.kind !== 'USER') throw new AppError('NOT_FOUND');
-    if (row.status === 'DENIED') return { status: 'DENIED' };
-    if (row.status === 'PENDING' && !isLive(row, now)) return { status: 'EXPIRED' };
-    if (row.status === 'PENDING') return { status: 'PENDING' };
-    if (row.status === 'CODE_SENT' && isLive(row, now) && row.attempts < OTP_MAX_ATTEMPTS) {
-      return { status: 'CODE_SENT' };
-    }
-    return { status: 'EXPIRED' };
+    return { status: publicLoginStatus(row, now) };
   }
 
   /**
@@ -132,6 +125,7 @@ export class OtpLoginService {
       await this.requests.lockTelegramId(telegramId, tx);
       const blocked = unclaimableReason(
         await this.requests.findByNonce(nonce, tx),
+        'USER',
         telegramId,
         now,
       );
@@ -146,7 +140,8 @@ export class OtpLoginService {
       );
       if (claimed) return { ok: true, code };
       // Lost the claim to another account between the read and the write.
-      const after = unclaimableReason(await this.requests.findByNonce(nonce, tx), telegramId, now);
+      const row = await this.requests.findByNonce(nonce, tx);
+      const after = unclaimableReason(row, 'USER', telegramId, now);
       return { ok: false, reason: after ?? 'expired' };
     });
   }
@@ -272,25 +267,4 @@ export class OtpLoginService {
     await this.notice.send({ user, familyId, meta, now });
     return login;
   }
-}
-
-function isLive(row: LoginRequest, now: Date): boolean {
-  return row.expiresAt.getTime() > now.getTime();
-}
-
-// Why a login request cannot be given to `telegramId` right now; null = it can be claimed.
-function unclaimableReason(
-  row: LoginRequest | null,
-  telegramId: bigint,
-  now: Date,
-): IssueCodeFailure | null {
-  if (row === null || row.kind !== 'USER' || !isLive(row, now)) return 'expired';
-  if (row.status === 'PENDING') {
-    return row.telegramId === null || row.telegramId === telegramId ? null : 'usedByOther';
-  }
-  if (row.status === 'CODE_SENT') {
-    if (row.attempts >= OTP_MAX_ATTEMPTS) return 'expired';
-    return row.telegramId === telegramId ? 'alreadySent' : 'usedByOther';
-  }
-  return 'expired'; // USED, DENIED, EXPIRED
 }
