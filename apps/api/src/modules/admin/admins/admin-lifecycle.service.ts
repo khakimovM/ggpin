@@ -12,6 +12,7 @@ import {
   type CardAdminActor,
   type CheckedActor,
 } from '../../payments/card-admin.input';
+import { AdminLoginRequestRepository } from '../auth/admin-login-request.repository';
 import { AdminSessionRepository } from '../auth/admin-session.repository';
 import { isAllowlisted } from './admin-allowlist';
 import { parsed } from './admin-input';
@@ -66,11 +67,16 @@ export class AdminLifecycleService {
   constructor(
     private readonly repo: AdminUsersRepository,
     private readonly sessions: AdminSessionRepository,
+    private readonly codes: AdminLoginRequestRepository,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(APP_CONFIG) private readonly config: Pick<AppConfig, 'ADMIN_TELEGRAM_IDS'>,
   ) {}
 
-  /** isActive=false and every session of the admin ended. */
+  /**
+   * isActive=false, every session of the admin ended and every open admin login code of its
+   * Telegram id expired, all in one transaction: a code sent before the deactivation never opens
+   * a session, not even after a reactivation within its lifetime (CR nit 2).
+   */
   async deactivate(input: AdminChangeInput & LastOwnerConfirmation): Promise<AdminChangeResult> {
     const { adminId, reason, actor } = this.checked(input);
     const now = this.clock.now();
@@ -82,9 +88,11 @@ export class AdminLifecycleService {
       if (lastOwner && !input.confirmLastOwner) return this.result('needsLastOwnerConfirm', admin);
       if (!(await this.repo.deactivate(tx, adminId))) return this.result('unchanged', admin);
       const revokedSessions = await this.sessions.revokeAllOf(tx, adminId, now);
+      const expiredLoginCodes = await this.codes.expireOpenOf(admin.telegramId, tx);
       const after = {
         isActive: false,
         revokedSessions,
+        expiredLoginCodes,
         ...confirmed(lastOwner),
         ...actorAfter(actor),
       };
@@ -100,9 +108,12 @@ export class AdminLifecycleService {
   }
 
   /**
-   * isActive=true again. Every session of the admin is ended first, in the same transaction: a
-   * session that slipped past the deactivation (opened while it committed) never comes back, so
-   * the admin always signs in anew.
+   * isActive=true again, and every session of the admin ended in the same transaction: a session
+   * that slipped past the deactivation (opened while it committed) never comes back, so the admin
+   * always signs in anew. The guarded UPDATE comes first and the sessions are ended only when it
+   * changed the row (I-1): a parallel reactivation that loses ends nothing without its audit row,
+   * and the locks are taken in deactivate's order (AdminUser, then AdminSession), so the two can
+   * never deadlock. A login's FOR SHARE on the row waits for this UPDATE as before.
    */
   async reactivate(input: AdminChangeInput): Promise<AdminChangeResult> {
     const { adminId, reason, actor } = this.checked(input);
@@ -110,8 +121,8 @@ export class AdminLifecycleService {
     return this.repo.transaction(async (tx) => {
       const admin = await this.found(adminId, tx);
       if (admin.isActive) return this.result('unchanged', admin);
-      const revokedSessions = await this.sessions.revokeAllOf(tx, adminId, now);
       if (!(await this.repo.reactivate(tx, adminId))) return this.result('unchanged', admin);
+      const revokedSessions = await this.sessions.revokeAllOf(tx, adminId, now);
       const allowlisted = isAllowlisted(this.config, admin.telegramId);
       const after = { isActive: true, allowlisted, revokedSessions, ...actorAfter(actor) };
       const auditId = await this.audit(tx, admin, { isActive: false }, after, reason, actor);

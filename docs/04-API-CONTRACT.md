@@ -1437,7 +1437,9 @@ targetId, before|null, after|null, reason|null, ip|null }`. `action` filtri — 
   qanday o‘zgarsa (pasaysa ham, ko‘tarilsa ham) sessiyalari shu tranzaksiyada bekor qilinadi. Login tasdig‘i sessiyani
   ochishdan oldin `AdminUser` qatorini tranzaksiya ichida `FOR SHARE` bilan qayta o‘qiydi: davom etayotgan o‘chirish yoki
   rol o‘zgarishi tugashini kutadi, admin endi kira olmasa `422 CODE_EXPIRED` beradi va sessiya ochilmaydi. Hammasi
-  `ADMIN_UPDATE` audit bilan. `isActive: false` uning sessiyalarini shu tranzaksiyada bekor qiladi. O‘z joriy
+  `ADMIN_UPDATE` audit bilan. `isActive: false` uning sessiyalarini va shu Telegram id’ning ochiq admin login kodlarini
+  (`EXPIRED`, soni auditda) shu tranzaksiyada bekor qiladi — reactivate’dan keyin eski kod ishlamaydi; kod berish ham
+  `AdminUser` qatorini qulf ostida qayta tekshiradi, o‘chirish bilan poyga bo‘lmaydi. O‘z joriy
   sessiyasini yopsa cookie ham tozalanadi (`currentRevoked: true`). `userAgent` 9-B migratsiyasigacha `null`.
 
 **Ega CLI’si (D-46) saqlanadi.** 4-bosqichda hamyon va to‘ldirish bo‘yicha ega amallari (`review:credit`, `wallet:adjust`,

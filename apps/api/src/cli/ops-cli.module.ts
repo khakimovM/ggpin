@@ -9,6 +9,7 @@ import { RedisModule } from '../infra/redis/redis.module';
 import { AdminAccountsService } from '../modules/admin/admins/admin-accounts.service';
 import { AdminLifecycleService } from '../modules/admin/admins/admin-lifecycle.service';
 import { AdminUsersRepository } from '../modules/admin/admins/admin-users.repository';
+import { AdminLoginRequestRepository } from '../modules/admin/auth/admin-login-request.repository';
 import { AdminSessionRepository } from '../modules/admin/auth/admin-session.repository';
 import { CardAdminRepository } from '../modules/payments/card-admin.repository';
 import { CardAdminService } from '../modules/payments/card-admin.service';
@@ -54,6 +55,7 @@ export class OpsCliModule {
         { provide: CARD_LOCK_TIMING, useValue: DEFAULT_CARD_LOCK_TIMING },
         AdminAccountsService,
         AdminLifecycleService,
+        AdminLoginRequestRepository,
         AdminSessionRepository,
         AdminUsersRepository,
         CardAdminRepository,

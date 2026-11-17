@@ -1,5 +1,5 @@
 import type { AdminRole, AdminUser } from '@repo/db';
-import { ADMIN_BASE } from './admin-e2e.api';
+import { ADMIN_BASE, setCookies } from './admin-e2e.api';
 import { CLI_ACTOR, cliOf } from './admin-e2e.cli';
 import { useAdminE2e } from './admin-e2e.harness';
 
@@ -52,6 +52,7 @@ describe('owner CLI: the last usable OWNER, reactivate and set-role (same app)',
     expect((await row(y.id)).isActive).toBe(false);
     expect((await audits(y.id))[0]?.after).toMatchObject({
       isActive: false,
+      expiredLoginCodes: 0,
       lastOwnerConfirmed: true,
     });
     expect((await row(support.id)).isActive).toBe(true); // others untouched
@@ -124,6 +125,39 @@ describe('owner CLI: the last usable OWNER, reactivate and set-role (same app)',
     expect((await me(cookie)).statusCode).toBe(404);
     const [audit] = await audits(op.id);
     expect(audit?.after).toMatchObject({ isActive: true, revokedSessions: 1 });
+  });
+
+  it('deactivate expires the open admin codes: after a quick reactivate the old code is dead (CR nit 2)', async () => {
+    const op = await admin('OPERATOR');
+    const nonce = await t.start();
+    const sent = await t.issue(nonce, op.telegramId);
+    if (!sent.ok) throw new Error(`issueCode refused: ${sent.reason}`);
+    // The same person's web-store login code: another kind, it must survive.
+    const webCode = await t.db().loginRequest.create({
+      data: {
+        nonce: `e2e-web-${op.id}`,
+        kind: 'USER',
+        status: 'CODE_SENT',
+        telegramId: op.telegramId,
+        codeHash: 'e2e-web-code-hash',
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    expect((await run(['admin:deactivate', op.id, ...CLI_ACTOR])).code).toBe(0);
+    expect((await run(['admin:reactivate', op.id, ...CLI_ACTOR])).code).toBe(0);
+    const res = await t.verify(nonce, sent.code);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ error: { code: string } }>().error.code).toBe('CODE_EXPIRED');
+    expect(setCookies(res)).toEqual([]);
+    expect(await t.db().adminSession.count({ where: { adminId: op.id } })).toBe(0);
+    const statusOf = async (where: { nonce: string } | { id: string }) =>
+      (await t.db().loginRequest.findUniqueOrThrow({ where })).status;
+    expect(await statusOf({ nonce })).toBe('EXPIRED');
+    expect(await statusOf({ id: webCode.id })).toBe('CODE_SENT');
+    const off = (await audits(op.id)).find((a) => JSON.stringify(a.before) === '{"isActive":true}');
+    expect(off?.after).toMatchObject({ isActive: false, expiredLoginCodes: 1 });
   });
 
   it('set-role: OWNER only here; ANY change, up or down, ends the sessions (S2R-3)', async () => {

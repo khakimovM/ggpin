@@ -110,10 +110,9 @@ export class AdminLoginService {
   async issueCode(input: IssueCodeInput): Promise<AdminIssueCodeResult> {
     const { nonce, telegramId, now } = input;
     if (!LOGIN_NONCE_PATTERN.test(nonce)) return { ok: false, reason: 'expired' };
-    if (!mayUsePanel(this.config, await this.admins.findByTelegramId(telegramId))) {
-      await this.logRefusal(maskTelegramId(telegramId));
-      return { ok: false, reason: 'expired' };
-    }
+    // A cheap early answer; the decision itself is taken again under the row lock below.
+    const found = await this.admins.findByTelegramId(telegramId);
+    if (!mayUsePanel(this.config, found)) return this.refused(telegramId);
 
     const code = generateOtpCode();
     const codeHash = hashOtpCode(this.pepper, nonce, code);
@@ -121,6 +120,12 @@ export class AdminLoginService {
     const windowStart = new Date(now.getTime() - BOT_CODE_ISSUE_LIMIT.windowSec * MS);
     const result = await this.requests.transaction(async (tx) => {
       await this.requests.lockTelegramId(telegramId, tx);
+      // The AdminUser row again, under FOR SHARE, before any LoginRequest write (the order of
+      // admin:deactivate: AdminUser, then the rest). A deactivation that is running makes us
+      // wait and then refuse; one that starts later waits for this commit and expires the code.
+      if (!mayUsePanel(this.config, await this.admins.lockForLogin(tx, found.id))) {
+        return 'notAdmin';
+      }
       const row = await this.requests.findByNonce(nonce, tx);
       const blocked = unclaimableReason(row, 'ADMIN', telegramId, now);
       if (blocked !== null) return blocked;
@@ -137,8 +142,16 @@ export class AdminLoginService {
         `security event=ADMIN_CODE_QUOTA_EXHAUSTED telegramId=${maskTelegramId(telegramId)}`,
       );
     }
+    // Refused under the lock: exactly the early refusal (log line, `expired`, nothing written).
+    if (result === 'notAdmin') return this.refused(telegramId);
     if (result !== null) return { ok: false, reason: result };
     return { ok: true, code, origin: await this.origins.read(nonce) };
+  }
+
+  /** The answer for an account that may not use the panel: the dead link, nothing written. */
+  private async refused(telegramId: bigint): Promise<AdminIssueCodeResult> {
+    await this.logRefusal(maskTelegramId(telegramId));
+    return { ok: false, reason: 'expired' };
   }
 
   /** FOR THE BOT: the code message could not be sent; the link may be opened again. */
@@ -204,6 +217,9 @@ export class AdminLoginService {
       // S2R-2: the AdminUser row again, under FOR SHARE. A deactivation (or role change) that
       // committed after the read above is seen here; one still running makes us wait for it; one
       // that starts later waits for this commit and then ends the session opened here.
+      // I-2: FOR SHARE holds only while this transaction never writes the AdminUser row. If it
+      // ever does (a lastLoginAt, say), lock with FOR NO KEY UPDATE instead: two parallel logins
+      // would each hold the share lock and wait for the other to upgrade it, a deadlock.
       const locked = await this.admins.lockForLogin(tx, found.id);
       if (!mayUsePanel(this.config, locked)) throw new AppError('CODE_EXPIRED');
       // The guarded UPDATE is the gate: of several parallel correct codes exactly one gets here.
