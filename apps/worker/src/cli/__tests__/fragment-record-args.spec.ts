@@ -44,6 +44,8 @@ describe('fragment-record: arguments', () => {
       wallet: null,
       names: [],
       phones: [],
+      premiumHolder: null,
+      premiumHolderNames: [],
     });
   });
 

@@ -1,6 +1,7 @@
 import { payloadNeedles, redactPayloads } from './payload-scan';
 import {
   isPlaceholder,
+  isIdKey,
   isRandomToken,
   kindForKey,
   outsidePlaceholders,
@@ -89,8 +90,14 @@ export function createFixtureSanitizer(input: SanitizerInput): FixtureSanitizer 
 
   const walk = (value: unknown, key: string | null): unknown => {
     const kind = key === null ? null : kindForKey(key);
+    const idKey = key !== null && isIdKey(key);
+    // A payload object or array (CR F4) is redacted whole, like a payload string.
+    if (kind === 'payload' && value !== null && typeof value === 'object') {
+      return placeholder('payload');
+    }
     if (typeof value === 'string') {
       if (kind !== null && value !== '') return placeholder(kind);
+      if (idKey && /^\s*-?\d{5,}\s*$/.test(value)) return '0';
       // JSON inside a string (audit NEST1, NEST2; a JSON-string body): walked as JSON.
       const nested = nestedJson(value);
       if (nested !== undefined) return JSON.stringify(walk(nested, key));
@@ -102,6 +109,8 @@ export function createFixtureSanitizer(input: SanitizerInput): FixtureSanitizer 
     }
     if (typeof value === 'number') {
       if (kind !== null || numericSecrets.has(String(value))) return 0;
+      // A 5+ digit number under `id` / `*_id` may be a person's id (SA F3).
+      if (idKey && Math.abs(value) >= 10_000) return 0;
       return value;
     }
     if (Array.isArray(value)) return value.map((item) => walk(item, key));

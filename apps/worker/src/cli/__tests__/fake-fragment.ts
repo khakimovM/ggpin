@@ -7,9 +7,16 @@ import {
   loggedOutPage,
   searchResponse,
 } from '../../adapters/fragment/__tests__/fragment-fakes';
+import {
+  HOLDER,
+  holderFoundResponse,
+  premiumInitResponse,
+  premiumLinkResponse,
+} from '../../adapters/fragment/__tests__/premium-fakes';
 
 // A fake fragment.com for the recorder tests: no socket is ever opened. It records every call
-// and answers with the made-up responses of fragment-fakes.ts.
+// and answers with the made-up responses of fragment-fakes.ts and premium-fakes.ts. Every page
+// path (/stars/buy, /premium/gift) gets the same made-up page.
 
 /** A TON Connect DeviceInfo as a wallet would send it (made up). */
 export const DEVICE = {
@@ -24,6 +31,7 @@ export interface FakeCall {
   readonly url: string;
   readonly method: string;
   readonly cookie: string | null;
+  readonly referer: string | null;
   readonly form: URLSearchParams | null;
   readonly redirect: RequestRedirect | undefined;
 }
@@ -52,6 +60,7 @@ export function fakeFragment(override: Override = () => null): FakeFragment {
       url: input,
       method: init.method ?? 'GET',
       cookie: headers.get('cookie'),
+      referer: headers.get('referer'),
       form: body === null ? null : new URLSearchParams(body),
       redirect: init.redirect,
     };
@@ -73,6 +82,14 @@ export function fakeFragment(override: Override = () => null): FakeFragment {
         return json(initResponse());
       case 'getBuyStarsLink':
         return json(linkResponse());
+      case 'searchPremiumGiftRecipient':
+        return json(
+          call.form?.get('query') === HOLDER.username ? holderFoundResponse() : searchResponse(),
+        );
+      case 'initGiftPremiumRequest':
+        return json(premiumInitResponse());
+      case 'getGiftPremiumLink':
+        return json(premiumLinkResponse());
       default:
         return json({ error: 'Unknown method' });
     }

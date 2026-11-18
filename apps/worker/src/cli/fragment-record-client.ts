@@ -1,21 +1,41 @@
 import {
   FRAGMENT_HOST,
-  FRAGMENT_ORIGIN,
   STARS_PAGE_PATH,
   assertFragmentUrl,
 } from '../adapters/fragment/fragment-page';
 
-// The recorder's HTTP side (plan S0b). It talks to https://fragment.com only (every URL and every
-// redirect target is checked), calls only the read/prepare methods below, and has no code that
-// signs or sends a TON transaction. `fetch` is injected: tests never reach the network.
+// The recorder's HTTP side (plan S0b, P6-S0a). It talks to https://fragment.com only (every URL
+// and every redirect target is checked), calls only the read/prepare methods below, and has no
+// code that signs or sends a TON transaction. `fetch` is injected: tests never reach the network.
 
-/** The only API methods the recorder may call. The method that submits a signed BOC is not here. */
+/** The Premium gift page (guess, docs/suppliers/fragment.md §6). */
+export const PREMIUM_GIFT_PAGE_PATH = '/premium/gift';
+
+/**
+ * The only API methods the recorder may call. The method that submits a signed BOC is not here,
+ * and neither is `updatePremiumState`: nothing shows it only reads (P6-S0a).
+ */
 export const RECORDER_API_METHODS = [
   'searchStarsRecipient',
   'initBuyStarsRequest',
   'getBuyStarsLink',
+  'searchPremiumGiftRecipient',
+  'initGiftPremiumRequest',
+  'getGiftPremiumLink',
 ] as const;
 export type RecorderApiMethod = (typeof RECORDER_API_METHODS)[number];
+
+/**
+ * Methods that prepare a purchase (a request and its payment link description; no money). A
+ * client refuses them unless it was made for a run with --confirm-no-payment: a second gate
+ * under the flow's own check.
+ */
+export const PURCHASE_PREP_METHODS: readonly RecorderApiMethod[] = [
+  'initBuyStarsRequest',
+  'getBuyStarsLink',
+  'initGiftPremiumRequest',
+  'getGiftPremiumLink',
+];
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -86,6 +106,8 @@ export class FragmentRecorderClient {
     private readonly fetchFn: FetchLike,
     private readonly jar: RecorderCookieJar | null,
     private readonly timeoutMs: number,
+    /** True only in a run with --confirm-no-payment (PURCHASE_PREP_METHODS). */
+    private readonly purchasePrep = false,
   ) {}
 
   /** GET a page; follows up to 3 redirects, each checked to stay on fragment.com. */
@@ -119,25 +141,30 @@ export class FragmentRecorderClient {
     }
   }
 
-  /** POST one allowed method to `/api?hash=...`; redirects are never followed. */
+  /** POST one allowed method to `/api?hash=...` as sent from `pagePath`; no redirect followed. */
   async api(
     hash: string,
     method: RecorderApiMethod,
     fields: Readonly<Record<string, string>>,
+    pagePath: string = STARS_PAGE_PATH,
   ): Promise<Exchange> {
     if (!(RECORDER_API_METHODS as readonly string[]).includes(method)) {
       throw new Error('refused: method not allowed in the recorder');
     }
+    if (!this.purchasePrep && PURCHASE_PREP_METHODS.includes(method)) {
+      throw new Error('refused: purchase steps need --confirm-no-payment');
+    }
     if (!/^[a-fA-F0-9]{6,64}$/.test(hash)) throw new Error('refused: malformed api hash');
     const url = assertFragmentUrl(`/api?hash=${hash}`);
+    const referer = assertFragmentUrl(pagePath);
     const form = { ...fields, method };
     const response = await this.send(url, {
       method: 'POST',
       headers: this.headers({
         accept: 'application/json, text/javascript, */*; q=0.01',
         'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        origin: FRAGMENT_ORIGIN,
-        referer: `${FRAGMENT_ORIGIN}${STARS_PAGE_PATH}`,
+        origin: referer.origin,
+        referer: referer.toString(),
         'x-requested-with': 'XMLHttpRequest',
       }),
       body: new URLSearchParams(form).toString(),

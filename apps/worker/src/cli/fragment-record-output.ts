@@ -117,10 +117,19 @@ export function fixtureOf(
   return { value, fullBodies: parsedBody.full === null ? [] : [parsedBody.full] };
 }
 
-export function summaryOf(result: FlowResult, at: Date): StagedFixture {
+export interface NameSummary {
+  /** Rule (a) for the owner: a read `found.name` is fully covered by --name (else strict text). */
+  readonly ownerCovered: boolean;
+  /** The --premium-holder search ran (its answer is always under strict text). */
+  readonly holderSearched: boolean;
+  /** Rule (a) for the holder: its `found.name` is fully covered by --premium-holder-name. */
+  readonly holderCovered: boolean;
+}
+
+export function summaryOf(result: FlowResult, at: Date, names: NameSummary): StagedFixture {
   const value = {
     tool: 'fragment-record',
-    format: 3,
+    format: 4,
     recordedAt: at.toISOString(),
     steps: result.steps.map((s) => ({
       step: s.step,
@@ -130,11 +139,14 @@ export function summaryOf(result: FlowResult, at: Date): StagedFixture {
     skipped: result.skipped,
     stoppedBy: result.stoppedBy,
     apiHash: { found: result.apiHashLength !== null, length: result.apiHashLength },
+    premiumApiHash: result.premiumApiHash,
     pageMarkers: result.markers,
     cookieNamesSupplied: result.cookieNames,
     setCookieNames: result.setCookieNames,
-    payAddresses: result.keepAddresses,
-    linkPayloads: result.linkPayloads,
+    // Fragment's pay addresses per product (a Premium address may differ: R10, E5).
+    payAddresses: { stars: result.payAddresses.stars, premium: result.payAddresses.premium },
+    linkPayloads: { stars: result.linkPayloads.stars, premium: result.linkPayloads.premium },
+    names,
     tonSent: false,
   };
   return { value, fullBodies: [] };

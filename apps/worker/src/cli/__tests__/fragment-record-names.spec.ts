@@ -74,8 +74,10 @@ describe('F-11: the name known only from the search answer', () => {
         ? json({ ...initResponse(), note: 'for Zarina Karimova' })
         : null;
     };
-    const { code } = await runRecorder(h, CONFIRM, { override });
-    expect(code).toBe(0);
+    const { code, stdout } = await runRecorder(h, CONFIRM, { override });
+    // Fix round rule (a): found.name holds words no --name gives, so every file is strict (exit 1).
+    expect(code).toBe(1);
+    expect(stdout.some((l) => l.includes('owner name not covered by --name; strict'))).toBe(true);
     const staged = h.staged('init-buy-stars.json');
     expect(staged).toContain('"note": "for <REDACTED:name>"');
     expect(staged).not.toMatch(/Zarina|Karimova/);

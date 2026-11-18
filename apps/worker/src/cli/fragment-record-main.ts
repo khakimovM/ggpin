@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createFixtureSanitizer, type SecretValue } from '../adapters/fragment/fixture-sanitizer';
 import { createLeakCheck } from '../adapters/fragment/leak-check';
-import { namePresence } from '../adapters/fragment/name-presence';
 import {
   fragmentRecordEnvRefusal,
   fragmentRecordExecArgvRefusal,
@@ -15,7 +14,7 @@ import {
   type FragmentRecordArgs,
 } from './fragment-record-args';
 import type { FetchLike } from './fragment-record-client';
-import { runRecordingFlow, type FlowInput, type RecordedStep } from './fragment-record-flow';
+import { runRecordingFlow, type FlowInput } from './fragment-record-flow';
 import {
   parseCookieFile,
   parseRedactFile,
@@ -24,7 +23,6 @@ import {
 } from './fragment-record-inputs';
 import {
   OutputRefusal,
-  fixtureOf,
   prepareOutputDirs,
   rawFileName,
   rawRecord,
@@ -33,6 +31,8 @@ import {
   writeRaw,
 } from './fragment-record-output';
 import { assertLocalPath, type PathPolicy } from './fragment-record-paths';
+import { OWNER_SEARCH_STEPS, holderCheck, nameProblem, planStaging } from './fragment-record-stage';
+import { nameCovered } from './fragment-record-strict';
 
 // `fragment:record` (plan S0b): the owner runs it on their own machine to record Fragment's
 // money-free responses. Console lines carry only step names, HTTP statuses, file and folder names
@@ -68,6 +68,8 @@ async function readInput(file: string, option: string, policy: PathPolicy): Prom
 interface Inputs {
   readonly flow: FlowInput;
   readonly extraSecrets: SecretValue[];
+  /** --premium-holder-name values: kept apart so they never stand in for the owner's (R-2). */
+  readonly holderSecrets: SecretValue[];
 }
 
 async function loadInputs(args: FragmentRecordArgs, policy: PathPolicy): Promise<Inputs> {
@@ -98,27 +100,14 @@ async function loadInputs(args: FragmentRecordArgs, policy: PathPolicy): Promise
       confirmNoPayment: args.confirmNoPayment,
       recipientAgeCheck: args.recipientAgeCheck,
       tonConnect,
+      premiumHolder: args.premiumHolder,
     },
     extraSecrets,
+    holderSecrets: args.premiumHolderNames.map((value) => ({ kind: 'name' as const, value })),
   };
 }
 
 const NAME_KINDS = new Set(['name', 'secret']);
-
-/**
- * Why nothing may be staged for the --name values (F-5, M-1), or null: no answer shows any of
- * them, or one is only partly shown (a typo or another transliteration). Never names a value.
- */
-function nameProblem(names: readonly string[], steps: readonly RecordedStep[]): string | null {
-  if (names.length === 0) return null;
-  const presence = namePresence(
-    names,
-    steps.map((s) => s.exchange.response.body),
-  );
-  if (presence.every((p) => p.found === 0)) return 'name not found in responses (check --name)';
-  const partly = presence.findIndex((p) => p.found > 0 && p.found < p.total);
-  return partly === -1 ? null : `name ${partly + 1} partly found (check --name)`;
-}
 
 async function record(
   args: FragmentRecordArgs,
@@ -143,7 +132,8 @@ async function record(
     },
   });
   const secrets = [...result.secrets, ...inputs.extraSecrets];
-  // R-2: a name nobody knows cannot be redacted; stage nothing rather than guess.
+  // R-2: a name nobody knows cannot be redacted; stage nothing rather than guess. Only the
+  // owner's side counts here: a holder's name never stands in for the owner's.
   if (!secrets.some((s) => NAME_KINDS.has(s.kind))) {
     say('nothing staged: no display name is known (give --name)');
     return 1;
@@ -155,25 +145,32 @@ async function record(
     if (result.stoppedBy !== null) say(`stopped early: ${result.stoppedBy}`);
     return 1;
   }
-  const sanitizer = createFixtureSanitizer({ secrets, keepAddresses: result.keepAddresses });
-  const leakCheck = createLeakCheck({ secrets, keepAddresses: result.keepAddresses });
-  let withheld = 0;
-  const at = deps.now();
-  // L-1: with no API hash found, its unknown value cannot be redacted: only the summary is staged.
-  const hashKnown = result.apiHashLength !== null;
-  if (!hashKnown) {
-    for (const s of result.steps) {
-      withheld += 1;
-      say(`withheld: ${s.step}.json (no api hash)`);
-    }
+  // P6-S0a: the holder's names, like the owner's; a name only partly shown is likely mistyped.
+  const holder = holderCheck(args.premiumHolderNames, result.steps);
+  if (holder.state === 'partly') {
+    say(
+      `nothing staged: premium holder name ${holder.index + 1} partly found (check --premium-holder-name)`,
+    );
+    if (result.stoppedBy !== null) say(`stopped early: ${result.stoppedBy}`);
+    return 1;
   }
-  const outputs = [
-    ...(hashKnown ? result.steps : []).map((s) => ({
-      file: `${s.step}.json`,
-      staged: fixtureOf(s, at, (text) => sanitizer.sanitizeText(text)),
-    })),
-    { file: 'summary.json', staged: summaryOf(result, at) },
-  ];
+  // The holder's username, names, photo and recipient are redacted in EVERY file.
+  const all = [...secrets, ...result.holderSecrets, ...inputs.holderSecrets];
+  const sanitizer = createFixtureSanitizer({ secrets: all, keepAddresses: result.keepAddresses });
+  const leakCheck = createLeakCheck({ secrets: all, keepAddresses: result.keepAddresses });
+  const at = deps.now();
+  // Rule (a) (fix round, CR F1): only a read `found.name` wholly covered by --name proves the
+  // run knows the owner's full display name; else every file is staged under strict text.
+  const ownerCovered = nameCovered(args.names, result.steps, OWNER_SEARCH_STEPS);
+  const plan = planStaging(result, at, { sanitizer, ownerCovered });
+  let withheld = plan.withheld.length;
+  for (const line of plan.withheld) say(`withheld: ${line}`);
+  const names = {
+    ownerCovered,
+    holderSearched: holder.state !== 'not-searched',
+    holderCovered: holder.state === 'searched' && holder.covered,
+  };
+  const outputs = [...plan.outputs, { file: 'summary.json', staged: summaryOf(result, at, names) }];
   for (const { file, staged } of outputs) {
     const outcome = await writeFixture(args.fixturesDir, file, staged, sanitizer, leakCheck);
     if (outcome.written) {

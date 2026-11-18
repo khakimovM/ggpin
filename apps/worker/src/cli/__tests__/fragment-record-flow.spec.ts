@@ -5,6 +5,7 @@ import {
   FRAGMENT_PAY_ADDRESS,
   OWNER_WALLET_RAW,
 } from '../../adapters/fragment/__tests__/fragment-fakes';
+import { PREMIUM_PAY_ADDRESS } from '../../adapters/fragment/__tests__/premium-fakes';
 import { runRecordingFlow } from '../fragment-record-flow';
 import { NO_TON_SENT } from '../fragment-record-main';
 import { DEVICE, fakeFragment } from './fake-fragment';
@@ -20,12 +21,15 @@ describe('fragment-record: the full money-free flow', () => {
       'searchStarsRecipient',
       'initBuyStarsRequest',
       'getBuyStarsLink',
+      'searchPremiumGiftRecipient',
+      'initGiftPremiumRequest',
+      'getGiftPremiumLink',
     ]);
     for (const call of fake.calls) {
       expect(new URL(call.url).origin).toBe('https://fragment.com');
       expect(call.redirect).toBe('manual');
     }
-    const [page, search, init, link, loggedOut] = fake.calls;
+    const [page, search, init, link, , , , , loggedOut] = fake.calls;
     expect(page?.cookie).toContain(FAKE.ssid);
     expect(search?.form?.get('query')).toBe(FAKE.username);
     expect(init?.cookie).toContain(FAKE.refreshedSsid);
@@ -46,15 +50,23 @@ describe('fragment-record: the full money-free flow', () => {
       '02-search-stars-recipient.json',
       '03-init-buy-stars.json',
       '04-get-buy-stars-link.json',
-      '05-page-logged-out.json',
+      '05-page-premium-gift.json',
+      '06-search-premium-recipient.json',
+      '07-init-gift-premium.json',
+      '08-get-gift-premium-link.json',
+      '09-page-logged-out.json',
     ]);
     expect(readFileSync(path.join(h.rawDir(), raw[1] ?? ''), 'utf8')).toContain(FAKE.recipient);
     const staged = readdirSync(h.stagingDir()).sort();
     expect(staged).toEqual([
       'get-buy-stars-link.json',
+      'get-gift-premium-link.json',
       'init-buy-stars.json',
+      'init-gift-premium.json',
       'page-logged-in.json',
       'page-logged-out.json',
+      'page-premium-gift.json',
+      'search-premium-recipient.json',
       'search-stars-recipient.json',
       'summary.json',
     ]);
@@ -62,18 +74,22 @@ describe('fragment-record: the full money-free flow', () => {
     expect(h.staged('get-buy-stars-link.json')).toContain(FRAGMENT_PAY_ADDRESS);
     const summary = JSON.parse(h.staged('summary.json')) as Record<string, unknown>;
     expect(summary).toMatchObject({
-      format: 3,
+      format: 4,
       tonSent: false,
       stoppedBy: null,
-      payAddresses: [FRAGMENT_PAY_ADDRESS],
+      skipped: ['search-premium-holder'],
+      payAddresses: { stars: [FRAGMENT_PAY_ADDRESS], premium: [PREMIUM_PAY_ADDRESS] },
       apiHash: { found: true, length: FAKE.hash.length },
+      premiumApiHash: { found: true, sameAsStars: true },
       pageMarkers: {
         loggedIn: { tgAccountMenu: true, loginButton: false },
+        premiumGift: { tgAccountMenu: true, loginButton: false },
         loggedOut: { tgAccountMenu: false, loginButton: true },
       },
       cookieNamesSupplied: ['stel_dt', 'stel_ssid', 'stel_token', 'stel_ton_token'],
       setCookieNames: ['stel_ssid'],
-      linkPayloads: [{ bocMagic: true }],
+      linkPayloads: { stars: [{ bocMagic: true }], premium: [{ bocMagic: true }] },
+      names: { ownerCovered: true, holderSearched: false, holderCovered: false },
     });
   });
 
@@ -112,9 +128,12 @@ describe('fragment-record: the full money-free flow', () => {
 
   it('without --confirm-no-payment it only searches, and never prepares a purchase', async () => {
     const { code, fake, stdout } = await runRecorder(h, []);
-    expect(code).toBe(0);
-    expect(fake.apiMethods()).toEqual(['searchStarsRecipient']);
+    expect(code).toBe(1);
+    // Fix round rule (a): no --name covers the read found.name, so every file is strict (exit 1).
+    expect(stdout.some((l) => l.includes('owner name not covered by --name; strict'))).toBe(true);
+    expect(fake.apiMethods()).toEqual(['searchStarsRecipient', 'searchPremiumGiftRecipient']);
     expect(readdirSync(h.stagingDir())).not.toContain('init-buy-stars.json');
+    expect(readdirSync(h.stagingDir())).not.toContain('init-gift-premium.json');
     expect(stdout.at(-1)).toBe(`fragment-record: ${NO_TON_SENT}`);
   });
 
@@ -137,6 +156,7 @@ describe('fragment-record: the full money-free flow', () => {
         confirmNoPayment: false,
         recipientAgeCheck: true,
         tonConnect: null,
+        premiumHolder: null,
       },
       {
         fetch: fake.fetch,
@@ -149,7 +169,7 @@ describe('fragment-record: the full money-free flow', () => {
       },
     );
     expect(sleeps).toEqual([]);
-    expect(fake.apiMethods()).toEqual(['searchStarsRecipient']);
+    expect(fake.apiMethods()).toEqual(['searchStarsRecipient', 'searchPremiumGiftRecipient']);
   });
 
   it('sends the TON Connect account from --ton-connect and redacts the owner wallet', async () => {

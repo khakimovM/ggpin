@@ -106,7 +106,8 @@ describe('R-2: names', () => {
     const { code, stdout } = await runRecorder(h, [], {
       override: (call) =>
         pageOverride(page)(call) ??
-        (isApi('searchStarsRecipient')(call.form)
+        // Both searches (Stars and Premium) answer without a name.
+        (isApi('searchStarsRecipient')(call.form) || isApi('searchPremiumGiftRecipient')(call.form)
           ? json({ ok: true, found: { recipient: FAKE.recipient } })
           : null),
     });

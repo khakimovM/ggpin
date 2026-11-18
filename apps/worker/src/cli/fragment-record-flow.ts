@@ -13,17 +13,11 @@ import {
   type Exchange,
   type FetchLike,
 } from './fragment-record-client';
-import {
-  readFound,
-  readFromAddress,
-  readPayAddresses,
-  readMessageCount,
-  readPayloadInfo,
-  readReqId,
-  type PayloadInfo,
-} from './fragment-record-read';
+import { linkFields, takeLink } from './fragment-record-link';
+import { foundSecrets, runPremiumSteps } from './fragment-record-premium';
+import { readFound, readReqId, type PayloadInfo } from './fragment-record-read';
 
-// The recording steps (plan S0b). Every step is money-free: a page, a recipient search, a
+// The recording steps (plan S0b, P6-S0a). Every step is money-free: a page, a recipient search, a
 // purchase request, the payment link description. Nothing is signed or sent; the tool has no
 // such code. Each raw exchange is handed to `onExchange` at once (written outside the repo).
 
@@ -36,6 +30,11 @@ export type StepName =
   | 'search-stars-recipient'
   | 'init-buy-stars'
   | 'get-buy-stars-link'
+  | 'page-premium-gift'
+  | 'search-premium-recipient'
+  | 'search-premium-holder'
+  | 'init-gift-premium'
+  | 'get-gift-premium-link'
   | 'page-logged-out'
   | 'init-buy-stars-after-10min';
 
@@ -50,6 +49,8 @@ export interface FlowInput {
   readonly confirmNoPayment: boolean;
   readonly recipientAgeCheck: boolean;
   readonly tonConnect: TonConnectInfo | null;
+  /** An account that already has Premium (Q10), searched only when given. */
+  readonly premiumHolder: string | null;
 }
 
 export interface FlowDeps {
@@ -59,17 +60,32 @@ export interface FlowDeps {
   readonly note: (line: string) => void;
 }
 
+export interface PerProduct<T> {
+  readonly stars: T[];
+  readonly premium: T[];
+}
+
 export interface FlowResult {
   readonly steps: RecordedStep[];
   readonly secrets: SecretValue[];
+  /** What only the premium holder's search can show (its username, name, photo, recipient). */
+  readonly holderSecrets: SecretValue[];
+  /** Every pay address kept by the sanitizer (Stars and Premium). */
   readonly keepAddresses: string[];
-  readonly markers: { loggedIn: PageMarkers | null; loggedOut: PageMarkers | null };
+  readonly payAddresses: PerProduct<string>;
+  readonly markers: {
+    loggedIn: PageMarkers | null;
+    premiumGift: PageMarkers | null;
+    loggedOut: PageMarkers | null;
+  };
   apiHashLength: number | null;
+  /** Null when the Premium page was not reached. */
+  premiumApiHash: { found: boolean; sameAsStars: boolean | null } | null;
   readonly skipped: StepName[];
   stoppedBy: string | null;
   readonly cookieNames: string[];
   readonly setCookieNames: string[];
-  readonly linkPayloads: PayloadInfo[];
+  readonly linkPayloads: PerProduct<PayloadInfo>;
 }
 
 function cookieValue(line: string): string {
@@ -83,7 +99,7 @@ function stopReason(error: unknown): string {
   return `request failed (${error instanceof Error ? error.name : 'unknown error'})`;
 }
 
-type RecordFn = (step: StepName, exchange: Exchange) => Promise<Exchange>;
+export type RecordFn = (step: StepName, exchange: Exchange) => Promise<Exchange>;
 
 export async function runRecordingFlow(input: FlowInput, deps: FlowDeps): Promise<FlowResult> {
   const secrets: SecretValue[] = [
@@ -96,17 +112,25 @@ export async function runRecordingFlow(input: FlowInput, deps: FlowDeps): Promis
       if (value !== null) secrets.push({ kind: 'wallet', value });
     }
   }
+  const holderSecrets: SecretValue[] = [];
+  // Known before any request: the holder's username is redacted wherever an answer echoes it.
+  if (input.premiumHolder !== null) {
+    holderSecrets.push({ kind: 'username', value: input.premiumHolder });
+  }
   const result: FlowResult = {
     steps: [],
     secrets,
+    holderSecrets,
     keepAddresses: [],
-    markers: { loggedIn: null, loggedOut: null },
+    payAddresses: { stars: [], premium: [] },
+    markers: { loggedIn: null, premiumGift: null, loggedOut: null },
     apiHashLength: null,
+    premiumApiHash: null,
     skipped: [],
     stoppedBy: null,
     cookieNames: [...input.cookies.keys()].sort(),
     setCookieNames: [],
-    linkPayloads: [],
+    linkPayloads: { stars: [], premium: [] },
   };
   const record: RecordFn = async (step, exchange) => {
     for (const line of exchange.response.setCookies) {
@@ -138,6 +162,7 @@ async function runSteps(
     deps.fetch,
     new RecorderCookieJar(input.cookies),
     TIMEOUT_MS,
+    input.confirmNoPayment,
   );
   const page = await record('page-logged-in', await client.page());
   const html = page.response.body;
@@ -153,11 +178,7 @@ async function runSteps(
     await client.api(hash, 'searchStarsRecipient', { query: input.username, quantity: '' }),
   );
   const found = readFound(search.response.body);
-  if (found !== null) {
-    secrets.push({ kind: 'recipient', value: found.recipient });
-    if (found.name !== null) secrets.push({ kind: 'name', value: found.name });
-    if (found.photo !== null) secrets.push({ kind: 'photo', value: found.photo });
-  }
+  secrets.push(...foundSecrets(found));
   const initFields = (recipient: string): Record<string, string> => ({
     recipient,
     quantity: STARS_QUANTITY,
@@ -180,27 +201,20 @@ async function runSteps(
       result.skipped.push('get-buy-stars-link');
       deps.note('get-buy-stars-link skipped: no req_id in the init response');
     } else {
-      const fields: Record<string, string> = { id: reqId, transaction: '1', show_sender: '0' };
-      if (input.tonConnect !== null) {
-        fields['account'] = input.tonConnect.accountJson;
-        if (input.tonConnect.deviceJson !== null) fields['device'] = input.tonConnect.deviceJson;
-      }
       const link = await record(
         'get-buy-stars-link',
-        await client.api(hash, 'getBuyStarsLink', fields),
+        await client.api(hash, 'getBuyStarsLink', linkFields(reqId, input.tonConnect)),
       );
-      result.linkPayloads.push(...readPayloadInfo(link.response.body));
-      // The sending wallet named by the link is the owner's: never kept, even with a wrong --wallet.
-      const from = readFromAddress(link.response.body);
-      if (from !== null) secrets.push({ kind: 'address', value: from });
-      // R-4: exactly one message (Fragment's pay address) is kept; anything else is not trusted.
-      const payTo = readPayAddresses(link.response.body);
-      if (payTo.length !== 1 || readMessageCount(link.response.body) !== 1) {
-        return 'the link response does not hold exactly one message';
-      }
-      result.keepAddresses.push(...payTo);
+      const facts = takeLink(link.response.body, secrets);
+      result.linkPayloads.stars.push(...facts.payloads);
+      if (facts.payTo === null) return 'the link response does not hold exactly one message';
+      result.keepAddresses.push(...facts.payTo);
+      result.payAddresses.stars.push(...facts.payTo);
     }
   }
+
+  const premiumStop = await runPremiumSteps({ input, deps, result, record, client, hash });
+  if (premiumStop !== null) return premiumStop;
 
   const anonymous = new FragmentRecorderClient(deps.fetch, null, TIMEOUT_MS);
   const loggedOut = await record('page-logged-out', await anonymous.page());

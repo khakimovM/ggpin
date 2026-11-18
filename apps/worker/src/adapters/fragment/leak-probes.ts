@@ -122,6 +122,24 @@ function addressProbes(id: TonAccountId): Probe[] {
   ];
 }
 
+/**
+ * A `payload` value that is not the payload placeholder (P6-S0a, fix round CR F4/F5, SA F6):
+ * every payload is redacted whatever it holds, so any other non-empty value is a leak: an object
+ * or array, or a string under a double-, single-, escaped- or unquoted key. Lower-cased views.
+ */
+const PAYLOAD_SHAPES: readonly RegExp[] = [
+  /"payload"\s*[:=]\s*[[{]/,
+  /(?<![a-z0-9_$])(?:\\{0,3}["'`])?payload(?:\\{0,3}["'`])?\s*[:=]\s*\\{0,3}(["'`])(?!<redacted:payload>)(?!\\{0,3}\1)(?=.)/,
+  /&quot;payload&quot;\s*[:=]\s*&quot;(?!<redacted:payload>|&quot;)/,
+  // A bare value (round 2, SA R5: `payload=abcd…`), 8+ token characters.
+  /(?<![a-z0-9_$])payload\s*[:=]\s*[a-z0-9+/_-]{8,}/,
+];
+
+export const PAYLOAD_PROBE: Probe = {
+  rule: 'payload',
+  test: (view) => PAYLOAD_SHAPES.some((re) => re.test(view)),
+};
+
 /** Probes for one known secret; `accounts` collects the parsed TON accounts. */
 export function secretProbes(secret: SecretValue, accounts: TonAccountId[]): Probe[] {
   const value = secret.value.trim();

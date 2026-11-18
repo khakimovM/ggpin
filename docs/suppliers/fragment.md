@@ -76,14 +76,33 @@ Redirect’lar avtomatik kuzatilmaydi (`redirect: manual`): API javobidagi redir
   uchun: yuborishni biz o‘zimiz TON tarmog‘iga qilamiz; Fragment’ga BOC qaytarish kerakmi — ochiq
   savol (6-bo‘lim). **taxmin**
 
-## 6. Metodlar (Premium) — S0b’da yozib olinmaydi
+## 6. Metodlar (Premium) — P6-S0a’dan boshlab yozib olinadi
 
-| Metod                        | Maydonlar                                                 | Belgi  |
-| ---------------------------- | --------------------------------------------------------- | ------ |
-| `searchPremiumGiftRecipient` | `query`, `months`                                         | taxmin |
-| `initGiftPremiumRequest`     | `recipient`, `months` (3/6/12)                            | taxmin |
-| `getGiftPremiumLink`         | `id`, `transaction=1`, `show_sender`, `account`, `device` | taxmin |
-| `updatePremiumState`         | —                                                         | taxmin |
+Sahifa: `GET /premium/gift` (API chaqiruvlarining `Referer`’i ham shu sahifa). Sahifadagi API
+`hash` alohida o‘qiladi; u Stars sahifasidagi bilan bir xilmi — `summary.json` →
+`premiumApiHash.sameAsStars`. **taxmin**
+
+| Metod                        | Yozib olish vositasi yuboradigan maydonlar                                                       | Pul bilan bog‘liqmi                               | Vositada                                                | Belgi  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------- | ------ |
+| `searchPremiumGiftRecipient` | `query` (username, `@`siz), `months=3`                                                           | yo‘q                                              | har doim (ega); `--premium-holder` bilan yana bir marta | taxmin |
+| `initGiftPremiumRequest`     | `recipient` (qidiruv javobidan), `months=3`                                                      | so‘rov yaratadi, pul yo‘q                         | faqat `--confirm-no-payment` bilan                      | taxmin |
+| `getGiftPremiumLink`         | `id` (= `req_id`), `transaction=1`, `show_sender=0`, `account`/`device` (`--ton-connect` bo‘lsa) | tranzaksiya **tavsifi**; imzolanmaguncha pul yo‘q | faqat `--confirm-no-payment` bilan                      | taxmin |
+| `updatePremiumState`         | —                                                                                                | noma’lum                                          | **chaqirilmaydi** (pastga qarang)                       | taxmin |
+
+- Javob shakllari Stars’ga o‘xshash deb taxmin qilinadi (`found.recipient`, `req_id`,
+  `transaction.messages[]`); mos kelmasa keyingi qadam o‘tkazib yuboriladi, taxmin qilinmaydi.
+- `updatePremiumState` faqat o‘qishi isbotlanmagan (nomi holatni o‘zgartirishni bildirishi
+  mumkin), shuning uchun ruxsat ro‘yxatiga **qo‘shilmadi**. Narx manbai sifatida kerak bo‘lsa
+  (P6-S4), uning xatti-harakati avval brauzer DevTools’da (pulsiz sahifa ochilganda) kuzatiladi.
+- «Premium allaqachon bor» javobi (Q1: bloklovchi xato yoki «muddat uzayadi») —
+  `search-premium-holder.json` fixture’idan aniqlanadi (`--premium-holder`, 11-bo‘lim). Bu fayl
+  har doim qat’iy matnda yoziladi (10-bo‘lim): ismsiz umumiy xato matni va kalitlar saqlanadi,
+  lug‘atdan tashqari so‘zi bor satr `<REDACTED:secret>`, ≥5 xonali son `0`. Holder qiymatlari bu
+  faylda ham, boshqa fayllarda ham qolmasligini sanitizer, qat’iy matn va leak-tekshiruv birga
+  ta’minlaydi; javob matni ism bilan kelsa, Q1 xulosasi kalitlar, `ok`/`error` mavjudligi va qolgan
+  lug‘at so‘zlaridan chiqariladi.
+- Premium to‘lov manzili Stars’nikidan farq qilishi mumkin: `summary.json` →
+  `payAddresses.premium` (`FRAGMENT_PAY_ADDRESSES` ga qo‘shiladi, E5).
 
 ## 7. «Login holatidaman» belgisi (keep-alive uchun, S7)
 
@@ -120,7 +139,7 @@ ikki holatni ajratishi yozuvdan keyin tanlanadi.
 5. `getBuyStarsLink` uchun `account`/`device` majburiymi?
 6. KYC talabi bormi?
 
-## 10. Yozib olish vositasi (`fragment:record`, S0b)
+## 10. Yozib olish vositasi (`fragment:record`, S0b + P6-S0a)
 
 - Fayllar: `apps/worker/src/cli/fragment-record*.ts`; sanitizer —
   `apps/worker/src/adapters/fragment/fixture-sanitizer.ts` (+ `sanitizer-rules.ts`,
@@ -136,9 +155,13 @@ ikki holatni ajratishi yozuvdan keyin tanlanadi.
   qatori opsiyasi (`node --inspect …`, `process.execArgv` bo‘sh emas). **Cheklov:** `NODE_OPTIONS` tekshiruvi Node
   `--require`/`--import` preload’laridan KEYIN ishlaydi — preload kod bu tekshiruvdan oldin
   bajarilib bo‘ladi; shuning uchun vositani faqat toza terminalda ishga tushiring. `.env`
-  o‘qilmaydi. TON kutubxonasi, imzo yoki yuborish kodi yo‘q; faqat `searchStarsRecipient`,
-  `initBuyStarsRequest`, `getBuyStarsLink` chaqiriladi (ikkinchi va uchinchisi faqat
-  `--confirm-no-payment` bilan). npm orqali ishga tushirilsa (`npm_lifecycle_event` bor), stderr’ga
+  o‘qilmaydi. TON kutubxonasi, imzo yoki yuborish kodi yo‘q. Ruxsat ro‘yxatida aynan oltita metod:
+  `searchStarsRecipient`, `initBuyStarsRequest`, `getBuyStarsLink`, `searchPremiumGiftRecipient`,
+  `initGiftPremiumRequest`, `getGiftPremiumLink`. `init*` va `get*Link` — faqat
+  `--confirm-no-payment` bilan; bu ikki qatlamda tekshiriladi: qadamlar oqimi ularni o‘tkazib
+  yuboradi, client esa tasdiqsiz run’da ularni so‘rov yuborilmasdan rad etadi.
+  `updatePremiumState` ro‘yxatda yo‘q (6-bo‘lim). Sahifalar: `GET /stars/buy`, `GET /premium/gift`
+  (cookie bilan) va cookie’siz `GET /stars/buy`. npm orqali ishga tushirilsa (`npm_lifecycle_event` bor), stderr’ga
   qiymatsiz ogohlantirish chiqadi: npm buyruq qatorini konsolga va o‘z log fayliga yozadi.
 - Majburiy bayroqlar: `--cookies`, `--username`, `--telegram-id` (har doim; id faqat yashirish
   uchun). `--confirm-no-payment` bilan yana `--wallet <manzil>` (egasining hamyoni), kamida
@@ -151,7 +174,58 @@ partly found` — N tartib raqami, qiymat chiqmaydi; odatda imlo xatosi), stagin
   yozilmaydi, exit 1. Apostrof shakllari (`'`, `` ` ``, `´`, `‘`, `’`, `ʹ`, `ʻ`, `ʼ`, `ꞌ`) bir xil
   hisoblanadi. Sahifada API `hash` topilmasa (`stopped early: no api hash`), sahifa fayllari
   staging’ga yozilmaydi (`withheld: <fayl> (no api hash)`), faqat `summary.json`, exit 1.
+  `/premium/gift` sahifasida hash topilmasa — faqat shu sahifa fayli ushlab qolinadi
+  (`withheld: page-premium-gift.json (no api hash)`), Premium API qadamlari o‘tkazib yuboriladi,
+  Stars fayllari yoziladi, exit 1.
   `--ton-connect <fayl>` faqat bosh sessiya ko‘rsatmasi bilan.
+- **`--premium-holder <username>`** (ixtiyoriy, Q10): Premium’i BOR, rozilik bergan akkaunt
+  uchun bitta qo‘shimcha `searchPremiumGiftRecipient` (`months=3`). Bayroqsiz egadan boshqa
+  hech kim qidirilmaydi. U bilan kamida bitta `--premium-holder-name "<ko‘rinadigan ism>"`
+  (takrorlanadi) majburiy; ega o‘zi holder bo‘la olmaydi; xatolar exit 2. Holder’ning username’i,
+  `--premium-holder-name` qiymatlari, javobdagi ismi, rasmi va `recipient` qiymati HAMMA
+  fayllarda (sanitizer va leak-tekshiruv orqali, har shaklda) yashiriladi; konsolga chiqmaydi.
+  Holder ismlari egasining ismi o‘rnini bosmaydi (`no display name is known` tekshiruvi faqat
+  egasi tomonida). Holder javobida biror ismning so‘zlari qisman bor (`nothing staged: premium
+holder name N partly found`) → staging’ga hech narsa yozilmaydi, exit 1 (odatda imlo xatosi).
+- **Qat’iy matn (strict text; P6-S0a tuzatish raundi, CR F1/F3, SA F1/F2/F7).** Ism faqat qisman
+  berilsa (masalan faqat ism), javobdagi familiya, otasining ismi, taxallus yoki boshqa yozuvdagi
+  shakl hech qanday berilgan qiymatga mos kelmaydi va sanitizer uni bilmaydi. Shuning uchun javobdagi
+  satr o‘z qiymati bilan faqat ikki holatda yoziladi:
+  - **(a)** javobdan `found.name` o‘qilgan, unda kamida bitta so‘z bor va uning HAR so‘zi (har
+    uzunlikda; NFC, katta-kichik harf va apostrof shakllari bir xil) berilgan ismlar so‘zlari ichida
+    bor — vosita to‘liq ismni biladi. So‘zsiz `found.name` (faqat emoji) qoplanmagan hisoblanadi;
+  - **(b)** satr «oddiy»: sanitizer’dan keyin NFC qilinib, ko‘rinmas `\p{Cf}` belgilar (zero-width)
+    olib tashlangach, yopiq ro‘yxatdagi placeholder’lar (`<REDACTED:kind>` va `<REDACTED:key#N>`;
+    `<REDACTED:Qosimova>` kabi uydirma placeholder emas) chiqarib qolganda, harfi bor HAR token
+    (so‘z ichidagi apostrof shakllari va `\p{M}` harf hisoblanadi: `Ro'za` bitta so‘z) lug‘atda
+    bo‘lsa. Lug‘at: `already`, `has`, `have`, `telegram`, `premium`, `stars`, `account`, `user`,
+    `users`, `not`, `found`, `gift`, `subscription`, `this`, `the`, `and`, `for`, `cannot`, `can`,
+    `you`, `with`, `month`, `months`, `invalid`, `recipient`, `username`, `error`, hamda 1–2 harfli
+    `a`, `an`, `is`, `in`, `of`, `to`, `on`, `no`, `or`, `by`, `at`, `it`, `ok` (ikkala ro‘yxat
+    testda qotirilgan). Harf va raqam aralash token (`Q0s1m0va`), CJK harfli token va kodlangan
+    belgi (`&#…;`, `&#x…;`, `&name;`, `%XX`, `\uXXXX`, `\xXX`) bor satr hech qachon oddiy emas.
+    Lug‘at so‘ziga teng ism (masalan `Can`) bu qoida bilan ushlanmaydi — buni (a) va sanitizer
+    yopadi.
+  - Aks holda satr `<REDACTED:secret>` bo‘ladi, kalit qoladi. Oddiy identifikator bo‘lmagan kalit
+    (`^[a-z_][A-Za-z0-9_]{0,40}$` ga mos kelmaydigan: bo‘shliqli, bosh harf bilan boshlanadigan,
+    kirill) `<REDACTED:key#N>` bo‘ladi (N — fayl ichidagi tartib). HTML yoki matn javobi butunlay
+    bitta `<REDACTED:secret>`. Bunday fayl `response.strictText: true` bilan belgilanadi.
+  - **Holder javobi** (uchinchi shaxs) — (a) bajarilsa ham HAR DOIM qat’iy matnda. Unda yana ≥5
+    raqamli qator (bo‘shliq, nuqta, vergul yoki tire bilan ajratilgan bo‘lsa ham: `712-345-6789`)
+    bor har satr `<REDACTED:secret>`, moduli ≥ 10000 bo‘lgan har son `0`.
+  - **Egasining qidiruvlari** (`search-stars-recipient`, `search-premium-recipient`) — (a)
+    bajarilsa ham HAR DOIM qat’iy matnda: `error` va boshqa erkin matnda otasining ismi yoki
+    taxallus bo‘lishi mumkin, u hech bir `--name` da yo‘q.
+  - **Egasining fayllari** — (a) egasi uchun bajarilmasa (`search-stars-recipient` /
+    `search-premium-recipient` javobidan `found.name` o‘qilmadi yoki unda `--name` larda yo‘q so‘z
+    bor), HAMMA fayllar, sahifalar ham (sahifa sarlavhasida ism bo‘lishi mumkin), qat’iy matnda
+    yoziladi.
+  - Biror qiymat ushlansa stdout’da `withheld: <fayl> values (<N> not plain text; strict)` (holder
+    yoki egasining qidiruvi, ega ismi qoplangan bo‘lsa) yoki
+    `withheld: <fayl> values (<N> owner name not covered by --name; strict)`, exit 1. Ismsiz
+    umumiy matn (masalan «This account already has Telegram Premium») o‘zgarishsiz saqlanadi.
+  - Qisman berilgan ism uchun eski tekshiruvlar ham qoladi: `name N partly found` va
+    `premium holder name N partly found` (yuqorida).
 - **Vosita repoga umuman yozmaydi va undan o‘qimaydi.** Ikki papka, ikkalasi ham bo‘sh (yoki
   yangi) va bir-birining ichida emas; har tekshiruv HAQIQIY yo‘lda (junction/symlink ochilgan,
   eng yaqin mavjud ota-papka orqali) ishlaydi va `mkdir` dan keyin qayta tekshiriladi:
@@ -177,14 +251,27 @@ partly found` — N tartib raqami, qiymat chiqmaydi; odatda imlo xatosi), stagin
   shakllari (har 10 belgili oyna, oxirgi 8 belgi, `boshi4…oxiri4`/`...`), har o‘rindagi 48 belgili
   oynadagi begona TON manzili, uzun hex va hisob hash’i (har bit siljishida) qidiriladi. Topilsa
   fayl yozilmaydi: stdout’da `withheld: <fayl> (leak check: <qoida nomlari>)`, exit 1.
-- Saqlanadigan yagona manzil — `getBuyStarsLink` javobidagi Fragment to‘lov manzili, aynan berilgan
-  yozilishida va faqat javobda AYNAN BITTA xabar bo‘lsa (aks holda yozuv to‘xtaydi, exit 1);
+- Saqlanadigan manzillar — faqat `getBuyStarsLink` va `getGiftPremiumLink` javobidagi Fragment
+  to‘lov manzili, aynan berilgan yozilishida va faqat javobda AYNAN BITTA xabar bo‘lsa (aks holda
+  yozuv to‘xtaydi, exit 1; Premium’da `stopped early: the premium link response does not hold
+exactly one message`); `summary.json` → `payAddresses.stars` / `payAddresses.premium` alohida;
   egasining hisobiga teng manzil saqlanmaydi — **faqat to‘g‘ri `--wallet` berilsa**: boshqa hamyon
   berilsa, Fragment’ga ulangan haqiqiy hamyon yagona xabar manzili sifatida saqlanib qolishi
   mumkin (auditdagi KEEP1 sharti).
 - Placeholder’lar (yopiq ro‘yxat): `<REDACTED:cookie|hash|name|username|photo|photo-url|photo-data|recipient|address|wallet|tg_id|phone|secret|payload|token|email|kyc>`;
-  JSON’dagi raqamli Telegram id / telefon → `0`. BOC payload doim `<REDACTED:payload>`
-  (fail-closed); kaliti noma’lum uzun tasodifiy qiymat va saqlanmagan har qanday ≥32 belgili hex →
+  JSON’dagi raqamli Telegram id / telefon → `0`. `id`, `*_id` yoki camelCase `*Id` (`peerId`,
+  `chatId`) kaliti ostidagi ≥5 xonali son → `0` (faqat raqamdan iborat satr → `"0"`), matndagi
+  `"id": …` / `"peer_id": …` / `"peerId": …` ham (SA F3, R6);
+  ochiq qoladigan yagona kalit — `req_id`: Fragment’ning o‘z so‘rov id’si, ortida akkaunt yo‘q,
+  adapter testlariga haqiqiy shakli kerak. `payload` kaliti (katta-kichik harfidan qat’i nazar)
+  ostidagi qiymat (P6-S0a, fail-closed): JSON’da bo‘sh bo‘lmagan satr → `<REDACTED:payload>`, son →
+  `0`, obyekt yoki massiv → butunlay `<REDACTED:payload>`; `""` va `null` qoladi. Sahifa/matnda
+  qo‘sh, bitta, qo‘shtirnoqsiz, JSON-escape’li (`\"payload\"`), entity’li (`&quot;payload&quot;`)
+  yoki foiz-kodli (`payload%22%3A…`) kalitdan keyin `:` yoki `=` (`payload=…`,
+  `"Payload" = "…"`) bilan kelgan satr, obyekt, massiv yoki ≥8 belgili yalang‘och qiymat ham
+  `<REDACTED:payload>` (oxiri topilmasa — matn oxirigacha). Leak-tekshiruv shu shakllarda
+  placeholder’dan boshqa bo‘sh bo‘lmagan qiymatni, obyekt yoki massivni sizish deb biladi. Kalitsiz matndagi BOC ham doim `<REDACTED:payload>`;
+  kaliti noma’lum uzun tasodifiy qiymat va saqlanmagan har qanday ≥32 belgili hex →
   `<REDACTED:token>`; qisqartirilgan manzil (`UQAB…wxyz`, `UQAB … wxyz`, `UQABcd***uvwxyz`) →
   `<REDACTED:address>`; telefon shakllari (`+…`, `998…`, `8 916 …`, `90 123 45 67`,
   `90-123-45-67`, `(90) 123-45-67`, `90 1234567`, `90.123.45.67`, telefon so‘zidan keyin yoki
@@ -194,9 +281,17 @@ partly found` — N tartib raqami, qiymat chiqmaydi; odatda imlo xatosi), stagin
 v`, `{'stel_x':'v'}`, `["stel_x","v"]`, `name=stel_x&value=v`, `&equals;` va h.k.), hash
   (`apiHash=`, `api_hash:`, `"hash":"h"`, `data-hash=`, `/api/hash/h`) va har qanday `data:…;base64,`
   (qatorlarga bo‘lingan bo‘lsa ham) noma’lum qiymat bilan ham yashiriladi.
-- Staging fayllari: `page-logged-in.json`, `search-stars-recipient.json`, `init-buy-stars.json`,
-  `get-buy-stars-link.json`, `page-logged-out.json`, `init-buy-stars-after-10min.json`
-  (ixtiyoriy), `summary.json` (`format: 3`, `tonSent: false`, `linkPayloads`).
+- Staging fayllari (tartibda): `page-logged-in.json`, `search-stars-recipient.json`,
+  `init-buy-stars.json`, `get-buy-stars-link.json`, `page-premium-gift.json`,
+  `search-premium-recipient.json`, `search-premium-holder.json` (faqat `--premium-holder` bilan),
+  `init-gift-premium.json`, `get-gift-premium-link.json`, `page-logged-out.json`,
+  `init-buy-stars-after-10min.json` (ixtiyoriy), `summary.json`.
+- `summary.json` `format: 4`: `tonSent: false`, `skipped`, `stoppedBy`, `apiHash`,
+  `premiumApiHash` (`{found, sameAsStars}` yoki sahifaga yetilmagan bo‘lsa `null`),
+  `pageMarkers` (`loggedIn`, `premiumGift`, `loggedOut`), `payAddresses: {stars, premium}`,
+  `linkPayloads: {stars, premium}` (har payload uchun faqat bayt soni va BOC belgisi),
+  `names: {ownerCovered, holderSearched, holderCovered}` (qat’iy matn qoidasi (a) natijasi).
+  3-format’dan farqi: `payAddresses` va `linkPayloads` endi mahsulot bo‘yicha obyekt.
 - Production image’da yo‘q: `apps/worker/Dockerfile` `dist/cli/fragment-record*` va
   `dist/config/fragment-record-env.*` ni o‘chiradi va iz qolsa build’ni yiqitadi.
 
@@ -207,7 +302,10 @@ hamyon manzili (to‘liq yoki bir qismi), ism, telefon raqami, buyruqning o‘zi
 boshqa qatorlari. Chatga **faqat** shular yoziladi: `withheld:`, `stopped early:` va
 `nothing staged` bilan boshlanadigan qatorlar hamda exit kodi (`$LASTEXITCODE`).
 
-1. Sinov hamyonida S0b paytida **0 TON**. Tonkeeper biror so‘rov chiqarsa → **Decline**.
+Bitta run Stars (S0b) va Premium (P6-S0a) fixture’larini birga yozadi; alohida Premium run
+kerak emas.
+
+1. Sinov hamyonida yozuv paytida **0 TON**. Tonkeeper biror so‘rov chiqarsa → **Decline**.
 2. Brauzer profili kengaytmalarsiz. `ggpin-secrets` va staging OneDrive’ga sinxron qilinmaydi;
    `fragment-raw` AI kengaytmali muharrirda ochilmaydi. Toza PowerShell oynasi (proxy va
    `NODE_*` o‘zgaruvchilarsiz).
@@ -219,22 +317,49 @@ boshqa qatorlari. Chatga **faqat** shular yoziladi: `withheld:`, `stopped early:
    tushirib, barcha kartalarda avtomatik yozishni to‘xtatadi. Kirishni **faqat mavjud telefondagi**
    Telegram’da tasdiqlang. S0b’dan keyin Telegram → Settings → Privacy and Security → Active
    Websites ro‘yxatida fragment.com qoladi — bu kutilgan holat (S7 shu sessiyadan foydalanadi).
-4. Cookie olish: DevTools (F12) → Network → sahifani yangilang → `stars/buy` so‘rovi → Request
-   Headers → `cookie` → o‘ng tugma → **Copy value**.
-5. Windows’da bulutli clipboard sinxronini o‘chiring (Settings → System → Clipboard → «Sync
-   across devices» — Off). Cookie faylini yozish:
+4. **Cookie nusxalashdan OLDIN** Windows’da bulutli clipboard sinxronini o‘chiring (Settings →
+   System → Clipboard → «Sync across devices» — Off), aks holda cookie boshqa qurilmalarga va
+   bulutga ketadi. Keyin cookie olish: DevTools (F12) → Network → sahifani yangilang →
+   `stars/buy` so‘rovi → Request Headers → `cookie` → o‘ng tugma → **Copy value**.
+5. Cookie faylini yozish:
    `Get-Clipboard -Raw | Set-Content -NoNewline $env:USERPROFILE\Desktop\ggpin-secrets\fragment-cookies.txt`.
-   Keyin Win+V → «Clear all».
+   Fayl yozilgach clipboard’ni darhol tozalang: `Set-Clipboard -Value ' '`, keyin Win+V →
+   «Clear all».
 6. Repo ildiziga o‘ting va build qiling (`@repo/shared` va `@repo/db` ham dist bilan quriladi):
    ```
    cd $env:USERPROFILE\Desktop\ggpin-platform
    npx turbo run build --filter=worker
    ```
 7. Ishga tushirish — **npm’siz**, repo ildizidan (npm buyruq qatorini konsolga va
-   `%LocalAppData%\npm-cache\_logs` dagi log fayliga yozadi):
+   `%LocalAppData%\npm-cache\_logs` dagi log fayliga yozadi). **Buyruqni Claude Code’da `!` bilan
+   yurgizmang**: buyruq qatori ham, stdout ham suhbatga (va uning log’iga) tushadi — faqat alohida
+   PowerShell oynasida. Buyruqdan OLDIN shu oynada tarix yozishni o‘chiring:
+   `Set-PSReadLineOption -HistorySaveStyle SaveNothing`.
    ```
-   node apps\worker\dist\cli\fragment-record.js --cookies $env:USERPROFILE\Desktop\ggpin-secrets\fragment-cookies.txt --username <username> --telegram-id <id> --confirm-no-payment --wallet <manzil> --phone <raqam> --name "<to‘liq ism>" --name "<ism>" --name "<familiya>" [--redact $env:USERPROFILE\Desktop\ggpin-secrets\redact.txt] [--recipient-age-check]
+   node apps\worker\dist\cli\fragment-record.js --cookies $env:USERPROFILE\Desktop\ggpin-secrets\fragment-cookies.txt --username <username> --telegram-id <id> --confirm-no-payment --wallet <manzil> --phone <raqam> --name "<to‘liq ism>" --name "<ism>" --name "<familiya>" [--premium-holder <holder username> --premium-holder-name "<holder to‘liq ismi>" --premium-holder-name "<ism>" --premium-holder-name "<familiya>"] [--redact $env:USERPROFILE\Desktop\ggpin-secrets\redact.txt] [--recipient-age-check]
    ```
+   - Premium qadamlari (`/premium/gift` sahifasi, o‘z username’ingiz bo‘yicha 3 oylik qidiruv,
+     `--confirm-no-payment` bilan 3 oylik sovg‘a so‘rovi va to‘lov havolasi TAVSIFI) har run’da
+     avtomatik bajariladi; alohida bayroq yo‘q. Hech narsa imzolanmaydi va yuborilmaydi.
+   - `--premium-holder` (ixtiyoriy, lekin Q1 javobi uchun juda foydali): Premium’i **allaqachon
+     bor** va bunga **rozilik bergan** tanish/sherikning username’i, `@` siz. U bilan
+     `--premium-holder-name` majburiy: uning Telegram profilidagi ismi **aynan nusxalab** —
+     to‘liq ism, ism va familiya alohida (o‘zingizning `--name` kabi). Uning akkauntiga hech qanday
+     so‘rov ketmaydi, faqat Fragment’da bitta qidiruv; sovg‘a so‘rovi unga yaratilmaydi.
+   - **Holder ismi — profil ismi, kontakt nomi emas.** U sizning kontaktlaringizda bo‘lsa, Telegram
+     unga siz saqlagan nomni ko‘rsatadi — bu Fragment ko‘rsatadigan profil ismidan farq qiladi.
+     Ismni holderning o‘zidan so‘rang (profilidagi aynan yozilishi) yoki kontakt nomini vaqtincha
+     olib tashlab, profil ismini ko‘ring.
+   - `nothing staged: premium holder name N partly found` chiqsa — N-chi `--premium-holder-name`
+     profildagidan farq qiladi: qayta nusxalab, yana ishga tushiring.
+   - `withheld: search-premium-holder.json values (N not plain text; strict)` chiqsa — bu xato
+     emas: holder javobidagi N ta satr (yoki kalit) lug‘atdan tashqari so‘z saqlagani uchun
+     `<REDACTED:secret>` bilan yozildi (10-bo‘lim, qat’iy matn). Shu qatorni chatga yozing; qayta
+     ishga tushirish shart emas.
+   - `withheld: <fayl> values (N owner name not covered by --name; strict)` chiqsa — Fragment
+     ko‘rsatgan ismingizda `--name` larda yo‘q so‘z bor (yoki javobdan ism o‘qilmadi), shuning uchun
+     fayllar qat’iy matnda yozildi. Profildagi ismni to‘liq (`--name "<to‘liq ism>"`) qayta
+     nusxalab, yana ishga tushiring.
    - `--username` **`@` siz** yoziladi: PowerShell `@` ni splatting deb tushunadi.
    - `--name`: Telegram profilidagi ism **aynan nusxalanadi** — to‘liq ism, ism va familiya
      alohida-alohida. Ismda o‘ yoki g‘ bo‘lsa, har apostrof shakli bilan ham bering (`O'`, `O‘`,
@@ -252,16 +377,23 @@ boshqa qatorlari. Chatga **faqat** shular yoziladi: `withheld:`, `stopped early:
 8. Natija: chatga faqat yuqoridagi ruxsat etilgan qatorlar va exit kodi. Staging papkada
    (`$env:USERPROFILE\Desktop\ggpin-fixtures-staging\<vaqt>`) qidiring: username (oddiy va
    `%40<username>`), Telegram id, hamyon manzilining birinchi 4–6 va oxirgi 8 belgisi,
-   ismingizdagi har so‘z, telefon raqamingiz. Hech narsa topilmasa — «tayyor» deysiz; bosh
-   sessiya ko‘rib chiqadi.
-9. Bosh sessiya ko‘rib chiqqandan keyin `$env:USERPROFILE\Desktop\ggpin-secrets\fragment-raw\<vaqt>`
-   papkasini o‘chiring. Cookie fayli S7 importidan keyin o‘chiriladi.
+   ismingizdagi har so‘z, telefon raqamingiz; `--premium-holder` berilgan bo‘lsa, holder
+   username’i (oddiy va `%40<username>`) va ismidagi har so‘z ham (lotin va kirill yozuvida). Hech narsa topilmasa —
+   «tayyor» deysiz; bosh sessiya ko‘rib chiqadi.
+9. Bosh sessiya ko‘rib chiqqandan keyin **barcha** `$env:USERPROFILE\Desktop\ggpin-secrets\fragment-raw\<vaqt>`
+   run papkalarini o‘chiring (bir necha marta ishga tushirilgan bo‘lsa — har birini). Cookie fayli
+   S7 importidan keyin o‘chiriladi.
 10. Izlarni tozalash: `Clear-History`, so‘ng `(Get-PSReadLineOption).HistorySavePath` faylidan
-    cookie, id, manzil, ism yoki telefon bor qatorlarni o‘chiring. npm ishlatilgan bo‘lsa,
+    shu qiymatlar bor qatorlarni qidirib o‘chiring: cookie, Telegram id, hamyon manzili, telefon,
+    **sizning va holderning username’lari** (oddiy va `%40<username>`) va **ikkalasining ismlari**
+    (har so‘zi). 7-banddagi `SaveNothing` yoqilgan bo‘lsa ham tekshiring (u faqat o‘sha oynada,
+    yoqilgan paytdan boshlab amal qiladi). npm ishlatilgan bo‘lsa,
     `$env:LocalAppData\npm-cache\_logs` ichidagi shu vaqtdagi log fayllarini o‘chiring.
 11. Hodisa yuz bersa (sir staging’ga yoki boshqa joyga tushdi): fragment.com’da **Log out**;
     Telegram → Settings → Privacy and Security → Active Websites → Fragment → **Disconnect**;
     Tonkeeper’da Fragment ulanishini uzing; `fragment-raw` va staging papkalarini o‘chiring.
+    Holder ma’lumoti (username, ism) sizgan bo‘lsa — **holderni xabardor qiling**: nima va qayerga
+    tushganini ayting.
     (Hodisa bo‘lmasa, Active Websites dagi Fragment uzilmaydi — 3-band.) Qayta kirish ham
     brauzerda Telegram orqali, faqat mavjud telefonda tasdiqlanadi.
 

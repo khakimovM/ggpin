@@ -1,4 +1,4 @@
-import { secretProbes, type Probe } from './leak-probes';
+import { PAYLOAD_PROBE, secretProbes, type Probe } from './leak-probes';
 import { allViews, loweredViews } from './leak-views';
 import type { SecretValue } from './secret-forms';
 import { COOKIE_SHAPES, HASH_SHAPE, PHONE_SHAPES, PHOTO_DATA, hasShape } from './secret-shapes';
@@ -53,6 +53,7 @@ const GENERIC: Probe[] = [
     test: (v) => /[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/.test(v),
   },
   { rule: 'phone-shape', test: (v) => PHONE_SHAPES.some((re) => hasShape(re, v)) },
+  PAYLOAD_PROBE,
 ];
 
 const B64_48 = /[A-Za-z0-9+/_-]{48,}/g;

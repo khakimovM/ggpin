@@ -119,11 +119,14 @@ describe('fragment-record: no TON, no signing, no other process code', () => {
     expect(source).not.toMatch(/source\.[A-Za-z_]/);
   });
 
-  it('allows exactly the three money-free API methods', () => {
+  it('allows exactly the six money-free API methods (Stars and Premium, P6-S0a)', () => {
     expect([...RECORDER_API_METHODS]).toEqual([
       'searchStarsRecipient',
       'initBuyStarsRequest',
       'getBuyStarsLink',
+      'searchPremiumGiftRecipient',
+      'initGiftPremiumRequest',
+      'getGiftPremiumLink',
     ]);
   });
 

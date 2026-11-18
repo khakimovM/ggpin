@@ -1,4 +1,5 @@
 import { NAME_CLASS } from './fragment-page';
+import { redactPayloadText } from './payload-text';
 import { BOUNDARY_BEFORE } from './secret-forms';
 import { COOKIE_SHAPES, HASH_SHAPE, PHONE_SHAPES, PHOTO_DATA } from './secret-shapes';
 import { parseTonAddress } from './ton-address-forms';
@@ -73,10 +74,29 @@ const KEY_KINDS: ReadonlyArray<readonly [RegExp, PlaceholderKind]> = [
   [/^(account|publickey|public_key|walletstateinit|wallet_state_init)$/, 'wallet'],
   [/^(user_id|userid|uid|tg_id|telegram_id|owner_id)$/, 'tg_id'],
   [/^(phone|phone_number|number)$/, 'phone'],
+  // A transaction payload, whatever it holds (P6-S0a): its comment may name the recipient, and a
+  // Premium payload's shape is not known yet. Always redacted, never judged by its content.
+  [/^payload$/, 'payload'],
   [/email/, 'email'],
   [/kyc|verify/, 'kyc'],
   [/token|auth|session/, 'token'],
 ];
+
+/**
+ * Id keys whose number is Fragment's own, not a person's: `req_id` is the purchase request id the
+ * link step echoes back (no account behind it), and the adapter tests need its real shape.
+ */
+export const OPEN_ID_KEYS: ReadonlySet<string> = new Set(['req_id']);
+
+/**
+ * `id`, `*_id` or camelCase `*Id` (P6-S0a SA F3, R6: `peerId`, `chatId`): a 5+ digit number under
+ * it is zeroed unless the key is open.
+ */
+export function isIdKey(key: string): boolean {
+  const lower = key.toLowerCase();
+  if (OPEN_ID_KEYS.has(lower)) return false;
+  return /^(?:[a-z0-9]+_)*id$/.test(lower) || /^[a-z][A-Za-z0-9]*I[dD]$/.test(key);
+}
 
 /** The kind of a JSON key whose string/number value is always redacted, or null. */
 export function kindForKey(key: string): PlaceholderKind | null {
@@ -85,7 +105,7 @@ export function kindForKey(key: string): PlaceholderKind | null {
   return null;
 }
 
-const EMBEDDED_KEY = String.raw`[A-Za-z_]*(?:username|user_name|name|photo|phone|user_id|uid|tg_id|recipient|hash|email|token|auth|session|kyc|verify)[A-Za-z_]*`;
+const EMBEDDED_KEY = String.raw`[A-Za-z_]*(?:username|user_name|name|photo|phone|user_id|uid|tg_id|recipient|hash|email|token|auth|session|kyc|verify|payload)[A-Za-z_]*`;
 
 export interface PatternRule {
   readonly name: string;
@@ -179,6 +199,12 @@ export function patternRules(keep: readonly string[]): PatternRule[] {
         ),
     },
     {
+      // A payload under any key spelling, with any value (P6-S0a fix round, CR F4/F5, SA F6).
+      name: 'payload-text',
+      early: true,
+      apply: (part) => redactPayloadText(part, placeholder('payload')),
+    },
+    {
       name: 'id-attribute',
       early: true,
       apply: (part) =>
@@ -187,8 +213,16 @@ export function patternRules(keep: readonly string[]): PatternRule[] {
             /(data-[a-z-]*(?:user|uid|owner|peer|id)[a-z-]*=["']?)(\d{5,})/gi,
             (_m, prefix: string) => `${prefix}0`,
           )
-          // A bare `"id": 700100200` in page JSON may be the user's id (audit G2): fail closed.
-          .replace(/("id"\s*:\s*)\d{5,}(?!\d)/gi, (_m, prefix: string) => `${prefix}0`),
+          // A bare `"id": 700100200` (or `"peer_id"`) in page JSON may be a user's id (audit G2,
+          // P6-S0a SA F3): fail closed. `req_id` is Fragment's own request id (OPEN_ID_KEYS).
+          .replace(
+            /("(?!req_id")(?:[a-z0-9]+_)*id"\s*:\s*)\d{5,}(?!\d)/gi,
+            (_m, prefix: string) => `${prefix}0`,
+          )
+          .replace(
+            /("[a-z][A-Za-z0-9]*I[dD]"\s*:\s*)\d{5,}(?!\d)/g,
+            (_m, prefix: string) => `${prefix}0`,
+          ),
     },
     {
       // Text of an element whose class names a person (audit KEY4), even when the name is unknown.

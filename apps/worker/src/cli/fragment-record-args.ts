@@ -26,13 +26,18 @@ export interface FragmentRecordArgs {
   readonly names: string[];
   /** The owner's phone number(s), for redaction only (R-9). */
   readonly phones: string[];
+  /** An account that already has Premium, searched once (P6-S0a, Q10); null when not given. */
+  readonly premiumHolder: string | null;
+  /** That account's display name(s), for redaction only; required with --premium-holder. */
+  readonly premiumHolderNames: string[];
 }
 
 export const FRAGMENT_RECORD_USAGE =
   'usage: fragment-record --cookies <file> --username <your @username> --telegram-id <digits> ' +
   '[--confirm-no-payment --wallet <address> --name <your name>] [--name ...] [--phone ...] ' +
-  '[--recipient-age-check] [--out <dir>] [--fixtures <dir>] [--ton-connect <file>] ' +
-  '[--redact <file>]';
+  '[--premium-holder <username> --premium-holder-name <their name>] ' +
+  '[--premium-holder-name ...] [--recipient-age-check] [--out <dir>] [--fixtures <dir>] ' +
+  '[--ton-connect <file>] [--redact <file>]';
 
 export class RecordUsageError extends Error {
   constructor(reason: string) {
@@ -66,6 +71,8 @@ function readValues(argv: readonly string[]) {
         wallet: { type: 'string' },
         name: { type: 'string', multiple: true },
         phone: { type: 'string', multiple: true },
+        'premium-holder': { type: 'string' },
+        'premium-holder-name': { type: 'string', multiple: true },
         'confirm-no-payment': { type: 'boolean', default: false },
         'recipient-age-check': { type: 'boolean', default: false },
       },
@@ -75,6 +82,40 @@ function readValues(argv: readonly string[]) {
   } catch {
     throw new RecordUsageError('unknown or malformed option');
   }
+}
+
+/**
+ * --premium-holder and its --premium-holder-name values (P6-S0a): a person who agreed (Q10), so
+ * their name must be known to be redacted, as the owner's (R-2); it is checked against the answer.
+ */
+function premiumHolderArgs(
+  rawHolder: string | undefined,
+  rawNames: string[] | undefined,
+  owner: string,
+): Pick<FragmentRecordArgs, 'premiumHolder' | 'premiumHolderNames'> {
+  const premiumHolderNames = (rawNames ?? []).map((n) => n.trim());
+  if (rawHolder === undefined) {
+    if (premiumHolderNames.length > 0) {
+      throw new RecordUsageError('--premium-holder-name needs --premium-holder');
+    }
+    return { premiumHolder: null, premiumHolderNames };
+  }
+  const premiumHolder = USERNAME_RE.exec(rawHolder)?.[1];
+  if (premiumHolder === undefined) {
+    throw new RecordUsageError('--premium-holder must be a Telegram username');
+  }
+  if (premiumHolder.toLowerCase() === owner.toLowerCase()) {
+    throw new RecordUsageError('--premium-holder must be another account than --username');
+  }
+  if (premiumHolderNames.length === 0) {
+    throw new RecordUsageError(
+      '--premium-holder needs --premium-holder-name (their display name, to redact it)',
+    );
+  }
+  if (premiumHolderNames.some((n) => [...n].length < 3)) {
+    throw new RecordUsageError('--premium-holder-name is too short');
+  }
+  return { premiumHolder, premiumHolderNames };
 }
 
 export function parseFragmentRecordArgs(
@@ -125,10 +166,16 @@ export function parseFragmentRecordArgs(
       '--confirm-no-payment needs --phone (your phone number, to redact it)',
     );
   }
+  const holder = premiumHolderArgs(
+    values['premium-holder'],
+    values['premium-holder-name'],
+    username,
+  );
   const resolve = (value: string | undefined): string | null =>
     value === undefined ? null : path.resolve(ctx.cwd, value);
   const desktop = path.join(ctx.home, 'Desktop');
   return {
+    ...holder,
     cookiesFile: path.resolve(ctx.cwd, values.cookies),
     username,
     outDir: resolve(values.out) ?? path.join(desktop, 'ggpin-secrets', 'fragment-raw', stamp(ctx)),

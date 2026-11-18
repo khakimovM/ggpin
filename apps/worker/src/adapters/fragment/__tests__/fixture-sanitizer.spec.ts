@@ -114,14 +114,36 @@ describe('fixture sanitizer', () => {
     };
     expect(withName.transaction.messages[0]?.payload).toBe('<REDACTED:payload>');
     const clean = plainBase64();
-    const without = sanitizer.sanitizeJson(linkResponse(clean)) as {
-      transaction: { messages: Array<{ payload: string }> };
-    };
-    expect(without.transaction.messages[0]?.payload).toBe(clean);
+    expect(sanitizer.sanitizeJson({ note: clean })).toEqual({ note: clean });
     const random = Buffer.from('just an ordinary note with no secret inside at all').toString(
       'base64',
     );
-    expect(sanitizer.sanitizeJson({ payload: random })).toEqual({ payload: '<REDACTED:token>' });
+    expect(sanitizer.sanitizeJson({ note: random })).toEqual({ note: '<REDACTED:token>' });
+  });
+
+  it('P6-S0a: a `payload` value is always redacted, whatever it holds', () => {
+    const clean = plainBase64();
+    const without = sanitizer.sanitizeJson(linkResponse(clean)) as {
+      transaction: { messages: Array<{ payload: string }> };
+    };
+    expect(without.transaction.messages[0]?.payload).toBe('<REDACTED:payload>');
+    expect(sanitizer.sanitizeJson({ Payload: 'te6cc', payload: 42, other: '' })).toEqual({
+      Payload: '<REDACTED:payload>',
+      payload: 0,
+      other: '',
+    });
+    expect(sanitizer.sanitizeJson({ payload: '' })).toEqual({ payload: '' });
+    // Inside a page or a text answer too (embedded JSON).
+    expect(sanitizer.sanitizeText(`x {"payload":"${clean}"} y`)).toBe(
+      'x {"payload":"<REDACTED:payload>"} y',
+    );
+  });
+
+  it('P6-S0a: the leak check flags any payload value other than the placeholder', () => {
+    expect(leakCheck('{"payload": "<REDACTED:payload>"}')).toEqual([]);
+    expect(leakCheck('{"payload": ""}')).toEqual([]);
+    expect(leakCheck(`{"payload": "${plainBase64()}"}`)).toContain('payload');
+    expect(leakCheck(`{\\"payload\\":\\"abc\\"}`)).toContain('payload');
   });
 
   it('cleans an HTML page (Cyrillic, emoji, &amp; names) and keeps its markup', () => {
