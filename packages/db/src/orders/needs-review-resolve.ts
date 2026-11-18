@@ -196,7 +196,14 @@ export async function resolveNeedsReviewAt(
               ? { actor: 'system' as const }
               : { actor: 'admin' as const, actorRef: resolver.id }),
           },
-          { provenTransferIds: binding.provenTransferIds },
+          {
+            provenTransferIds: binding.provenTransferIds,
+            // S9f (owner 2026-11-18): a late chain fact is the owner's call: the own late fact of
+            // the transfer the owner's proof was bound to, or every one by MANUAL. Never the
+            // reconciler's (it carries none of these proofs; the resolver is checked anyway).
+            lateDecidedTransferIds: resolver !== null ? binding.provenTransferIds : [],
+            lateDecidedByOwner: proof.kind === 'MANUAL' && resolver !== null,
+          },
         )
       : null;
 

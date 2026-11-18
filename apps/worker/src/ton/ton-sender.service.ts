@@ -7,7 +7,7 @@ import { TonConfirmService } from './ton-confirm.service';
 import { errorKind } from './ton-db-errors';
 import { TonGatewayError, type TonAccountState, type TonGateway } from './ton-gateway';
 import type { TonLease, TonWalletLock } from './ton-lock';
-import { blocksWallet, heldNotices, walletBlockedNotice } from './ton-notices';
+import { blocksWallet, earlierPayoutNotice, heldNotices, walletBlockedNotice } from './ton-notices';
 import { TonNotifier } from './ton-notifier';
 import {
   payResultOf,
@@ -126,7 +126,7 @@ export class TonSenderService {
       return { status: 'NOT_SENT', reason: 'WALLET_BUSY' };
     }
     const stop = await this.transfers.preflight(request.orderId, request.attemptId);
-    if (stop !== null) return this.stopped(request.orderId, stop);
+    if (stop !== null) return this.stopped(request, stop);
     const snapshot = await this.snapshot();
     if ('status' in snapshot) return snapshot;
     const { state, seqno, deploy } = snapshot;
@@ -249,7 +249,14 @@ export class TonSenderService {
    * job that held it (its notices may never have reached the queue): they are sent again. Their
    * job ids are stable, so nobody hears twice (rules/45: a hold is never silent).
    */
-  private async stopped(orderId: string, reason: TonStopReason): Promise<TonPayResult> {
+  private async stopped(request: TonPayRequest, reason: TonStopReason): Promise<TonPayResult> {
+    const { orderId, attemptId } = request;
+    if (reason === 'EARLIER_PAYOUT_LIVE') {
+      // S9f audit M-1: never a second payment beside one the chain may have taken.
+      const earlier = await this.transfers.earlierLivePayout(orderId, attemptId);
+      this.logger.error(`order ${orderId}: nothing signed, transfer ${earlier ?? '?'} may be paid`);
+      if (earlier !== null) await this.notifier.send([earlierPayoutNotice(earlier, attemptId)]);
+    }
     if (reason === 'ORDER_NOT_PROCESSING') {
       const held = await this.transfers.tonHoldOf(orderId);
       if (held !== null) {
@@ -269,7 +276,7 @@ export class TonSenderService {
       case 'STOPPED':
         this.logger.warn(`order ${orderId}: nothing signed (${result.reason})`);
         // The replay of a job that held the order: its notices are sent again (stable ids).
-        return this.stopped(orderId, result.reason);
+        return this.stopped(request, result.reason);
       case 'BUSY':
         return { status: 'NOT_SENT', reason: 'WALLET_BUSY' };
       case 'SKEWED':

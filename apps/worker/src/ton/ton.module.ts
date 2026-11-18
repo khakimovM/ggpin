@@ -14,6 +14,9 @@ import {
   tonTimingOf,
 } from './ton-factories';
 import type { TonGateway } from './ton-gateway';
+import { TonLateReader } from './ton-late-reader';
+import { TonLateRepository } from './ton-late.repository';
+import { TonLateService } from './ton-late.service';
 import { TonWalletLock } from './ton-lock';
 import { TonNotifier } from './ton-notifier';
 import { TonOutcomeRepository } from './ton-outcome.repository';
@@ -40,8 +43,9 @@ import type { TonWallet } from './ton-wallet';
 
 // The TON payout module (phase 5 S5). The only place in the system that holds the hot wallet's key
 // (CLAUDE.md §5.7). Consumers (fulfill-order, S4/S8) use TonSenderService.pay and, for the
-// reconciler (S9), TonConfirmService; the wallet's address is exported, its signer is not (audit
-// L1). Prisma, Redis and the notify queue come from the worker's global modules.
+// reconciler (S9), TonConfirmService and TonLateService (S9f late facts); the late facts' reader
+// and writes stay inside (never exported, like the chain reader and the outcome writes, S9c CR5);
+// the wallet's address is exported, its signer is not (audit L1). Prisma, Redis and the notify queue come from the worker's global modules.
 @Module({
   providers: [
     {
@@ -87,12 +91,16 @@ import type { TonWallet } from './ton-wallet';
     TonConfirmService,
     TonSenderService,
     TonBalanceMonitor,
+    TonLateRepository,
+    TonLateReader,
+    TonLateService,
   ],
   // TON_PAY_ADDRESSES: the fulfillment core checks a prepared payee before SENDING (S4 audit L-4).
   // TON_TIMING: the order reconciler re-checks a stored expiry proof with the same gap (S9).
   exports: [
     TonSenderService,
     TonConfirmService,
+    TonLateService,
     TON_HOT_WALLET_ADDRESS,
     TON_PAY_ADDRESSES,
     TON_TIMING,

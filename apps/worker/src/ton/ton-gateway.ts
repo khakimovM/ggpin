@@ -39,6 +39,12 @@ export interface TxPage {
  * The reads one EXPIRY observation rests on (review m3): an account state and the account's
  * transactions. A second chain source (TON_EXPIRY_WITNESSES, S12) and a fresh connection of the
  * primary source (audit M-1 (b)) offer exactly these, nothing that sends or pays.
+ *
+ * Contract (S9f audit I-4): every implementation hands back transactions it PARSED ITSELF from the
+ * raw BoC the source returned (`loadTransaction` of @ton/core), so `tx.hash()` is computed locally
+ * from those bytes, never copied from a field of the provider's JSON. The Z6 hint and ONCHAIN_FAILED
+ * rely on it: a witness that lists the same (lt, hash) has seen the very same transaction only
+ * because the hash covers its whole content.
  */
 export interface TonChainWitness {
   getAccountState(address: Address): Promise<TonAccountState>;

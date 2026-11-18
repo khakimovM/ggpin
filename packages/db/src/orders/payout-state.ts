@@ -30,6 +30,27 @@ export interface PayoutAttempt {
   readonly createdAt: Date;
 }
 
+/**
+ * The attempt facts the TON module writes when the chain contradicts "not sent" (phase 5 S9f,
+ * D-64 (7)): `late` (an EXPIRED / CONSUMED_UNMATCHED transfer's message was found on the chain
+ * after all, whatever it paid) and `lateDestination` (the destination of a CONFIRMED transfer
+ * aborted it, or its transaction did not pay as signed). A transfer with one of them is never
+ * "provably not sent", whatever its status says (audit L-1, M-1): no refund proof may rest on it
+ * and no new payout of the order may be signed beside it.
+ */
+export const TON_LATE_FACT_KEYS = ['late', 'lateDestination'] as const;
+
+/** `response.ton` of an attempt holds one of TON_LATE_FACT_KEYS. */
+export function hasLateTonFact(response: unknown): boolean {
+  if (typeof response !== 'object' || response === null || Array.isArray(response)) return false;
+  const ton: unknown = Reflect.get(response, 'ton');
+  if (typeof ton !== 'object' || ton === null || Array.isArray(ton)) return false;
+  return TON_LATE_FACT_KEYS.some((key) => {
+    const fact: unknown = Reflect.get(ton, key);
+    return fact !== undefined && fact !== null;
+  });
+}
+
 export interface PayoutTransfer {
   readonly id: string;
   readonly attemptId: string | null;
@@ -41,6 +62,8 @@ export interface PayoutTransfer {
   readonly validUntil: Date;
   readonly txHash: string | null;
   readonly txLt: bigint | null;
+  /** Its attempt holds a late chain fact (`hasLateTonFact`): never "provably not sent". */
+  readonly late: boolean;
 }
 
 export interface PayoutState {
@@ -76,10 +99,25 @@ export async function readPayoutState(tx: Tx, orderId: string): Promise<PayoutSt
       validUntil: true,
       txHash: true,
       txLt: true,
+      attempt: { select: { response: true } },
     },
     orderBy: { createdAt: 'asc' },
   });
-  return { attempts, transfers };
+  return {
+    attempts,
+    transfers: transfers.map(({ attempt, ...transfer }) => ({
+      ...transfer,
+      late: hasLateTonFact(attempt?.response ?? null),
+    })),
+  };
+}
+
+/** What `resolveNeedsReview` may excuse in `assertNoLivePayout` (never set anywhere else). */
+export interface LivePayoutOptions {
+  readonly provenTransferIds?: readonly string[];
+  /** The transfers an OWNER's proof was bound to: their OWN late chain facts are the owner's call. */
+  readonly lateDecidedTransferIds?: readonly string[];
+  readonly lateDecidedByOwner?: boolean;
 }
 
 /**
@@ -96,18 +134,25 @@ export const REVIEW_ONLY_TRANSFER_STATUSES: readonly TonTransferStatus[] = [
 
 /**
  * Throws `LivePayoutError` unless "not sent" is provable from the rows: no attempt in flight or
- * confirmed, and every TON transfer EXPIRED (a message that can never be accepted). A transfer
- * that is SIGNED, BROADCAST, CONFIRMED, failed on chain, bounced or consumed without a match all
- * count as "may have gone out".
+ * confirmed, and every TON transfer EXPIRED (a message that can never be accepted) without a late
+ * chain fact. A transfer that is SIGNED, BROADCAST, CONFIRMED, failed on chain, bounced or consumed
+ * without a match all count as "may have gone out", and so does one whose attempt holds `late` /
+ * `lateDestination` whatever its status (S9f, owner 2026-11-18: the chain showed the message after
+ * all, so no automatic refund, hold or cancel may rest on it).
  *
- * `provenTransferIds` is set only inside `resolveNeedsReview`, after an OWNER's proof was bound
- * to exactly those transfers (TON_NOT_DEBITED, TON_BOUNCED, TON_UNMATCHED_RESOLVED): such a
- * transfer, and only if its status is one of the three review-only ones, no longer counts.
+ * The options are set only inside `resolveNeedsReview`, after an OWNER's proof was bound:
+ * - `provenTransferIds` (TON_NOT_DEBITED, TON_BOUNCED, TON_UNMATCHED_RESOLVED): such a transfer,
+ *   and only if its status is one of the three review-only ones, no longer counts by its status;
+ * - `lateDecidedTransferIds` (the same transfers, only with an OWNER resolver): the late chain
+ *   fact of THAT transfer is what the owner's proof settled (owner 2026-11-18, e.g. a Z6-confirmed
+ *   transfer that bounced late), so it no longer stops the refund; a late fact on any OTHER
+ *   transfer still does;
+ * - `lateDecidedByOwner`: the owner's MANUAL FAILED (OTP), past every late chain fact.
  */
 export function assertNoLivePayout(
   orderId: string,
   state: PayoutState,
-  options: { readonly provenTransferIds?: readonly string[] } = {},
+  options: LivePayoutOptions = {},
 ): void {
   const attempt = state.attempts.find((a) => LIVE_ATTEMPT_STATUSES.includes(a.status));
   if (attempt !== undefined) throw new LivePayoutError(orderId, `attempt is ${attempt.status}`);
@@ -118,6 +163,12 @@ export function assertNoLivePayout(
       !(proven.includes(t.id) && REVIEW_ONLY_TRANSFER_STATUSES.includes(t.status)),
   );
   if (transfer !== undefined) throw new LivePayoutError(orderId, `transfer is ${transfer.status}`);
+  if (options.lateDecidedByOwner === true) return;
+  const decided = options.lateDecidedTransferIds ?? [];
+  const late = state.transfers.find((t) => t.late && !decided.includes(t.id));
+  if (late !== undefined) {
+    throw new LivePayoutError(orderId, `transfer is ${late.status} with a late chain fact`);
+  }
 }
 
 export type DeliveryProblem =

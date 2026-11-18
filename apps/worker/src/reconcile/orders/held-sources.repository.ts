@@ -11,6 +11,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { BALANCE_CHECK_EVERY_MS } from '../../ton/ton-balance.monitor';
 import { spentLast24h } from '../../ton/ton-sign-guards';
 import type { PrismaHolder } from '../../ton/ton-transfer.repository';
+import { heldPayoutOf, type HeldPayout } from './held-payout';
 import { HELD_EXPIRED_NOTE, RECONCILE_RELEASE_NOTE_PREFIX } from './held-release-policy';
 import type { WalletScope } from './order-reconcile.repository';
 import { afterCursor, type SweepCursor } from './order-sweeps.repository';
@@ -45,6 +46,8 @@ export interface HeldOrder {
   readonly releasesUsed: number;
   /** The order's latest attempt (its adapter keeps the route, its cost was the refused one). */
   readonly lastAttempt: { readonly adapter: string; readonly costMinor: bigint | null } | null;
+  /** A late chain fact or a transfer that is not EXPIRED keeps the order (S9f, held-payout.ts). */
+  readonly payout: HeldPayout;
 }
 
 /**
@@ -121,7 +124,7 @@ export class HeldSourcesRepository {
       },
     });
     if (order === null) return { kind: 'gone' };
-    const [held, purchase, releasesUsed, lastAttempt] = await Promise.all([
+    const [held, purchase, releasesUsed, lastAttempt, payout] = await Promise.all([
       db.orderEvent.aggregate({
         where: { orderId, to: 'HELD' },
         _max: { createdAt: true },
@@ -137,6 +140,7 @@ export class HeldSourcesRepository {
         orderBy: { attemptNo: 'desc' },
         select: { adapter: true, costMinor: true },
       }),
+      heldPayoutOf(db, orderId),
     ]);
     const heldAt = held._max.createdAt;
     // A HELD order without a HELD event breaks the history guard: never acted on (S9e fix CR F4).
@@ -152,6 +156,7 @@ export class HeldSourcesRepository {
         -purchase.amountTiyin === priceTiyin - discountTiyin,
       releasesUsed,
       lastAttempt,
+      payout,
     };
     return { kind: 'held', order: facts };
   }

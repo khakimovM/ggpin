@@ -32,6 +32,8 @@ import { OrderAdminReadService } from '../modules/orders/admin/order-admin-read.
 import { OrderAdminRepository } from '../modules/orders/admin/order-admin.repository';
 import { OrderRetryService } from '../modules/orders/admin/order-retry.service';
 import { OrderReviewService } from '../modules/orders/admin/order-review.service';
+import { TonHintRepository } from '../modules/orders/admin/tx-hint.repository';
+import { TonHintService } from '../modules/orders/admin/tx-hint.service';
 import { CardListing } from './card-listing';
 import { CLI_CHANNEL_PROVIDER } from './cli-channel';
 
@@ -71,6 +73,8 @@ export class OpsCliModule {
         OrderAdminRepository,
         OrderRetryService,
         OrderReviewService,
+        TonHintRepository,
+        TonHintService,
         OwnerOtpIssuer,
         OwnerOtpVerifier,
         PaymentsAlerts,

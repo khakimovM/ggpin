@@ -2,10 +2,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 // D-64 (1), plan §3 S9c and item 23: the order reconciler never signs, never pays, never takes the
-// wallet lock, never re-broadcasts and never reads the chain itself (only TonConfirmService does);
-// money moves only through `resolveNeedsReview` / `failAndRefundOrder`, never through a hand-made
-// wallet lock, transition or ledger write. And in the whole worker only the TON module's outcome
-// writer may set a transfer EXPIRED. S9e (D-64 (4)): held-writes.ts is the one other file allowed
+// wallet lock, never re-broadcasts and never reads the chain itself (only TonConfirmService and
+// TonLateService do); money moves only through `resolveNeedsReview` / `failAndRefundOrder`, never
+// through a hand-made wallet lock, transition or ledger write. And in the whole worker only the TON
+// module's outcome writer may set a transfer EXPIRED. S9e (D-64 (4)): held-writes.ts is the one
+// other file allowed
 // a transition and a refund, and only these two calls, checked by their text: `failAndRefundOrder`
 // from HELD (HELD_EXPIRED, as the system) and `transitionOrder` HELD -> QUEUED (as the system),
 // imported by name from @repo/db (no alias, no spread argument).
@@ -65,6 +66,9 @@ const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['the chain gateway', /TON_GATEWAY|\bTonGateway\b/],
   ['the chain reader', /TonChainReader/],
   ['the outcome writes', /TonOutcomeRepository/],
+  // S9f (CR F11, audit): the late-facts step calls TonLateService only, never its writes or reader.
+  ['the late writes', /TonLateRepository|writeLate\b/],
+  ['the late reader', /TonLateReader/],
   ['a back door to any provider', /\bModuleRef\b/],
   // S9d: an order is queued again only through FulfillEnqueuer (decideEnqueue, jobId = orderId);
   // the reconciler never runs or settles fulfillment itself and never counts an abandon.
@@ -136,6 +140,9 @@ describe('the order reconciler (static)', () => {
         HELD_WRITER,
         'held-sweep.step.ts',
         'wallet-blocked.step.ts',
+        'held-payout.ts',
+        'late-facts.step.ts',
+        'late-facts.repository.ts',
       ]),
     );
   });

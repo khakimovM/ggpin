@@ -38,13 +38,17 @@ export type TonNotSentReason = 'WALLET_BUSY' | 'WALLET_NOT_READY' | 'CLOCK_SKEW'
 /**
  * Nothing was signed or written because the order or the attempt is no longer the one the job
  * was started for (docs/06: a worker that stalled and woke after an operator failed the order).
+ * EARLIER_PAYOUT_LIVE (phase 5 S9f, audit M-1): a transfer of an earlier attempt of the order is
+ * not provably "not sent" (not EXPIRED, or a late chain fact); the owner hears `tonLateConfirmed`
+ * and the core, after its retries, sends the order to NEEDS_REVIEW (fulfill-ton.runner.ts).
  */
 export type TonStopReason =
   | 'ORDER_NOT_PROCESSING'
   | 'ATTEMPT_NOT_SENDING'
   | 'ATTEMPT_HAS_TRANSFER'
   | 'REF_TAKEN'
-  | 'GUARD_REFUSED';
+  | 'GUARD_REFUSED'
+  | 'EARLIER_PAYOUT_LIVE';
 
 /** ADAPTER_ERROR: the payout address is not in FRAGMENT_PAY_ADDRESSES (attempt error says so). */
 export type TonHoldReason = TonLimitRefusal | 'LOW_BALANCE' | 'ADAPTER_ERROR';

@@ -88,6 +88,16 @@ export function heldNotices(
   return notices;
 }
 
+/**
+ * CRITICAL (phase 5 S9f, audit M-1): attempt `attemptId` was not signed because the earlier
+ * transfer `transferId` of its order may have gone out (found late on the chain). refId
+ * `<transferId>_<attemptId>` (read back as the transfer): the late alert of the transfer itself
+ * keeps its own id, and each refused attempt is heard once.
+ */
+export function earlierPayoutNotice(transferId: string, attemptId: string): TonNotice {
+  return alert('tonLateConfirmed', `${transferId}_${attemptId}`);
+}
+
 export function noticeJob(notice: TonNotice): NotifyJob {
   return notice.kind === 'ALERT'
     ? { kind: 'OWNER_ALERT', alert: notice.alert, refId: notice.refId }

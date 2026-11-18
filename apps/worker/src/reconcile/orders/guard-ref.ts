@@ -13,7 +13,10 @@ import { notifyJobSchema, refIdSubject, type FulfillmentAlertKind } from '@repo/
 // (abandonedAlertRef, S9d re-review R1), so both on one day are one alert. The tick's clock is
 // the database's; the order events it is compared with carry the writing process's clock (see
 // order-sweeps.repository.ts). S9e: a HELD order the reconciler may not touch (a guard refused, a
-// live payout, no HELD event) is `<orderId>_held_<hour>` on `reconcileGuardRefused`; a transfer
+// live payout, no HELD event) is `<orderId>_held_<hour>` on `reconcileGuardRefused`, except one
+// kept beside a late chain fact (S9f, owner 2026-11-18): `<orderId>_heldlate_<day>`, and one kept
+// beside a transfer that is not EXPIRED: `<orderId>_heldlive_<day>`, each once a day, since only
+// the owner can end those states and an hourly repeat would be noise; a transfer
 // still blocking the hot wallet is `<transferId>_wb_<n>` on `tonWalletBlocked` (walletBlockedRef:
 // n counts whole 6-hour periods since the block, not since the epoch, so the TON module's own first
 // alert, refId = the plain transfer id, is followed by a reminder only after a full period).
@@ -29,9 +32,11 @@ export const WALLET_BLOCKED_REMIND_EVERY_MS = 6 * HOUR_MS;
  * check (subject: the order), a CONSUMED_UNMATCHED transfer awaiting the owner (the transfer), or
  * an order lease stuck while nothing runs, or an order whose re-queues are used up (the order), a
  * HELD order the reconciler may not refund or release (the order, S9e), a transfer blocking the hot
- * wallet past the confirm timeout (the transfer, S9e: walletBlockedRef only).
+ * wallet past the confirm timeout (the transfer, S9e: walletBlockedRef only), a HELD order kept
+ * beside a late chain fact or beside a transfer that is not EXPIRED (the order, S9f: daily).
  */
-export type GuardScope = 'review' | 'ton' | 'cu' | 'lock' | 'abandoned' | 'held' | 'wb';
+export type GuardScope =
+  'review' | 'ton' | 'cu' | 'lock' | 'abandoned' | 'held' | 'heldlate' | 'heldlive' | 'wb';
 
 /** The scopes whose episode is a period of the clock (`wb` counts from the block instead). */
 export type EpochScope = Exclude<GuardScope, 'wb'>;
@@ -43,10 +48,12 @@ const ALERT_OF: Readonly<Record<GuardScope, FulfillmentAlertKind>> = {
   lock: 'needsReview',
   abandoned: 'needsReview',
   held: 'reconcileGuardRefused',
+  heldlate: 'reconcileGuardRefused',
+  heldlive: 'reconcileGuardRefused',
   wb: 'tonWalletBlocked',
 };
 
-/** How long one episode lasts: an hour, a day for the used-up re-queues, 6 hours for `wb`. */
+/** An hour; a day for `abandoned`, `heldlate` and `heldlive`; 6 hours for `wb`. */
 const PERIOD_OF: Readonly<Record<GuardScope, number>> = {
   review: HOUR_MS,
   ton: HOUR_MS,
@@ -54,6 +61,8 @@ const PERIOD_OF: Readonly<Record<GuardScope, number>> = {
   lock: HOUR_MS,
   abandoned: DAY_MS,
   held: HOUR_MS,
+  heldlate: DAY_MS,
+  heldlive: DAY_MS,
   wb: WALLET_BLOCKED_REMIND_EVERY_MS,
 };
 
@@ -63,9 +72,10 @@ export function episodeAlert(scope: GuardScope): FulfillmentAlertKind {
 }
 
 /**
- * `<subjectId>_<scope>_<period>` (the hour, or the day for `abandoned`), or null when the id
- * cannot be part of an alert id (not a plain id of at most 40 characters, or the whole ref would
- * not pass the notify schema's 64): the caller logs it instead, a malformed id is never sent.
+ * `<subjectId>_<scope>_<period>` (the hour, or the day for the daily scopes), or null
+ * when the id cannot be part of an alert id (not a plain id of at most 40 characters, or the whole
+ * ref would not pass the notify schema's 64): the caller logs it instead, a malformed id is never
+ * sent.
  */
 export function episodeRef(subjectId: string, scope: EpochScope, nowMs: number): string | null {
   if (!Number.isSafeInteger(nowMs) || nowMs < 0) return null;

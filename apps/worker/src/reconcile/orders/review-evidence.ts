@@ -13,7 +13,13 @@ import { hasWitnessConflict } from '../../ton/ton-row-locks';
 // Anything else stays with the owner: a witness conflict or a suspect transaction ever recorded,
 // a transfer still unresolved, BOUNCED or ONCHAIN_FAILED, an unresolved attempt without a transfer
 // (a supplier's, or a SENDING one that never signed: Q-18), a transfer of another wallet or
-// network. CONSUMED_UNMATCHED only raises its alert.
+// network. CONSUMED_UNMATCHED only raises its alert. A transfer found on the chain LATE (EXPIRED or
+// CONSUMED_UNMATCHED first, its `late` mark written by the TON module, S9f) is never a proof here
+// (audit I-5, D-64 (7): a late fact touches neither the order nor the ledger, and a reconciler
+// DELIVERED would also pay cashback and the referral bonus): only its alert, the owner decides.
+// A `lateDestination` fact (the destination aborted, or the transaction did not pay as signed,
+// S9f F4) and a `lateBounce` fact (the value came back, kept as facts while the transfer stays
+// CONFIRMED: F1 / F4) count as a SUSPECT fact: a CONFIRMED row with either is no delivery proof.
 
 export interface ReviewTransfer {
   readonly id: string;
@@ -74,6 +80,7 @@ export interface TonNotSentProof {
 export type ReviewDecision =
   | { readonly kind: 'SKIP'; readonly reason: SkipReason }
   | { readonly kind: 'ALERT_CONSUMED'; readonly transferId: string }
+  | { readonly kind: 'ALERT_LATE'; readonly transferId: string }
   | { readonly kind: 'DELIVER'; readonly transferId: string; readonly proof: TonTxProof }
   | { readonly kind: 'REFUND'; readonly transferId: string; readonly proof: TonNotSentProof };
 
@@ -83,12 +90,33 @@ function isUnresolvedAttempt(attempt: ReviewAttempt): boolean {
   return UNRESOLVED_ATTEMPT.includes(attempt.status);
 }
 
-function hasSuspect(response: Prisma.JsonValue | null): boolean {
-  if (typeof response !== 'object' || response === null || Array.isArray(response)) return false;
+function tonFact(response: Prisma.JsonValue | null, key: string): Prisma.JsonValue | null {
+  if (typeof response !== 'object' || response === null || Array.isArray(response)) return null;
   const ton = response['ton'];
-  if (typeof ton !== 'object' || ton === null || Array.isArray(ton)) return false;
-  const fact = ton['suspect'];
-  return fact !== undefined && fact !== null;
+  if (typeof ton !== 'object' || ton === null || Array.isArray(ton)) return null;
+  return ton[key] ?? null;
+}
+
+const SUSPECT_FACTS = ['suspect', 'lateDestination', 'lateBounce'] as const;
+
+function hasSuspect(response: Prisma.JsonValue | null): boolean {
+  return SUSPECT_FACTS.some((key) => tonFact(response, key) !== null);
+}
+
+/**
+ * The transfer was "not sent" once and the chain showed otherwise later (I-5): the TON module's
+ * `late` mark, or (should a mark ever be missing) a CONFIRMED transfer whose attempt still holds
+ * the proof of an EXPIRED (the second observation) or of a CONSUMED_UNMATCHED.
+ */
+function isLate(attempt: WithTransfer): boolean {
+  if (tonFact(attempt.response, 'late') !== null) return true;
+  if (attempt.transfer.status !== 'CONFIRMED') return false;
+  const expiry = tonFact(attempt.response, 'expiry');
+  const proven =
+    typeof expiry === 'object' && expiry !== null && !Array.isArray(expiry)
+      ? (expiry['second'] ?? null) !== null
+      : false;
+  return proven || tonFact(attempt.response, 'consumedUnmatched') !== null;
 }
 
 function skip(reason: SkipReason): ReviewDecision {
@@ -183,6 +211,8 @@ export function decideReview(
       transfer.walletAddress !== context.walletAddress,
   );
   if (foreign) return skip('FOREIGN_TRANSFER');
+  const late = paid.find(isLate);
+  if (late !== undefined) return { kind: 'ALERT_LATE', transferId: late.transfer.id };
   if (attempts.some((a) => hasWitnessConflict(a.response))) return skip('WITNESS_CONFLICT');
   if (attempts.some((a) => hasSuspect(a.response))) return skip('SUSPECT');
   const unresolved = attempts.filter(isUnresolvedAttempt);
@@ -227,6 +257,9 @@ export function evidenceKey(attempts: readonly ReviewAttempt[]): string {
                 expiry: ton['expiry'] ?? null,
                 suspect: ton['suspect'] ?? null,
                 witnessConflict: ton['witnessConflict'] ?? null,
+                late: ton['late'] ?? null,
+                lateDestination: ton['lateDestination'] ?? null,
+                lateBounce: ton['lateBounce'] ?? null,
               }
             : null;
         const t = a.transfer;

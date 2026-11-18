@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@repo/db';
+import { LivePayoutError, type Prisma } from '@repo/db';
 import { describeErrorForLog, type OrderStatusReason } from '@repo/shared';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { readPayoutState } from '../ton/ton-outcome.repository';
@@ -13,6 +13,10 @@ import { reviewNotices } from './held-policy';
 // owner's notices. When the attempt signed a TON transfer, the TON module's notices for that
 // transfer follow too (audit I-1): a transfer still unresolved blocks every later TON payout, and
 // the owner hears `tonWalletBlocked` from the core's review just as from the TON module's.
+// S9f (owner 2026-11-18): a hold or refund the database refused because an earlier payout of the
+// order may be out (`LivePayoutError`: a late chain fact, a transfer only the owner may judge) is
+// neither true nor retried: NEEDS_REVIEW (ADAPTER_ERROR, like an EARLIER_PAYOUT_LIVE stop), and the
+// owner decides (MANUAL FAILED is the one refund past a late fact).
 
 @Injectable()
 export class FulfillReviewer {
@@ -35,6 +39,22 @@ export class FulfillReviewer {
     this.logger.warn(`order ${orderId}: NEEDS_REVIEW (${reason})`);
     await this.notifier.send(reviewNotices(orderId));
     if (attemptId !== null) await this.tonNotices(orderId, attemptId);
+    return true;
+  }
+
+  /**
+   * True when `error` is a LivePayoutError: the order went to review (unless it had moved on).
+   * `attemptId`: the open attempt whose hold was refused (it goes UNKNOWN with the order, CR m1).
+   */
+  async reviewIfPayoutLive(
+    orderId: string,
+    refused: string,
+    error: unknown,
+    attemptId: string | null = null,
+  ): Promise<boolean> {
+    if (!(error instanceof LivePayoutError)) return false;
+    this.logger.error(`order ${orderId}: ${refused} refused, an earlier payout may have gone out`);
+    await this.review(orderId, attemptId, 'ADAPTER_ERROR');
     return true;
   }
 

@@ -21,6 +21,7 @@ const facts = (over: Partial<HeldFacts> = {}): HeldFacts => ({
   heldAtMs: NOW - 60_000,
   purchaseMatches: true,
   releasesUsed: 0,
+  payout: 'clean',
   ...over,
 });
 
@@ -62,6 +63,18 @@ describe('triageHeld', () => {
     expect(triageHeld(facts({ purchaseMatches: false }), NOW, MAX_AGE)).toEqual({
       kind: 'NO_PURCHASE',
     });
+  });
+
+  it('S9f M-1 / L-1: a late fact or a live transfer keeps the order, however old or releasable', () => {
+    for (const why of ['lateFact', 'liveTransfer'] as const) {
+      const old = facts({ payout: why, heldAtMs: NOW - 10 * MAX_AGE });
+      expect(triageHeld(old, NOW, MAX_AGE)).toEqual({ kind: 'PAYOUT', why });
+      expect(triageHeld(facts({ payout: why }), NOW, MAX_AGE)).toEqual({ kind: 'PAYOUT', why });
+      // A broken debit is still the money anomaly first (its own alert).
+      const both = facts({ payout: why, purchaseMatches: false });
+      expect(triageHeld(both, NOW, MAX_AGE)).toEqual({ kind: 'NO_PURCHASE' });
+    }
+    expect(triageHeld(facts(), NOW, MAX_AGE)).toEqual({ kind: 'CHECK', reason: 'NO_ADAPTER' });
   });
 
   it('ADAPTER_ERROR (attempt cap, NO_PURCHASE, STALE...) is never released; nor null or unknown', () => {

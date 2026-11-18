@@ -8,6 +8,7 @@ import {
   RECONCILE_RELEASE_NOTE_PREFIX,
   type ReleasableReason,
 } from './held-release-policy';
+import { assertHeldPayoutClean } from './held-payout';
 
 // The HELD step's two writes (phase 5 S9e, plan §4.1-§4.3), each ONE transaction:
 // - refund: HELD -> FAILED (HELD_EXPIRED) -> REFUNDED + the REFUND entry, ONLY through
@@ -19,8 +20,15 @@ import {
 //   money moves. The fulfill-order job is queued by the step AFTER the commit.
 // Both re-count the order's HELD events under the row lock the move just took: a decision made on
 // one hold is never applied to another (released by an operator and held again in between), the
-// whole transaction rolls back (HoldChangedError). A deadlock (40P01) rolled everything back: the
-// transaction runs again (3 tries). Every other error propagates unchanged (the step maps them).
+// whole transaction rolls back (HoldChangedError). Both also read the order's payout rows again
+// in the move's transaction (S9f M-1 / L-1, held-payout.ts): a late chain fact or a transfer that
+// is not EXPIRED rolls the move back (HeldPayoutError), even one committed after the decision. The
+// refund reads them FIRST: `failAndRefundOrder` refuses the same rows under the order lock
+// (LivePayoutError, a late fact included since the owner's 2026-11-18 decision), and the precise
+// error keeps the owner's reminder daily (guard-ref.ts `heldlate` / `heldlive`); a fact committed between that
+// read and the lock still meets the lock's check. The release reads them under the row lock its
+// move took. A deadlock (40P01) rolled everything back: the transaction runs again (3 tries).
+// Every other error propagates unchanged (the step maps them).
 
 const DEADLOCK_TRIES = 3;
 
@@ -39,6 +47,7 @@ export class HeldWriter {
   /** `heldEvents`: how many HELD events the order had when the decision was made. */
   refund(orderId: string, heldEvents: number): Promise<RefundOutcome> {
     return this.inTransaction(async (tx) => {
+      await assertHeldPayoutClean(tx, orderId);
       const outcome = await failAndRefundOrder(tx, {
         orderId,
         from: 'HELD',
@@ -61,6 +70,7 @@ export class HeldWriter {
         note: `${RECONCILE_RELEASE_NOTE_PREFIX}${reason}`,
       });
       await this.sameHold(tx, orderId, heldEvents);
+      await assertHeldPayoutClean(tx, orderId);
     });
   }
 

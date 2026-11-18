@@ -6,7 +6,7 @@ import {
 } from '@repo/shared';
 import { Cell } from '@ton/core';
 import type { TonPayRequest, TonPayResult } from '../ton/ton-payout';
-import { AttemptsRepository, type AttemptRow } from './attempts.repository';
+import { AttemptsRepository, type AttemptRow, type FailHoldResult } from './attempts.repository';
 import { RetryLaterError, tonInstructionOf } from './fulfill-steps';
 import { TON_PAYER, type TonPayer } from './fulfill-tokens';
 import { FulfillReviewer } from './fulfill-review';
@@ -24,7 +24,8 @@ export type RunStep = 'DONE' | 'NEXT_ATTEMPT';
 //   signs again); on the job's last attempt the order goes to NEEDS_REVIEW, never HELD or FAILED;
 // - EXPIRED (proven never sent, D-60 (2)) -> the next attempt (MAX_SEND_ATTEMPTS caps it);
 // - NOT_SENT (nothing signed by this call) -> retried; on the last attempt, when the attempt still
-//   has no transfer, it is FAILED and the order HELD (ADAPTER_ERROR), the owner hears;
+//   has no transfer, it is FAILED and the order HELD (ADAPTER_ERROR), the owner hears; a hold
+//   the database refuses for a late chain fact on an earlier payout is NEEDS_REVIEW (CR m1);
 // - STOPPED: the order or the attempt moved under us; nothing to do, or retried.
 
 @Injectable()
@@ -106,13 +107,23 @@ export class FulfillTonRunner {
     attempt: AttemptRow,
     reason: string,
   ): Promise<RunStep> {
-    const result = await this.attempts.failAndHold(
-      orderId,
-      attempt.id,
-      `${TON_NOT_SENT_ERROR_PREFIX}${reason}`,
-      'ADAPTER_ERROR',
-      NOT_SENT_HOLD_NOTE,
-    );
+    let result: FailHoldResult;
+    try {
+      result = await this.attempts.failAndHold(
+        orderId,
+        attempt.id,
+        `${TON_NOT_SENT_ERROR_PREFIX}${reason}`,
+        'ADAPTER_ERROR',
+        NOT_SENT_HOLD_NOTE,
+      );
+    } catch (error) {
+      // CR m1: a late fact appeared on an earlier payout meanwhile; the HELD was refused
+      // (LivePayoutError): NEEDS_REVIEW with this attempt, never a retry or a silent stop.
+      if (await this.reviewer.reviewIfPayoutLive(orderId, 'hold', error, attempt.id)) {
+        return 'DONE';
+      }
+      throw error;
+    }
     if (result.kind === 'HAS_TRANSFER') return this.review(orderId, attempt.id, 'ADAPTER_ERROR');
     if (result.kind === 'HELD') {
       this.logger.warn(`order ${orderId} held: the wallet stayed unusable (${reason})`);

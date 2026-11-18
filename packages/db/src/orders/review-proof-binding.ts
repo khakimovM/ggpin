@@ -46,6 +46,10 @@ interface BindInput {
 const isUnresolved = (attempt: PayoutAttempt): boolean =>
   UNRESOLVED_ATTEMPT_STATUSES.includes(attempt.status);
 
+/** EXPIRED and nothing on the chain said otherwise later (S9f L-1): provably not sent. */
+const provablyNotSent = (transfer: PayoutTransfer): boolean =>
+  transfer.status === 'EXPIRED' && !transfer.late;
+
 function findTransfer(
   state: PayoutState,
   proof: { readonly extMsgHash: string; readonly walletAddress: string },
@@ -71,7 +75,9 @@ function findTransfer(
  *   FAILED, and no OTHER attempt of the order is unresolved (audit N3).
  * - TON_NOT_SENT (-> FAILED): the transfer is EXPIRED with exactly that `seqno` and `validUntil`;
  *   the database clock is at least `validUntil + TON_NOT_SENT_MARGIN_MS` and the wallet was
- *   checked no later than that clock (no skew allowed, audit N2).
+ *   checked no later than that clock (no skew allowed, audit N2). Neither it nor any other
+ *   transfer of the order carries a late chain fact (`PayoutTransfer.late`, S9f audit L-1: the
+ *   chain showed the message after all, so "not sent" is no longer provable: LIVE_PAYOUT).
  * - TON_NOT_DEBITED (-> FAILED, A2): the transfer (by id) is ONCHAIN_FAILED with that `txHash` and
  *   `txLt`: our transaction, which sent nothing.
  * - TON_BOUNCED (-> FAILED, A1): the transfer is BOUNCED with that `txHash` and `txLt`; the returned
@@ -80,12 +86,15 @@ function findTransfer(
  * - TON_UNMATCHED_RESOLVED (-> FAILED, A3): the transfer is CONSUMED_UNMATCHED; only the owner's CLI
  *   carries it (`ACTOR_MISMATCH` for an ADMIN, Z2); `SENT_ELSEWHERE`
  *   also asks the caller for the critical `tonWalletCompromised` alert.
- *   For the three owner proofs: no other transfer may be alive (all others EXPIRED), no attempt may
- *   be CONFIRMED, and the only unresolved attempt is the transfer's own.
+ *   For the three owner proofs: no other transfer may be alive (all others EXPIRED without a late
+ *   chain fact, S9f L-1), no attempt may be CONFIRMED, and the only unresolved attempt is the
+ *   transfer's own.
  * - FRAGMENT_STATUS (-> DELIVERED, operator only): `requestRef` is the `externalRef` of one attempt,
  *   which is in flight or CONFIRMED, whose transfer is not EXPIRED (a message that never landed
  *   cannot have paid Fragment: audit Y4), and no other attempt is unresolved (audit N3, review R5).
- * - MANUAL (an owner's evidence, OTP): either exit; to FAILED not while a transfer is not EXPIRED, an
+ * - MANUAL (an owner's evidence, OTP): either exit; to FAILED not while a transfer is not EXPIRED
+ *   (an EXPIRED one with a late chain fact is the owner's call here: MANUAL is the one way out of
+ *   a late transfer that paid nothing as signed), an
  *   attempt is CONFIRMED, or a transfer-less SENDING attempt is younger than
  *   `lockDuration + margin` (its worker may still be running: a heuristic, the DB guards are the
  *   barrier).
@@ -118,7 +127,7 @@ export function bindProof(input: BindInput): ProofBinding {
   };
   // The owner proofs settle ONE transfer; everything else of the order must be provably not sent.
   const closeAroundTransfer = (transfer: PayoutTransfer): readonly PayoutAttempt[] => {
-    if (state.transfers.some((t) => t.id !== transfer.id && t.status !== 'EXPIRED')) throw live();
+    if (state.transfers.some((t) => t.id !== transfer.id && !provablyNotSent(t))) throw live();
     if (state.attempts.some((a) => a.status === 'CONFIRMED')) throw live();
     if (unresolved.some((a) => a.id !== transfer.attemptId)) throw live();
     provenTransferIds.push(transfer.id);
@@ -171,7 +180,8 @@ export function bindProof(input: BindInput): ProofBinding {
       ) {
         throw mismatch();
       }
-      if (state.transfers.some((t) => t.id !== transfer.id && t.status !== 'EXPIRED')) throw live();
+      // S9f L-1: a late chain fact on this or any other transfer: "not sent" is not provable.
+      if (state.transfers.some((t) => !provablyNotSent(t))) throw live();
       if (state.attempts.some((a) => a.status === 'CONFIRMED')) throw live();
       if (unresolved.some((a) => a.id !== transfer.attemptId)) throw live();
       toClose = unresolved;

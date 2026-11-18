@@ -24,4 +24,5 @@ export type {
 export { failAndRefundOrder, refundFailedOrder } from './order-refund.js';
 export type { FailAndRefundInput, RefundFailedOrderInput, RefundOutcome } from './order-refund.js';
 export { transitionOrder } from './order-transition.js';
+export { TON_LATE_FACT_KEYS, hasLateTonFact } from './payout-state.js';
 export type { OrderTransitionInput, ReasonedStatus } from './order-transition.js';

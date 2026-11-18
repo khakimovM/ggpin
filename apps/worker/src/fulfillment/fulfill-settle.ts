@@ -17,7 +17,8 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 // job will run for it again, so it must not stay silent. Called under the order lock.
 //
 //   PROCESSING with a live attempt  -> NEEDS_REVIEW (ADAPTER_ERROR): the attempt may have been sent
-//   PROCESSING without one          -> HELD (ADAPTER_ERROR), a core hold: nothing can have left
+//   PROCESSING without one          -> HELD (ADAPTER_ERROR), a core hold: nothing can have left;
+//                                      NEEDS_REVIEW instead when an earlier payout may be out (S9f)
 //   PAID / QUEUED                   -> enqueued again, at most MAX_ABANDONED_REQUEUES times in the
 //                                      window (abandon-counter.ts); past that, the owner's alert.
 //                                      Only from the failed event (requeue): inside the run the job
@@ -94,7 +95,14 @@ export class FulfillSettler {
       return 'REVIEW';
     }
     const reason = 'ADAPTER_ERROR';
-    const eventId = await this.orders.hold(order.id, reason, coreHoldNote(reason, 'job failed'));
+    let eventId: string | null;
+    try {
+      eventId = await this.orders.hold(order.id, reason, coreHoldNote(reason, 'job failed'));
+    } catch (error) {
+      // S9f: an earlier payout may be out (a late chain fact): never HELD, the owner decides.
+      if (await this.reviewer.reviewIfPayoutLive(order.id, 'hold', error)) return 'REVIEW';
+      throw error;
+    }
     if (eventId !== null) {
       this.logger.warn(`order ${order.id} held: its job failed for good before any attempt`);
       await this.notifier.send(holdNotices(order.id, eventId, reason));

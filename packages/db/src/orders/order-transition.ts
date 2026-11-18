@@ -27,7 +27,8 @@ export type { OrderTransitionInput, ReasonedStatus } from './order-transition-co
  * (wallet, then order row) against the order's own rows: no attempt SENDING / SENT / UNKNOWN /
  * CONFIRMED and every TON transfer EXPIRED, else `LivePayoutError` (audit H2, review R8).
  * Entering FAILED or CANCELLED also takes the wallet lock first (a refund follows), so the lock
- * order is always wallet -> order -> attempt -> transfer.
+ * order is always wallet -> order -> attempt -> transfer. A TON transfer whose attempt holds a late
+ * chain fact (`late` / `lateDestination`, S9f) counts as live too, whatever its status.
  *
  * Entering DELIVERED is "sent" by definition, so it is checked under the order lock as well (audit
  * Y1, L5): at least one CONFIRMED attempt, no attempt still SENDING / SENT / UNKNOWN, and every

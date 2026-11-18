@@ -1,4 +1,4 @@
-import { transitionOrder, type Tx } from '@repo/db';
+import { hasLateTonFact, transitionOrder, type Tx } from '@repo/db';
 import type { TonHoldReason, TonStopReason } from './ton-payout';
 import { lockAttempt, lockOrder } from './ton-row-locks';
 
@@ -7,7 +7,34 @@ import { lockAttempt, lockOrder } from './ton-row-locks';
 
 export type Gate = { readonly ok: true } | { readonly ok: false; readonly reason: TonStopReason };
 
-/** Order PROCESSING, attempt SENDING of that order, no reference and no transfer yet. */
+/**
+ * A transfer of ANOTHER attempt of the order that may have gone out (phase 5 S9f, audit M-1): any
+ * status but EXPIRED, or an EXPIRED one whose attempt holds a late chain fact (`late`,
+ * `lateDestination`: the chain showed the message after all). Null when every earlier payout is
+ * provably not sent. Read after the order row was locked (`gate`), so a late fact written by the
+ * reconciler (which locks the order first, too) is either seen here or written after the commit.
+ */
+export async function earlierLivePayout(
+  db: Pick<Tx, 'tonTransfer'>,
+  orderId: string,
+  attemptId: string,
+): Promise<string | null> {
+  const others = await db.tonTransfer.findMany({
+    where: { attempt: { orderId }, NOT: { attemptId } },
+    select: { id: true, status: true, attempt: { select: { response: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+  const live = others.find(
+    (t) => t.status !== 'EXPIRED' || hasLateTonFact(t.attempt?.response ?? null),
+  );
+  return live?.id ?? null;
+}
+
+/**
+ * Order PROCESSING, attempt SENDING of that order, no reference and no transfer yet, and no
+ * earlier payout of the order that may have gone out (S9f M-1: a second payment is never signed
+ * beside one the chain showed late).
+ */
 export async function gate(tx: Tx, orderId: string, attemptId: string): Promise<Gate> {
   const order = await lockOrder(tx, orderId);
   const attempt = await lockAttempt(tx, attemptId);
@@ -18,6 +45,9 @@ export async function gate(tx: Tx, orderId: string, attemptId: string): Promise<
   if (attempt.externalRef !== null) return { ok: false, reason: 'REF_TAKEN' };
   const transfer = await tx.tonTransfer.findUnique({ where: { attemptId }, select: { id: true } });
   if (transfer !== null) return { ok: false, reason: 'ATTEMPT_HAS_TRANSFER' };
+  if ((await earlierLivePayout(tx, orderId, attemptId)) !== null) {
+    return { ok: false, reason: 'EARLIER_PAYOUT_LIVE' };
+  }
   return { ok: true };
 }
 

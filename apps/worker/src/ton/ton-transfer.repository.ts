@@ -8,6 +8,7 @@ import type { TonNetwork } from './ton-mnemonic';
 import type { TonHoldReason, TonStopReason } from './ton-payout';
 import {
   databaseLagSec,
+  earlierLivePayout,
   gate,
   hold,
   holdReasonOf,
@@ -135,6 +136,11 @@ export class TonTransferRepository {
     const ms = Number(rows[0]?.ms);
     if (!Number.isSafeInteger(ms)) throw new Error('the database clock could not be read');
     return ms;
+  }
+
+  /** The earlier transfer of the order that stopped this attempt (EARLIER_PAYOUT_LIVE), or null. */
+  earlierLivePayout(orderId: string, attemptId: string): Promise<string | null> {
+    return earlierLivePayout(this.prisma.client, orderId, attemptId);
   }
 
   /** A cheap look before the chain is asked anything; `signAndStore` checks again under lock. */

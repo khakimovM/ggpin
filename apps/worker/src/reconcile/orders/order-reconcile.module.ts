@@ -7,6 +7,8 @@ import { HeldEvidence } from './held-evidence';
 import { HeldSourcesRepository } from './held-sources.repository';
 import { HeldSweepStep } from './held-sweep.step';
 import { HeldWriter } from './held-writes';
+import { LateFactsRepository } from './late-facts.repository';
+import { LateFactsStep } from './late-facts.step';
 import { NoticeResendStep } from './notice-resend.step';
 import { OrderLockKeys } from './order-lock-keys';
 import { OrderLockStuckStep } from './order-lock-stuck.step';
@@ -29,6 +31,7 @@ import { WalletBlockedStep } from './wallet-blocked.step';
 // address, never its signer or its lock; the adapters give the router (a HELD release, S9e, asks
 // it which route the run would take: its cached health, never a send); the fulfillment core gives
 // its enqueuer, the replay's resend and the abandon count (S9d), never its run or its payer;
+// the late facts (S9f) read and write the chain only through the TON module's TonLateService;
 // Prisma, Redis and the queues come from the worker's global modules. A later slice adds a step by
 // providing it and listing it in RECONCILE_STEPS below, in its place in the fixed order (transfers,
 // review, stale + stuck lease + notice resend S9d, held + blocked-wallet reminder S9e, late facts
@@ -53,6 +56,8 @@ import { WalletBlockedStep } from './wallet-blocked.step';
     HeldWriter,
     HeldSweepStep,
     WalletBlockedStep,
+    LateFactsRepository,
+    LateFactsStep,
     {
       provide: RECONCILE_STEPS,
       inject: [
@@ -63,6 +68,7 @@ import { WalletBlockedStep } from './wallet-blocked.step';
         NoticeResendStep,
         HeldSweepStep,
         WalletBlockedStep,
+        LateFactsStep,
       ],
       useFactory: (...steps: ReconcileStep[]): readonly ReconcileStep[] => steps,
     },

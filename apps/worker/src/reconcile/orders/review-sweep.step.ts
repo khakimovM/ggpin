@@ -103,6 +103,10 @@ export class ReviewSweepStep implements ReconcileStep {
         };
       case 'ALERT_CONSUMED':
         return { outcome: 'consumedUnmatched', decided: false };
+      // I-5 (S9f): a transfer found on the chain late is the owner's; its alert, never a proof.
+      case 'ALERT_LATE':
+        await this.notifier.alert('tonLateConfirmed', decision.transferId);
+        return { outcome: 'lateConfirmed', decided: false };
       case 'DELIVER':
         return this.resolve(orderId, { to: 'DELIVERED', proof: decision.proof }, attempts, context);
       case 'REFUND':

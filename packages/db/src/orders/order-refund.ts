@@ -8,7 +8,12 @@ import {
 } from './errors.js';
 import { applyTransition } from './order-transition-core.js';
 import { transitionOrder } from './order-transition.js';
-import { assertNoLivePayout, lockOrderRow, readPayoutState } from './payout-state.js';
+import {
+  assertNoLivePayout,
+  lockOrderRow,
+  readPayoutState,
+  type LivePayoutOptions,
+} from './payout-state.js';
 
 type RefundActor =
   | { readonly actor: 'system'; readonly actorRef?: null }
@@ -47,7 +52,8 @@ export type RefundOutcome =
  *
  * Under that lock it checks what makes a refund true (audit H2, M4; review F2):
  * - no payout may have gone out: no attempt SENDING / SENT / UNKNOWN / CONFIRMED, every TON
- *   transfer EXPIRED (`LivePayoutError`);
+ *   transfer EXPIRED and none with a late chain fact (`LivePayoutError`, S9f: no automatic refund
+ *   beside a message the chain showed after all; only the owner passes it, by MANUAL FAILED or by a proof bound to that very transfer);
  * - the money returned is read from the ledger: the order's own PURCHASE entry must exist
  *   (`PurchaseEntryMissingError`) and equal `priceTiyin - discountTiyin`
  *   (`PurchaseEntryMismatchError`). The ledger wins: nothing is credited that was never taken.
@@ -64,12 +70,15 @@ export function refundFailedOrder(tx: Tx, input: RefundFailedOrderInput): Promis
  * INTERNAL: `refundFailedOrder` for `resolveNeedsReview`, which has just bound an owner's proof
  * (TON_NOT_DEBITED, TON_BOUNCED, TON_UNMATCHED_RESOLVED) to the transfers listed in
  * `provenTransferIds`: only those, and only when failed on the chain, bounced or consumed without
- * a match, no longer stop the refund (owner decisions A1-A4). Not exported from the package index.
+ * a match, no longer stop the refund (owner decisions A1-A4). `lateDecidedTransferIds`: the same
+ * transfers when an OWNER bound the proof, whose OWN late chain fact the proof settled;
+ * `lateDecidedByOwner`: the owner's MANUAL FAILED, past every late chain fact (S9f, owner
+ * 2026-11-18). Not exported from the package index.
  */
 export async function refundFailedOrderWith(
   tx: Tx,
   input: RefundFailedOrderInput,
-  options: { readonly provenTransferIds?: readonly string[] },
+  options: LivePayoutOptions,
 ): Promise<RefundOutcome> {
   assertInTransaction(tx, 'refundFailedOrder');
   // Runtime, not only the type (audit S9e L-5): an actor the table does not allow is refused here,

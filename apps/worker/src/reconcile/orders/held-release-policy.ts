@@ -8,13 +8,16 @@ import {
   type TonLimits,
 } from '@repo/shared';
 import { RECHECK_MAX_AGE_MS } from '../../fulfillment/fulfill-recipient';
+import type { HeldPayout } from './held-payout';
 
 // What the order reconciler does with one HELD order (phase 5 S9e, D-64 (4), Q-2, Q-3, Q-8). Pure:
 // every input was read from the database or the worker's config by the caller (no provider is
 // asked anything here), every clock is the DATABASE clock of the tick. Two stages:
 //
 // 1. `triageHeld` (no source reads): a PURCHASE debit that does not match the order is a money
-//    anomaly (NO_PURCHASE: never refunded, never released, only the owner); a hold that reached
+//    anomaly (NO_PURCHASE: never refunded, never released, only the owner); a payout row that is
+//    not provably unsent (a late chain fact, a transfer that is not EXPIRED: S9f M-1 / L-1) keeps
+//    the order for the owner whatever its age or reason (PAYOUT); a hold that reached
 //    HELD_MAX_AGE_MS since its LATEST HELD event (`>=`) is refunded, whatever its reason; an
 //    ADAPTER_ERROR hold (the attempt cap, a refused SENDING, a stale re-check, a refused prepare,
 //    NO_PURCHASE...) and any reason we do not know is never released; an order the reconciler has
@@ -58,6 +61,8 @@ export interface HeldFacts {
   readonly purchaseMatches: boolean;
   /** HELD -> QUEUED events the reconciler wrote for this order. */
   readonly releasesUsed: number;
+  /** What the order's attempts and transfers say (held-payout.ts); only `clean` may move. */
+  readonly payout: HeldPayout;
 }
 
 export type KeepWhy =
@@ -76,6 +81,7 @@ export type KeepWhy =
 
 export type HeldTriage =
   | { readonly kind: 'NO_PURCHASE' }
+  | { readonly kind: 'PAYOUT'; readonly why: Exclude<HeldPayout, 'clean'> }
   | { readonly kind: 'REFUND' }
   | { readonly kind: 'KEEP'; readonly why: KeepWhy }
   | { readonly kind: 'CHECK'; readonly reason: ReleasableReason };
@@ -87,6 +93,8 @@ function releasable(reason: string | null): ReleasableReason | null {
 /** Stage 1: refund, a money anomaly, keep, or look at the sources of a releasable reason. */
 export function triageHeld(facts: HeldFacts, nowMs: number, heldMaxAgeMs: number): HeldTriage {
   if (!facts.purchaseMatches) return { kind: 'NO_PURCHASE' };
+  // S9f M-1 / L-1: neither a release nor a refund beside a payout that may have gone out.
+  if (facts.payout !== 'clean') return { kind: 'PAYOUT', why: facts.payout };
   if (!Number.isSafeInteger(nowMs) || !Number.isSafeInteger(facts.heldAtMs)) {
     return { kind: 'KEEP', why: 'badClock' };
   }

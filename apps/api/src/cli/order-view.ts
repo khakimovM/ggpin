@@ -1,9 +1,12 @@
+import { hasLateTonFact } from '@repo/db';
 import { formatMajor, totalAfterDiscount } from '@repo/shared';
 import type { OrderShow } from '../modules/orders/admin/order-admin-read.service';
 import type { OrderListRow } from '../modules/orders/admin/order-admin.repository';
 import { storedBounce } from '../modules/orders/admin/order-review.input';
 import { terminalSafe } from './cli-io';
 import { money, report, type CliContext } from './commands/command';
+import { deadEndOf } from './order-dead-end';
+import { printLateFacts, tonFact, word } from './order-late-facts';
 
 // How the order commands print (phase 5 S10). Ids, states, amounts, hashes and our own wallet
 // addresses only: the recipient (username, display name), the provider handle and the quote's
@@ -63,7 +66,101 @@ function hasFirstExpiryOnly(response: unknown): boolean {
   );
 }
 
-export function printShow(ctx: CliContext, show: OrderShow): void {
+/** An owner Z6 hint of one of the order's transfers (AuditLog TON_TX_HINT; S9f). */
+export interface HintLine {
+  readonly id: string;
+  readonly transferId: string;
+  readonly txHash: string | null;
+  readonly lt: string | null;
+  readonly createdAt: Date;
+}
+
+/** The ids of the order's TON transfers (whose hints `order:show` prints). */
+export function transferIdsOf(show: OrderShow): string[] {
+  return show.order.attempts.flatMap((a) => (a.tonTransfer === null ? [] : [a.tonTransfer.id]));
+}
+
+/**
+ * Where the worker stands on a hint (its verdict is kept on the attempt, `ton.hint`): only the
+ * transfer's latest hint is checked, an older one that was never decided is replaced by it. Once
+ * the transfer is no longer CONSUMED_UNMATCHED (the late scan confirmed it, review F8) a hint is
+ * moot; its old verdict is still shown.
+ */
+export function hintStatus(
+  hint: HintLine,
+  latest: boolean,
+  response: unknown,
+  transferStatus: string,
+): string {
+  const verdict = tonFact(response, 'hint');
+  const moot = transferStatus !== 'CONSUMED_UNMATCHED';
+  let status: string;
+  if (verdict !== null && verdict('auditId') === hint.id) {
+    const message = verdict('message');
+    const why = typeof message === 'string' ? ` ${message}` : '';
+    status =
+      verdict('verdict') === 'ACCEPTED' ? 'accepted' : `rejected: ${word(verdict('code'))}${why}`;
+  } else if (!latest) {
+    status = 'replaced by a later hint';
+  } else {
+    status = moot ? 'not checked' : 'pending (the reconciler checks it)';
+  }
+  if (!moot || status === 'accepted') return status;
+  const late = tonFact(response, 'late');
+  const by = late !== null && late('via') === 'SCAN' ? ' by scan' : '';
+  return `${status}; moot: transfer ${transferStatus}${by}`;
+}
+
+type ShownAttempt = OrderShow['order']['attempts'][number];
+
+/**
+ * Z6 is manual (owner 2026-11-18): a CONSUMED_UNMATCHED transfer the chain confirmed later (the
+ * hint, or the late scan) is delivered only by the owner's TON_TX. While the order is NEEDS_REVIEW
+ * and the transfer's attempt is still open, the exact command is printed (ids and hashes only).
+ */
+export function resolveCommandOf(
+  orderId: string,
+  orderStatus: string,
+  a: ShownAttempt,
+): string | null {
+  const t = a.tonTransfer;
+  const late = tonFact(a.response, 'late');
+  const open = a.status === 'SENDING' || a.status === 'SENT' || a.status === 'UNKNOWN';
+  if (orderStatus !== 'NEEDS_REVIEW' || t === null || t.status !== 'CONFIRMED' || !open)
+    return null;
+  if (
+    late === null ||
+    late('from') !== 'CONSUMED_UNMATCHED' ||
+    t.txHash === null ||
+    t.txLt === null
+  ) {
+    return null;
+  }
+  // The value came back or the destination aborted: no ready "delivered" line (the facts print).
+  const returned = ['lateBounce', 'lateDestination'].some((k) => tonFact(a.response, k) !== null);
+  if (returned) return null;
+  const proof = {
+    kind: 'TON_TX',
+    extMsgHash: t.extMsgHash,
+    walletAddress: t.walletAddress,
+    txHash: t.txHash,
+    lt: t.txLt.toString(),
+  };
+  return `order:resolve ${orderId} --delivered --proof '${JSON.stringify(proof)}' --reason "<what you checked>" --operator <name>`;
+}
+
+/** The proof the transfer's state supports, or why none does (S9f L-1: a late chain fact). */
+export function proofKindOf(
+  t: NonNullable<ShownAttempt['tonTransfer']>,
+  response: unknown,
+): string {
+  if (t.status === 'EXPIRED' && hasLateTonFact(response)) {
+    return 'none: TON_NOT_SENT is refused, the chain showed this message later (late fact)';
+  }
+  return PROOF_HINT[t.status] ?? 'none';
+}
+
+export function printShow(ctx: CliContext, show: OrderShow, hints: readonly HintLine[] = []): void {
   const { order, ledger, audits } = show;
   report(ctx, {
     order: order.id,
@@ -81,6 +178,8 @@ export function printShow(ctx: CliContext, show: OrderShow): void {
     createdAt: `${order.createdAt.toISOString()} (${age(order.createdAt)} ago)`,
     deliveredAt: order.deliveredAt?.toISOString() ?? null,
   });
+  const deadEnd = deadEndOf(order.status, order.attempts);
+  if (deadEnd !== null) report(ctx, { deadEnd });
   for (const e of order.events) {
     const note = e.note === null ? '' : ` (${e.note})`;
     report(ctx, {
@@ -100,7 +199,7 @@ export function printShow(ctx: CliContext, show: OrderShow): void {
         transferTo: t.toAddress,
         transferExtMsgHash: t.extMsgHash,
         transferTx: tx,
-        proofKind: PROOF_HINT[t.status] ?? 'none',
+        proofKind: proofKindOf(t, a.response),
       });
     }
     const bounce = storedBounce(a.response);
@@ -109,6 +208,16 @@ export function printShow(ctx: CliContext, show: OrderShow): void {
         bounce: `txHash=${bounce.txHash} txLt=${bounce.txLt} returnTxHash=${bounce.returnTxHash} returnLt=${bounce.returnLt} returnedNanoTon=${bounce.returnedNanoTon}`,
       });
     }
+    printLateFacts(ctx, a.response);
+    const own = t === null ? [] : hints.filter((h) => h.transferId === t.id);
+    own.forEach((h, index) => {
+      const status = hintStatus(h, index === 0, a.response, t?.status ?? '-');
+      report(ctx, {
+        hint: `${h.id} tx=${h.txHash ?? '?'}@${h.lt ?? '?'} at=${h.createdAt.toISOString()} status=${status}`,
+      });
+    });
+    const command = resolveCommandOf(order.id, order.status, a);
+    if (command !== null) report(ctx, { resolveCommand: command });
     // S5: a first expiry observation may stay after a witness dispute. It proves nothing: only a
     // transfer in state EXPIRED is "not sent" (TON_NOT_SENT needs it).
     if (hasFirstExpiryOnly(a.response) && t?.status !== 'EXPIRED') {

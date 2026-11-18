@@ -1,8 +1,10 @@
 import { MAX_SEND_ATTEMPTS, ORDER_ADMIN_LIST_MAX_LIMIT } from '@repo/shared';
 import { OrderAdminReadService } from '../../modules/orders/admin/order-admin-read.service';
 import { OrderRetryService } from '../../modules/orders/admin/order-retry.service';
-import { printList, printShow } from '../order-view';
+import { TonHintService } from '../../modules/orders/admin/tx-hint.service';
+import { printList, printShow, transferIdsOf } from '../order-view';
 import { ORDER_RESOLVE_COMMAND } from './order-resolve.command';
+import { TON_HINT_COMMAND } from './tx-hint.command';
 import {
   ACTOR_OPTIONS,
   ACTOR_USAGE,
@@ -38,7 +40,9 @@ const show: CliCommand = {
   usage: 'order:show <orderId>',
   async run(ctx, argv) {
     const p = parse(argv, {}, 1);
-    printShow(ctx, await ctx.app.get(OrderAdminReadService).show(positional(p, 0)));
+    const shown = await ctx.app.get(OrderAdminReadService).show(positional(p, 0));
+    // The owner's Z6 hints of the order's transfers (S9f): pending / accepted / rejected: code.
+    printShow(ctx, shown, await ctx.app.get(TonHintService).hintsOf(transferIdsOf(shown)));
   },
 };
 
@@ -95,4 +99,10 @@ const retry: CliCommand = {
   },
 };
 
-export const ORDER_COMMANDS: readonly CliCommand[] = [list, show, retry, ORDER_RESOLVE_COMMAND];
+export const ORDER_COMMANDS: readonly CliCommand[] = [
+  list,
+  show,
+  retry,
+  ORDER_RESOLVE_COMMAND,
+  TON_HINT_COMMAND,
+];

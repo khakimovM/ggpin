@@ -17,6 +17,7 @@ import { OrderLockUnavailableError } from '../../fulfillment/order-lock';
 import { isGuardRefusal } from '../../ton/ton-db-errors';
 import { HeldEvidence } from './held-evidence';
 import { episodeAlert, episodeRef } from './guard-ref';
+import { HeldPayoutError, type HeldPayout } from './held-payout';
 import { releaseVerdict, triageHeld, type ReleasableReason } from './held-release-policy';
 import { HeldSourcesRepository } from './held-sources.repository';
 import { HeldWriter, HoldChangedError } from './held-writes';
@@ -42,6 +43,9 @@ import {
 //   is the stale step's: QUEUED without a job);
 // - NO_PURCHASE (the debit does not match): never refunded or released; `orderNoPurchase` is
 //   queued again under the order's id (the run's own alert, deduped) and logged as an error;
+// - PAYOUT (S9f M-1 / L-1): a late chain fact or a transfer that is not EXPIRED on the order: never
+//   released, never refunded, whatever its age; the owner's `reconcileGuardRefused` (one per order
+//   and hour). The writes check it again under the order's row lock (HeldPayoutError: rolled back);
 // - KEEP: nothing.
 // Errors: StaleOrderState / HoldChanged = someone moved first, a silent no-op; a live payout
 // under a HELD order or a guard refusal (GG001) = `reconcileGuardRefused` (one per order and
@@ -56,6 +60,7 @@ type Outcome =
   | { readonly kind: 'refunded'; readonly userId: string }
   | { readonly kind: 'released'; readonly reason: ReleasableReason }
   | { readonly kind: 'noPurchase' | 'noHeldEvent' }
+  | { readonly kind: 'payout'; readonly why: Exclude<HeldPayout, 'clean'> }
   /** `livePayout`: the refund helper's own check; `dbGuard`: the database refused (GG001). */
   | { readonly kind: 'guard'; readonly by: 'livePayout' | 'dbGuard' }
   | { readonly kind: 'quiet'; readonly outcome: string };
@@ -124,6 +129,7 @@ export class HeldSweepStep implements ReconcileStep {
         heldAtMs: order.heldAt.getTime(),
         purchaseMatches: order.purchaseMatches,
         releasesUsed: order.releasesUsed,
+        payout: order.payout,
       },
       context.nowMs,
       this.config.HELD_MAX_AGE_MS,
@@ -131,6 +137,8 @@ export class HeldSweepStep implements ReconcileStep {
     switch (triage.kind) {
       case 'NO_PURCHASE':
         return { kind: 'noPurchase' };
+      case 'PAYOUT':
+        return { kind: 'payout', why: triage.why };
       case 'KEEP':
         return { kind: 'quiet', outcome: `keep:${triage.why}` };
       case 'REFUND':
@@ -160,6 +168,7 @@ export class HeldSweepStep implements ReconcileStep {
       if (error instanceof StaleOrderStateError || error instanceof HoldChangedError) {
         return { kind: 'quiet', outcome: 'stale' };
       }
+      if (error instanceof HeldPayoutError) return { kind: 'payout', why: error.why };
       if (
         error instanceof PurchaseEntryMissingError ||
         error instanceof PurchaseEntryMismatchError
@@ -213,6 +222,20 @@ export class HeldSweepStep implements ReconcileStep {
         tally.add('guardRefused', orderId);
         tally.add(`guard:${outcome.by}`);
         return;
+      case 'payout':
+        this.logger.error(
+          `order ${orderId}: HELD beside a payout that may be out (${outcome.why})`,
+        );
+        // S9f (owner 2026-11-18): beside a late chain fact or a live transfer only the owner can
+        // end it: once a day.
+        await this.untouchable(
+          orderId,
+          context,
+          outcome.why === 'lateFact' ? 'heldlate' : 'heldlive',
+        );
+        tally.add('payoutRefused', orderId);
+        tally.add(`payout:${outcome.why}`);
+        return;
       case 'noHeldEvent':
         this.logger.error(`order ${orderId}: HELD without a HELD event, not touched`);
         await this.untouchable(orderId, context);
@@ -224,11 +247,19 @@ export class HeldSweepStep implements ReconcileStep {
     }
   }
 
-  /** The owner's `reconcileGuardRefused`, once per order and hour (`<orderId>_held_<hour>`). */
-  private async untouchable(orderId: string, context: ReconcileContext): Promise<void> {
-    const ref = episodeRef(orderId, 'held', context.nowMs);
+  /**
+   * The owner's `reconcileGuardRefused`, once per order and hour (`<orderId>_held_<hour>`), or
+   * per order and day beside a late chain fact (`<orderId>_heldlate_<day>`) or a transfer that is
+   * not EXPIRED (`<orderId>_heldlive_<day>`, S9f).
+   */
+  private async untouchable(
+    orderId: string,
+    context: ReconcileContext,
+    scope: 'held' | 'heldlate' | 'heldlive' = 'held',
+  ): Promise<void> {
+    const ref = episodeRef(orderId, scope, context.nowMs);
     if (ref === null) this.logger.error(`order ${orderId}: no alert id for the held refusal`);
-    else await this.notifier.alert(episodeAlert('held'), ref);
+    else await this.notifier.alert(episodeAlert(scope), ref);
   }
 
   private async resendRefunds(context: ReconcileContext, tally: StepTally): Promise<void> {

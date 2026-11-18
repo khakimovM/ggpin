@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { RefundOutcome } from '@repo/db';
 import {
   ATTEMPT_LIMIT_HOLD_WHY,
   attemptLimitReached,
@@ -20,6 +21,7 @@ import { TON_PAY_ADDRESSES, type TonPayAddresses } from '../ton/ton-tokens';
 import { AdapterRouter } from './adapter-router';
 import { toAttemptJson } from './attempt-json';
 import { AttemptsRepository, type AttemptRow } from './attempts.repository';
+import { FulfillReviewer } from './fulfill-review';
 import { FulfillSupplierRunner } from './fulfill-supplier.runner';
 import { isLiveAttempt, isTonPaid, judgePrepared, purchaseAmountOf } from './fulfill-steps';
 import { FulfillTonRunner, type RunStep } from './fulfill-ton.runner';
@@ -38,6 +40,8 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 // with Fragment DOWN is HELD, NO_ADAPTER, before any provider is asked), then prefers the adapter
 // that issued the recipient handle; another adapter checks the recipient again first
 // (fulfill-recipient.ts, S7 CR #2), and only while the confirmation is fresh (STALE -> HELD).
+// S9f (owner 2026-11-18): when an EARLIER attempt's payout may be out after all (a late chain
+// fact), the database refuses both the hold and the refund (LivePayoutError): NEEDS_REVIEW instead.
 
 type Decision =
   | { readonly kind: 'HOLD'; readonly reason: OrderStatusReason; readonly why: string }
@@ -86,6 +90,7 @@ export class FreshAttempt {
     private readonly ton: FulfillTonRunner,
     private readonly supplier: FulfillSupplierRunner,
     private readonly notifier: FulfillmentNotifier,
+    private readonly reviewer: FulfillReviewer,
     private readonly wallets: WalletCacheInvalidator,
     @Inject(FULFILL_HOOKS) private readonly hooks: FulfillHooks,
     @Inject(WORKER_CONFIG) private readonly config: WorkerConfig,
@@ -240,8 +245,15 @@ export class FreshAttempt {
     return this.hold(orderId, 'ADAPTER_ERROR', 'the attempt row was refused');
   }
 
+  /** A refusal by LivePayoutError (S9f) goes to review instead (FulfillReviewer). */
   private async hold(orderId: string, reason: OrderStatusReason, why: string): Promise<RunStep> {
-    const eventId = await this.orders.hold(orderId, reason, coreHoldNote(reason, why));
+    let eventId: string | null;
+    try {
+      eventId = await this.orders.hold(orderId, reason, coreHoldNote(reason, why));
+    } catch (error) {
+      if (await this.reviewer.reviewIfPayoutLive(orderId, `hold ${reason}`, error)) return 'DONE';
+      throw error;
+    }
     if (eventId !== null) {
       this.logger.warn(`order ${orderId} held: ${reason} (${why})`);
       await this.notifier.send(holdNotices(orderId, eventId, reason));
@@ -253,7 +265,13 @@ export class FreshAttempt {
     orderId: string,
     reason: 'RECIPIENT_CHANGED' | 'RECIPIENT_GONE',
   ): Promise<RunStep> {
-    const outcome = await this.orders.failAndRefund(orderId, reason);
+    let outcome: RefundOutcome | null;
+    try {
+      outcome = await this.orders.failAndRefund(orderId, reason);
+    } catch (error) {
+      if (await this.reviewer.reviewIfPayoutLive(orderId, `refund ${reason}`, error)) return 'DONE';
+      throw error;
+    }
     if (outcome?.outcome === 'REFUNDED') {
       this.logger.warn(`order ${orderId} failed and refunded: ${reason}`);
       await this.afterRefund(orderId, outcome.userId);

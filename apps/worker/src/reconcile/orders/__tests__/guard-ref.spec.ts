@@ -92,6 +92,40 @@ describe('episodeRef', () => {
       `${ORDER}_abandoned_${String(Math.floor(AT / (24 * HOUR)))}`,
     );
   });
+
+  it('S9f heldlate: <orderId>_heldlate_<day>, one id for the whole day, a new one the next day', () => {
+    const day = Math.floor(AT / (24 * HOUR));
+    const ref = episodeRef(ORDER, 'heldlate', AT);
+    expect(ref).toBe(`${ORDER}_heldlate_${String(day)}`);
+    if (ref === null) throw new Error('no ref');
+    expect(refIdSubject(ref)).toBe(ORDER);
+    expect(episodeAlert('heldlate')).toBe('reconcileGuardRefused');
+    expect(job(ref).refId).toBe(ref);
+    const dayStart = day * 24 * HOUR;
+    expect(episodeRef(ORDER, 'heldlate', dayStart)).toBe(ref);
+    expect(episodeRef(ORDER, 'heldlate', dayStart + 24 * HOUR - 1)).toBe(ref);
+    expect(episodeRef(ORDER, 'heldlate', dayStart + 24 * HOUR)).toBe(
+      `${ORDER}_heldlate_${String(day + 1)}`,
+    );
+    // The other HELD refusals keep their hour.
+    expect(episodeRef(ORDER, 'held', AT + HOUR)).not.toBe(episodeRef(ORDER, 'held', AT));
+  });
+
+  it('S9f heldlive (owner 2026-11-18): <orderId>_heldlive_<day>, daily like heldlate', () => {
+    const day = Math.floor(AT / (24 * HOUR));
+    const ref = episodeRef(ORDER, 'heldlive', AT);
+    expect(ref).toBe(`${ORDER}_heldlive_${String(day)}`);
+    if (ref === null) throw new Error('no ref');
+    expect(refIdSubject(ref)).toBe(ORDER);
+    expect(episodeAlert('heldlive')).toBe('reconcileGuardRefused');
+    expect(job(ref).refId).toBe(ref);
+    const dayStart = day * 24 * HOUR;
+    expect(episodeRef(ORDER, 'heldlive', dayStart + 24 * HOUR - 1)).toBe(ref);
+    expect(episodeRef(ORDER, 'heldlive', dayStart + 24 * HOUR)).toBe(
+      `${ORDER}_heldlive_${String(day + 1)}`,
+    );
+    expect(ref).not.toBe(episodeRef(ORDER, 'heldlate', AT));
+  });
 });
 
 describe('walletBlockedRef (S9e, CR F6)', () => {

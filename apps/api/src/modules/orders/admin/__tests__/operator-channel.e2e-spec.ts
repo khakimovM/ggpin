@@ -48,6 +48,7 @@ const OWNER_SERVICES = [
   'api/src/modules/orders/admin/order-admin-read.service.ts',
   'api/src/modules/orders/admin/order-retry.service.ts',
   'api/src/modules/orders/admin/order-review.service.ts',
+  'api/src/modules/orders/admin/tx-hint.service.ts',
 ];
 
 describe('I-4: the CLI channel never exists in the HTTP application', () => {
