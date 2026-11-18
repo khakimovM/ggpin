@@ -29,6 +29,7 @@ import type { TonChainWitness } from '../../../ton/ton-gateway';
 import { TonConfirmService } from '../../../ton/ton-confirm.service';
 import { TonSenderService } from '../../../ton/ton-sender.service';
 import type { TonTiming } from '../../../ton/ton-tokens';
+import { HeldSourcesRepository } from '../held-sources.repository';
 import { OrderReconcileModule } from '../order-reconcile.module';
 import { OrderReconcileProcessor } from '../order-reconcile.processor';
 import { OrderReconcileRepository } from '../order-reconcile.repository';
@@ -40,6 +41,7 @@ import { ReviewResolver } from '../review-resolver';
 import {
   GrantingLockStore,
   ReconcilerTraps,
+  ScopedHeldSources,
   ScopedReconcileRepository,
   ScopedSweepsRepository,
 } from './reconcile-e2e.fakes';
@@ -152,6 +154,12 @@ export function useReconcileE2e() {
       .overrideProvider(OrderSweepsRepository)
       .useFactory({
         factory: (prisma: PrismaService) => new ScopedSweepsRepository(prisma, orders),
+        inject: [PrismaService],
+      })
+      // S9e: the HELD step's lists, the same way (old runs' HELD orders are not this run's).
+      .overrideProvider(HeldSourcesRepository)
+      .useFactory({
+        factory: (prisma: PrismaService) => new ScopedHeldSources(prisma, orders),
         inject: [PrismaService],
       });
     if (options.grantingLock === true) {

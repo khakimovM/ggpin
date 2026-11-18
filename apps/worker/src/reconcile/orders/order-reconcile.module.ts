@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AdaptersModule } from '../../adapters/adapters.module';
 import { WalletCacheInvalidator } from '../../bank-feed/wallet-cache-invalidator';
 import { FulfillmentModule } from '../../fulfillment/fulfillment.module';
 import { TonModule } from '../../ton/ton.module';
+import { HeldEvidence } from './held-evidence';
+import { HeldSourcesRepository } from './held-sources.repository';
+import { HeldSweepStep } from './held-sweep.step';
+import { HeldWriter } from './held-writes';
 import { NoticeResendStep } from './notice-resend.step';
 import { OrderLockKeys } from './order-lock-keys';
 import { OrderLockStuckStep } from './order-lock-stuck.step';
@@ -17,16 +22,19 @@ import { ReviewResolver } from './review-resolver';
 import { ReviewSweepStep } from './review-sweep.step';
 import { StaleOrdersStep } from './stale-orders.step';
 import { TransferSweepStep } from './transfer-sweep.step';
+import { WalletBlockedStep } from './wallet-blocked.step';
 
 // The order reconciler (phase 5 S9, D-64): `reconcile:orders` every ORDER_RECONCILE_EVERY_MS on the
 // `reconcile` queue. The TON module gives the chain look (TonConfirmService) and the hot wallet's
-// address, never its signer or its lock; the fulfillment core gives its enqueuer, the replay's
-// resend and the abandon count (S9d), never its run or its payer; Prisma, Redis and the queues come
-// from the worker's global modules. A later slice adds a step by providing it and listing it in
-// RECONCILE_STEPS below, in its place in the fixed order (transfers, review, stale + stuck lease +
-// notice resend S9d, held S9e, late facts S9f, audit effects S9h).
+// address, never its signer or its lock; the adapters give the router (a HELD release, S9e, asks
+// it which route the run would take: its cached health, never a send); the fulfillment core gives
+// its enqueuer, the replay's resend and the abandon count (S9d), never its run or its payer;
+// Prisma, Redis and the queues come from the worker's global modules. A later slice adds a step by
+// providing it and listing it in RECONCILE_STEPS below, in its place in the fixed order (transfers,
+// review, stale + stuck lease + notice resend S9d, held + blocked-wallet reminder S9e, late facts
+// S9f, audit effects S9h).
 @Module({
-  imports: [TonModule, FulfillmentModule],
+  imports: [TonModule, AdaptersModule, FulfillmentModule],
   providers: [
     reconcileOrderLockProvider,
     WalletCacheInvalidator,
@@ -40,6 +48,11 @@ import { TransferSweepStep } from './transfer-sweep.step';
     StaleOrdersStep,
     OrderLockStuckStep,
     NoticeResendStep,
+    HeldSourcesRepository,
+    HeldEvidence,
+    HeldWriter,
+    HeldSweepStep,
+    WalletBlockedStep,
     {
       provide: RECONCILE_STEPS,
       inject: [
@@ -48,6 +61,8 @@ import { TransferSweepStep } from './transfer-sweep.step';
         StaleOrdersStep,
         OrderLockStuckStep,
         NoticeResendStep,
+        HeldSweepStep,
+        WalletBlockedStep,
       ],
       useFactory: (...steps: ReconcileStep[]): readonly ReconcileStep[] => steps,
     },

@@ -1,4 +1,4 @@
-import type { OrderStatusReason } from '@repo/shared';
+import { assertTransition, type OrderStatusReason } from '@repo/shared';
 import { appendLedgerEntry, assertInTransaction, lockWallet, type Tx } from '../ledger/ledger.js';
 import {
   OrderNotFoundError,
@@ -72,6 +72,9 @@ export async function refundFailedOrderWith(
   options: { readonly provenTransferIds?: readonly string[] },
 ): Promise<RefundOutcome> {
   assertInTransaction(tx, 'refundFailedOrder');
+  // Runtime, not only the type (audit S9e L-5): an actor the table does not allow is refused here,
+  // never mapped to `system` below.
+  assertTransition('FAILED', 'REFUNDED', input.actor);
   const owner = await tx.order.findUnique({
     where: { id: input.orderId },
     select: { userId: true },
@@ -142,6 +145,10 @@ export async function failAndRefundOrder(
   input: FailAndRefundInput,
 ): Promise<RefundOutcome> {
   assertInTransaction(tx, 'failAndRefundOrder');
+  // Both legs' actor checked before anything is read or locked (audit S9e L-5): `reconciler` or any
+  // other value is refused (IllegalOrderTransitionError), never silently run as `system`.
+  assertTransition(input.from, 'FAILED', input.actor);
+  assertTransition('FAILED', 'REFUNDED', input.actor);
   const owner = await tx.order.findUnique({
     where: { id: input.orderId },
     select: { userId: true },

@@ -85,10 +85,12 @@ describe('S9d: job-less PAID / QUEUED / PROCESSING orders', () => {
     expect(countsOf(report, 'stale')).toEqual({ abandoned: 1, enqueued: 1 });
     expect(await s.fulfillJobState(stopped.orderId)).toBe('none');
     expect(await s.fulfillJobState(allowed.orderId)).toBe('waiting');
-    // F8: a day's episode (the settle's own `<id>_abandoned` is not taken).
+    // F8: a day's episode. R1: the settle stamps the same one, so a settle's alert and this one
+    // on the same day are ONE notify job (deduped), never two messages.
     const ref = episodeRef(stopped.orderId, 'abandoned', report.nowMs) ?? '';
     expect(await s.hasAlert('needsReview', ref)).toBe(true);
-    expect(await s.hasAlert('needsReview', abandonedAlertRef(stopped.orderId))).toBe(false);
+    expect(abandonedAlertRef(stopped.orderId, report.nowMs)).toBe(ref);
+    expect(await s.hasAlert('needsReview', `${stopped.orderId}_abandoned`)).toBe(false);
     expect(await s.alertIdsLike('needsReview', `${allowed.orderId}_abandoned`)).toEqual([]);
     // Read, never counted: the settle's count is what it was.
     expect(await s.redis.get(`fulfill:abandoned:${stopped.orderId}`)).toBe(

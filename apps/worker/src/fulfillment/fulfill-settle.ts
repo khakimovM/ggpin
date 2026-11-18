@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { coreHoldNote, describeErrorForLog } from '@repo/shared';
+import { episodeRef } from '../reconcile/orders/guard-ref';
 import type { TonNotice } from '../ton/ton-notices';
 import { ABANDON_COUNTER, MAX_ABANDONED_REQUEUES, type AbandonCounter } from './abandon-counter';
 import { AttemptsRepository } from './attempts.repository';
@@ -23,8 +24,12 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 //                                      is still active, so an enqueue would be a no-op that counts
 //   any other state                 -> its notices are sent again (the replay)
 //   nothing can be written (DB)     -> at least the owner's `needsReview` alert for the order,
-//                                      refId `<orderId>_abandoned`: the plain order id stays free
-//                                      for the real NEEDS_REVIEW alert (notify ids dedupe for days)
+//                                      refId `<orderId>_abandoned_<day>`: the plain order id stays
+//                                      free for the real NEEDS_REVIEW alert (notify ids dedupe for
+//                                      days); the day is the reconciler's own episode for a used-up
+//                                      order (guard-ref.ts), so both on one day are ONE alert (S9d
+//                                      re-review R1). This process's clock (the database may be
+//                                      what failed): within seconds of the reconciler's.
 //
 // Never HELD when an attempt may be live, never FAILED or a refund: the outcome is unknown.
 
@@ -78,7 +83,7 @@ export class FulfillSettler {
 
   /** The owner hears about the order even when nothing could be read or written. */
   async alertOnly(orderId: string): Promise<'ALERTED'> {
-    await this.notifier.send([needsReviewAlert(orderId)]);
+    await this.notifier.send([needsReviewAlert(orderId, Date.now())]);
     return 'ALERTED';
   }
 
@@ -109,11 +114,14 @@ export class FulfillSettler {
   }
 }
 
-/** The refId of the owner's alert for an order that could not be settled (a composite ref). */
-export function abandonedAlertRef(orderId: string): string {
-  return `${orderId}_abandoned`;
+/**
+ * The refId of the owner's alert for an order that could not be settled: the reconciler's day
+ * episode (`<orderId>_abandoned_<day>`), or `<orderId>_abandoned` for an id no episode can carry.
+ */
+export function abandonedAlertRef(orderId: string, nowMs: number): string {
+  return episodeRef(orderId, 'abandoned', nowMs) ?? `${orderId}_abandoned`;
 }
 
-function needsReviewAlert(orderId: string): TonNotice {
-  return { kind: 'ALERT', alert: 'needsReview', refId: abandonedAlertRef(orderId) };
+function needsReviewAlert(orderId: string, nowMs: number): TonNotice {
+  return { kind: 'ALERT', alert: 'needsReview', refId: abandonedAlertRef(orderId, nowMs) };
 }

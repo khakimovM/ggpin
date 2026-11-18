@@ -20,6 +20,19 @@ const t = useFulfillE2e();
 const QUEUE = 'fulfill-order-s4-abandoned-test';
 const FAST = { lockDuration: 600, stalledInterval: 300, maxStalledCount: 1 } as const;
 
+/**
+ * Whether the owner's `<orderId>_abandoned_<day>` alert is queued: the settle stamps this
+ * process's day (S9d re-review R1), so a run across midnight UTC looks at the day before too.
+ */
+async function hasAbandonedAlert(orderId: string): Promise<boolean> {
+  const now = Date.now();
+  const refs = new Set([abandonedAlertRef(orderId, now - 60_000), abandonedAlertRef(orderId, now)]);
+  for (const refId of refs) {
+    if (await t.hasJob({ kind: 'OWNER_ALERT', alert: 'needsReview', refId })) return true;
+  }
+  return false;
+}
+
 const reviewJobs = (orderId: string) => [
   { kind: 'ORDER_REVIEW' as const, refId: orderId },
   { kind: 'OWNER_ALERT' as const, alert: 'needsReview' as const, refId: orderId },
@@ -104,7 +117,7 @@ describe('fulfill-order: a job that failed for good is settled (no BullMQ Worker
     );
     expect((await orderRow(t.db, fixture.orderId)).status).toBe('PROCESSING');
     const alert = { kind: 'OWNER_ALERT' as const, alert: 'needsReview' as const };
-    expect(await t.hasJob({ ...alert, refId: abandonedAlertRef(fixture.orderId) })).toBe(true);
+    expect(await hasAbandonedAlert(fixture.orderId)).toBe(true);
     // The plain order id stays free (S4 re-review R1): notify ids dedupe, so sharing it would
     // swallow the real NEEDS_REVIEW alert below.
     expect(await t.hasJob({ ...alert, refId: fixture.orderId })).toBe(false);
@@ -120,11 +133,9 @@ describe('fulfill-order: a job that failed for good is settled (no BullMQ Worker
       await expect(t.main.service.settleAbandoned(fixture.orderId)).resolves.toBe('REQUEUED');
       expect(await t.fulfillQueue.getJob(fixture.orderId)).toBeDefined();
     }
-    const alert = { kind: 'OWNER_ALERT', alert: 'needsReview' } as const;
-    const ref = abandonedAlertRef(fixture.orderId);
-    expect(await t.hasJob({ ...alert, refId: ref })).toBe(false);
+    expect(await hasAbandonedAlert(fixture.orderId)).toBe(false);
     await expect(t.main.service.settleAbandoned(fixture.orderId)).resolves.toBe('ALERTED');
-    expect(await t.hasJob({ ...alert, refId: ref })).toBe(true);
+    expect(await hasAbandonedAlert(fixture.orderId)).toBe(true);
     expect((await orderRow(t.db, fixture.orderId)).status).toBe('PAID');
   });
 
@@ -161,8 +172,7 @@ describe('fulfill-order: a job that failed for good is settled (no BullMQ Worker
     }
     await (await t.fulfillQueue.getJob(fixture.orderId))?.remove();
     await expect(failForGood()).resolves.toBe('ALERTED');
-    const alert = { kind: 'OWNER_ALERT', alert: 'needsReview' } as const;
-    expect(await t.hasJob({ ...alert, refId: abandonedAlertRef(fixture.orderId) })).toBe(true);
+    expect(await hasAbandonedAlert(fixture.orderId)).toBe(true);
     expect((await orderRow(t.db, fixture.orderId)).status).toBe('PAID');
   });
 });

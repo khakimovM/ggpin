@@ -5,7 +5,10 @@ import { join, relative, sep } from 'node:path';
 // wallet lock, never re-broadcasts and never reads the chain itself (only TonConfirmService does);
 // money moves only through `resolveNeedsReview` / `failAndRefundOrder`, never through a hand-made
 // wallet lock, transition or ledger write. And in the whole worker only the TON module's outcome
-// writer may set a transfer EXPIRED.
+// writer may set a transfer EXPIRED. S9e (D-64 (4)): held-writes.ts is the one other file allowed
+// a transition and a refund, and only these two calls, checked by their text: `failAndRefundOrder`
+// from HELD (HELD_EXPIRED, as the system) and `transitionOrder` HELD -> QUEUED (as the system),
+// imported by name from @repo/db (no alias, no spread argument).
 
 const WORKER_SRC = join(__dirname, '../../..');
 const RECONCILER = join(__dirname, '..');
@@ -29,6 +32,20 @@ function code(path: string): string {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
+
+/** The HELD writer (S9e): its own narrow checks below replace the transition check for it. */
+const HELD_WRITER = 'held-writes.ts';
+
+/** Which file may call which money helper; no other file may name any (S9e fix CR F3). */
+const MONEY_HELPERS =
+  /\b(refundFailedOrderWith|refundFailedOrder|resolveNeedsReview|failAndRefundOrder)\b/g;
+const MONEY_HELPER_OWNERS: Readonly<Record<string, readonly string[]>> = {
+  'review-resolver.ts': ['resolveNeedsReview'],
+  [HELD_WRITER]: ['failAndRefundOrder'],
+};
+
+/** What held-writes.ts may import from @repo/db (values and types), each by its own name. */
+const HELD_WRITER_DB_IMPORTS = ['RefundOutcome', 'Tx', 'failAndRefundOrder', 'transitionOrder'];
 
 const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['pay(', /\bpay\s*\(/],
@@ -60,6 +77,13 @@ const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['a count of the abandon counter', /\.bump\s*\(|ABANDON_COUNTER/],
   // S9d fix (CR F6): notices only through resendHeldOrReview (it re-reads HELD / NEEDS_REVIEW).
   ['a bare replay', /\.replay\s*\(/],
+  // S9e fix (CR F3): the fulfillment core's own writers stay its own.
+  ["the run's order or attempt writers", /OrderStateRepository|AttemptsRepository/],
+  // S9e fix (CR F9): a HELD release asks the router which route the run would take (its cached
+  // health), never an adapter to send, prepare or look a recipient up.
+  ['an adapter send', /\.fulfill\s*\(/],
+  ['an adapter prepare', /\.prepare\s*\(/],
+  ['an adapter recipient lookup', /validateRecipient/],
 ];
 
 /** Writes a Redis client could make; the stuck-lease walk (S9d, Q-17) has none of them. */
@@ -68,6 +92,30 @@ const KEY_WRITE =
 
 describe('the order reconciler (static)', () => {
   const files = sources(RECONCILER);
+
+  function heldWriter(): string {
+    const writer = files.filter((file) => relative(RECONCILER, file) === HELD_WRITER);
+    expect(writer).toHaveLength(1);
+    return writer.map(code).join('');
+  }
+
+  /**
+   * The argument text of the one call `helper(tx, ...)` in held-writes.ts, up to its matching
+   * parenthesis (nesting and strings counted, so no `}` inside it ends the argument early). The
+   * name appears exactly twice (its import and this call: no alias, no second call), the argument
+   * is `tx` and one object literal, with no spread.
+   */
+  function onlyCallOf(helper: string): string {
+    const text = heldWriter();
+    expect(text.match(new RegExp(`\\b${helper}\\b`, 'g'))).toHaveLength(2);
+    const start = text.search(new RegExp(`\\b${helper}\\s*\\(`));
+    expect(start).toBeGreaterThan(-1);
+    const open = text.indexOf('(', start);
+    const args = text.slice(open + 1, matching(text, open));
+    expect(args).toMatch(/^\s*tx\s*,\s*\{[\s\S]*\}\s*,?\s*$/);
+    expect(args).not.toMatch(/\.\.\./);
+    return args;
+  }
 
   it('has its files where the checks look', () => {
     const names = files.map((f) => relative(RECONCILER, f));
@@ -82,13 +130,56 @@ describe('the order reconciler (static)', () => {
         'notice-resend.step.ts',
         'order-lock-keys.ts',
         'order-sweeps.repository.ts',
+        'held-release-policy.ts',
+        'held-sources.repository.ts',
+        'held-evidence.ts',
+        HELD_WRITER,
+        'held-sweep.step.ts',
+        'wallet-blocked.step.ts',
       ]),
     );
   });
 
-  it.each(FORBIDDEN_IN_RECONCILER)('never uses %s', (_what, pattern) => {
-    const hits = files.filter((file) => pattern.test(code(file)));
+  it.each(FORBIDDEN_IN_RECONCILER)('never uses %s', (what, pattern) => {
+    const hits = files.filter(
+      (file) =>
+        pattern.test(code(file)) &&
+        !(what === 'a hand-made transition' && relative(RECONCILER, file) === HELD_WRITER),
+    );
     expect(hits.map((f) => relative(WORKER_SRC, f))).toEqual([]);
+  });
+
+  it('S9e: applyTransition nowhere, held-writes.ts included', () => {
+    expect(files.filter((file) => /applyTransition/.test(code(file)))).toEqual([]);
+  });
+
+  it('S9e: held-writes.ts imports from @repo/db only its helpers and types, by name', () => {
+    const text = heldWriter();
+    expect(text).not.toMatch(/import\s*\*|require\s*\(|import\s*\(/);
+    expect(text.match(/from\s*'@repo\/db'/g)).toHaveLength(1);
+    const block = /import\s*\{([^}]*)\}\s*from\s*'@repo\/db'/.exec(text);
+    const names = (block?.[1] ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter((n) => n !== '');
+    expect(names.filter((n) => /\sas\s/.test(n))).toEqual([]);
+    const bare = names.map((n) => n.replace(/^type\s+/, ''));
+    expect(bare.filter((n) => !HELD_WRITER_DB_IMPORTS.includes(n))).toEqual([]);
+    expect(bare).toEqual(expect.arrayContaining(['failAndRefundOrder', 'transitionOrder']));
+  });
+
+  it('S9e: held-writes.ts makes one transition only, HELD -> QUEUED by the system', () => {
+    const args = onlyCallOf('transitionOrder');
+    expect(args).toMatch(/\bfrom:\s*'HELD'\s*,/);
+    expect(args).toMatch(/\bto:\s*'QUEUED'\s*,/);
+    expect(args).toMatch(/\bactor:\s*'system'\s*,/);
+  });
+
+  it('S9e: held-writes.ts refunds only a HELD order held too long, as the system', () => {
+    const args = onlyCallOf('failAndRefundOrder');
+    expect(args).toMatch(/\bfrom:\s*'HELD'\s*,/);
+    expect(args).toMatch(/\breason:\s*'HELD_EXPIRED'\s*,/);
+    expect(args).toMatch(/\bactor:\s*'system'\s*,/);
   });
 
   it('the lease walk calls Redis with SCAN and GET only (S9d fix)', () => {
@@ -111,11 +202,13 @@ describe('the order reconciler (static)', () => {
     expect(walk.filter((file) => KEY_WRITE.test(code(file)))).toEqual([]);
   });
 
-  it('moves money only through resolveNeedsReview (or failAndRefundOrder)', () => {
-    const helpers = files.filter((file) =>
-      /resolveNeedsReview|failAndRefundOrder/.test(code(file)),
-    );
-    expect(helpers.map((f) => relative(RECONCILER, f))).toEqual(['review-resolver.ts']);
+  it('moves money only through resolveNeedsReview (review) and failAndRefundOrder (HELD)', () => {
+    const used: Record<string, string[]> = {};
+    for (const file of files) {
+      const names = [...code(file).matchAll(MONEY_HELPERS)].map((m) => m[1] ?? '');
+      if (names.length > 0) used[relative(RECONCILER, file)] = [...new Set(names)].sort();
+    }
+    expect(used).toEqual(MONEY_HELPER_OWNERS);
   });
 
   it('writes a transfer EXPIRED nowhere in the worker but ton-outcome-writes.ts (item 23)', () => {
@@ -131,3 +224,23 @@ describe('the order reconciler (static)', () => {
     expect(hits).toEqual(['ton/ton-outcome-writes.ts']);
   });
 });
+
+/** The index of the bracket closing the one at `open` (quoted strings skipped). */
+function matching(text: string, open: number): number {
+  const pairs: Readonly<Record<string, string>> = { '(': ')', '{': '}', '[': ']' };
+  const stack: string[] = [];
+  for (let i = open; i < text.length; i += 1) {
+    const ch = text.charAt(i);
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const end = text.indexOf(ch, i + 1);
+      if (end < 0) break;
+      i = end;
+    } else if (pairs[ch] !== undefined) {
+      stack.push(pairs[ch] ?? '');
+    } else if (ch === stack[stack.length - 1]) {
+      stack.pop();
+      if (stack.length === 0) return i;
+    }
+  }
+  throw new Error('no matching bracket');
+}

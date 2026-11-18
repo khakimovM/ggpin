@@ -10,6 +10,7 @@ import {
   type ReviewCursor,
   type WalletScope,
 } from '../order-reconcile.repository';
+import { HeldSourcesRepository } from '../held-sources.repository';
 import { OrderSweepsRepository } from '../order-sweeps.repository';
 import type { PrismaService } from '../../../infra/prisma/prisma.service';
 
@@ -82,6 +83,20 @@ export class ScopedReconcileRepository extends OrderReconcileRepository {
 }
 
 /** The real sweep reads (their production bodies), every list narrowed to the orders of this run. */
+/** The S9e HELD lists narrowed to a run's orders (the wallet-blocked list is per test wallet). */
+export class ScopedHeldSources extends HeldSourcesRepository {
+  constructor(
+    prisma: PrismaService,
+    private readonly orders: ReadonlySet<string>,
+  ) {
+    super(prisma);
+  }
+
+  protected override scope(): Prisma.OrderWhereInput {
+    return { id: { in: [...this.orders] } };
+  }
+}
+
 export class ScopedSweepsRepository extends OrderSweepsRepository {
   constructor(
     prisma: PrismaService,

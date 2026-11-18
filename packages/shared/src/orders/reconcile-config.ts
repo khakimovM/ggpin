@@ -2,6 +2,7 @@
 // approved these numbers, and the two values that are env (`ORDER_RECONCILE_EVERY_MS`,
 // `HELD_MAX_AGE_MS`) live in the worker's config. Every time window is measured on the DATABASE
 // clock by the reconciler, never on a process clock.
+import type { OrderStatusReason } from './order-status-reason';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -14,6 +15,22 @@ export const ORDER_STALE_AFTER_MS = 10 * MINUTE_MS;
 
 /** How many times the reconciler may release one HELD order by itself (D-64 (4)). */
 export const HELD_AUTO_RELEASE_MAX = 3;
+
+/**
+ * The HELD reasons the reconciler may release by itself (D-64 (4)): a missing route, a price above
+ * the ceiling, the TON per-order / daily limits and a low hot-wallet balance, each only once the
+ * cause is gone. Its own list on purpose, not derived from ATTEMPT_HOLD_ERRORS: a new hold error
+ * must never become releasable without an owner decision. Typed against the stored reasons, so a
+ * misspelled literal fails the typecheck.
+ */
+export const RELEASABLE_HELD_REASONS = [
+  'NO_ADAPTER',
+  'PRICE_ABOVE_MAX',
+  'LIMIT_PER_ORDER',
+  'LIMIT_DAILY',
+  'LOW_BALANCE',
+] as const satisfies readonly OrderStatusReason[];
+export type ReleasableHeldReason = (typeof RELEASABLE_HELD_REASONS)[number];
 
 /**
  * HELD and NEEDS_REVIEW notices are sent again (same stable job ids) only while the order entered

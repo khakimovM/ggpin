@@ -41,9 +41,11 @@ export function isFailedForGood(job: JobLike): boolean {
  * HELD while this job ran, its enqueue dropped as `keep`) -> enqueued again through the worker's
  * enqueuer. Only now can a new job take the id: during `process` the job is still active.
  * Not after a run that ended BUSY (S9d fix F1): its last retry never took the order, so whoever
- * holds the lease decides it. A live run carries the QUEUED order on itself (and its own end-of-run
- * re-check follows); a poisoned lease would only make the new job meet BUSY again, for ever, and
- * keep a job alive that hides the lease. Left job-less, the order is the reconciler's: queued
+ * holds the lease decides it. A live run carries the QUEUED order on itself, and its own end-of-run
+ * re-check follows when its job completes; a stalled duplicate's holder may never fire that
+ * `completed` event, and then the order is the stale step's (job-less and unchanged for
+ * ORDER_STALE_AFTER_MS: 10 to 20 minutes with the 10-minute tick). A poisoned lease would only make
+ * the new job meet BUSY again, for ever, and keep a job alive that hides the lease. Left job-less, the order is the reconciler's: queued
  * again once the lease is gone (stale step), or the owner's alert while it stays (lock step).
  * A job that failed FOR GOOD (CR M1) is settled instead: its order never stays silent
  * (FulfillOrderService.settleAbandoned, fulfill-settle.ts).

@@ -10,8 +10,11 @@ import {
   ORDER_STALE_AFTER_MS,
   RECONCILE_BATCH_LIMIT,
   RECONCILER_PROOF_REASON,
+  RELEASABLE_HELD_REASONS,
   REVIEW_NOTICE_RESEND_WINDOW_MS,
 } from './reconcile-config';
+import { ATTEMPT_HOLD_ERRORS } from './attempt-limit';
+import { ORDER_STATUS_REASONS } from './order-status-reason';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -60,5 +63,35 @@ describe('order reconciler constants (D-64 (10))', () => {
       reason: RECONCILER_PROOF_REASON,
     };
     expect(NeedsReviewProofSchema.safeParse(proof).success).toBe(true);
+  });
+});
+
+describe('RELEASABLE_HELD_REASONS (D-64 (4))', () => {
+  it('is exactly the five HELD reasons the owner approved, each a stored reason', () => {
+    expect([...RELEASABLE_HELD_REASONS]).toEqual([
+      'NO_ADAPTER',
+      'PRICE_ABOVE_MAX',
+      'LIMIT_PER_ORDER',
+      'LIMIT_DAILY',
+      'LOW_BALANCE',
+    ]);
+    const stored: readonly string[] = ORDER_STATUS_REASONS;
+    expect(RELEASABLE_HELD_REASONS.every((reason) => stored.includes(reason))).toBe(true);
+  });
+
+  it('is its own list, not the attempt hold errors (a new hold error is never releasable by itself)', () => {
+    const holds: readonly string[] = ATTEMPT_HOLD_ERRORS;
+    const releasable: readonly string[] = RELEASABLE_HELD_REASONS;
+    expect(holds.filter((error) => !releasable.includes(error))).toEqual([
+      'PAY_ADDRESS_NOT_ALLOWED',
+    ]);
+    expect(releasable.filter((reason) => !holds.includes(reason))).toEqual([
+      'NO_ADAPTER',
+      'PRICE_ABOVE_MAX',
+    ]);
+    // Never a reason that ends the order or needs a person.
+    for (const never of ['HELD_EXPIRED', 'ADAPTER_ERROR', 'CONFIRM_TIMEOUT', 'RECIPIENT_GONE']) {
+      expect(releasable).not.toContain(never);
+    }
   });
 });
