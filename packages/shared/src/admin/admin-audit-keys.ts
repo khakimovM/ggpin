@@ -48,6 +48,8 @@ export const AUDIT_VISIBLE_KEYS = Object.freeze([
   'reasonCode',
   'statusCode',
   'countryCode',
+  // S4 SA info: a plain count of admin login codes a deactivation expired (`code` is a word rule).
+  'expiredLoginCodes',
 ]);
 
 /** Hidden by their whole (normalised) name. */
@@ -222,6 +224,18 @@ const IP_TOKEN_RUNS: ReadonlySet<string> = new Set([
 ]);
 const ADMIN_IDENTITY_KEYS = normalisedSet(['osUser']);
 const BANK_MESSAGE_KEYS = normalisedSet(['text', 'rawText', 'balanceAfterTiyin', 'channel']);
+
+/**
+ * Actions whose top-level `after.text` is an admin's note (D-63 (9)), not a bank message: every
+ * role that reads the audit log sees it (SA-S4-7). Raw bank text stays OWNER-only everywhere else.
+ */
+export const AUDIT_NOTE_ACTIONS = Object.freeze(['USER_NOTE', 'ORDER_NOTE']);
+const NOTE_TEXT_KEY = 'text';
+
+/** The `text` key at the top of a note row's JSON: shown to every audit reader. */
+export function isAuditNoteText(action: string | undefined, key: string): boolean {
+  return key === NOTE_TEXT_KEY && action !== undefined && AUDIT_NOTE_ACTIONS.includes(action);
+}
 
 /** An IP field inside audit JSON: in full to OWNER only (`audit.ipFull`), masked to others. */
 export function isAuditIpKey(key: string): boolean {

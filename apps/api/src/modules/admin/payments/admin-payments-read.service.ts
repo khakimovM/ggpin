@@ -73,6 +73,13 @@ export class AdminPaymentsReadService {
     return (await this.repo.cards(this.clock.now())).map(toAdminCard);
   }
 
+  /** One card as the list shows it (the answer of a card action, S6). */
+  async card(cardId: string): Promise<AdminCardListResponse[number]> {
+    const [totals] = await this.repo.cards(this.clock.now(), cardId);
+    if (totals === undefined) throw new AppError('NOT_FOUND');
+    return toAdminCard(totals);
+  }
+
   async reconcile(query: AdminReconcileQuery): Page<AdminReconcileResponse[number]> {
     const { rows, total } = await this.repo.reconcileRuns(query, pageWindow(query));
     return paginated(rows.map(toAdminReconcileDay), {

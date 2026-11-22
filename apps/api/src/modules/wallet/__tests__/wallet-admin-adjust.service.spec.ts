@@ -42,7 +42,7 @@ describe('WalletAdminService.adjust: input rules (nothing is written on a reject
     const big = { ...adjustInput, amountTiyin: THRESHOLD + 1n };
     await expect(service.adjust(big)).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
-      details: { field: 'confirmAmountTiyin' },
+      details: { field: 'confirmAmountTiyin', reason: 'AMOUNT_MISMATCH' },
     });
     await expect(service.adjust({ ...big, confirmAmountTiyin: THRESHOLD })).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',

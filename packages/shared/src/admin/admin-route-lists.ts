@@ -37,6 +37,8 @@ export const ADMIN_OTP_PERMISSIONS = Object.freeze([
   'payments.reviewCredit',
   'payments.reverse',
   'cards.resume',
+  'cards.limit',
+  'cards.retire',
   'fx.set',
   'admins.create',
   'admins.update',

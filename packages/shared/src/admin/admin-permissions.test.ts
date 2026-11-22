@@ -118,18 +118,21 @@ describe('admin role matrix (D-63 (3))', () => {
     expect([...actions].sort()).toEqual([...ADMIN_OTP_PERMISSIONS].sort());
   });
 
-  it('asks the code always for admin management, never for notes, cards or retry', () => {
+  it('asks the code always for admin management and a retire, never for notes, pause or retry', () => {
     for (const key of [
       'admins.create',
       'admins.update',
       'admins.sessionsRevoke',
       'sessions.revoke',
+      'cards.retire',
     ] as const) {
       expect(ADMIN_PERMISSIONS[key].otp, key).toBe('ALWAYS');
     }
-    for (const key of ['orders.note', 'cards.pause', 'cards.limit', 'orders.retry'] as const) {
+    for (const key of ['orders.note', 'cards.pause', 'orders.retry'] as const) {
       expect(ADMIN_PERMISSIONS[key].otp, key).toBe('NEVER');
     }
+    // A limit asks only when it is lowered (the server's rule verdict, owner decision 2026-11-18).
+    expect(ADMIN_PERMISSIONS['cards.limit'].otp).toBe('RULE');
   });
 });
 
@@ -203,8 +206,12 @@ describe('adminOtpRequired', () => {
   const thresholdTiyin = 100_000_000n;
 
   it('needs the code only above the threshold for money actions (by magnitude)', () => {
-    const at = { amountTiyin: thresholdTiyin, thresholdTiyin };
-    const above = { amountTiyin: thresholdTiyin + 1n, thresholdTiyin };
+    const at = { amountTiyin: thresholdTiyin, thresholdTiyin, codelessBudgetExceeded: false };
+    const above = {
+      amountTiyin: thresholdTiyin + 1n,
+      thresholdTiyin,
+      codelessBudgetExceeded: false,
+    };
     expect(adminOtpRequired('payments.reverse', at)).toBe(false);
     expect(adminOtpRequired('payments.reverse', above)).toBe(true);
     expect(adminOtpRequired('orders.cancel', at)).toBe(false);
@@ -216,7 +223,11 @@ describe('adminOtpRequired', () => {
     expect(adminOtpRequired('orders.refund', { amountTiyin: 1n, thresholdTiyin })).toBe(true);
     expect(adminOtpRequired('users.adjustWallet', { amountTiyin: 1n, thresholdTiyin })).toBe(true);
     expect(
-      adminOtpRequired('users.adjustWallet', { amountTiyin: -thresholdTiyin, thresholdTiyin }),
+      adminOtpRequired('users.adjustWallet', {
+        amountTiyin: -thresholdTiyin,
+        thresholdTiyin,
+        codelessBudgetExceeded: false,
+      }),
     ).toBe(false);
     expect(
       adminOtpRequired('users.adjustWallet', {
@@ -225,6 +236,17 @@ describe('adminOtpRequired', () => {
       }),
     ).toBe(true);
     expect(adminOtpRequired('users.adjustWallet', { thresholdTiyin })).toBe(true);
+  });
+
+  it('a codeless debit or reversal past the daily budget needs it; unknown budget asks (fail closed)', () => {
+    const small = { amountTiyin: -1n, thresholdTiyin };
+    for (const key of ['users.adjustWallet', 'payments.reverse'] as const) {
+      expect(adminOtpRequired(key, { ...small, codelessBudgetExceeded: true }), key).toBe(true);
+      expect(adminOtpRequired(key, { ...small, codelessBudgetExceeded: false }), key).toBe(false);
+      expect(adminOtpRequired(key, small), key).toBe(true);
+    }
+    // The budget does not touch other money actions (orders keep their threshold rule).
+    expect(adminOtpRequired('orders.cancel', { amountTiyin: 1n, thresholdTiyin })).toBe(false);
   });
 
   it('asks it to lift a SECURITY card pause only (D-65 D3)', () => {

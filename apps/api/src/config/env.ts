@@ -1,6 +1,7 @@
 import { TOPUP_DEFAULTS, parseOwnerAlertChatIds, testModeOutsideJestProblem } from '@repo/shared';
 import { z } from 'zod';
 import { adminOriginProblems } from './admin-origin-env';
+import { adminWriteEnvShape } from './admin-write-env';
 import {
   duplicateSecretProblems,
   isBlank,
@@ -19,8 +20,7 @@ const bool = (fallback: 'true' | 'false') =>
     .default(fallback)
     .transform((v) => v === 'true');
 
-// Money and limits are BigInt minor units parsed from digit strings; Number would lose
-// precision above 2^53 (CLAUDE.md §5.1).
+// Money and limits: BigInt minor units from digit strings (Number loses precision above 2^53).
 const bigintString = (fallback: string) =>
   z
     .string()
@@ -28,8 +28,7 @@ const bigintString = (fallback: string) =>
     .default(fallback)
     .transform((v) => BigInt(v));
 
-// IPs/CIDRs of the reverse proxies allowed to set X-Forwarded-For; empty = trust none.
-// See trust-proxy.ts for why this is an allowlist and not a hop count.
+// Reverse proxies (IPs/CIDRs) that may set X-Forwarded-For; empty = none (why: trust-proxy.ts).
 const trustedProxies = z
   .string()
   .default('')
@@ -133,10 +132,11 @@ const EnvSchema = z
         return z.NEVER;
       })
       .optional(),
-    // Phase 9 (admin): allowlist and money-action thresholds.
+    // Phase 9 (admin): allowlist and money-action thresholds; S6 daily limits (admin-write-env.ts).
     ADMIN_TELEGRAM_IDS: telegramIdList,
     ADMIN_CONFIRM_THRESHOLD_TIYIN: bigintString('100000000'),
     ADMIN_OPERATOR_REFUND_MAX_TIYIN: bigintString('50000000'),
+    ...adminWriteEnvShape,
     // Phase 3 (pricing): how far the real supplier cost may rise above the quoted cost before
     // fulfillment holds the order. Basis points (300 = 3%); stored on every quote as maxCost.
     PRICE_TOLERANCE_BPS: z.coerce.number().int().min(0).max(10_000).default(300),

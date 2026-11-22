@@ -34,6 +34,15 @@ export const NonZeroSignedTiyinStringSchema = SignedTiyinStringSchema.refine(
   { message: 'amount must not be zero' },
 );
 
+/** The largest wallet adjustment either way, 1 000 000 000 so'm (SA-S6-6; the CLI too). */
+export const ADMIN_ADJUST_MAX_TIYIN = 100_000_000_000n;
+
+/** A wallet adjustment: non-zero and at most ADMIN_ADJUST_MAX_TIYIN by magnitude. */
+export const AdminAdjustAmountSchema = NonZeroSignedTiyinStringSchema.refine(
+  (value) => BigInt(value.replace('-', '')) <= ADMIN_ADJUST_MAX_TIYIN,
+  { message: 'amount is above the adjustment limit' },
+);
+
 /**
  * A non-negative integer of minor units other than tiyin (nanoTON, micro-USDT, the cost currency
  * of an order): the same decimal-string BIGINT shape as tiyin.

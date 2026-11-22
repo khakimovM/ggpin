@@ -10,6 +10,8 @@ import type { WalletRepository } from '../wallet.repository';
 export const THRESHOLD = 100_000_000n;
 export const OPERATOR = { operator: 'aziz', ip: '203.0.113.7' };
 export const NOW = new Date('2026-11-05T09:00:00.000Z');
+/** ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN's default (5 000 000 so'm). */
+export const MANUAL_CAP = 500_000_000n;
 
 export function entry(overrides: Partial<LedgerEntry> = {}): LedgerEntry {
   return {
@@ -27,7 +29,13 @@ export function entry(overrides: Partial<LedgerEntry> = {}): LedgerEntry {
 
 export function setup(balance = 1_000_000n) {
   const repo = {
-    transaction: jest.fn((fn: (tx: object) => Promise<unknown>) => fn({})),
+    // The panel's raw reads in the tx (codeless budget, own account) find nothing by default.
+    transaction: jest.fn((fn: (tx: object) => Promise<unknown>) =>
+      fn({
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        $executeRaw: jest.fn().mockResolvedValue(0),
+      }),
+    ),
     lock: jest.fn().mockResolvedValue(undefined),
     balance: jest.fn().mockResolvedValue(balance),
     appendEntry: jest.fn().mockResolvedValue({ id: 'e-new' }),
@@ -41,10 +49,25 @@ export function setup(balance = 1_000_000n) {
     isPurchaseFrozen: jest.fn().mockResolvedValue(false),
     // No automatic P2P top-up in the last 48 h unless a test says so (S9 F-L1).
     recentAutoTopups: jest.fn().mockResolvedValue([]),
+    // The daily cap of money created by hand (S6): nothing given by hand yet today.
+    lockManualCredits: jest.fn().mockResolvedValue(undefined),
+    manualCreditTotalSince: jest.fn().mockResolvedValue(0n),
+    // The panel's codeless budget (S6 fix): not passed unless a test says so.
+    codelessFlags: jest.fn().mockResolvedValue([]),
+    userExists: jest.fn().mockResolvedValue(true),
+    isAdminsOwnUser: jest.fn().mockResolvedValue(false),
+    findEntryUnlocked: jest.fn(),
   };
+  // The unlocked pre-read answers like the locked one (tests set findEntry only).
+  repo.findEntryUnlocked.mockImplementation(
+    (key: unknown) => repo.findEntry(undefined, key) as Promise<unknown>,
+  );
   const cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
   const alert = { raise: jest.fn().mockResolvedValue(undefined) };
-  const config = { ADMIN_CONFIRM_THRESHOLD_TIYIN: THRESHOLD } as unknown as AppConfig;
+  const config = {
+    ADMIN_CONFIRM_THRESHOLD_TIYIN: THRESHOLD,
+    ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN: MANUAL_CAP,
+  } as unknown as AppConfig;
   const clock: Clock = { now: () => NOW };
   // A given code counts as verified here; the real checks are OwnerOtpVerifier's (own e2e).
   const otp = {

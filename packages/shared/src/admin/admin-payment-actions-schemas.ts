@@ -83,6 +83,8 @@ export const AdminCardLimitBodySchema = z.strictObject({
   receiveLimitTiyin: PositiveTiyinStringSchema,
   monthlyLimitTiyin: PositiveTiyinStringSchema.nullable().optional(),
   reason: AdminReasonSchema,
+  /** Needed when the change lowers a limit (owner decision 2026-11-18). */
+  otp: AdminOtpAnswerSchema.optional(),
 });
 export type AdminCardLimitBody = z.infer<typeof AdminCardLimitBodySchema>;
 
@@ -90,6 +92,8 @@ export type AdminCardLimitBody = z.infer<typeof AdminCardLimitBodySchema>;
 export const AdminCardRetireBodySchema = z.strictObject({
   reason: AdminReasonSchema,
   emergency: z.boolean().default(false),
+  /** Always needed (owner decision 2026-11-18). */
+  otp: AdminOtpAnswerSchema.optional(),
 });
 export type AdminCardRetireBody = z.infer<typeof AdminCardRetireBodySchema>;
 

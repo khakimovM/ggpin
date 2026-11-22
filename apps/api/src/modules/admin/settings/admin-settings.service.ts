@@ -23,6 +23,8 @@ type SettingsConfig = Pick<
   | 'PRICE_TOLERANCE_BPS'
   | 'ADMIN_CONFIRM_THRESHOLD_TIYIN'
   | 'ADMIN_OPERATOR_REFUND_MAX_TIYIN'
+  | 'ADMIN_OTP_DAILY_MAX'
+  | 'ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN'
 >;
 
 const env = (key: SettingItem['key'], value: bigint | number, unit: SettingItem['unit']) =>
@@ -33,8 +35,7 @@ const constant = (key: SettingItem['key'], value: number, unit: SettingItem['uni
 /**
  * The values that shape money and limits, read only (D-63 (8)): the API's env as loaded and the
  * shared constants. A fixed whitelist (`ADMIN_SETTING_KEYS`), so no secret can be added by
- * accident. `ADMIN_OTP_DAILY_MAX` and `ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN` join when their env
- * arrives with the step-up code (S6).
+ * accident. The step-up code quota and the daily cap of money created by hand joined in S6.
  */
 export function settingItems(config: SettingsConfig): SettingItem[] {
   return [
@@ -49,6 +50,8 @@ export function settingItems(config: SettingsConfig): SettingItem[] {
     constant('FX_MAX_JUMP_BPS', FX_MAX_JUMP_BPS, 'BPS'),
     env('ADMIN_CONFIRM_THRESHOLD_TIYIN', config.ADMIN_CONFIRM_THRESHOLD_TIYIN, 'TIYIN'),
     env('ADMIN_OPERATOR_REFUND_MAX_TIYIN', config.ADMIN_OPERATOR_REFUND_MAX_TIYIN, 'TIYIN'),
+    env('ADMIN_OTP_DAILY_MAX', config.ADMIN_OTP_DAILY_MAX, 'COUNT'),
+    env('ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN', config.ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN, 'TIYIN'),
   ];
 }
 

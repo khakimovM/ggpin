@@ -6,6 +6,7 @@
 import {
   isAuditBankMessageKey,
   isAuditIpKey,
+  isAuditNoteText,
   isAuditOsUserKey,
   isAuditSecretKey,
   isAuditTelegramIdKey,
@@ -38,8 +39,14 @@ function maskedTelegramId(child: unknown, view: AuditRedactionView): unknown {
   return null;
 }
 
-function redactField(key: string, child: unknown, view: AuditRedactionView): unknown {
+function redactField(
+  key: string,
+  child: unknown,
+  view: AuditRedactionView,
+  note: boolean,
+): unknown {
   if (isAuditSecretKey(key)) return AUDIT_REDACTED;
+  if (note) return redactAuditJson(child, view);
   if (isAuditIpKey(key) && !view.ipFull) {
     return typeof child === 'string' ? view.maskIp(child) : null;
   }
@@ -51,14 +58,23 @@ function redactField(key: string, child: unknown, view: AuditRedactionView): unk
   return redactAuditJson(child, view);
 }
 
-/** A copy of `value` as the reader may see it: secrets replaced, IP and bank fields by role. */
-export function redactAuditJson(value: unknown, view: AuditRedactionView): unknown {
+/**
+ * A copy of `value` as the reader may see it: secrets replaced, IP and bank fields by role. With
+ * the row's `action`, a note row's top-level `text` is the note itself and stays visible to every
+ * reader (SA-S4-7); without it every `text` is treated as bank text.
+ */
+export function redactAuditJson(
+  value: unknown,
+  view: AuditRedactionView,
+  action?: string,
+): unknown {
+  // Only the top level knows the row's action: nested objects are redacted without it.
   if (Array.isArray(value)) return value.map((child) => redactAuditJson(child, view));
   if (typeof value !== 'object' || value === null) return value;
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, child]) => [
       key,
-      redactField(key, child, view),
+      redactField(key, child, view, isAuditNoteText(action, key)),
     ]),
   );
 }

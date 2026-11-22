@@ -22,6 +22,10 @@ export interface NewCardData {
 }
 
 export interface CardAuditData {
+  /** The admin key's AuditLog id (S6); the CLI's rows take a new one. */
+  readonly id?: string;
+  readonly actorType?: 'CLI' | 'ADMIN';
+  readonly actorId?: string | null;
   readonly ip: string | null;
   readonly action: string;
   readonly targetId: string;
@@ -128,8 +132,10 @@ export class CardAdminRepository {
     const row = await tx.auditLog.create({
       data: {
         // The owner CLI is not a user session: no actor id; the operator name is in `after`.
-        actorType: 'CLI',
-        actorId: null,
+        // An admin (S6) is: its id, and its role in `after.adminRole`.
+        ...(data.id === undefined ? {} : { id: data.id }),
+        actorType: data.actorType ?? 'CLI',
+        actorId: data.actorId ?? null,
         ip: data.ip,
         action: data.action,
         targetType: 'TopupCard',

@@ -15,6 +15,8 @@ export const ADMIN_ACTION_KINDS = [
   'payments.reviewCredit',
   'users.adjustWallet',
   'cards.resume',
+  'cards.retire',
+  'cards.limit',
   'fx.set',
   'admins.create',
   'admins.update',

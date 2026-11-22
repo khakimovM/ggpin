@@ -241,7 +241,7 @@ describe('review:credit (owner CLI, real Postgres)', () => {
       const refused = await refusal(
         credit(reviewId, { userId }, confirm === undefined ? {} : { confirmAmountTiyin: confirm }),
       );
-      expect(refused.details).toEqual({ field: 'confirmAmountTiyin' });
+      expect(refused.details).toEqual({ field: 'confirmAmountTiyin', reason: 'AMOUNT_MISMATCH' });
     }
     expect((await moneyOf(message.id)).payments).toHaveLength(0);
     expect(

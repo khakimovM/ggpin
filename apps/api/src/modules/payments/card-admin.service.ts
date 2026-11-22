@@ -1,13 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { TopupCard, TopupCardStatus } from '@repo/db';
 import { assertIntentTransition } from '@repo/shared';
+import {
+  checkedAuditActor,
+  type AuditActor,
+  type CheckedAuditActor,
+} from '../../common/admin/audit-actor';
+import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { verifyAdminStepUp } from '../../common/admin/step-up';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
 import type { Db } from '../../infra/prisma/db';
 import {
   cardInputError,
-  actorAfter,
-  checkedActor,
   checkedBank,
   checkedCardId,
   checkedHolderName,
@@ -15,16 +20,18 @@ import {
   checkedPan,
   checkedReason,
   newVerifyAmountTiyin,
-  type CardAdminActor,
 } from './card-admin.input';
+import { raiseCardAlerts, writeCardAudit } from './card-admin.audit';
 import { CardAdminRepository } from './card-admin.repository';
-import type {
-  AddCardInput,
-  AddedCard,
-  AuditExtra,
-  CardAudit,
-  CardChange,
-  Committed,
+import { lowersCardLimit, requireCardStepUp } from './card-admin.step-up';
+import {
+  cardJson as json,
+  type AddCardInput,
+  type AddedCard,
+  type AuditExtra,
+  type CardAudit,
+  type CardChange,
+  type Committed,
 } from './card-admin.types';
 import { CARD_FULL_PERCENT, receivedUsagePercent, tashkentMonthStart } from './card-capacity';
 import { CardPoolRepository } from './card-pool.repository';
@@ -46,19 +53,11 @@ export type {
   CardChange,
 } from './card-admin.types';
 
-const json = (card: TopupCard) => ({
-  status: card.status,
-  receiveLimitTiyin: card.receiveLimitTiyin.toString(),
-  monthlyLimitTiyin: card.monthlyLimitTiyin?.toString() ?? null,
-  autoCreditPaused: card.autoCreditPaused,
-});
-
 /**
- * The owner's card operations (docs/05 §2, §7; D-37 (9)). Not reachable over HTTP: the owner
- * CLI on the VPS calls them. Each is ONE transaction holding the card's advisory lock (the same
- * lock new requests take, so a request can never land on a card that is being retired or
- * paused) and writes its AuditLog row in it. The audit never holds the PAN or the holder name:
- * bank, last4 and the changed fields are enough to tell what happened.
+ * The owner's card operations (docs/05 §2, §7; D-37 (9)): the owner CLI, and the panel's OWNER
+ * pause / resume / limit / retire (S6; card:add is CLI-only). ONE transaction each: the actor
+ * re-read (an admin FOR SHARE, S2-6), the card's advisory lock (the one new requests take), the
+ * change and its AuditLog row. The audit never holds the PAN or the holder name.
  */
 @Injectable()
 export class CardAdminService {
@@ -100,6 +99,10 @@ export class CardAdminService {
         // waits for the owner's card:resume like the others. A chain-break pause of another card
         // alone does not. Read under the pause lock: the worker's pause reads its card list
         // under the same lock, so it either sees this card or this read sees its pause.
+        // The actor is re-read here, after the pause lock, unlike the AdminUser-first order of
+        // the panel's paths: card:add is CLI-only (D-63 (6)), and a CLI actor takes no AdminUser
+        // lock, so no lock-order cycle with the panel can form (C-12).
+        const who = await confirmActorInTx(tx, audit.actor, now);
         const pause = await this.repo.openSecurityPause(tx);
         const card = await this.repo.createCard(tx, {
           autoCreditPaused: pause !== null,
@@ -110,7 +113,7 @@ export class CardAdminService {
           monthlyLimitTiyin: monthly,
           verifyAmountTiyin,
         });
-        const auditId = await this.writeAudit(tx, card.id, audit, null, {
+        const auditId = await writeCardAudit(this.repo, tx, { cardId: card.id, audit, who }, null, {
           ...json(card),
           bank,
           last4: card.last4,
@@ -131,7 +134,7 @@ export class CardAdminService {
       if (isUniqueViolation(error, LIVE_LAST4_INDEX)) throw cardInputError('pan', 'LIVE_CARD');
       throw error;
     }
-    return { ...added, alertQueued: await this.afterCommit(added) };
+    return { ...added, alertQueued: await raiseCardAlerts(this.alerts, added) };
   }
 
   /**
@@ -143,15 +146,15 @@ export class CardAdminService {
   async retireCard(
     cardId: string,
     reason: string,
-    actor: CardAdminActor,
+    actor: AuditActor,
     options: { readonly emergency: boolean } = { emergency: false },
   ): Promise<CardChange> {
-    const audit = this.audit(
-      options.emergency ? 'CARD_RETIRE_EMERGENCY' : 'CARD_RETIRE',
-      reason,
-      actor,
-    );
-    return this.change(cardId, async (tx, card) => {
+    const action = options.emergency ? 'CARD_RETIRE_EMERGENCY' : 'CARD_RETIRE';
+    const audit = this.audit(action, reason, actor);
+    const otpVerified = await verifyAdminStepUp(audit.actor);
+    return this.change(cardId, audit.actor, async (tx, card) => {
+      // The panel's code is asked for every retire, before any state is looked at.
+      const otp = requireCardStepUp(audit.actor, otpVerified, true);
       const target: TopupCardStatus =
         options.emergency || card.status === 'VERIFYING' ? 'RETIRED' : 'DRAINING';
       if (card.status === target || card.status === 'RETIRED') return null;
@@ -165,7 +168,7 @@ export class CardAdminService {
         status: target,
         ...(target === 'RETIRED' ? { retiredAt: this.clock.now() } : {}),
       });
-      return { card: updated, audit, extra: { cancelledIntents: cancelled } };
+      return { card: updated, audit, extra: { cancelledIntents: cancelled, ...otp } };
     });
   }
 
@@ -178,7 +181,7 @@ export class CardAdminService {
     cardId: string,
     limits: { readonly limitTiyin: bigint; readonly monthlyLimitTiyin?: bigint | null },
     reason: string,
-    actor: CardAdminActor,
+    actor: AuditActor,
   ): Promise<CardChange> {
     const limit = checkedLimit('limitTiyin', limits.limitTiyin);
     const monthly =
@@ -186,8 +189,15 @@ export class CardAdminService {
         ? limits.monthlyLimitTiyin
         : checkedLimit('monthlyLimitTiyin', limits.monthlyLimitTiyin);
     const audit = this.audit('CARD_LIMIT', reason, actor);
-    return this.change(cardId, async (tx, card) => {
+    const otpVerified = await verifyAdminStepUp(audit.actor);
+    return this.change(cardId, audit.actor, async (tx, card) => {
       if (card.status === 'RETIRED') throw cardInputError('status', 'RETIRED');
+      // Lowering a limit asks the panel's code; the limits are read under the card lock.
+      const otp = requireCardStepUp(
+        audit.actor,
+        otpVerified,
+        lowersCardLimit(card, { limitTiyin: limit, monthlyLimitTiyin: monthly }),
+      );
       let updated = await this.repo.updateCard(tx, card.id, {
         receiveLimitTiyin: limit,
         ...(monthly === undefined ? {} : { monthlyLimitTiyin: monthly }),
@@ -211,7 +221,7 @@ export class CardAdminService {
         assertCardTransition(updated.status, next);
         updated = await this.repo.updateCard(tx, card.id, { status: next });
       }
-      return { card: updated, audit, extra: {} };
+      return { card: updated, audit, extra: otp };
     });
   }
 
@@ -225,7 +235,7 @@ export class CardAdminService {
     audit: CardAudit,
     check: (tx: Db) => Promise<AuditExtra> = () => Promise.resolve({}),
   ): Promise<CardChange> {
-    return this.change(cardId, async (tx, card) => {
+    return this.change(cardId, audit.actor, async (tx, card) => {
       // A retired card takes no money and never comes back: pausing it is a mistake, not a no-op.
       if (card.status === 'RETIRED') throw cardInputError('status', 'RETIRED');
       if (card.autoCreditPaused === paused) {
@@ -240,10 +250,10 @@ export class CardAdminService {
     });
   }
 
-  // Validates input BEFORE the transaction (a refusal writes nothing), then: card lock, read,
-  // mutate, audit, commit, alerts.
+  // Input checked BEFORE the tx (a refusal writes nothing); then lock, read, mutate, audit.
   private async change(
     rawCardId: string,
+    actor: CheckedAuditActor,
     mutate: (
       tx: Db,
       card: TopupCard,
@@ -251,6 +261,7 @@ export class CardAdminService {
   ): Promise<CardChange> {
     const cardId = checkedCardId(rawCardId);
     const result = await this.pool.transaction(async (tx): Promise<Committed<CardChange>> => {
+      const who = await confirmActorInTx(tx, actor, this.clock.now());
       await this.pool.lockCard(tx, cardId);
       const card = await this.repo.findCard(tx, cardId);
       if (card === null) throw new AppError('NOT_FOUND');
@@ -258,43 +269,17 @@ export class CardAdminService {
       if (changed === null) {
         return { applied: false, cardId, status: card.status, auditId: null };
       }
-      const auditId = await this.writeAudit(tx, cardId, changed.audit, json(card), {
+      const row = { cardId, audit: changed.audit, who };
+      const auditId = await writeCardAudit(this.repo, tx, row, json(card), {
         ...json(changed.card),
         ...changed.extra,
       });
       return { applied: true, cardId, status: changed.card.status, auditId };
     });
-    return { ...result, alertQueued: await this.afterCommit(result) };
+    return { ...result, alertQueued: await raiseCardAlerts(this.alerts, result) };
   }
 
-  audit(action: string, reason: string, actor: CardAdminActor): CardAudit {
-    return { action, reason: checkedReason(reason), actor: checkedActor(actor) };
-  }
-
-  private writeAudit(
-    tx: Db,
-    cardId: string,
-    audit: CardAudit,
-    before: ReturnType<typeof json> | null,
-    after: Record<string, string | number | boolean | null>,
-  ): Promise<string> {
-    return this.repo.createAudit(tx, {
-      ip: audit.actor.ip,
-      action: audit.action,
-      targetId: cardId,
-      before,
-      after: { ...after, ...actorAfter(audit.actor) },
-      reason: audit.reason,
-    });
-  }
-
-  // Best effort (the change is committed): the CLI shows alertQueued=false so the owner knows
-  // the bot did not hear about it.
-  private async afterCommit(change: Committed<CardChange>): Promise<boolean> {
-    if (!change.applied || change.auditId === null) return false;
-    const jobs = [await this.alerts.raise('adminAction', change.auditId)];
-    if (change.status === 'DRAINING')
-      jobs.push(await this.alerts.raise('cardDraining', change.cardId));
-    return jobs.every((jobId) => jobId !== null);
+  audit(action: string, reason: string, actor: AuditActor): CardAudit {
+    return { action, reason: checkedReason(reason), actor: checkedAuditActor(actor) };
   }
 }

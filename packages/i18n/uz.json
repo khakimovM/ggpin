@@ -1313,6 +1313,58 @@
       "webhookFailed": "🔴 Bot webhook o‘rnatilmadi (urinish: {attempt}). API ishlayapti, fonda qayta uriniladi.",
       "setupFailed": "🟠 Bot sozlamalari (buyruqlar, menyu) o‘rnatilmadi (urinish: {attempt}). Webhook o‘rnatilgan, sozlash fonda qayta uriniladi."
     },
+    "adminConfirm": {
+      "code": "🔐 Admin amalini tasdiqlash kodi: {code}\nAmal: {action}\n{amountLabel}: {amount}\nObyekt: {target}\nBelgilar: {flags}\nKod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping.",
+      "label": {
+        "amount": "Summa",
+        "newLimit": "Yangi limit"
+      },
+      "flag": {
+        "bankVerified": "Bank tasdiqlagan",
+        "dailyLimit": "Kunlik kodsiz limit tugagan",
+        "overrideNone": "Ogohlantirishni chetlab o‘tish so‘ralgan (hozir ogohlantirish yo‘q)",
+        "overrideUser": "Ogohlantirishlar chetlab o‘tilgan: {what}",
+        "userBlocked": "foydalanuvchi bloklangan",
+        "userOverLimit": "foydalanuvchi limitdan oshgan",
+        "overrideRecentTopups": "Ogohlantirish chetlab o‘tilgan: so‘nggi avtomatik to‘ldirishlar soni {count}, to‘plam {set}",
+        "confirmOverride": "Karta ogohlantirishlari chetlab o‘tilgan",
+        "confirmSecurityPause": "Xavfsizlik pauzasidan chiqarish tasdiqlangan",
+        "emergency": "Favqulodda",
+        "monthlyLimit": "Oylik limit: {amount}",
+        "monthlyLimitRemoved": "Oylik limit olib tashlanadi"
+      },
+      "action": {
+        "orders": {
+          "cancel": "Buyurtmani bekor qilish",
+          "failAndRefund": "Buyurtmani muvaffaqiyatsiz deb belgilab, pulni qaytarish",
+          "resolve": "Tekshiruvdagi buyurtmani hal qilish",
+          "refund": "Buyurtma pulini qaytarish"
+        },
+        "users": {
+          "adjustWallet": "Hamyon balansini tuzatish"
+        },
+        "payments": {
+          "reviewCredit": "Tekshiruvdagi to‘lovni hamyonga yozish",
+          "reverse": "To‘ldirishni bekor qilish (pulni qaytarib olish)"
+        },
+        "cards": {
+          "resume": "Karta bo‘yicha avtomatik yozishni qayta yoqish",
+          "limit": "Karta limitini o‘zgartirish",
+          "retire": "Kartani ishdan chiqarish"
+        },
+        "fx": {
+          "set": "Valyuta kursini o‘rnatish"
+        },
+        "admins": {
+          "create": "Admin qo‘shish",
+          "update": "Admin maʼlumotlarini o‘zgartirish",
+          "sessionsRevoke": "Admin sessiyalarini yopish"
+        },
+        "sessions": {
+          "revoke": "Sessiyani yopish"
+        }
+      }
+    },
     "ownerConfirm": {
       "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
     },

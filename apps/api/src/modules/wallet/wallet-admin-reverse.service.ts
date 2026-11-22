@@ -1,14 +1,16 @@
 import type { Logger } from '@nestjs/common';
+import { checkedId, checkedReason, validationError } from '../../common/admin/admin-input';
 import {
-  checkedId,
-  checkedIp,
-  checkedOperator,
-  checkedOsUser,
-  checkedReason,
-  validationError,
-} from '../../common/admin/admin-input';
-import { requireOwnerConfirmation } from '../../common/admin/owner-otp/owner-otp';
+  actorOfInput,
+  auditIdOf,
+  checkedAuditActor,
+  isAdminActor,
+  toAuditColumns,
+} from '../../common/admin/audit-actor';
+import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { budgetAdminId, codelessBudgetInTx } from '../../common/admin/codeless-budget';
 import type { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
+import { requireStepUp, verifyStepUp } from '../../common/admin/step-up';
 import type { Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
 import type { AppConfig } from '../../config/config.module';
@@ -33,34 +35,55 @@ export class WalletTopupReversal {
     private readonly logger: Logger,
   ) {}
 
-  /** The payment payment:reverse would reverse (unlocked; the CLI re-types its amount). */
+  /**
+   * The payment payment:reverse would reverse (unlocked; the CLI re-types its amount, the panel's
+   * code rule reads it): the amount is what the ledger's TOPUP credited, the one the reversal
+   * takes back (C-10 b), or the payment row's when it has none (the action then refuses).
+   */
   async payment(paymentId: string): Promise<{ userId: string; amountTiyin: bigint }> {
     const found = await this.repo.findPayment(checkedId('paymentId', paymentId));
     if (found === null) throw new AppError('NOT_FOUND');
-    return { userId: found.userId, amountTiyin: found.amountTiyin };
+    const credited = await this.repo.findEntryUnlocked({
+      userId: found.userId,
+      refType: 'PAYMENT',
+      refId: found.id,
+      kind: 'TOPUP',
+    });
+    return { userId: found.userId, amountTiyin: credited?.amountTiyin ?? found.amountTiyin };
   }
 
   async reverseTopup(input: ReverseTopupInput): Promise<WalletChange> {
     const paymentId = checkedId('paymentId', input.paymentId);
     const reason = checkedReason(input.reason);
-    const operator = checkedOperator(input.operator);
-    const ip = checkedIp(input.ip);
-    const osUser = checkedOsUser(input.osUser);
+    const actor = checkedAuditActor(actorOfInput(input));
+    const auditId = auditIdOf(actor);
     const confirm = input.confirmAmountTiyin;
-    const otpTarget = reverseOtpTarget(paymentId);
-    const otpVerified = await this.otp.verifyIfGiven(
-      input.otp,
-      confirm,
-      'payment:reverse',
-      otpTarget,
-    );
-
-    // Read once without a lock only to learn whose wallet to lock; the owner never changes.
-    const known = await this.repo.findPayment(paymentId);
-    if (known === null) throw new AppError('NOT_FOUND');
+    const threshold = this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN;
+    // Read once without a lock only to learn whose wallet to lock (the owner never changes) and,
+    // for a panel code, the amount its budget reason is bound to.
+    const known = await this.payment(paymentId);
     const userId = known.userId;
+    const budgetCheck = { thresholdTiyin: threshold, now: this.clock.now() };
+    const adminFlags =
+      isAdminActor(actor) && actor.stepUp !== undefined
+        ? await this.repo.codelessFlags(budgetAdminId(actor), {
+            ...budgetCheck,
+            amountTiyin: known.amountTiyin,
+          })
+        : [];
+    const otpVerified = await verifyStepUp(actor, {
+      owner: this.otp,
+      otp: input.otp,
+      confirmAmountTiyin: confirm,
+      action: 'payment:reverse',
+      target: reverseOtpTarget(paymentId),
+      flags: '',
+      money: true,
+      adminFlags,
+    });
 
     const committed = await this.repo.transaction(async (tx): Promise<Committed> => {
+      const who = await confirmActorInTx(tx, actor, this.clock.now());
       await this.steps.lock(tx, userId);
       // Re-read under the lock: a concurrent reversal may have finished while we waited.
       const payment = await this.repo.findPayment(paymentId, tx);
@@ -77,8 +100,12 @@ export class WalletTopupReversal {
         refId: paymentId,
         kind: 'TOPUP_REVERSAL',
       });
-      if (reversal !== null)
+      if (reversal !== null) {
+        // The panel's own replay (same key) never gets here: the runner answers it from its audit
+        // row first. Another admin or another key: a domain refusal, not a 409 (C-4).
+        if (isAdminActor(actor)) throw validationError('paymentStatus', 'ALREADY_REVERSED');
         return reversalReplay(this.repo, tx, userId, paymentId, reason, reversal.id);
+      }
       if (payment.status !== 'CONFIRMED') throw validationError('paymentStatus');
 
       // Reverse what the ledger actually credited, not what the payment row claims.
@@ -97,12 +124,16 @@ export class WalletTopupReversal {
         // No amounts in the log (the audit row carries reversedTiyin); the ledger side wins.
         this.logger.warn(`payment ${paymentId}: credited amount differs from the payment row`);
       }
-      requireOwnerConfirmation(
-        amount,
-        confirm,
-        otpVerified,
-        this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN,
-      );
+      const codelessBudgetExceeded = otpVerified
+        ? undefined
+        : await codelessBudgetInTx(tx, actor, { ...budgetCheck, amountTiyin: amount });
+      requireStepUp(actor, {
+        amountTiyin: amount,
+        confirmAmountTiyin: confirm,
+        verified: otpVerified,
+        thresholdTiyin: threshold,
+        codelessBudgetExceeded,
+      });
 
       const before = await this.repo.balance(userId, tx);
       const after = before - amount;
@@ -110,7 +141,8 @@ export class WalletTopupReversal {
         throw new AppError('INTERNAL_ERROR'); // cannot happen under the wallet lock
       }
       const audit = await this.steps.createAudit(tx, {
-        ip,
+        ...(auditId === undefined ? {} : { id: auditId }),
+        ...toAuditColumns(actor),
         action: PAYMENT_REVERSE,
         targetType: 'Payment',
         targetId: paymentId,
@@ -119,8 +151,7 @@ export class WalletTopupReversal {
           balanceTiyin: after.toString(),
           paymentStatus: 'CANCELLED',
           reversedTiyin: amount.toString(),
-          operator,
-          osUser,
+          ...who,
           otpVerified,
         },
         reason,

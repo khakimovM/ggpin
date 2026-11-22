@@ -20,9 +20,14 @@ const asObject = (value: unknown): Record<string, unknown> | null =>
  * message fields by role (shared `redactAuditJson`, SA-M4). Audit JSON is always an object today;
  * any other stored value is wrapped as `{ value }` so the shape stays a record.
  */
-function shownJson(value: unknown, view: AdminReadView): Record<string, unknown> | null {
+function shownJson(
+  value: unknown,
+  view: AdminReadView,
+  action: string,
+): Record<string, unknown> | null {
   if (value === null || value === undefined) return null;
-  const redacted = redactAuditJson(asObject(value) ?? { value }, auditRedactionView(view));
+  // The action decides what a top-level `text` is: a note (every role) or a bank message (SA-S4-7).
+  const redacted = redactAuditJson(asObject(value) ?? { value }, auditRedactionView(view), action);
   return asObject(redacted);
 }
 
@@ -52,8 +57,8 @@ export function toAdminAuditRow(
     action: row.action,
     targetType: row.targetType,
     targetId: row.targetId,
-    before: shownJson(row.before, view),
-    after: shownJson(row.after, view),
+    before: shownJson(row.before, view, row.action),
+    after: shownJson(row.after, view, row.action),
     reason: row.reason,
     // The row's own IP follows the same rule as IP keys inside the JSON (`audit.ipFull`).
     ip: view.ipFull ? row.ip : shownIp(row.ip),

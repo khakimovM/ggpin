@@ -1,5 +1,6 @@
-import type { TopupCardStatus } from '@repo/db';
-import type { CardAdminActor, CheckedActor } from './card-admin.input';
+import type { TopupCard, TopupCardStatus } from '@repo/db';
+import type { CheckedAuditActor } from '../../common/admin/audit-actor';
+import type { CardAdminActor } from './card-admin.input';
 
 export interface AddCardInput {
   readonly bank: string;
@@ -42,5 +43,16 @@ export type AuditExtra = Record<string, string | number | boolean | null>;
 export interface CardAudit {
   readonly action: string;
   readonly reason: string;
-  readonly actor: CheckedActor;
+  /** The CLI operator or the panel's admin (S6). */
+  readonly actor: CheckedAuditActor;
 }
+
+/** The card fields an AuditLog row shows before and after a change (no PAN, no holder name). */
+export const cardJson = (card: TopupCard) => ({
+  status: card.status,
+  receiveLimitTiyin: card.receiveLimitTiyin.toString(),
+  monthlyLimitTiyin: card.monthlyLimitTiyin?.toString() ?? null,
+  autoCreditPaused: card.autoCreditPaused,
+});
+export type CardJson = ReturnType<typeof cardJson>;
+export type AuditAfter = Record<string, string | number | boolean | null>;

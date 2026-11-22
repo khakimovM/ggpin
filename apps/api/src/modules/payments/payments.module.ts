@@ -43,6 +43,7 @@ import { TopupLimits } from './topup-limits';
     TopupIntentsService,
     TopupLimits,
   ],
-  exports: [CardAdminService],
+  // CardAdminService and PaymentsAlerts also serve the admin panel's card routes (phase 9 S6).
+  exports: [CardAdminService, PaymentsAlerts],
 })
 export class PaymentsModule {}

@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { SignedTiyinStringSchema, TiyinStringSchema } from '../money-schemas';
 import * as admin from './index';
-import { NonZeroSignedTiyinStringSchema, PositiveTiyinStringSchema } from './admin-common-schemas';
+import {
+  AdminAdjustAmountSchema,
+  NonZeroSignedTiyinStringSchema,
+  PositiveTiyinStringSchema,
+} from './admin-common-schemas';
 
 type Visit = (schema: z.ZodType, key: string | null, path: string) => void;
 
@@ -112,6 +116,7 @@ const MONEY_SHAPES = new Set<z.ZodType>([
   SignedTiyinStringSchema,
   PositiveTiyinStringSchema,
   NonZeroSignedTiyinStringSchema,
+  AdminAdjustAmountSchema,
 ]);
 
 describe('admin money fields', () => {

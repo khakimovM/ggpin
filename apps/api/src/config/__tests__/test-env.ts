@@ -33,6 +33,16 @@ export const TEST_ENV_SOURCE: Readonly<Record<string, string>> = {
 // Suites that exercise prices run against the worker's dry-run (simulator) data, so they opt in
 // to it here; production refusal tests override it back or set NODE_ENV=production. Kept out of
 // TEST_ENV_SOURCE so the env tests still see the real default (false).
+// The daily cap of money created by hand is global per Tashkent day, and the append-only ledger
+// of the shared test database keeps every suite's adjustments: suites get a cap no run reaches,
+// and the cap suites set their own (S6).
+// 15 digits: an admin settings read must not hold a 16-digit run (the card-number scan, S4).
+export const TEST_MANUAL_CREDIT_CAP_TIYIN = '900000000000000';
 export function buildTestEnv(overrides: Readonly<Record<string, string>> = {}): Env {
-  return loadEnv({ ...TEST_ENV_SOURCE, PRICING_ALLOW_SIMULATED: 'true', ...overrides });
+  return loadEnv({
+    ...TEST_ENV_SOURCE,
+    PRICING_ALLOW_SIMULATED: 'true',
+    ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN: TEST_MANUAL_CREDIT_CAP_TIYIN,
+    ...overrides,
+  });
 }

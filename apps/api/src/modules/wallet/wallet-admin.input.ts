@@ -1,13 +1,19 @@
 import { createHash } from 'node:crypto';
 import { AUTO_CREDIT_HORIZON_MS } from '@repo/db';
 import { z } from 'zod';
-import { MAX_BIGINT_TIYIN, validationError } from '../../common/admin/admin-input';
+import { ADMIN_ADJUST_MAX_TIYIN } from '@repo/shared';
+import { validationError } from '../../common/admin/admin-input';
 
 // Wallet-only checks of the owner CLI; the common ones (reason, operator, ip, ids) live in
 // common/admin/admin-input.ts, shared with the card services.
 
+/** Non-zero and at most 1 000 000 000 so'm either way (SA-S6-6), for the CLI and the panel. */
 export function checkedAdjustAmount(amountTiyin: bigint): bigint {
-  if (amountTiyin === 0n || amountTiyin > MAX_BIGINT_TIYIN || amountTiyin < -MAX_BIGINT_TIYIN) {
+  if (
+    amountTiyin === 0n ||
+    amountTiyin > ADMIN_ADJUST_MAX_TIYIN ||
+    amountTiyin < -ADMIN_ADJUST_MAX_TIYIN
+  ) {
     throw validationError('amountTiyin');
   }
   return amountTiyin;

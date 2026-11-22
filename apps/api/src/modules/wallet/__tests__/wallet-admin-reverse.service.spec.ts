@@ -121,7 +121,7 @@ describe('WalletAdminService.reverseTopup', () => {
 
     await expect(service.reverseTopup(input)).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
-      details: { field: 'confirmAmountTiyin' },
+      details: { field: 'confirmAmountTiyin', reason: 'AMOUNT_MISMATCH' },
     });
     await expect(
       service.reverseTopup({ ...input, confirmAmountTiyin: big - 1n }),

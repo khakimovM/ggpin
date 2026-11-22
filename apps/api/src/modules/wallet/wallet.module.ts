@@ -25,6 +25,8 @@ import { WalletService } from './wallet.service';
     // Checks the owner's code of a money action above the threshold (D-46); Redis only.
     OwnerOtpVerifier,
   ],
-  exports: [WalletService, WalletAdminService, WalletCache],
+  // WalletRepository and OwnerOtpVerifier also serve the admin panel's money routes (phase 9 S6),
+  // so the API has ONE instance of each.
+  exports: [WalletService, WalletAdminService, WalletCache, WalletRepository, OwnerOtpVerifier],
 })
 export class WalletModule {}

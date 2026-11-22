@@ -10,7 +10,7 @@ import { TiyinStringSchema } from '../money-schemas';
 import {
   AdminNameSchema,
   AdminReasonSchema,
-  NonZeroSignedTiyinStringSchema,
+  AdminAdjustAmountSchema,
   PositiveTiyinStringSchema,
   TelegramIdStringSchema,
 } from './admin-common-schemas';
@@ -71,7 +71,7 @@ export const AdminConfirmationBodySchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('users.adjustWallet'),
     targetId: ResourceIdSchema,
-    amountTiyin: NonZeroSignedTiyinStringSchema,
+    amountTiyin: AdminAdjustAmountSchema,
     confirmOverrideSet: z
       .string()
       .regex(/^[0-9a-f]{12}$/)
@@ -88,6 +88,18 @@ export const AdminConfirmationBodySchema = z.discriminatedUnion('action', [
     /** The CLI's `--confirm-override` / `--confirm-security-pause` (D-65 D3). */
     confirmOverride: z.boolean().default(false),
     confirmSecurityPause: z.boolean().default(false),
+  }),
+  // A retire always needs the code; a limit only when it lowers one (owner decision 2026-11-18).
+  z.strictObject({
+    action: z.literal('cards.retire'),
+    targetId: ResourceIdSchema,
+    emergency: z.boolean().default(false),
+  }),
+  z.strictObject({
+    action: z.literal('cards.limit'),
+    targetId: ResourceIdSchema,
+    receiveLimitTiyin: PositiveTiyinStringSchema,
+    monthlyLimitTiyin: PositiveTiyinStringSchema.nullable().optional(),
   }),
   z.strictObject({
     action: z.literal('fx.set'),

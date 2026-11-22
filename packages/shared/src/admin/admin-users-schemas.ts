@@ -10,7 +10,7 @@ import {
   AdminReasonSchema,
   AdminSearchSchema,
   IsoDateTimeSchema,
-  NonZeroSignedTiyinStringSchema,
+  AdminAdjustAmountSchema,
   RANGE_ORDER_ISSUE,
   TelegramIdStringSchema,
   adminActionResultShape,
@@ -137,7 +137,7 @@ export type AdminUserSessionsRevokeResponse = z.infer<typeof AdminUserSessionsRe
  * top-ups the owner saw (the CLI's `--confirm-override=<set>`, S9 F-L1).
  */
 export const AdminAdjustWalletBodySchema = z.strictObject({
-  amountTiyin: NonZeroSignedTiyinStringSchema,
+  amountTiyin: AdminAdjustAmountSchema,
   reason: AdminReasonSchema,
   confirmOverrideSet: z
     .string()

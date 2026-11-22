@@ -7,6 +7,10 @@ import {
   type PaymentReviewStatus,
   type Prisma,
 } from '@repo/db';
+import {
+  lockManualCredits,
+  manualCreditTotalSince,
+} from '../../common/admin/manual-credit.repository';
 import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
@@ -107,6 +111,10 @@ export interface NewReviewPayment {
 }
 
 export interface ReviewAudit {
+  /** The admin key's AuditLog id and the acting admin (S6); the CLI's rows: CLI, no id. */
+  readonly id?: string;
+  readonly actorType?: 'CLI' | 'ADMIN';
+  readonly actorId?: string | null;
   readonly ip: string | null;
   readonly action: string;
   readonly targetType: string;
@@ -230,6 +238,15 @@ export class ReviewRepository {
       refType: 'PAYMENT',
       refId: paymentId,
     });
+  }
+
+  /** The daily cap of money created by hand (common/admin/manual-credit-cap.ts). */
+  lockManualCredits(tx: Db): Promise<void> {
+    return lockManualCredits(tx);
+  }
+
+  manualCreditTotalSince(tx: Db, since: Date): Promise<bigint> {
+    return manualCreditTotalSince(tx, since);
   }
 
   async createAudit(tx: Db, data: ReviewAudit): Promise<string> {

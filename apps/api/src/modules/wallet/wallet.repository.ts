@@ -10,6 +10,12 @@ import {
   type Payment,
   type Prisma,
 } from '@repo/db';
+import { isAdminsOwnUser } from '../../common/admin/admin-target.repository';
+import { codelessBudgetFlags } from '../../common/admin/codeless-budget';
+import {
+  lockManualCredits,
+  manualCreditTotalSince,
+} from '../../common/admin/manual-credit.repository';
 import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
@@ -34,6 +40,9 @@ export interface EntryKey {
 export interface AuditEntryData {
   /** Optional caller-chosen id: a retried CLI command reuses it, which makes the write idempotent. */
   readonly id?: string;
+  /** CLI (no id, the operator name is in `after`) unless an admin acted (S6). */
+  readonly actorType?: 'CLI' | 'ADMIN';
+  readonly actorId?: string | null;
   readonly ip: string | null;
   readonly action: string;
   readonly targetType: string;
@@ -123,6 +132,11 @@ export class WalletRepository {
     });
   }
 
+  /** The same, outside a transaction (a pre-read; the action re-reads it under the lock). */
+  findEntryUnlocked(key: EntryKey): Promise<LedgerEntry | null> {
+    return this.findEntry(this.prisma.client, key);
+  }
+
   /** CONFIRMED -> CANCELLED; returns false when the payment was not CONFIRMED any more. */
   async cancelConfirmedPayment(tx: Db, paymentId: string, at: Date): Promise<boolean> {
     const { count } = await tx.payment.updateMany({
@@ -157,8 +171,8 @@ export class WalletRepository {
       data: {
         ...(data.id === undefined ? {} : { id: data.id }),
         // The owner CLI is not a user session: no actor id, the operator name is in `after`.
-        actorType: 'CLI',
-        actorId: null,
+        actorType: data.actorType ?? 'CLI',
+        actorId: data.actorId ?? null,
         ip: data.ip,
         action: data.action,
         targetType: data.targetType,
@@ -191,6 +205,36 @@ export class WalletRepository {
       data: { purchaseFrozen: false },
     });
     return count === 1;
+  }
+
+  /** The daily cap of money created by hand (common/admin/manual-credit-cap.ts). */
+  lockManualCredits(tx: Db): Promise<void> {
+    return lockManualCredits(tx);
+  }
+
+  manualCreditTotalSince(tx: Db, since: Date): Promise<bigint> {
+    return manualCreditTotalSince(tx, since);
+  }
+
+  /** The panel's codeless-budget binding flag, read without a lock (common/admin/codeless-budget). */
+  codelessFlags(
+    adminId: string | null,
+    check: { readonly amountTiyin: bigint; readonly thresholdTiyin: bigint; readonly now: Date },
+  ): Promise<string[]> {
+    return codelessBudgetFlags(this.prisma.client, adminId, check);
+  }
+
+  async userExists(userId: string): Promise<boolean> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    return user !== null;
+  }
+
+  /** The user's Telegram account is the admin's own (common/admin/admin-target.repository). */
+  isAdminsOwnUser(adminId: string, userId: string): Promise<boolean> {
+    return isAdminsOwnUser(this.prisma.client, adminId, userId);
   }
 
   async isPurchaseFrozen(tx: Db, userId: string): Promise<boolean> {

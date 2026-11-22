@@ -1,23 +1,20 @@
+import type { ActorInput } from '../../common/admin/audit-actor';
 import type { OtpAnswer } from '../../common/admin/owner-otp/owner-otp';
 
 // Inputs and the result of WalletAdminService (the owner CLI's money corrections, docs/05 §9).
 
-export interface AdjustWalletInput {
+export type AdjustWalletInput = AdjustWalletFields & ActorInput;
+
+export interface AdjustWalletFields {
   readonly userId: string;
   /** Signed tiyin, never 0. */
   readonly amountTiyin: bigint;
   readonly reason: string;
-  /** Who runs the command (the CLI --operator); stored in AuditLog.after.operator. */
-  readonly operator: string;
-  /** Optional client address for the AuditLog (IPv4/IPv6 literal). */
-  readonly ip?: string | null;
   /** Above ADMIN_CONFIRM_THRESHOLD_TIYIN: equal to `amountTiyin`, plus the owner's code (D-46). */
   readonly confirmAmountTiyin?: bigint;
   readonly otp?: OtpAnswer;
-  /** The OS account that ran the CLI (AuditLog.after.osUser). */
-  readonly osUser?: string | null;
   /**
-   * Optional caller-chosen AuditLog id. The CLI generates one per command, so re-running the same
+   * Optional caller-chosen AuditLog id (CLI; an admin's comes from its Idempotency-Key). The CLI generates one per command, so re-running the same
    * command (after a timeout) finds the first run and writes nothing again. The same id with a
    * different user, amount or reason is a different request and is refused (IDEMPOTENCY_CONFLICT).
    */
@@ -31,15 +28,14 @@ export interface AdjustWalletInput {
   readonly confirmOverrideSet?: string;
 }
 
-export interface ReverseTopupInput {
+export type ReverseTopupInput = ReverseTopupFields & ActorInput;
+
+export interface ReverseTopupFields {
   readonly paymentId: string;
   readonly reason: string;
-  readonly operator: string;
-  readonly ip?: string | null;
   /** Above the threshold: equal to the reversed amount, plus the owner's code (D-46). */
   readonly confirmAmountTiyin?: bigint;
   readonly otp?: OtpAnswer;
-  readonly osUser?: string | null;
 }
 
 export interface WalletChange {

@@ -1,0 +1,199 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`admin confirmation code message (ru) adjust credit with override 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Корректировка баланса кошелька
+Сумма: +123 456 сум
+Объект: @ali_test · 12******90
+Флаги: Обойдено предупреждение: последних автопополнений — 2, набор abcdef012345
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) adjust credit, override asked with nothing to override 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Корректировка баланса кошелька
+Сумма: +200 000 сум
+Объект: @ali_test · 12******90
+Флаги: Запрошен обход предупреждений (сейчас предупреждений нет)
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) codeless-budget debit of a user without a username 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Корректировка баланса кошелька
+Сумма: −500 сум
+Объект: 98*****21
+Флаги: Исчерпан дневной лимит без кода
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) emergency retire 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Вывод карты из работы
+Сумма: —
+Объект: UZCARD ·9876
+Флаги: Экстренно
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) lowered limit with the monthly cap removed 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Изменение лимита карты
+Новый лимит: 10 000 000 сум
+Объект: HUMO ·4321
+Флаги: Месячный лимит снимается
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) raised limit with a monthly cap 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Изменение лимита карты
+Новый лимит: 20 000 000 сум
+Объект: HUMO ·4321
+Флаги: Месячный лимит: 300 000 000 сум
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) resume over a card warning 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Повторное включение автозачисления по карте
+Сумма: —
+Объект: UZCARD ·9876
+Флаги: Обойдены предупреждения по карте
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) reverse 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Отмена пополнения (списание денег обратно)
+Сумма: −300 000 сум
+Объект: @ali_test · 12******90
+Флаги: —
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) review credit over a blocked, over-limit user (one joined server flag) 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Зачисление платежа из проверки в кошелёк
+Сумма: +5 000 000 сум
+Объект: @ali_test · 12******90
+Флаги: Обойдены предупреждения: пользователь заблокирован, пользователь превысил лимит; Подтверждено банком
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) review credit, bank-verified 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Зачисление платежа из проверки в кошелёк
+Сумма: +5 000 000 сум
+Объект: @ali_test · 12******90
+Флаги: Подтверждено банком
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) security resume 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Повторное включение автозачисления по карте
+Сумма: —
+Объект: HUMO ·4321
+Флаги: Подтверждён выход из паузы безопасности
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (uz) adjust credit with override 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Hamyon balansini tuzatish
+Summa: +123 456 so‘m
+Obyekt: @ali_test · 12******90
+Belgilar: Ogohlantirish chetlab o‘tilgan: so‘nggi avtomatik to‘ldirishlar soni 2, to‘plam abcdef012345
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) adjust credit, override asked with nothing to override 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Hamyon balansini tuzatish
+Summa: +200 000 so‘m
+Obyekt: @ali_test · 12******90
+Belgilar: Ogohlantirishni chetlab o‘tish so‘ralgan (hozir ogohlantirish yo‘q)
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) codeless-budget debit of a user without a username 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Hamyon balansini tuzatish
+Summa: −500 so‘m
+Obyekt: 98*****21
+Belgilar: Kunlik kodsiz limit tugagan
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) emergency retire 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Kartani ishdan chiqarish
+Summa: —
+Obyekt: UZCARD ·9876
+Belgilar: Favqulodda
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) lowered limit with the monthly cap removed 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Karta limitini o‘zgartirish
+Yangi limit: 10 000 000 so‘m
+Obyekt: HUMO ·4321
+Belgilar: Oylik limit olib tashlanadi
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) raised limit with a monthly cap 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Karta limitini o‘zgartirish
+Yangi limit: 20 000 000 so‘m
+Obyekt: HUMO ·4321
+Belgilar: Oylik limit: 300 000 000 so‘m
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) resume over a card warning 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Karta bo‘yicha avtomatik yozishni qayta yoqish
+Summa: —
+Obyekt: UZCARD ·9876
+Belgilar: Karta ogohlantirishlari chetlab o‘tilgan
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) reverse 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: To‘ldirishni bekor qilish (pulni qaytarib olish)
+Summa: −300 000 so‘m
+Obyekt: @ali_test · 12******90
+Belgilar: —
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) review credit over a blocked, over-limit user (one joined server flag) 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Tekshiruvdagi to‘lovni hamyonga yozish
+Summa: +5 000 000 so‘m
+Obyekt: @ali_test · 12******90
+Belgilar: Ogohlantirishlar chetlab o‘tilgan: foydalanuvchi bloklangan, foydalanuvchi limitdan oshgan; Bank tasdiqlagan
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) review credit, bank-verified 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Tekshiruvdagi to‘lovni hamyonga yozish
+Summa: +5 000 000 so‘m
+Obyekt: @ali_test · 12******90
+Belgilar: Bank tasdiqlagan
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) security resume 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Karta bo‘yicha avtomatik yozishni qayta yoqish
+Summa: —
+Obyekt: HUMO ·4321
+Belgilar: Xavfsizlik pauzasidan chiqarish tasdiqlangan
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;

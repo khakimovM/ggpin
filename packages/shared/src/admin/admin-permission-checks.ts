@@ -71,6 +71,11 @@ export interface OtpCheckInput {
   readonly thresholdTiyin: bigint;
   /** The domain rule's own verdict (proof kind, FX jump flags); absent = unknown. */
   readonly ruleRequiresCode?: boolean;
+  /**
+   * The admin's codeless daily budget would be passed by this action (admin-codeless-budget.ts);
+   * read under the admin's lock. Absent = unknown, which asks for the code (fail closed).
+   */
+  readonly codelessBudgetExceeded?: boolean;
 }
 
 const magnitude = (tiyin: bigint): bigint => (tiyin < 0n ? -tiyin : tiyin);
@@ -84,6 +89,7 @@ export function adminOtpRequired(permission: AdminPermission, input: OtpCheckInp
   const above = (): boolean =>
     input.amountTiyin === undefined || magnitude(input.amountTiyin) > input.thresholdTiyin;
   const rule = (): boolean => input.ruleRequiresCode ?? true;
+  const budget = (): boolean => input.codelessBudgetExceeded ?? true;
   // A key outside the matrix (an untyped caller) has no rule and falls to `default`.
   const otpRule: AdminOtpRule | undefined = Object.hasOwn(ADMIN_PERMISSIONS, permission)
     ? ADMIN_PERMISSIONS[permission].otp
@@ -99,8 +105,10 @@ export function adminOtpRequired(permission: AdminPermission, input: OtpCheckInp
       return rule() || above();
     case 'RULE':
       return rule();
-    case 'CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD':
-      return input.amountTiyin === undefined || input.amountTiyin > 0n || above();
+    case 'CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD_OR_DAILY':
+      return input.amountTiyin === undefined || input.amountTiyin > 0n || above() || budget();
+    case 'ABOVE_THRESHOLD_OR_DAILY':
+      return above() || budget();
     default:
       // An unknown rule at run time asks for the code (fail closed, review SA-L2).
       return true;

@@ -14,8 +14,10 @@ import type { AdminRole } from './admin-roles';
  *   proof kinds of phase 5 `proofNeedsOwnerOtp`, MANUAL among them, D-59 (7));
  * - `RULE` — only the domain rule (manual FX: the jump flags of phase 5 FxAdminService, D-56 (3);
  *   card resume: lifting a SECURITY pause, D-65 D3);
- * - `CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD` — a wallet adjustment: always for a credit (money
- *   created by hand), above the threshold for a debit (D-65 D1);
+ * - `CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD_OR_DAILY` — a wallet adjustment: always for a credit
+ *   (money created by hand, D-65 D1); a debit above the threshold, or once the admin's codeless
+ *   debits and reversals of the Tashkent day pass the daily budget (admin-codeless-budget.ts);
+ * - `ABOVE_THRESHOLD_OR_DAILY` — a top-up reversal: above the threshold or past that budget;
  * - `ALWAYS` — every admin-management action and the refund of a DELIVERED order (D-65 D1).
  */
 export type AdminOtpRule =
@@ -23,7 +25,8 @@ export type AdminOtpRule =
   | 'ABOVE_THRESHOLD'
   | 'RULE_OR_ABOVE_THRESHOLD'
   | 'RULE'
-  | 'CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD'
+  | 'CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD_OR_DAILY'
+  | 'ABOVE_THRESHOLD_OR_DAILY'
   | 'ALWAYS';
 
 /**
@@ -137,7 +140,6 @@ function write(
   };
 }
 
-const MONEY = { otp: 'ABOVE_THRESHOLD' } as const;
 // Within OPERATOR's amount limit, and never a NO_PURCHASE hold (D-64 (6)).
 const OPERATOR_MONEY = {
   otp: 'ABOVE_THRESHOLD',
@@ -235,7 +237,7 @@ export const ADMIN_PERMISSIONS: Readonly<Record<AdminPermission, AdminPermission
       'USER_SESSIONS_REVOKE',
     ]),
     'users.adjustWallet': write(OWNER, post('users/:id/adjust-wallet'), ['WALLET_ADJUST'], {
-      otp: 'CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD',
+      otp: 'CREDIT_ALWAYS_ELSE_ABOVE_THRESHOLD_OR_DAILY',
     }),
     // Crediting a review puts money into a wallet by hand: always the code (D-66).
     'payments.reviewCredit': write(
@@ -244,17 +246,25 @@ export const ADMIN_PERMISSIONS: Readonly<Record<AdminPermission, AdminPermission
       ['REVIEW_CREDIT'],
       ALWAYS,
     ),
-    'payments.reverse': write(OWNER, post('payments/:id/reverse'), ['PAYMENT_REVERSE'], MONEY),
+    // Codeless reversals count towards the admin's daily budget with codeless debits (owner
+    // decision 2026-11-18, SA-S6-3).
+    'payments.reverse': write(OWNER, post('payments/:id/reverse'), ['PAYMENT_REVERSE'], {
+      otp: 'ABOVE_THRESHOLD_OR_DAILY',
+    }),
     'cards.pause': write(OWNER, post('payments/cards/:id/pause'), ['CARD_PAUSE']),
     // Lifting a SECURITY pause (`confirmSecurityPause`) needs the code (D-65 D3).
     'cards.resume': write(OWNER, post('payments/cards/:id/resume'), ['CARD_RESUME'], {
       otp: 'RULE',
     }),
-    'cards.limit': write(OWNER, post('payments/cards/:id/limit'), ['CARD_LIMIT']),
-    'cards.retire': write(OWNER, post('payments/cards/:id/retire'), [
-      'CARD_RETIRE',
-      'CARD_RETIRE_EMERGENCY',
-    ]),
+    // Lowering a limit (receive, or the monthly cap) needs the code; raising it does not; any
+    // retire always does (owner decision 2026-11-18, SA-S6-3).
+    'cards.limit': write(OWNER, post('payments/cards/:id/limit'), ['CARD_LIMIT'], { otp: 'RULE' }),
+    'cards.retire': write(
+      OWNER,
+      post('payments/cards/:id/retire'),
+      ['CARD_RETIRE', 'CARD_RETIRE_EMERGENCY'],
+      ALWAYS,
+    ),
     'catalog.categoryUpdate': write(OWNER, patch('categories/:id'), ['CATEGORY_UPDATE']),
     'catalog.productUpdate': write(OWNER, patch('products/:id'), ['PRODUCT_UPDATE']),
     'catalog.productReorder': write(OWNER, post('products/reorder'), ['PRODUCT_REORDER']),

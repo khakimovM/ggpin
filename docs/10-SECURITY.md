@@ -73,8 +73,12 @@
   oxirgi urinishi kutilmagan xato bilan tugasa — review `PROCESSING_FAILED`, karta `autoCreditPaused`; review yozib bo‘lmasa `messageStuck`;
   qaror saqlangan-u, effektlar xato bergan bo‘lsa `effectsFailed`. Ishchi akkauntda noma’lum yangi qurilma = BARCHA kartalarda avtomatik yozish
   to‘xtaydi. Tarix qayta skani `unavailable` yoki `failed` bo‘lsa, kun hech qachon «farq yo‘q» deb ko‘rsatilmaydi (docs/05 §6, §10).
-- **Ega CLI’si faqat SSH orqali.** Pul va karta amallari faqat VPS’dagi ega CLI’sidan (`apps/api/src/cli/ops-cli.ts`, HTTP yo‘q); admin panelda
-  pul amali hali yo‘q. Har o‘zgartiruvchi buyruqda `--reason` va `--operator` majburiy, `AuditLog` bir tranzaksiyada (`actorType = CLI`,
+- **Ega CLI’si faqat SSH orqali.** Ega CLI’si (`apps/api/src/cli/ops-cli.ts`, HTTP yo‘q) — pul va karta amallarining asosiy va zaxira yo‘li.
+  9-bosqich S6 dan boshlab xuddi shu servislar admin panelda ham ishlaydi (faqat OWNER, `actorType = ADMIN`; docs/04 «Admin»): kirim, P2P review
+  credit, karta retire va limitni pasaytirish doim bot kodini so‘raydi; chiqim va reverse — chegaradan katta bo‘lsa yoki adminning kunlik kodsiz
+  budjeti (10 amal / 2 000 000 so‘m) tugasa. Admin o‘z mijoz akkauntiga panel orqali pul yoza olmaydi (faqat CLI), admin akkauntini panelda
+  bloklab yoki muzlatib bo‘lmaydi. Kod xabarida amal, summa, nishon va flag’lar ko‘rinadi — o‘g‘irlangan sessiya body’ni almashtirsa, admin
+  buni Telegram’da ko‘radi. Har o‘zgartiruvchi buyruqda `--reason` va `--operator` majburiy, `AuditLog` bir tranzaksiyada (`actorType = CLI`,
   `ip` = SSH mijoz manzili, `after.osUser`), har amaldan keyin `adminAction` alerti. Asosiy nazorat — SSH huquqi faqat egada (D-46).
 - **Owner OTP (D-46).** `ADMIN_CONFIRM_THRESHOLD_TIYIN` dan katta `review:credit`, `wallet:adjust`, `payment:reverse` da summa qayta kiritiladi va
   ega Telegram’iga (`OWNER_ALERT_CHAT_ID` ro‘yxatining faqat **birinchi**, asosiy id’si: bitta kod — bitta odam, D-53) bir martalik kod boradi: 3 daqiqa, 5 urinish, amal + summa + target + flag’larga bog‘langan; kod ekranda

@@ -173,13 +173,15 @@ export class AdminPaymentsReadRepository {
   }
 
   /** Every card with the shared capacity sums (`cardTotals`, the allocator's own numbers). */
-  cards(now: Date): Promise<CardTotals[]> {
+  /** Every card, or the one card (`cardId`: the answer of a card action, S6). */
+  cards(now: Date, cardId?: string): Promise<CardTotals[]> {
     return cardTotals(this.db, {
       now,
       monthStart: tashkentMonthStart(now),
       statuses: ['VERIFYING', 'ACTIVE', 'FULL', 'DRAINING', 'RETIRED'],
       autoCreditOnly: false,
       holdSec: this.config.TOPUP_CAPACITY_HOLD_SEC,
+      ...(cardId === undefined ? {} : { cardId }),
     });
   }
 

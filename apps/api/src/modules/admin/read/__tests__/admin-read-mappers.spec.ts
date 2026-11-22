@@ -166,6 +166,8 @@ describe('settingItems', () => {
       PRICE_TOLERANCE_BPS: 50,
       ADMIN_CONFIRM_THRESHOLD_TIYIN: 50_000_000n,
       ADMIN_OPERATOR_REFUND_MAX_TIYIN: 20_000_000n,
+      ADMIN_OTP_DAILY_MAX: 30,
+      ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN: 500_000_000n,
     });
     for (const item of items) expect(typeof item.value).toBe('string');
     expect(items.find((i) => i.key === 'TOPUP_MIN_TIYIN')).toEqual({
@@ -175,5 +177,32 @@ describe('settingItems', () => {
       source: 'env',
     });
     expect(JSON.stringify(items)).not.toMatch(/SECRET|TOKEN|MNEMONIC|PASSWORD|DATABASE_URL/);
+  });
+
+  it('S6: the code quota and the daily cap of money created by hand are listed', () => {
+    const items = settingItems({
+      TOPUP_MIN_TIYIN: 1n,
+      TOPUP_MAX_TIYIN: 2n,
+      TOPUP_STEP_TIYIN: 1n,
+      TOPUP_DAILY_MAX_TIYIN: 3n,
+      TOPUP_NEW_ACCOUNT_DAILY_MAX_TIYIN: 1n,
+      PRICE_TOLERANCE_BPS: 1,
+      ADMIN_CONFIRM_THRESHOLD_TIYIN: 1n,
+      ADMIN_OPERATOR_REFUND_MAX_TIYIN: 1n,
+      ADMIN_OTP_DAILY_MAX: 30,
+      ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN: 500_000_000n,
+    });
+    expect(items).toContainEqual({
+      key: 'ADMIN_OTP_DAILY_MAX',
+      value: '30',
+      unit: 'COUNT',
+      source: 'env',
+    });
+    expect(items).toContainEqual({
+      key: 'ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN',
+      value: '500000000',
+      unit: 'TIYIN',
+      source: 'env',
+    });
   });
 });

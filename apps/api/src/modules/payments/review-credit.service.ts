@@ -2,14 +2,23 @@ import { Inject, Injectable } from '@nestjs/common';
 import { WalletNotFoundError } from '@repo/db';
 import { intentTransitionRefusal, isWithinGrace, reservedUntilWhenPaid } from '@repo/shared';
 import { checkedId, validationError } from '../../common/admin/admin-input';
+import {
+  auditIdOf,
+  checkedAuditActor,
+  toAuditColumns,
+  type AuditActor,
+} from '../../common/admin/audit-actor';
+import { refuseSelfTarget } from '../../common/admin/admin-target';
+import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { checkManualCreditCap } from '../../common/admin/manual-credit-cap';
 import type { OtpAnswer } from '../../common/admin/owner-otp/owner-otp';
-import { requireOwnerConfirmation } from '../../common/admin/owner-otp/owner-otp';
 import { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
+import { requireStepUp, stepUpGiven, verifyStepUp } from '../../common/admin/step-up';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import type { Db } from '../../infra/prisma/db';
-import { actorAfter, checkedActor, checkedReason, type CardAdminActor } from './card-admin.input';
+import { checkedReason } from './card-admin.input';
 import { CardPoolRepository } from './card-pool.repository';
 import { intentInsertConflict, isUniqueViolation } from './db-errors';
 import { checkedTarget, ReviewCreditPreviewService } from './review-credit-preview.service';
@@ -33,7 +42,8 @@ export interface CreditReviewInput {
   readonly reviewId: string;
   readonly target: CreditTarget;
   readonly reason: string;
-  readonly actor: CardAdminActor;
+  /** The CLI operator or the panel's admin (S6). */
+  readonly actor: AuditActor;
   /** Above ADMIN_CONFIRM_THRESHOLD_TIYIN: the re-typed amount AND the owner's code (D-46). */
   readonly confirmAmountTiyin?: bigint;
   readonly otp?: OtpAnswer;
@@ -91,7 +101,8 @@ export class ReviewCreditService {
     const reviewId = checkedId('reviewId', input.reviewId);
     const target = checkedTarget(input.target);
     const reason = checkedReason(input.reason);
-    const actor = checkedActor(input.actor);
+    const actor = checkedAuditActor(input.actor);
+    const auditId = auditIdOf(actor);
     const confirm = input.confirmAmountTiyin;
     const given = {
       override: input.confirmOverride === true,
@@ -99,17 +110,18 @@ export class ReviewCreditService {
     };
     const { override, bankVerified } = given;
     // The code is bound to the flags as the user's state reads now (S8 R2); checked again below.
-    const otpFlags =
-      input.otp === undefined
-        ? null
-        : creditOtpFlags((await this.previews.preview(reviewId, target)).user, given);
-    const otpVerified = await this.otp.verifyIfGiven(
-      input.otp,
-      confirm,
-      'review:credit',
-      creditOtpTarget(reviewId, target),
-      otpFlags ?? '',
-    );
+    const otpFlags = stepUpGiven(actor, input.otp)
+      ? creditOtpFlags((await this.previews.preview(reviewId, target)).user, given)
+      : null;
+    const otpVerified = await verifyStepUp(actor, {
+      owner: this.otp,
+      otp: input.otp,
+      confirmAmountTiyin: confirm,
+      action: 'review:credit',
+      target: creditOtpTarget(reviewId, target),
+      flags: otpFlags ?? '',
+      money: true,
+    });
 
     // Unlocked read only to learn the card to lock first; a message's card never changes.
     const known = await this.repo.find(reviewId);
@@ -119,6 +131,8 @@ export class ReviewCreditService {
     let committed: Omit<ReviewCredit, 'notified'>;
     try {
       committed = await this.pool.transaction(async (tx) => {
+        const now = this.clock.now();
+        const who = await confirmActorInTx(tx, actor, now);
         if (cardId !== null) await this.pool.lockCard(tx, cardId);
         const review = await this.repo.lockReview(tx, reviewId);
         if (review === null) throw new AppError('NOT_FOUND');
@@ -126,12 +140,12 @@ export class ReviewCreditService {
         if (needsBankVerification(review) && !bankVerified) {
           throw validationError('review', 'BANK_VERIFICATION_REQUIRED');
         }
-        requireOwnerConfirmation(
-          amount,
-          confirm,
-          otpVerified,
-          this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN,
-        );
+        requireStepUp(actor, {
+          amountTiyin: amount,
+          confirmAmountTiyin: confirm,
+          verified: otpVerified,
+          thresholdTiyin: this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN,
+        });
         const message = review.bankMessage;
         if (await this.repo.messageHasPayment(tx, message.id)) {
           throw validationError('bankMessage', 'ALREADY_CREDITED');
@@ -143,6 +157,7 @@ export class ReviewCreditService {
           'intentId' in target ? await this.intentFor(tx, target.intentId, message) : null;
         const userId = intent?.userId ?? ('userId' in target ? target.userId : null);
         if (userId === null) throw new AppError('INTERNAL_ERROR');
+        await refuseSelfTarget(tx, actor, userId);
         await this.lockWallet(tx, userId);
         const user = await this.previews.userCheck(tx, userId, intent, amount);
         const refusal = overrideNeeded(user);
@@ -151,8 +166,12 @@ export class ReviewCreditService {
         if (otpFlags !== null && creditOtpFlags(user, given) !== otpFlags) {
           throw validationError('otp', 'OTP_MISMATCH');
         }
+        await checkManualCreditCap(this.repo, tx, {
+          amountTiyin: amount,
+          capTiyin: this.config.ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN,
+          now,
+        });
 
-        const now = this.clock.now();
         const paymentId = await this.repo.createPayment(tx, {
           reviewId,
           userId,
@@ -163,8 +182,9 @@ export class ReviewCreditService {
         });
         if (intent !== null) await this.payIntent(tx, intent, message.tgDate);
         await this.repo.appendTopup(tx, userId, paymentId, amount);
-        const auditId = await this.repo.createAudit(tx, {
-          ip: actor.ip,
+        const auditRowId = await this.repo.createAudit(tx, {
+          ...(auditId === undefined ? {} : { id: auditId }),
+          ...toAuditColumns(actor),
           action: 'REVIEW_CREDIT',
           targetType: 'PaymentReview',
           targetId: reviewId,
@@ -180,15 +200,22 @@ export class ReviewCreditService {
             user: userCheckAudit(user),
             override: refusal !== null && override,
             bankVerified: needsBankVerification(review) && bankVerified,
-            ...actorAfter(actor),
+            ...who,
           },
           reason,
         });
-        if (!(await this.repo.resolve(tx, reviewId, 'CREDITED_USER', auditId, now))) {
+        if (!(await this.repo.resolve(tx, reviewId, 'CREDITED_USER', auditRowId, now))) {
           throw new AppError('INTERNAL_ERROR'); // cannot happen under the review row lock
         }
         const intentId = intent?.id ?? null;
-        return { reviewId, paymentId, userId, intentId, amountTiyin: amount, auditId };
+        return {
+          reviewId,
+          paymentId,
+          userId,
+          intentId,
+          amountTiyin: amount,
+          auditId: auditRowId,
+        };
       });
     } catch (error) {
       // Another review of the same message credited it in between (unique bankMessageId).

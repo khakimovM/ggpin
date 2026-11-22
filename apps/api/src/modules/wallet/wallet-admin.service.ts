@@ -2,16 +2,20 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
 import type { Db } from '../../infra/prisma/db';
+import { checkedId, checkedReason, validationError } from '../../common/admin/admin-input';
+import { AppError } from '../../common/exceptions/app-error';
 import {
-  checkedId,
-  checkedIp,
-  checkedOperator,
-  checkedOsUser,
-  checkedReason,
-  validationError,
-} from '../../common/admin/admin-input';
-import { requireOwnerConfirmation } from '../../common/admin/owner-otp/owner-otp';
+  actorOfInput,
+  auditIdOf,
+  checkedAuditActor,
+  toAuditColumns,
+} from '../../common/admin/audit-actor';
+import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { SELF_TARGET_REASON, refuseSelfTarget } from '../../common/admin/admin-target';
+import { budgetAdminId, codelessBudgetInTx } from '../../common/admin/codeless-budget';
+import { checkManualCreditCap } from '../../common/admin/manual-credit-cap';
 import { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
+import { requireStepUp, stepUpGiven, verifyStepUp } from '../../common/admin/step-up';
 import {
   RECENT_AUTO_TOPUP_WINDOW_MS,
   adjustOtpFlags,
@@ -33,12 +37,14 @@ import type { AdjustWalletInput, ReverseTopupInput, WalletChange } from './walle
 export type { AdjustWalletInput, ReverseTopupInput, WalletChange } from './wallet-admin.types';
 
 /**
- * Owner-only money corrections (docs/05 section 9). Not reachable over HTTP: the owner CLI calls
- * it. Every path is ONE transaction: wallet lock, balance read, AuditLog, ledger entry and the
+ * Owner-only money corrections (docs/05 section 9): the owner CLI and the admin panel's OWNER
+ * routes (phase 9 S6) call it. Every path is ONE transaction: wallet lock, balance read, AuditLog, ledger entry and the
  * state change; the cache is deleted and the alert queued only after the commit.
  *
  * The AuditLog row is `actorType=CLI, actorId=null` with the operator name in `after.operator`
- * (docs/03, docs/05 section 9).
+ * (docs/03, docs/05 section 9), or `actorType=ADMIN, actorId` with `after.adminRole` for the
+ * panel (S6), whose admin is re-read under FOR SHARE first in the transaction (S2-6).
+ * SECURITY: an ADMIN actor's role is checked here again; a CLI actor is trusted (the server).
  */
 @Injectable()
 export class WalletAdminService {
@@ -62,10 +68,10 @@ export class WalletAdminService {
     const userId = checkedId('userId', input.userId);
     const amount = checkedAdjustAmount(input.amountTiyin);
     const reason = checkedReason(input.reason);
-    const operator = checkedOperator(input.operator);
-    const ip = checkedIp(input.ip);
-    const osUser = checkedOsUser(input.osUser);
-    const auditId = input.auditId === undefined ? undefined : checkedId('auditId', input.auditId);
+    const actor = checkedAuditActor(actorOfInput(input));
+    const cliAuditId =
+      input.auditId === undefined ? undefined : checkedId('auditId', input.auditId);
+    const auditId = auditIdOf(actor, cliAuditId);
     const confirm = input.confirmAmountTiyin;
     const target = adjustOtpTarget(userId, auditId);
     const overrideSet = checkedOverrideSet(input.confirmOverrideSet);
@@ -73,25 +79,32 @@ export class WalletAdminService {
     // The code is bound to the override and the top-ups as read now (D-46); checked again below
     // against the same window (one clock read for both).
     const now = this.clock.now();
-    const otpFlags =
-      input.otp === undefined
-        ? ''
-        : adjustOtpFlags(await this.recentFor(userId, amount, now), override);
-    const otpVerified = await this.otp.verifyIfGiven(
-      input.otp,
-      confirm,
-      'wallet:adjust',
+    const threshold = this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN;
+    const given = stepUpGiven(actor, input.otp);
+    const otpFlags = given
+      ? adjustOtpFlags(await this.recentFor(userId, amount, now), override)
+      : '';
+    // A panel debit's code may be asked for by the codeless budget: that reason is bound too.
+    const budgetCheck = { amountTiyin: amount, thresholdTiyin: threshold, now };
+    const adminFlags =
+      given && amount < 0n ? await this.repo.codelessFlags(budgetAdminId(actor), budgetCheck) : [];
+    const otpVerified = await verifyStepUp(actor, {
+      owner: this.otp,
+      otp: input.otp,
+      confirmAmountTiyin: confirm,
+      action: 'wallet:adjust',
       target,
-      otpFlags,
-    );
-    requireOwnerConfirmation(
-      amount,
-      confirm,
-      otpVerified,
-      this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN,
-    );
+      flags: otpFlags,
+      money: true,
+      adminFlags,
+    });
+    const need = { amountTiyin: amount, confirmAmountTiyin: confirm, thresholdTiyin: threshold };
+    // Before any lock, as before S6 (a CLI refusal costs no transaction). The panel's budget is
+    // only known under its lock: optimistic here, authoritative below.
+    requireStepUp(actor, { ...need, verified: otpVerified, codelessBudgetExceeded: false });
 
     const committed = await this.repo.transaction(async (tx): Promise<Committed> => {
+      const who = await confirmActorInTx(tx, actor, now);
       await this.steps.lock(tx, userId);
       if (auditId !== undefined) {
         const replay = await findAdjustReplay(this.repo, tx, { userId, auditId, amount, reason });
@@ -106,20 +119,28 @@ export class WalletAdminService {
       if (otpVerified && adjustOtpFlags(recent, override) !== otpFlags) {
         throw validationError('otp', 'OTP_MISMATCH'); // the set changed after the code
       }
+      await refuseSelfTarget(tx, actor, userId);
+      const codelessBudgetExceeded =
+        amount < 0n && !otpVerified ? await codelessBudgetInTx(tx, actor, budgetCheck) : undefined;
+      requireStepUp(actor, { ...need, verified: otpVerified, codelessBudgetExceeded });
+      await checkManualCreditCap(this.repo, tx, {
+        amountTiyin: amount,
+        capTiyin: this.config.ADMIN_MANUAL_CREDIT_DAILY_CAP_TIYIN,
+        now,
+      });
 
       const before = await this.repo.balance(userId, tx);
       const after = before + amount;
       const audit = await this.steps.createAudit(tx, {
         ...(auditId === undefined ? {} : { id: auditId }),
-        ip,
+        ...toAuditColumns(actor),
         action: WALLET_ADJUST,
         targetType: 'User',
         targetId: userId,
         before: { balanceTiyin: before.toString() },
         after: {
           balanceTiyin: after.toString(),
-          operator,
-          osUser,
+          ...who,
           otpVerified,
           override: recent.length > 0,
           recentAutoTopups: recent.map((payment) => payment.id),
@@ -152,7 +173,25 @@ export class WalletAdminService {
     return this.repo.recentAutoTopups(checkedId('userId', userId), since, tx);
   }
 
-  /** The payment payment:reverse would reverse (unlocked; the CLI re-types its amount). */
+  /**
+   * `POST /admin/confirmations` for money to a user: the user exists (no code for an unknown id,
+   * C-10 a) and is not the acting admin's own account (SA-S6-9, the action refuses it too).
+   */
+  async confirmTarget(adminId: string, rawUserId: string): Promise<void> {
+    const userId = checkedId('userId', rawUserId);
+    if (!(await this.repo.userExists(userId))) throw new AppError('NOT_FOUND');
+    if (await this.repo.isAdminsOwnUser(adminId, userId)) {
+      throw validationError('userId', SELF_TARGET_REASON);
+    }
+  }
+
+  /** The codeless-budget binding flag for a panel debit or reversal of this size (unlocked). */
+  codelessFlags(adminId: string, amountTiyin: bigint, now: Date): Promise<string[]> {
+    const thresholdTiyin = this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN;
+    return this.repo.codelessFlags(adminId, { amountTiyin, thresholdTiyin, now });
+  }
+
+  /** The payment payment:reverse would reverse, with the ledger TOPUP amount (unlocked). */
   payment(paymentId: string): Promise<{ userId: string; amountTiyin: bigint }> {
     return this.reversal.payment(paymentId);
   }

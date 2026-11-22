@@ -5,6 +5,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { UsersModule } from '../users/users.module';
 import { WalletModule } from '../wallet/wallet.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { AdminAccountsService } from './admins/admin-accounts.service';
 import { AdminLifecycleService } from './admins/admin-lifecycle.service';
 import { AdminUsersRepository } from './admins/admin-users.repository';
@@ -22,6 +23,7 @@ import { AdminRequestGate } from './common/admin-request-gate';
 import { AdminThrottle } from './common/admin-throttle';
 import { AdminGuard } from './common/admin.guard';
 import { ADMIN_READ_CONTROLLERS, ADMIN_READ_PROVIDERS } from './read/admin-read.providers';
+import { ADMIN_WRITE_CONTROLLERS, ADMIN_WRITE_PROVIDERS } from './write/admin-write.providers';
 
 // The admin panel's API (`/api/v1/admin/*`, docs/04 «Admin», phase 9). Prisma, Redis, Clock and
 // config come from global modules.
@@ -36,10 +38,15 @@ import { ADMIN_READ_CONTROLLERS, ADMIN_READ_PROVIDERS } from './read/admin-read.
 // The bot (TelegramModule) imports this module for the admin login and session ends; this module
 // never imports the bot: its messages go through the tg-outbox.
 @Module({
-  imports: [UsersModule, NotificationsModule, WalletModule, PricingModule],
+  imports: [UsersModule, NotificationsModule, WalletModule, PaymentsModule, PricingModule],
   // AdminFallbackController claims every unknown /admin/* path the router can match (real routes
   // win); registerAdminNotFoundGate covers what the router still sends to its not-found handler.
-  controllers: [AdminAuthController, ...ADMIN_READ_CONTROLLERS, AdminFallbackController],
+  controllers: [
+    AdminAuthController,
+    ...ADMIN_READ_CONTROLLERS,
+    ...ADMIN_WRITE_CONTROLLERS,
+    AdminFallbackController,
+  ],
   providers: [
     // The owner CLI's account services (admin:*); here too so the app that serves the panel
     // resolves the same instances (the e2e suites drive the CLI against it).
@@ -55,6 +62,7 @@ import { ADMIN_READ_CONTROLLERS, ADMIN_READ_PROVIDERS } from './read/admin-read.
     AdminThrottle,
     AdminRequestGate,
     ...ADMIN_READ_PROVIDERS,
+    ...ADMIN_WRITE_PROVIDERS,
     { provide: APP_GUARD, useClass: AdminCsrfGuard },
     { provide: APP_GUARD, useClass: AdminGuard },
   ],

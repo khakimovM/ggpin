@@ -88,6 +88,7 @@ export function useAdminE2e(options: AdminE2eOptions = {}): AdminE2e {
   const block = ipBlock();
   let app: NestFastifyApplication;
   let ipSeq = 0;
+  const closers: (() => Promise<unknown>)[] = []; // a suite's own clean-up, run while the app lives
 
   beforeAll(async () => {
     const builder = Test.createTestingModule({
@@ -115,6 +116,7 @@ export function useAdminE2e(options: AdminE2eOptions = {}): AdminE2e {
   });
 
   afterAll(async () => {
+    for (const close of closers) await close();
     const db = app.get(PrismaService).client;
     const sessions = await db.adminSession.findMany({
       where: { adminId: { in: adminIds } },
@@ -228,6 +230,9 @@ export function useAdminE2e(options: AdminE2eOptions = {}): AdminE2e {
       const token = set?.slice(name.length + 1).split(';')[0] ?? '';
       if (res.statusCode !== 200 || token === '') throw new Error('admin login failed');
       return { cookie: `${name}=${token}`, token, res };
+    },
+    onClose: (close) => {
+      closers.push(close);
     },
     webhook: (update) =>
       app.inject({

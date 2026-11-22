@@ -25,3 +25,15 @@ export function tashkentDayKey(now: Date): string {
   const d = String(local.getUTCDate()).padStart(2, '0');
   return `${y}${m}${d}`;
 }
+
+/** Start of the current calendar day in Asia/Tashkent (00:00 local), as a UTC instant. */
+export function tashkentDayStart(now: Date): Date {
+  const local = new Date(now.getTime() + OFFSET_MS);
+  const startLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  return new Date(startLocal - OFFSET_MS);
+}
+
+/** The next 00:00 in Asia/Tashkent after `now` (when a per-day quota starts over). */
+export function tashkentNextDayStart(now: Date): Date {
+  return new Date(tashkentDayStart(now).getTime() + 24 * 60 * 60_000);
+}

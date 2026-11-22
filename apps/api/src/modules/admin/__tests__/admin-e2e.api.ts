@@ -47,6 +47,8 @@ export interface AdminE2e {
   readonly login: (admin: AdminUser) => Promise<{ cookie: string; token: string; res: Res }>;
   /** A store user signed in on the web (WEB_URL): its access token, for cross-surface checks. */
   readonly loginUser: () => Promise<string>;
+  /** A suite's own clean-up, run first in the harness's afterAll while the app still runs. */
+  readonly onClose: (close: () => Promise<unknown>) => void;
   /** One Telegram update through the real webhook (needs the `bot` option). */
   readonly webhook: (update: object) => Inject;
 }

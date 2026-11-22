@@ -64,6 +64,7 @@ export function requireOwnerConfirmation(
   thresholdTiyin: bigint,
 ): void {
   if (magnitude(amountTiyin) <= thresholdTiyin) return;
-  if (confirmAmountTiyin !== amountTiyin) throw validationError('confirmAmountTiyin');
+  if (confirmAmountTiyin !== amountTiyin)
+    throw validationError('confirmAmountTiyin', 'AMOUNT_MISMATCH');
   if (!otpVerified) throw validationError('otp', 'OTP_REQUIRED');
 }

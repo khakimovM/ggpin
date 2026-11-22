@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { checkedId } from '../../common/admin/admin-input';
 import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import { cardInputError, type CardAdminActor } from './card-admin.input';
+import { isAdminActor, type AuditActor } from '../../common/admin/audit-actor';
+import { requireStepUp, verifyAdminStepUp } from '../../common/admin/step-up';
+import { cardInputError } from './card-admin.input';
 import { CardAdminService, type CardChange } from './card-admin.service';
 import { CardPauseRepository, isPauseDecision, type PauseReason } from './card-pause.repository';
 
@@ -32,17 +34,20 @@ export class CardPauseService {
     private readonly prisma: PrismaService,
   ) {}
 
-  pauseAutoCredit(cardId: string, reason: string, actor: CardAdminActor): Promise<CardChange> {
+  pauseAutoCredit(cardId: string, reason: string, actor: AuditActor): Promise<CardChange> {
     return this.cards.setPaused(cardId, true, this.cards.audit('CARD_PAUSE', reason, actor));
   }
 
-  resumeAutoCredit(
+  async resumeAutoCredit(
     cardId: string,
     reason: string,
-    actor: CardAdminActor,
+    actor: AuditActor,
     options: ResumeOptions = {},
   ): Promise<CardChange> {
     const audit = this.cards.audit('CARD_RESUME', reason, actor);
+    // The panel's code (D-65 D3) is checked before the transaction; whether it was needed is
+    // decided under the card lock, from the pause actually being lifted.
+    const otpVerified = await verifyAdminStepUp(audit.actor);
     return this.cards.setPaused(cardId, false, audit, async (tx: Db) => {
       // The pause being lifted right now (the owner's or a security pause) is not a reason
       // against lifting it: card:resume is exactly that decision (D-52 r2 M-A). A security
@@ -50,18 +55,35 @@ export class CardPauseService {
       const all = await this.pauses.reasons(tx, cardId);
       const open = all.filter((r) => !isPauseDecision(r));
       const lifted = all.filter(isPauseDecision);
-      if (lifted.some(isSecurityPause) && options.confirmSecurityPause !== true) {
+      const security = lifted.some(isSecurityPause);
+      if (security && options.confirmSecurityPause !== true) {
         throw cardInputError('card', 'SECURITY_PAUSE_OPEN');
       }
+      requireStepUp(audit.actor, {
+        confirmAmountTiyin: undefined,
+        verified: otpVerified,
+        thresholdTiyin: 0n,
+        ruleRequiresCode: security,
+      });
       const override = options.confirmOverride === true;
       if (open.length > 0 && !override) throw cardInputError('card', 'OPEN_PAUSE_REVIEWS');
-      return { openPauseReviews: reasonsText(open), override, liftedPause: liftedText(lifted) };
+      return {
+        openPauseReviews: reasonsText(open),
+        override,
+        liftedPause: liftedText(lifted),
+        ...(isAdminActor(audit.actor) ? { otpVerified } : {}),
+      };
     });
   }
 
   /** Unlocked: how many other live cards are paused too (card:resume warns, D-52 D2). */
   otherPausedCount(cardId: string): Promise<number> {
     return this.pauses.otherPausedCount(this.prisma.client, checkedId('cardId', cardId));
+  }
+
+  /** Unlocked: whether a resume now would lift a SECURITY pause (the panel's code rule, D-65 D3). */
+  async liftsSecurityPause(cardId: string): Promise<boolean> {
+    return (await this.openReasons(cardId)).some((r) => isPauseDecision(r) && isSecurityPause(r));
   }
 
   /** Unlocked: what the CLI shows before it asks (the service checks again under the lock). */
