@@ -56,3 +56,8 @@ export function apiFetchList<S extends z.ZodType>(
 ): Promise<{ items: z.infer<S>[]; meta: PageMeta }> {
   return http.fetchList(request, itemSchema);
 }
+
+/** A text body (CSV) of an admin GET; errors are parsed like every other call. */
+export function apiFetchText(request: AdminRequest): Promise<string> {
+  return http.fetchText(request);
+}

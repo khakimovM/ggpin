@@ -30,6 +30,11 @@ const FORBIDDEN = [
   'cmadminownermock',
   'Dilshod K.',
   'Malika R.',
+  // S5 read-screen fixtures (users, orders, payments, bank messages).
+  'sardor_r',
+  '5521039917',
+  'UQAi7Kx0hot',
+  '<b>Diqqat</b>',
   // The dev-only theme probe page of e2e/theme.spec.ts.
   'dev/theme-probe',
   'probe-danger',

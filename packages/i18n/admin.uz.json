@@ -99,7 +99,8 @@
         "title": "Sahifa topilmadi",
         "body": "Havola eskirgan yoki manzilda xato bor.",
         "cta": "Bosh sahifaga"
-      }
+      },
+      "apiLater": "Bu bo‘limning APIʼsi 9-B bosqichida ulanadi. Hozircha ishlab chiqish serveridagi namuna maʼlumotlar ko‘rsatilmoqda."
     },
     "dialogs": {
       "reason": {
@@ -136,6 +137,507 @@
       "title": "Mavzu tekshiruvi",
       "danger": "Xavfli amal",
       "premium": "Premium"
+    },
+    "money": {
+      "som": "so‘m"
+    },
+    "list": {
+      "all": "Barchasi",
+      "summary": "Jami {total} tadan {from}–{to}",
+      "previous": "Oldingi sahifa",
+      "next": "Keyingi sahifa",
+      "emptyFiltered": "Filtrlarni o‘zgartirib ko‘ring.",
+      "clearFilters": "Filtrlarni tozalash",
+      "actionsLater": "Amallar keyingi bosqichda (S7) ulanadi",
+      "col": {
+        "id": "ID",
+        "ip": "IP",
+        "slug": "Slug",
+        "tx": "Tx"
+      },
+      "date": {
+        "label": "Sana",
+        "all": "Hammasi",
+        "today": "Bugun",
+        "week": "7 kun",
+        "month": "30 kun"
+      }
+    },
+    "dashboard": {
+      "updated": "Yangilandi: {time}",
+      "duration": "{minutes} daq {seconds} s",
+      "period": {
+        "label": "Davr",
+        "today": "Bugun",
+        "week": "7 kun",
+        "month": "30 kun"
+      },
+      "kpi": {
+        "revenue": "Aylanma",
+        "profit": "Yalpi foyda",
+        "orders": "Buyurtmalar",
+        "deliveryRate": "Yetkazish ulushi",
+        "avgDelivery": "O‘rtacha yetkazish",
+        "newUsers": "Yangi foydalanuvchilar",
+        "topups": "To‘ldirishlar"
+      },
+      "alerts": {
+        "title": "Ogohlantirishlar",
+        "none": "Hammasi joyida: ochiq ogohlantirish yo‘q",
+        "since": "{time} dan beri",
+        "kind": {
+          "ordersNeedsReview": "{count} ta buyurtma tekshiruvda",
+          "ordersHeld": "{count} ta buyurtma ushlab turilgan",
+          "paymentReviewsOpen": "{count} ta to‘lov tekshiruvni kutmoqda",
+          "fragmentSessionDead": "Fragment sessiyasi tugagan — Stars va Premium to‘xtab turibdi",
+          "tonBalanceLow": "Hamyon balansi past",
+          "tonDailyLimitHigh": "Kunlik TON limitining katta qismi ishlatildi",
+          "queueFailedJobs": "Navbatlarda {count} ta xato vazifa",
+          "reconcileMismatch": "Solishtirishda {count} ta farq",
+          "bankFeedSilent": "Bank xabarlari kelmay qoldi"
+        },
+        "cta": {
+          "ordersNeedsReview": "Navbatni ochish",
+          "ordersHeld": "Navbatni ochish",
+          "paymentReviewsOpen": "To‘lovlarni ochish",
+          "fragmentSessionDead": "Sessiyani ko‘rish",
+          "tonBalanceLow": "Hamyonni ko‘rish",
+          "tonDailyLimitHigh": "Hamyonni ko‘rish",
+          "queueFailedJobs": "Navbatlarni ko‘rish",
+          "reconcileMismatch": "Ko‘rish",
+          "bankFeedSilent": "Kartalarni ko‘rish"
+        }
+      },
+      "charts": {
+        "revenue": "Aylanma va foyda",
+        "revenueLegend": "Aylanma",
+        "profitLegend": "Foyda",
+        "products": "Mahsulotlar bo‘yicha buyurtmalar",
+        "ordersCaption": "buyurtma",
+        "banks": "Bank bo‘yicha to‘ldirishlar",
+        "noData": "Bu davr uchun maʼlumot yo‘q",
+        "todayHint": "Kunlik grafik uchun «7 kun» yoki «30 kun»ni tanlang",
+        "lossDays": "Zarar bilan yopilgan kunlar ({som}): {days}",
+        "mln": "{value} mln",
+        "ming": "{value} ming"
+      }
+    },
+    "users": {
+      "total": "Jami {total}",
+      "emptyList": "Foydalanuvchi topilmadi",
+      "notFound": "Foydalanuvchi topilmadi",
+      "search": "Foydalanuvchini qidirish",
+      "searchPlaceholder": "@username yoki Telegram ID",
+      "joined": "Ro‘yxatdan",
+      "col": {
+        "telegramId": "Telegram ID",
+        "username": "Username",
+        "locale": "Til",
+        "created": "Ro‘yxatdan o‘tgan",
+        "lastSeen": "Oxirgi faollik",
+        "balance": "Balans",
+        "orders": "Xaridlar",
+        "referrals": "Referallar",
+        "status": "Holat"
+      },
+      "status": {
+        "active": "Faol",
+        "frozen": "Muzlatilgan",
+        "blocked": "Bloklangan",
+        "botBlocked": "Botni bloklagan"
+      },
+      "locale": {
+        "uz": "Til: O‘zbekcha",
+        "ru": "Til: Ruscha"
+      },
+      "detail": {
+        "handle": "{username} · ID {id}",
+        "spent": "Jami xarid",
+        "facts": "Maʼlumotlar",
+        "phone": "Telefon",
+        "referralCode": "Referal kodi",
+        "referredBy": "Taklif qilgan",
+        "activeSessions": "Faol sessiyalar"
+      },
+      "actions": {
+        "block": "Bloklash",
+        "freeze": "Xaridni muzlatish",
+        "adjust": "Balansni tuzatish",
+        "sessions": "Sessiyalarni tugatish"
+      },
+      "tabs": {
+        "label": "Foydalanuvchi bo‘limlari",
+        "orders": "Buyurtmalar",
+        "ledger": "Hamyon",
+        "payments": "To‘lovlar",
+        "referrals": "Referallar",
+        "sessions": "Sessiyalar",
+        "coins": "Keshbek",
+        "codes": "Kodlar"
+      },
+      "empty": {
+        "orders": "Hali buyurtma yo‘q",
+        "ledger": "Hamyonda yozuv yo‘q",
+        "payments": "Hali to‘lov yo‘q",
+        "referrals": "Taklif qilingan do‘st yo‘q",
+        "sessions": "Sessiya yo‘q",
+        "coins": "Keshbek tangalari",
+        "codes": "Chegirma kodlari",
+        "laterPhase": "Bu bo‘lim 10-bosqichda ulanadi."
+      }
+    },
+    "ledger": {
+      "col": {
+        "date": "Vaqt",
+        "kind": "Turi",
+        "ref": "Manba",
+        "amount": "Summa"
+      }
+    },
+    "sessions": {
+      "active": "Faol",
+      "revoked": "Tugatilgan",
+      "col": {
+        "device": "Qurilma",
+        "created": "Boshlangan",
+        "expires": "Tugaydi",
+        "state": "Holat"
+      }
+    },
+    "orders": {
+      "empty": "Buyurtma topilmadi",
+      "notFound": "Buyurtma topilmadi",
+      "search": "Buyurtmani qidirish",
+      "searchPlaceholder": "# raqam yoki @username",
+      "col": {
+        "date": "Sana",
+        "user": "Foydalanuvchi",
+        "product": "Mahsulot",
+        "recipient": "Qabul qiluvchi",
+        "price": "Narx",
+        "cost": "Tannarx",
+        "profit": "Foyda",
+        "status": "Holat",
+        "adapter": "Adapter"
+      },
+      "detail": {
+        "created": "Yaratildi {time}",
+        "timeline": "Timeline",
+        "stepDone": "Bajarildi",
+        "stepCurrent": "Joriy holat",
+        "stepPending": "Kutilmoqda",
+        "attempts": "Bajarish urinishlari",
+        "noAttempts": "Hali urinish yo‘q",
+        "externalRef": "Tashqi ID",
+        "error": "Xato",
+        "ledger": "Ledger yozuvlari",
+        "noLedger": "Ledger yozuvi yo‘q",
+        "customer": "Mijoz",
+        "resolved": "Tasdiqlangan nom",
+        "money": "Pul",
+        "discount": "Chegirma",
+        "total": "Jami to‘langan",
+        "rate": "Kurs snapshot",
+        "refunded": "Qaytarilgan",
+        "markDelivered": "Yetkazildi deb belgilash",
+        "cancel": "Bekor qilish",
+        "note": "Izoh qo‘shish"
+      }
+    },
+    "review": {
+      "total": "{count} ta navbatda",
+      "age": "tekshiruvda {minutes} daq",
+      "reason": "Sabab",
+      "retry": "Qayta urinish",
+      "refund": "Qaytarish",
+      "open": "Ochish",
+      "empty": "Navbat bo‘sh",
+      "emptyHint": "Tekshiruvni kutayotgan buyurtma yo‘q."
+    },
+    "payments": {
+      "sub": "P2P karta orqali to‘ldirishlar: tekshiruv navbati, to‘lovlar, so‘rovlar va kartalar",
+      "openMessage": "Bank xabari",
+      "tabs": {
+        "label": "To‘lov bo‘limlari",
+        "reviews": "Tekshiruv navbati",
+        "payments": "To‘lovlar",
+        "intents": "So‘rovlar",
+        "cards": "Kartalar"
+      },
+      "col": {
+        "date": "Vaqt",
+        "user": "Foydalanuvchi",
+        "amount": "Summa",
+        "uniqueAmount": "Noyob summa",
+        "status": "Holat",
+        "card": "Karta",
+        "kind": "Turi",
+        "reason": "Nima bo‘ldi",
+        "intent": "So‘rov",
+        "message": "Xabar",
+        "expires": "Muddati"
+      },
+      "reviewStatus": {
+        "OPEN": "Ochiq",
+        "RESOLVED": "Hal qilingan"
+      },
+      "reviewKind": {
+        "unrecognized": "Bank xabari tanilmadi",
+        "rejected": "Xabar rad etildi",
+        "cardUnknown": "Nomaʼlum karta",
+        "cardRetired": "Karta foydalanishdan chiqarilgan",
+        "chainBreak": "Balans zanjiri uzildi",
+        "autoCreditPaused": "Kartada avtomatik hisoblash to‘xtatilgan",
+        "noMatch": "Summaga mos so‘rov topilmadi",
+        "ambiguous": "Bir nechta so‘rov mos keldi",
+        "duplicate": "Takroriy xabar",
+        "timeSkew": "Vaqt mos kelmadi",
+        "cancelledLate": "Bekor qilingan so‘rovga pul keldi",
+        "dailyLimit": "Kunlik limitdan oshadi",
+        "possibleReversal": "Pul qaytarib olingan bo‘lishi mumkin",
+        "userBlocked": "Foydalanuvchi bloklangan"
+      },
+      "review": {
+        "title": "To‘lov tekshiruvi",
+        "resolution": "Yechim",
+        "note": "Izoh",
+        "credit": "Hisobga o‘tkazish",
+        "ignore": "Eʼtiborsiz qoldirish"
+      },
+      "message": {
+        "title": "Bank xabari",
+        "parse": "Tahlil",
+        "source": "Manba",
+        "channel": "Kanal",
+        "direction": "Yo‘nalish",
+        "balanceAfter": "Kartadagi qoldiq",
+        "bankTime": "Bank vaqti",
+        "tgTime": "Telegram vaqti",
+        "reject": "Rad etish sababi",
+        "raw": "Xabar matni",
+        "hidden": "Faqat OWNER",
+        "rawOwnerOnly": "Bank xabarining asl matni faqat OWNER uchun ko‘rinadi.",
+        "rawPurged": "Xabar matni o‘chirilgan."
+      },
+      "cards": {
+        "usage": "Limitdan foydalanish",
+        "received": "Qabul qilingan",
+        "limit": "Qabul limiti",
+        "month": "Shu oy",
+        "monthLimit": "Oylik limit",
+        "reserved": "Band qilingan",
+        "verified": "Tasdiqlangan",
+        "paused": "Avto to‘xtatilgan",
+        "emptyHint": "Karta CLI orqali qo‘shiladi."
+      },
+      "empty": {
+        "reviews": "Tekshiruv navbati bo‘sh",
+        "payments": "To‘lov topilmadi",
+        "intents": "So‘rov topilmadi",
+        "cards": "Qabul kartasi yo‘q"
+      }
+    },
+    "recon": {
+      "sub": "Har kungi bank xabarlari va hisob-kitoblarni solishtirish hisoboti",
+      "ok": "Farq yo‘q",
+      "diff": "{count} xil farq",
+      "ranAt": "Tekshirildi: {time}",
+      "checked": "Tekshirilgan xabarlar",
+      "debits": "Chiqimlar",
+      "openReviews": "Ochiq tekshiruvlar",
+      "historyScan": "Tarix skani",
+      "examples": "Misollar:",
+      "empty": "Hali hisobot yo‘q",
+      "emptyHint": "Solishtirish har kuni avtomatik ishga tushadi.",
+      "code": {
+        "recovered": "Qayta tiklangan xabarlar",
+        "missingOutcome": "Natijasiz qolgan xabarlar",
+        "creditUnaccounted": "Hisobga olinmagan kirim",
+        "paymentWithoutMessage": "Bank xabarisiz to‘lov",
+        "chainBreak": "Balans zanjiri uzilishi",
+        "pendingPastGrace": "Muddatidan o‘tgan kutilayotgan so‘rov",
+        "lateOverLimit": "Kech kelgan va limitdan oshgan to‘lov",
+        "reviewOpenOver24h": "24 soatdan ortiq ochiq tekshiruv",
+        "purgeOverdue": "O‘chirilishi kechikkan xabar matni"
+      }
+    },
+    "catalog": {
+      "readOnly": "Faqat ko‘rish: tahrirlash keyingi bosqichda ulanadi",
+      "add": "Mahsulot qo‘shish",
+      "empty": "Mahsulot yo‘q",
+      "notFound": "Mahsulot topilmadi",
+      "active": "Faol",
+      "inactive": "O‘chirilgan",
+      "featured": "Asosiy sahifada",
+      "updated": "Yangilangan: {time}",
+      "facts": "Maʼlumotlar",
+      "auto": "Avtomatik yetkazish",
+      "region": "Hudud",
+      "yes": "Ha",
+      "no": "Yo‘q",
+      "descUz": "Tavsif (uz)",
+      "descRu": "Tavsif (ru)",
+      "col": {
+        "product": "Mahsulot",
+        "category": "Kategoriya",
+        "delivery": "Yetkazish turi",
+        "skus": "SKU",
+        "routes": "Yo‘nalishlar",
+        "state": "Holat"
+      },
+      "sku": {
+        "title": "SKUʼlar",
+        "label": "Nomi",
+        "supplier": "Taʼminotchi SKU",
+        "markup": "Ustama",
+        "minMargin": "Min marja",
+        "empty": "SKU yo‘q"
+      },
+      "route": {
+        "title": "Yetkazish yo‘nalishlari",
+        "adapter": "Adapter",
+        "priority": "Tartib",
+        "health": "Holati",
+        "empty": "Yo‘nalish yo‘q"
+      },
+      "preview": {
+        "title": "Narx hisobi",
+        "pick": "Qatorni tanlang — narx shu yerda hisoblanadi",
+        "cost": "Tannarx",
+        "rate": "Kurs",
+        "markup": "Ustama",
+        "minMargin": "Min marja",
+        "price": "Narx",
+        "margin": "Marja",
+        "aboveMin": "Minimal marjadan yuqori",
+        "belowMin": "Marja minimaldan past"
+      }
+    },
+    "pricing": {
+      "sub": "Faqat ko‘rish: qiymatlar server sozlamalaridan olinadi",
+      "empty": "Sozlamalar topilmadi",
+      "minutes": "{count} daq",
+      "seconds": "{count} s",
+      "group": {
+        "topup": "To‘ldirish chegaralari",
+        "price": "Narx va kurs",
+        "admin": "Admin chegaralari"
+      },
+      "source": {
+        "env": "env",
+        "constant": "doimiy"
+      },
+      "setting": {
+        "topupMinTiyin": "Eng kam to‘ldirish",
+        "topupMaxTiyin": "Eng ko‘p to‘ldirish",
+        "topupStepTiyin": "To‘ldirish qadami",
+        "topupDailyMaxTiyin": "Kunlik to‘ldirish",
+        "topupNewAccountDailyMaxTiyin": "Yangi akkaunt uchun kunlik to‘ldirish",
+        "priceToleranceBps": "Narx toleransi",
+        "quoteTtlMs": "Narx amal qilish vaqti",
+        "fxMaxAgeMs": "Kursning eng ko‘p yoshi",
+        "fxMaxJumpBps": "Kursning eng katta sakrashi",
+        "adminConfirmThresholdTiyin": "Tasdiq kodi chegarasi",
+        "adminOperatorRefundMaxTiyin": "Operator qaytarishi chegarasi",
+        "adminManualCreditDailyCapTiyin": "Qo‘lda hisoblash kunlik chegarasi",
+        "adminOtpDailyMax": "Kunlik tasdiq kodlari"
+      },
+      "fx": {
+        "title": "Kurs manbalari",
+        "pair": "Valyuta juftligi",
+        "chart": "{pair} kursi",
+        "time": "Vaqt",
+        "rate": "Kurs",
+        "source": "Manba",
+        "empty": "Kurs yozuvi yo‘q"
+      }
+    },
+    "queues": {
+      "sub": "BullMQ navbatlari, har 15 soniyada yangilanadi",
+      "waiting": "Kutmoqda",
+      "active": "Faol",
+      "delayed": "Kechiktirilgan",
+      "failed": "Xato",
+      "paused": "To‘xtatilgan",
+      "healthy": "Sog‘lom",
+      "hasFailed": "Xato bor",
+      "retryLater": "Xato vazifalarni qayta yuborish keyingi bosqichda (S7) ulanadi.",
+      "empty": "Navbat yo‘q"
+    },
+    "wallet": {
+      "sub": "Fragment to‘lovlari uchun TON hot wallet",
+      "hot": "Hot wallet",
+      "snapshot": "Balans: {time} holatiga",
+      "noSnapshot": "Balans hali o‘qilmagan",
+      "daily": "Kunlik limit",
+      "recent": "So‘nggi tranzaksiyalar",
+      "empty": "Tranzaksiya yo‘q",
+      "limits": "Limitlar",
+      "perOrder": "Bitta buyurtma limiti",
+      "dailyMax": "Kunlik limit",
+      "lowAlert": "Past balans ogohlantirishi",
+      "limitsHint": "Limitlar worker sozlamalarida o‘zgartiriladi.",
+      "col": {
+        "time": "Vaqt",
+        "order": "Buyurtma",
+        "amount": "Summa",
+        "status": "Holat"
+      }
+    },
+    "fragment": {
+      "sub": "Stars va Premium Fragment sessiyasi orqali yetkaziladi",
+      "status": {
+        "ACTIVE": "Sessiya faol",
+        "DEAD": "Sessiya tugagan",
+        "NONE": "Sessiya ulanmagan"
+      },
+      "deadHint": "Sessiya tugagan — Stars va Premium buyurtmalari navbatda to‘xtab turibdi.",
+      "lastOk": "Oxirgi muvaffaqiyatli tekshiruv",
+      "deadAt": "Tugagan vaqti",
+      "updated": "Yangilangan",
+      "refresh": "Sessiyani yangilash"
+    },
+    "audit": {
+      "title": "Audit yozuvi",
+      "sub": "Har bir admin amali kim, nima va nima uchun bilan yoziladi",
+      "export": "CSV eksport",
+      "exportFailed": "Eksport bo‘lmadi. Qayta urinib ko‘ring.",
+      "empty": "Yozuv topilmadi",
+      "diff": "O‘zgarishlar",
+      "changes": "{action} · o‘zgarishlar",
+      "noChanges": "Bu amal maʼlumotni o‘zgartirmagan.",
+      "notOnPage": "Yozuv joriy sahifada yo‘q. Filtrlarni tekshiring.",
+      "actor": {
+        "ADMIN": "Admin",
+        "CLI": "CLI",
+        "SYSTEM": "Tizim"
+      },
+      "col": {
+        "time": "Vaqt",
+        "actor": "Kim",
+        "action": "Amal",
+        "target": "Obyekt",
+        "reason": "Sabab"
+      }
+    },
+    "admins": {
+      "add": "Admin qo‘shish",
+      "empty": "Admin yo‘q",
+      "active": "Faol",
+      "inactive": "O‘chirilgan",
+      "notAllowlisted": "Ro‘yxatda yo‘q",
+      "sessionsTitle": "Faol sessiyalar",
+      "noSessions": "Faol sessiya yo‘q",
+      "sessionsPartial": "Ayrim adminlarning sessiyalarini yuklab bo‘lmadi — ro‘yxat to‘liq emas.",
+      "thisSession": "Shu sessiya",
+      "col": {
+        "admin": "Admin",
+        "role": "Rol",
+        "state": "Holat",
+        "lastLogin": "Oxirgi kirish",
+        "sessions": "Sessiyalar",
+        "lastUsed": "Oxirgi faollik"
+      }
     }
   }
 }

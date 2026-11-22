@@ -2,10 +2,10 @@ import { Navigate, createBrowserRouter, type RouteObject } from 'react-router';
 import { LoginPage } from '../features/auth/LoginPage';
 import { useAdmin } from './admin-context';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { SectionPage } from './pages/SectionPage';
 import { RequireAdmin } from './RequireAdmin';
 import { RootLayout } from './RootLayout';
-import { SECTIONS, homePathFor } from './sections';
+import { screenRoutes } from './screens';
+import { homePathFor } from './sections';
 import { AppShell } from './shell/AppShell';
 
 function HomeRedirect() {
@@ -44,10 +44,7 @@ export const routes: RouteObject[] = [
         ),
         children: [
           { index: true, element: <HomeRedirect /> },
-          ...SECTIONS.map((section) => ({
-            path: `${section.path.slice(1)}/*`,
-            element: <SectionPage section={section} />,
-          })),
+          ...screenRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],
       },

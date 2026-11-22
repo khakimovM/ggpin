@@ -1,4 +1,4 @@
-import { ERROR_HTTP_STATUS, type ErrorCode } from '@repo/shared';
+import { ERROR_HTTP_STATUS, type AdminPermission, type ErrorCode } from '@repo/shared';
 import type { HttpMethod } from '../transport';
 
 // The dev mock API: a route table instead of a server. Handlers return plain replies; the
@@ -19,6 +19,8 @@ export interface MockReply {
   data?: unknown;
   meta?: unknown;
   error?: { code: ErrorCode; details?: unknown };
+  /** A non-JSON body (the CSV export). */
+  text?: string;
 }
 
 export type MockHandler = (request: MockRequest) => MockReply;
@@ -28,6 +30,11 @@ export interface MockRoute {
   /** `/admin/auth/status/:nonce`; path below the API base URL. */
   pattern: string;
   handler: MockHandler;
+  /**
+   * The read permission of the route (the shared matrix): a signed-in role without it gets the
+   * API's 404, and so does a request without a session. Auth routes leave it out.
+   */
+  permission?: AdminPermission;
 }
 
 export const ok = (data: unknown, status = 200): MockReply => ({ status, data });

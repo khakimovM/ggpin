@@ -28,7 +28,8 @@ export default defineConfig({
     env: {
       VITE_API_URL: 'http://localhost:5000/api/v1',
       VITE_ENV_LABEL: 'STAGING',
-      VITE_API_MOCKS: 'auth,confirmations',
+      VITE_API_MOCKS:
+        'auth,confirmations,dashboard,orders,users,payments,catalog,settings,queues,wallet,fragment,audit,admins',
     },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -1,10 +1,11 @@
 import { ErrorState, Skeleton } from '@repo/ui';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { useAdminSession } from '../features/auth/use-admin-session';
 import { isApiError } from '../lib/api/errors';
 import { AdminContext } from './admin-context';
+import type { LoginLocationState } from './RootLayout';
 
 /** The shell's frame while `GET /admin/auth/me` is in flight: sidebar rail and header outlines. */
 function ShellSkeleton() {
@@ -32,6 +33,11 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const location = useLocation();
   const session = useAdminSession();
+  // Whether this gate has shown the panel: then a later "no session" is a session that ended. The
+  // gate redirects in the same render the cache turns null, before RootLayout's async navigate
+  // lands, so it must carry the "ended" note itself (else its redirect wins and drops it).
+  const [hadSession, setHadSession] = useState(false);
+  if (session.data && !hadSession) setHadSession(true);
 
   if (session.isPending) return <ShellSkeleton />;
   if (session.isError) {
@@ -50,7 +56,10 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
     );
   }
   if (session.data === null) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    const state: LoginLocationState = hadSession
+      ? { ended: true, from: location.pathname }
+      : { from: location.pathname };
+    return <Navigate to="/login" replace state={state} />;
   }
   return <AdminContext.Provider value={session.data}>{children}</AdminContext.Provider>;
 }

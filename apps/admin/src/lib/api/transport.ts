@@ -20,6 +20,8 @@ export interface TransportResponse {
   retryAfter: string | null;
   /** Parsed JSON, or undefined for an empty or non-JSON body. */
   body: unknown;
+  /** The raw body text (a CSV export); absent when the transport had none. */
+  text?: string;
 }
 
 export type Transport = (request: TransportRequest) => Promise<TransportResponse>;
@@ -50,9 +52,11 @@ export const fetchTransport: Transport = async (request) => {
     referrerPolicy: 'no-referrer',
     signal: request.signal,
   });
+  const text = await response.text();
   return {
     status: response.status,
     retryAfter: response.headers.get('retry-after'),
-    body: parseJson(await response.text()),
+    body: parseJson(text),
+    text,
   };
 };

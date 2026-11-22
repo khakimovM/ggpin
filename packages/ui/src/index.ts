@@ -53,6 +53,7 @@ export {
 } from './components/Sidebar';
 export { Tabs, type TabItem, type TabsProps } from './components/Tabs';
 export { Accordion, type AccordionItem, type AccordionProps } from './components/Accordion';
+export { Drawer, type DrawerProps } from './components/Drawer';
 export { Toast, type ToastProps } from './components/Toast';
 export { ToastProvider, type ToastProviderProps } from './components/ToastProvider';
 
@@ -60,6 +61,20 @@ export { ToastProvider, type ToastProviderProps } from './components/ToastProvid
 export { Skeleton, type SkeletonProps } from './components/Skeleton';
 export { EmptyState, type EmptyStateProps } from './components/EmptyState';
 export { ErrorState, type ErrorStateProps } from './components/ErrorState';
+export {
+  DataTable,
+  type DataTableColumn,
+  type DataTableProps,
+  type DataTableState,
+} from './components/DataTable';
+export { TablePager, type TablePagerProps } from './components/TablePager';
+
+// Admin dashboard figures and charts (plain SVG, no chart library)
+export { KpiCard, type KpiCardProps } from './components/KpiCard';
+export { AreaChart, type AreaChartProps, type AreaSeries } from './components/AreaChart';
+export { DonutChart, type DonutChartProps, type DonutSlice } from './components/DonutChart';
+export { BarChart, type BarChartProps, type BarRow } from './components/BarChart';
+export { type ChartTone } from './lib/chart-tones';
 export {
   Timeline,
   type TimelineItem,

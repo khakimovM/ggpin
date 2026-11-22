@@ -10,6 +10,8 @@ export interface MockSeed {
   startFails?: boolean;
   deny?: boolean;
   pendingPolls?: number;
+  /** How the read endpoints answer: the four view states of every screen. */
+  scenario?: 'data' | 'empty' | 'error' | 'loading';
 }
 
 /** Seeds the mock once per page (a reload keeps what the app wrote since, like a cookie). */

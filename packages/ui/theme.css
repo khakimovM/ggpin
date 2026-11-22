@@ -8,3 +8,22 @@
   --radius-control: 12px;
   --radius-tile: 16px;
 }
+
+/*
+ * Text on the premium chip (phase 9 S5 R-2). The handoff's --premium (#7C4DFF) on --premium-soft
+ * (#EFE9FF) is 4.07:1 in light, under WCAG AA for the 10px admin tag; this one shade darker is
+ * 5.02:1 and keeps the hue. Dark keeps the handoff colour (it already passes). Like the other
+ * *-text tokens, it is only for text on the soft background; icons stay on --premium.
+ */
+@layer base {
+  :root,
+  [data-theme='light'] {
+    --premium-text: #6a3df0;
+  }
+  [data-theme='dark'] {
+    --premium-text: var(--premium);
+  }
+}
+@theme inline {
+  --color-premium-text: var(--premium-text);
+}

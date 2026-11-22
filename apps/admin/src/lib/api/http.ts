@@ -4,7 +4,7 @@
 import { CSRF_HEADER, IdempotencyKeySchema, type PageMeta } from '@repo/shared';
 import { z } from 'zod';
 import type { MockGroupName } from '../../env-schema';
-import { parseResponse } from './envelope';
+import { errorFromResponse, parseResponse } from './envelope';
 import { ApiError } from './errors';
 import type { HttpMethod, Transport, TransportRequest, TransportResponse } from './transport';
 
@@ -46,6 +46,8 @@ export interface AdminHttp {
     request: AdminRequest,
     itemSchema: S,
   ) => Promise<{ items: z.infer<S>[]; meta: PageMeta }>;
+  /** A non-JSON 2xx body (the audit CSV export); failures still arrive in the JSON envelope. */
+  fetchText: (request: AdminRequest) => Promise<string>;
 }
 
 function serialiseQuery(query: AdminRequest['query']): string {
@@ -116,7 +118,7 @@ export function createAdminHttp(deps: AdminHttpDeps): AdminHttp {
     return probe;
   }
 
-  async function execute<S extends z.ZodType>(request: AdminRequest, schema: S) {
+  async function respond(request: AdminRequest): Promise<TransportResponse> {
     const transport = await deps.transportFor(request.group);
     const response = await send(transport, buildRequest(deps.baseUrl, request));
     // D-26: the admin API answers every refusal with the same 404, a missing session included.
@@ -126,7 +128,11 @@ export function createAdminHttp(deps: AdminHttpDeps): AdminHttp {
       const gone = request.path === ME_PATH || (await sessionGone());
       if (gone) deps.onSessionLost();
     }
-    return parseResponse(response, schema, now());
+    return response;
+  }
+
+  async function execute<S extends z.ZodType>(request: AdminRequest, schema: S) {
+    return parseResponse(await respond(request), schema, now());
   }
 
   return {
@@ -135,6 +141,13 @@ export function createAdminHttp(deps: AdminHttpDeps): AdminHttp {
       const { data, meta } = await execute(request, z.array(itemSchema));
       if (meta === undefined) throw new ApiError({ status: 200, code: 'INTERNAL_ERROR' });
       return { items: data, meta };
+    },
+    fetchText: async (request) => {
+      const response = await respond(request);
+      if (response.status < 200 || response.status >= 300) {
+        throw errorFromResponse(response, now());
+      }
+      return response.text ?? '';
     },
   };
 }

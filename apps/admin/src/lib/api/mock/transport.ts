@@ -1,13 +1,15 @@
 // Development-only transport that answers from fixtures. client.ts imports it dynamically behind
 // `import.meta.env.DEV`, so it is not part of a production build (prod-build-check.mjs).
-import { CSRF_HEADER } from '@repo/shared';
+import { CSRF_HEADER, permissionsFor } from '@repo/shared';
 import { env } from '../../../env';
 import type { Transport, TransportRequest, TransportResponse } from '../transport';
 import { authRoutes } from './auth-handlers';
 import { confirmRoutes } from './confirm-handlers';
+import { readMockState } from './mock-state';
+import { readRoutes } from './read-handlers';
 import { fail, matchRoute, type MockReply, type MockRoute } from './router';
 
-const ROUTES: readonly MockRoute[] = [...authRoutes, ...confirmRoutes];
+const ROUTES: readonly MockRoute[] = [...authRoutes, ...confirmRoutes, ...readRoutes];
 
 export interface MockTransportOptions {
   apiBaseUrl: string;
@@ -34,6 +36,9 @@ function parseBody(body: string | undefined): unknown {
 }
 
 function toResponse(reply: MockReply): TransportResponse {
+  if (reply.text !== undefined) {
+    return { status: reply.status, retryAfter: null, body: undefined, text: reply.text };
+  }
   const body = reply.error
     ? {
         success: false,
@@ -51,6 +56,13 @@ function toResponse(reply: MockReply): TransportResponse {
   return { status: reply.status, retryAfter: null, body };
 }
 
+// The `loading` scenario: no answer until TanStack Query drops the request.
+function never(signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((_, reject) => {
+    signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+  });
+}
+
 export function createMockTransport(options: MockTransportOptions): Transport {
   const routes = options.routes ?? ROUTES;
   const base = new URL(options.apiBaseUrl);
@@ -63,6 +75,16 @@ export function createMockTransport(options: MockTransportOptions): Transport {
       : url.pathname;
     const matched = matchRoute(routes, request.method, path);
     if (matched === undefined) return toResponse(fail('NOT_FOUND'));
+    const permission = matched.route.permission;
+    if (permission !== undefined) {
+      // Like the AdminGuard: no session, or a role without the right, is the same 404 (D-26).
+      const state = readMockState();
+      if (!state.signedIn || !permissionsFor(state.role).includes(permission)) {
+        return toResponse(fail('NOT_FOUND'));
+      }
+      if (state.scenario === 'error') return toResponse(fail('INTERNAL_ERROR'));
+      if (state.scenario === 'loading') await never(request.signal);
+    }
     return toResponse(
       matched.route.handler({
         method: request.method,

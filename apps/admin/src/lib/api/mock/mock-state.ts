@@ -15,6 +15,11 @@ const stateSchema = z.object({
   deny: z.boolean().default(false),
   /** Status polls answered PENDING before CODE_SENT. */
   pendingPolls: z.number().int().min(0).max(100).default(1),
+  /**
+   * How the read endpoints answer (the four view states of every screen): `data` (fixtures),
+   * `empty` (no rows), `error` (500), `loading` (no answer until the request is dropped).
+   */
+  scenario: z.enum(['data', 'empty', 'error', 'loading']).default('data'),
 });
 
 export type MockState = z.infer<typeof stateSchema>;

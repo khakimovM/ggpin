@@ -6,7 +6,23 @@ import { z } from 'zod';
 
 // Endpoint groups the in-browser mock transport may answer (phase 9, until each API exists).
 // Naming anything else in VITE_API_MOCKS is a configuration error, not a silent no-op.
-export const MOCK_GROUP_NAMES = ['auth', 'confirmations'] as const;
+// orders, wallet and fragment have no API before phase 9-B (S10-S12): there the mock is the only
+// way to see the screens; the other groups exist in the API and are mocked only for tests.
+export const MOCK_GROUP_NAMES = [
+  'auth',
+  'confirmations',
+  'dashboard',
+  'orders',
+  'users',
+  'payments',
+  'catalog',
+  'settings',
+  'queues',
+  'wallet',
+  'fragment',
+  'audit',
+  'admins',
+] as const;
 export type MockGroupName = (typeof MOCK_GROUP_NAMES)[number];
 
 // The environment badge of the shell and the login page (Admin.dc.html `env`).
