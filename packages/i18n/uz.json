@@ -479,7 +479,9 @@
       "sku": {
         "title": "Paketni tanlang",
         "plans": "Muddat",
-        "tabs": "Paket guruhlari"
+        "tabs": "Paket guruhlari",
+        "perMonth": "{price}/oy",
+        "best": "Eng foydali"
       },
       "summary": {
         "label": "Buyurtma xulosasi",
@@ -1258,6 +1260,9 @@
     "PRICE_UNAVAILABLE": "Narx hozircha mavjud emas. Keyinroq qayta urinib ko‘ring.",
     "TOPUP_ALREADY_PENDING": "Sizda tugallanmagan to‘ldirish so‘rovi bor. Uni yakunlang yoki bekor qiling.",
     "PAYMENT_METHOD_UNAVAILABLE": "To‘ldirish usuli hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
+  },
+  "warnings": {
+    "premiumExtends": "Bu foydalanuvchida Premium allaqachon bor. Sovg‘a muddatni uzaytiradi."
   },
   "alerts": {
     "bankFeed": {

@@ -12,6 +12,8 @@ export const ROOT_NAMESPACES = ['common'] as const satisfies Namespaces;
 export const STORE_NAMESPACES = [
   'common',
   'errors',
+  // Non-blocking remarks of POST /recipients/validate (`warnings[]`, the product page).
+  'warnings',
   'fields',
   'web',
   'store',

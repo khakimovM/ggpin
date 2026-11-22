@@ -8,6 +8,7 @@ import { RecipientChecking } from './RecipientChecking';
 import { RecipientConfirmed } from './RecipientConfirmed';
 import { RecipientDown } from './RecipientDown';
 import { RecipientFound } from './RecipientFound';
+import { RecipientWarnings } from './RecipientWarnings';
 import { RecipientInput } from './input-fields';
 import type { RecipientControls } from './use-validate-recipient';
 
@@ -23,8 +24,8 @@ export interface RecipientFormProps {
 
 /**
  * "Kimga yuboramiz?" (Product.dc.html `recipient`: idle, checking, found, confirmed, notfound,
- * invalid, down, plus the blocked-premium note). Every message is text with an icon, never a
- * colour alone.
+ * invalid, down, plus the premium notes: the blocking `blocked` and the non-blocking warnings).
+ * Every message is text with an icon, never a colour alone.
  */
 export function RecipientForm({
   field,
@@ -117,6 +118,7 @@ export function RecipientForm({
       {phase === 'confirmed' && found ? (
         <RecipientConfirmed recipient={found} username={username} onChange={reset} />
       ) : null}
+      {!editing && found ? <RecipientWarnings warnings={found.warnings} /> : null}
 
       {phase === 'blocked' ? (
         <div

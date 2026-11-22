@@ -6,6 +6,7 @@ import {
   COST_FX_PAIR,
   costForQuantity,
   maxCostFor,
+  perUnitDisplayTiyin,
   priceFromCost,
   totalAfterDiscount,
   unitDisplayPrice,
@@ -226,6 +227,33 @@ describe('unitDisplayPrice (step 10)', () => {
   it('rejects a non-positive quantity and a negative price', () => {
     expect(() => unitDisplayPrice(100n, 0)).toThrow(MoneyError);
     expect(() => unitDisplayPrice(-1n, 1)).toThrow(MoneyError);
+  });
+});
+
+describe('perUnitDisplayTiyin (display only, Premium "so‘m/oy")', () => {
+  const SOM_100 = 10_000n; // the 100 so'm step of owner decision Q6, in tiyin
+
+  it('divides exactly when it can (the design samples)', () => {
+    expect(perUnitDisplayTiyin(16_500_000n, 3, SOM_100)).toBe(5_500_000n); // 55 000 so'm
+    expect(perUnitDisplayTiyin(39_600_000n, 12, SOM_100)).toBe(3_300_000n); // 33 000 so'm
+    expect(perUnitDisplayTiyin(0n, 3, SOM_100)).toBe(0n);
+  });
+
+  it('rounds UP to the step, never down', () => {
+    expect(perUnitDisplayTiyin(22_000_000n, 6, SOM_100)).toBe(3_670_000n); // 36 666.67 -> 36 700
+    // One tiyin above an exact multiple is already the next step.
+    expect(perUnitDisplayTiyin(16_500_001n, 3, SOM_100)).toBe(5_510_000n);
+    expect(perUnitDisplayTiyin(16_499_999n, 3, SOM_100)).toBe(5_500_000n);
+    expect(perUnitDisplayTiyin(7n, 2, 1n)).toBe(4n); // step 1 = rounding of the division alone
+  });
+
+  it('rejects units <= 0, a step < 1 and a negative price', () => {
+    expect(() => perUnitDisplayTiyin(100n, 0, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, -3, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, 1.5, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, 3, 0n)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(-1n, 3, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, 3, notABigInt(100))).toThrow(MoneyError);
   });
 });
 

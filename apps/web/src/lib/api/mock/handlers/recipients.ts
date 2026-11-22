@@ -1,5 +1,5 @@
 import { ValidateRecipientBodySchema } from '@repo/shared';
-import { MOCK_RECIPIENT } from '../fixtures/orders';
+import { MOCK_RECIPIENT, MOCK_RECIPIENT_PREMIUM_EXTENDS } from '../fixtures/orders';
 import { fail, ok, type MockRoute } from '../router';
 
 export const recipientsRoutes: readonly MockRoute[] = [
@@ -14,6 +14,7 @@ export const recipientsRoutes: readonly MockRoute[] = [
         });
       }
       if (scenario === 'recipientNotFound') return fail('RECIPIENT_NOT_FOUND');
+      if (scenario === 'hasPremiumExtends') return ok(MOCK_RECIPIENT_PREMIUM_EXTENDS);
       return ok(MOCK_RECIPIENT);
     },
   },

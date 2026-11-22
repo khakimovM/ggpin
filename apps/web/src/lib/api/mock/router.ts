@@ -7,6 +7,7 @@ import type { HttpMethod } from '../transport';
 export const MOCK_SCENARIOS = [
   'insufficient',
   'recipientNotFound',
+  'hasPremiumExtends',
   'priceUnavailable',
   'orderFailed',
 ] as const;
