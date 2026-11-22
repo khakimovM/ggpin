@@ -57,10 +57,14 @@ async function attemptOf(transferId: string): Promise<string> {
   return row.attemptId;
 }
 
-/** What the worker leaves when it accepts the hint: CU -> CONFIRMED, the chain data, the late mark. */
-async function workerAccepted(transferId: string, auditId: string): Promise<void> {
+/**
+ * What the worker leaves when it accepts the hint: CU -> CONFIRMED, the chain data, the late mark.
+ * TonTransfer.txHash is unique and the shared test database keeps rows of earlier runs, so the
+ * hash is fresh per call (a fixed one made every re-run fail on TonTransfer_txHash_key).
+ */
+async function workerAccepted(transferId: string, auditId: string): Promise<string> {
   const db = t.db();
-  const txHash = 'ab'.repeat(32);
+  const txHash = randomBytes(32).toString('hex');
   const txLt = 48_000_000_000_777n;
   await db.tonTransfer.update({
     where: { id: transferId },
@@ -71,6 +75,7 @@ async function workerAccepted(transferId: string, auditId: string): Promise<void
     where: { id: await attemptOf(transferId) },
     data: { response: { ton: { hint: { auditId, verdict: 'ACCEPTED' }, late } } },
   });
+  return txHash;
 }
 
 describe('ton:hint (real database)', () => {
@@ -162,7 +167,7 @@ describe('ton:hint (real database)', () => {
     const transferId = transfer?.id ?? '';
     expect((await hint([transferId, '--tx', HASH, '--lt', '4800001', ...WHO])).code).toBe(0);
     const [row] = await hintRows(transferId);
-    await workerAccepted(transferId, row?.id ?? '');
+    const txHash = await workerAccepted(transferId, row?.id ?? '');
 
     const show = await t.run(['order:show', orderId]);
     expect(show.code).toBe(0);
@@ -174,7 +179,7 @@ describe('ton:hint (real database)', () => {
       true,
     );
     const proof = /--proof '(\{[^']*\})' --reason/.exec(line)?.[1] ?? '';
-    expect(JSON.parse(proof)).toMatchObject({ kind: 'TON_TX', txHash: 'ab'.repeat(32) });
+    expect(JSON.parse(proof)).toMatchObject({ kind: 'TON_TX', txHash });
 
     const done = await t.run(['order:resolve', orderId, '--delivered', '--proof', proof, ...WHO]);
     expect(done.err).toEqual([]);

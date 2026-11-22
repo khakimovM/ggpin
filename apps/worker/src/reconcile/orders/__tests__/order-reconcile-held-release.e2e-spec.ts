@@ -78,7 +78,14 @@ describe('S9e: release when the cause is gone', () => {
     const order = await h.order();
     await h.holdAs(order.orderId, 'PRICE_ABOVE_MAX');
     const row = await t.db.order.findUniqueOrThrow({ where: { id: order.orderId } });
-    const now = await h.dbNowMs();
+    // The fixture's own snapshot (cost under the ceiling) got its createdAt from Prisma, i.e. the
+    // Node clock, which can run seconds ahead of the database clock (Docker VM drift). The test's
+    // snapshots must be the newest rows, so their times start after both clocks.
+    const fixtureSnapshot = await t.db.costSnapshot.aggregate({
+      where: { productId: order.productId },
+      _max: { createdAt: true },
+    });
+    const now = Math.max(await h.dbNowMs(), fixtureSnapshot._max.createdAt?.getTime() ?? 0);
     const snapshot = (costMinor: bigint, at: number) =>
       t.db.costSnapshot.create({
         data: {
