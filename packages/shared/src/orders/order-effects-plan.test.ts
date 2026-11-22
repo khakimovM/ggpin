@@ -116,14 +116,54 @@ describe('orderEffectsPlan: ORDER_REVIEW_RESOLVE', () => {
     ]);
   });
 
-  it('another order (wrong id) or none: no wallet, no delivered notice; alerts stay', () => {
-    for (const other of [order('DELIVERED', 'cmother1abc'), null]) {
+  it('another order (wrong id) or none: no wallet, no customer notice; alerts stay (CR-3)', () => {
+    for (const other of [
+      order('REFUNDED', 'cmother1abc'),
+      order('DELIVERED', 'cmother1abc'),
+      null,
+    ]) {
       const refunded = orderEffectsPlan(row({ after: refundAfter({ kind: 'MANUAL' }) }), other);
       expect(refunded.invalidateWalletOf).toBeNull();
-      expect(ids(refunded.notifyJobs)[0]).toBe(`order-${ORDER}-refunded`);
+      expect(ids(refunded.notifyJobs)).toEqual([
+        `alert-reviewResolved-${ORDER}_${AUDIT}`,
+        `alert-adminAction-${AUDIT}`,
+      ]);
       const delivered = orderEffectsPlan(row({ after: { refund: null } }), other);
       expect(ids(delivered.notifyJobs)).not.toContain(`order-${ORDER}-delivered`);
     }
+  });
+
+  it('a written refund on an order that is not REFUNDED tells the customer nothing (CR-3)', () => {
+    for (const status of ['FAILED', 'DELIVERED', 'NEEDS_REVIEW', 'QUEUED'] as const) {
+      const plan = orderEffectsPlan(row({ after: refundAfter({ kind: 'MANUAL' }) }), order(status));
+      expect(plan.invalidateWalletOf).toBeNull();
+      expect(ids(plan.notifyJobs)).toEqual([
+        `alert-reviewResolved-${ORDER}_${AUDIT}`,
+        `alert-adminAction-${AUDIT}`,
+      ]);
+    }
+  });
+
+  it.each([
+    [{}],
+    [{ amountTiyin: '5000000' }],
+    [{ ledgerEntryId: 'cmledger1' }],
+    [{ amountTiyin: 5000000, ledgerEntryId: 'cmledger1' }],
+    [{ amountTiyin: '-5000000', ledgerEntryId: 'cmledger1' }],
+    [{ amountTiyin: '50.5', ledgerEntryId: 'cmledger1' }],
+    [{ amountTiyin: '', ledgerEntryId: 'cmledger1' }],
+    [{ amountTiyin: '5000000', ledgerEntryId: '' }],
+    [{ amountTiyin: '5000000', ledgerEntryId: 7 }],
+  ])('a refund not in the writer shape %j is no refund (CR-3, SA L-2)', (refund) => {
+    const plan = orderEffectsPlan(
+      row({ after: { proof: { kind: 'MANUAL' }, refund } }),
+      order('REFUNDED'),
+    );
+    expect(plan.invalidateWalletOf).toBeNull();
+    expect(ids(plan.notifyJobs)).toEqual([
+      `alert-reviewResolved-${ORDER}_${AUDIT}`,
+      `alert-adminAction-${AUDIT}`,
+    ]);
   });
 
   it('a malformed after (not an object, array) plans no refund and no incident', () => {

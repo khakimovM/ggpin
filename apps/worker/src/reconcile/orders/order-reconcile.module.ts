@@ -3,6 +3,8 @@ import { AdaptersModule } from '../../adapters/adapters.module';
 import { WalletCacheInvalidator } from '../../bank-feed/wallet-cache-invalidator';
 import { FulfillmentModule } from '../../fulfillment/fulfillment.module';
 import { TonModule } from '../../ton/ton.module';
+import { AuditEffectsRepository } from './audit-effects.repository';
+import { AuditEffectsStep } from './audit-effects.step';
 import { HeldEvidence } from './held-evidence';
 import { HeldSourcesRepository } from './held-sources.repository';
 import { HeldSweepStep } from './held-sweep.step';
@@ -58,6 +60,8 @@ import { WalletBlockedStep } from './wallet-blocked.step';
     WalletBlockedStep,
     LateFactsRepository,
     LateFactsStep,
+    AuditEffectsRepository,
+    AuditEffectsStep,
     {
       provide: RECONCILE_STEPS,
       inject: [
@@ -69,6 +73,7 @@ import { WalletBlockedStep } from './wallet-blocked.step';
         HeldSweepStep,
         WalletBlockedStep,
         LateFactsStep,
+        AuditEffectsStep,
       ],
       useFactory: (...steps: ReconcileStep[]): readonly ReconcileStep[] => steps,
     },

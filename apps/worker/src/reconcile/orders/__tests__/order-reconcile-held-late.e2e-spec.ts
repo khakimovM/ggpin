@@ -131,6 +131,8 @@ describe('S9f wiring', () => {
       'held',
       'walletBlocked',
       'late',
+      // S9h: the audit effects come last (D-64 (1) order).
+      'auditEffects',
     ]);
     expect(rc.moduleRef.get(TonLateService)).toBeInstanceOf(TonLateService);
   });

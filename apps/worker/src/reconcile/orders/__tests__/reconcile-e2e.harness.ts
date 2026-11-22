@@ -29,6 +29,7 @@ import type { TonChainWitness } from '../../../ton/ton-gateway';
 import { TonConfirmService } from '../../../ton/ton-confirm.service';
 import { TonSenderService } from '../../../ton/ton-sender.service';
 import type { TonTiming } from '../../../ton/ton-tokens';
+import { AuditEffectsRepository } from '../audit-effects.repository';
 import { HeldSourcesRepository } from '../held-sources.repository';
 import { OrderReconcileModule } from '../order-reconcile.module';
 import { OrderReconcileProcessor } from '../order-reconcile.processor';
@@ -38,6 +39,7 @@ import { OrderReconcileService, type TickReport } from '../order-reconcile.servi
 import { OrderSweepsRepository } from '../order-sweeps.repository';
 import { RECONCILE_ORDER_LOCK } from '../reconcile-order-lock';
 import { ReviewResolver } from '../review-resolver';
+import { ScopedAuditEffects } from './audit-effects.e2e-kit';
 import {
   GrantingLockStore,
   ReconcilerTraps,
@@ -160,6 +162,13 @@ export function useReconcileE2e() {
       .overrideProvider(HeldSourcesRepository)
       .useFactory({
         factory: (prisma: PrismaService) => new ScopedHeldSources(prisma, orders),
+        inject: [PrismaService],
+      })
+      // S9h: the audit-effects list sees this run's orders only (old runs' and the API
+      // e2e's audit rows stay out).
+      .overrideProvider(AuditEffectsRepository)
+      .useFactory({
+        factory: (prisma: PrismaService) => new ScopedAuditEffects(prisma, orders),
         inject: [PrismaService],
       });
     if (options.grantingLock === true) {

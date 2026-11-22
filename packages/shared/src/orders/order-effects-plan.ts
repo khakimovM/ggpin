@@ -162,6 +162,20 @@ function textOf(object: JsonObject | null, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+/** Digits only: a minor-unit amount as the writer stores it (`bigint.toString()`). */
+const MINOR_UNITS = /^[0-9]{1,30}$/;
+
+/**
+ * True only for the shape needs-review-resolve.ts writes after a REFUND entry:
+ * `{ amountTiyin: "<digits>", ledgerEntryId: "<id>" }`. Anything else is no refund (CR-3, SA L-2).
+ */
+function isWrittenRefund(value: unknown): boolean {
+  const refund = objectOf(value);
+  const amount = textOf(refund, 'amountTiyin');
+  const entry = textOf(refund, 'ledgerEntryId');
+  return amount !== null && MINOR_UNITS.test(amount) && entry !== null && entry.length > 0;
+}
+
 /**
  * The transfer of a stored TON_UNMATCHED_RESOLVED proof whose finding is SENT_ELSEWHERE (owner
  * decision A3: value left to an address that is not ours), else null. NOT_SENT is no incident.
@@ -175,8 +189,10 @@ function compromisedTransferOf(proof: JsonObject | null): string | null {
 /**
  * The effects of one AuditLog row (the worker's I-3 sweep). `order` is the row's target order,
  * read by the caller; one with another id is ignored (a wallet is only ever the target's owner's).
- * ORDER_REVIEW_RESOLVE: the stored `after.refund` says a REFUND was written (the customer hears
- * ORDER_REFUNDED); otherwise the customer hears ORDER_DELIVERED only while the order IS delivered.
+ * ORDER_REVIEW_RESOLVE: the stored `after.refund` (the writer's shape, isWrittenRefund) says a
+ * REFUND was written; the customer hears ORDER_REFUNDED (and the cache goes) only while the target
+ * order IS REFUNDED, so a forged or stray row never tells anyone of a refund that did not happen
+ * (no order read: no notice). Otherwise ORDER_DELIVERED only while the order IS delivered.
  * ORDER_RETRY: back to the enqueuer only while the order is still QUEUED. Unknown action, or a
  * known action whose target type is not its own (TARGET_TYPE_OF): nothing.
  */
@@ -191,13 +207,14 @@ export function orderEffectsPlan(
   const after = objectOf(audit.after);
   switch (action) {
     case ORDER_EFFECTS_ACTIONS.reviewResolve: {
-      const refunded = objectOf(after?.['refund']) !== null;
+      const written = isWrittenRefund(after?.['refund']);
+      const refunded = written && target?.status === 'REFUNDED';
       return effectsOf({
         kind: 'REVIEW_RESOLVED',
         orderId: audit.targetId,
         auditId: audit.id,
         userId: target?.userId ?? null,
-        delivered: !refunded && target?.status === 'DELIVERED',
+        delivered: !written && target?.status === 'DELIVERED',
         refunded,
         compromisedTransferId: compromisedTransferOf(objectOf(after?.['proof'])),
         byOperator,

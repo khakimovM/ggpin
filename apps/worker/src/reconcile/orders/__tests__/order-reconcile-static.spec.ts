@@ -143,6 +143,8 @@ describe('the order reconciler (static)', () => {
         'held-payout.ts',
         'late-facts.step.ts',
         'late-facts.repository.ts',
+        'audit-effects.step.ts',
+        'audit-effects.repository.ts',
       ]),
     );
   });
