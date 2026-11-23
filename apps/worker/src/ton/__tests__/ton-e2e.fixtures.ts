@@ -236,6 +236,19 @@ export async function untilSecondLook(
   });
   const atMs = field(field(tonFactOf(row.response, 'expiry'), 'first'), 'atMs');
   if (typeof atMs !== 'number') throw new Error('no first expiry observation is kept');
+  await untilLookAfter(db, atMs, gapSec);
+}
+
+/**
+ * Until a look taken now is a valid second look after a first one taken at `atMs` (the database
+ * clock of that look): the same wait as untilSecondLook, for a first observation that is not kept
+ * on the attempt (after a witness conflict nothing is written, S9i).
+ */
+export async function untilLookAfter(
+  db: PrismaClient,
+  atMs: number,
+  gapSec: number,
+): Promise<void> {
   await pause(gapSec * 1_000 + 300);
   const due = atMs + gapSec * 1_000 + CLOCK_STEP_MS;
   const deadline = Date.now() + 15_000;

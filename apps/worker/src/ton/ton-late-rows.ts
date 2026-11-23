@@ -6,6 +6,7 @@ import {
   type LockedAttempt,
   type LockedOrder,
 } from './ton-row-locks';
+import type { TonNotice } from './ton-notices';
 import type { OurTxFacts } from './ton-tx-facts';
 
 // The locked rows of one late write (phase 5 S9f) and the small helpers every write uses: the
@@ -32,6 +33,8 @@ export interface LateWrite {
   readonly written: boolean;
   /** The order went PROCESSING -> NEEDS_REVIEW in this write (a late bounce). */
   readonly reviewed: boolean;
+  /** Notices this very write calls for, sent after the commit (S9i: an OTHER_TRANSFER mark). */
+  readonly notices?: readonly TonNotice[];
 }
 
 export const NOTHING: LateWrite = { written: false, reviewed: false };

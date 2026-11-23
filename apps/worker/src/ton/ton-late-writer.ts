@@ -57,7 +57,7 @@ export class LateWriter {
             { kind: 'ALERT', alert: 'needsReview', refId: applied.orderId },
           ]
         : [];
-    await this.notifier.send([...notices, ...review]);
+    await this.notifier.send([...notices, ...(applied.notices ?? []), ...review]);
     return { kind: 'WRITTEN', what: outcome.kind };
   }
 

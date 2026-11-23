@@ -31,11 +31,11 @@ import {
 import { TonTransferRepository } from '../ton-transfer.repository';
 import { dryRunTonWallet, type TonWallet } from '../ton-wallet';
 import { TonModule } from '../ton.module';
+import { removeRunJobs } from './ton-e2e.cleanup';
 import {
   E2E_PAY_ADDRESSES,
   addAttempt,
   processingOrder,
-  refIdsOf,
   type PayoutFixture,
 } from './ton-e2e.fixtures';
 
@@ -205,39 +205,18 @@ export function useTonE2e() {
     await state.ton.moduleRef.close();
   });
 
+  // S9i (S9c report): a failed clean-up query must still close the queue and the client, or jest
+  // hangs without --forceExit and keeps the shared e2e lock. The failure itself still fails the run.
   afterAll(async () => {
-    const addresses = [...walletAddresses];
-    const [transfers, snapshots] = await Promise.all([
-      state.db.tonTransfer.findMany({
-        where: { walletAddress: { in: addresses } },
-        select: { id: true },
-      }),
-      state.db.walletSnapshot.findMany({
-        where: { address: { in: addresses } },
-        select: { id: true },
-      }),
-    ]);
-    const refs = new Set([
-      ...orderIds,
-      ...transfers.map((r) => r.id),
-      ...snapshots.map((r) => r.id),
-    ]);
-    const jobs = await state.notify.getJobs([
-      'waiting',
-      'delayed',
-      'paused',
-      'prioritized',
-      'completed',
-      'failed',
-    ]);
-    for (const job of jobs) {
-      const mine =
-        refIdsOf(job.data).some((ref) => refs.has(ref)) ||
-        (job.id !== undefined && jobIds.has(job.id));
-      if (mine) await job.remove();
+    try {
+      await removeRunJobs(state.db, state.notify, { orderIds, walletAddresses, jobIds });
+    } finally {
+      try {
+        await state.notify.close();
+      } finally {
+        await state.db.$disconnect();
+      }
     }
-    await state.notify.close();
-    await state.db.$disconnect();
   });
 
   return {

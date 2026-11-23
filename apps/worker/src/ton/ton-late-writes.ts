@@ -166,7 +166,8 @@ export async function writeLate(tx: Tx, rows: LateRows, outcome: LateOutcome): P
       // CR M2: the other transfer's message is on the chain: its own `late` fact (ton-late-other.ts).
       const marked =
         other === undefined ? NOTHING : await markOtherTransfer(tx, rows, other, outcome.auditId);
-      return decided || marked.written ? WRITTEN : NOTHING;
+      if (marked.written) return { ...WRITTEN, notices: marked.notices ?? [] };
+      return decided ? WRITTEN : NOTHING;
     }
     case 'LATE_BOUNCE':
       return bounceLate(tx, rows, outcome);

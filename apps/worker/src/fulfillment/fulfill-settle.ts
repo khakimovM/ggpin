@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { coreHoldNote, describeErrorForLog } from '@repo/shared';
-import { episodeRef } from '../reconcile/orders/guard-ref';
+import { episodeRef } from '../common/episode-ref';
 import type { TonNotice } from '../ton/ton-notices';
 import { ABANDON_COUNTER, MAX_ABANDONED_REQUEUES, type AbandonCounter } from './abandon-counter';
 import { AttemptsRepository } from './attempts.repository';
@@ -28,9 +28,10 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 //                                      refId `<orderId>_abandoned_<day>`: the plain order id stays
 //                                      free for the real NEEDS_REVIEW alert (notify ids dedupe for
 //                                      days); the day is the reconciler's own episode for a used-up
-//                                      order (guard-ref.ts), so both on one day are ONE alert (S9d
-//                                      re-review R1). This process's clock (the database may be
-//                                      what failed): within seconds of the reconciler's.
+//                                      order (common/episode-ref.ts, one function for both), so
+//                                      both on one day are ONE alert (S9d re-review R1). This
+//                                      process's clock (the database may be what failed): within
+//                                      seconds of the reconciler's.
 //
 // Never HELD when an attempt may be live, never FAILED or a refund: the outcome is unknown.
 

@@ -5,6 +5,14 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { failedSuspectOf } from '../../ton/ton-late-facts';
 import type { StoredHint } from '../../ton/ton-late.service';
 import type { PrismaHolder } from '../../ton/ton-transfer.repository';
+import {
+  decidedHintOf,
+  insideDedupeWindow,
+  isMarkOf,
+  tonOf,
+  type DecidedHint,
+  type OtherLateItem,
+} from './late-hint-repeats';
 import type { WalletScope } from './order-reconcile.repository';
 
 // The late-facts step's reads (phase 5 S9f): ORDER transfers of the worker's own hot wallet that
@@ -34,6 +42,19 @@ export interface ConfirmedItem extends LateItem {
   readonly lateDestination: boolean;
 }
 
+/** A keyset page of the hint walk, with the decided hints whose alert is queued again (S9i). */
+export interface HintPage extends LatePage<HintItem> {
+  /** The kept verdict is FOREIGN_MESSAGE (S9f SA N-2): `tonSeqnoUnmatched` again (late-hint-repeats). */
+  readonly foreign: readonly LateItem[];
+  /** The kept verdict marked another transfer late (OTHER_TRANSFER, S9i R1): its alert again. */
+  readonly otherLate: readonly OtherLateItem[];
+}
+
+/** A decided hint still inside the notify dedupe window (R2), with its order's state. */
+interface Repeat extends DecidedHint, LateItem {
+  readonly orderStatus: OtherLateItem['orderStatus'];
+}
+
 export interface LateCursor {
   readonly createdAt: Date;
   readonly id: string;
@@ -50,28 +71,14 @@ const NOT_SENT = ['EXPIRED', 'CONSUMED_UNMATCHED'] as const;
 const ROW = {
   id: true,
   createdAt: true,
-  attempt: { select: { orderId: true, response: true } },
+  attempt: { select: { orderId: true, response: true, order: { select: { status: true } } } },
 } as const;
 
 type Row = Prisma.TonTransferGetPayload<{ select: typeof ROW }>;
 
-function tonOf(response: Prisma.JsonValue | null): Prisma.JsonObject {
-  if (typeof response !== 'object' || response === null || Array.isArray(response)) return {};
-  const ton = response['ton'];
-  return typeof ton === 'object' && ton !== null && !Array.isArray(ton) ? ton : {};
-}
-
 function hasFact(row: Row, key: string): boolean {
   const fact = tonOf(row.attempt?.response ?? null)[key];
   return fact !== undefined && fact !== null;
-}
-
-/** The audit id the TON module last decided a hint of this transfer for, or null. */
-function decidedHint(row: Row): string | null {
-  const hint = tonOf(row.attempt?.response ?? null)['hint'];
-  if (typeof hint !== 'object' || hint === null || Array.isArray(hint)) return null;
-  const auditId = hint['auditId'];
-  return typeof auditId === 'string' ? auditId : null;
 }
 
 function objectOf(value: Prisma.JsonValue | undefined): Prisma.JsonObject | null {
@@ -125,25 +132,45 @@ export class LateFactsRepository {
     return { purpose: 'ORDER', network: wallet.network, walletAddress: wallet.rawAddress };
   }
 
-  /** Unresolved transfers of NEEDS_REVIEW orders whose SUSPECT transaction sent nothing. */
-  async failedSuspects(wallet: WalletScope, limit: number): Promise<LateItem[]> {
+  /**
+   * Unresolved transfers of NEEDS_REVIEW orders whose SUSPECT transaction sent nothing. A keyset
+   * page like the other walks (S9i gate D2): the SUSPECT filter reads the JSON response after the
+   * page is taken, so a page from the start every tick could be filled by rows that stay. Today
+   * the unique index "TonTransfer_wallet_unresolved_key" allows one SIGNED/BROADCAST transfer per
+   * wallet, so the list holds at most one row; the cursor keeps it right if that ever changes.
+   */
+  async failedSuspectPage(
+    wallet: WalletScope,
+    cursor: LateCursor | null,
+    limit: number,
+  ): Promise<LatePage<LateItem>> {
     const rows = await this.rows(
       {
         ...this.ours(wallet),
         status: { in: ['SIGNED', 'BROADCAST'] },
         attempt: { order: { status: 'NEEDS_REVIEW' } },
+        ...after(cursor),
       },
       limit,
     );
-    return rows.flatMap((row) =>
+    const items = rows.flatMap((row) =>
       row.attempt !== null && failedSuspectOf(row.attempt.response) !== null
         ? [{ transferId: row.id, orderId: row.attempt.orderId }]
         : [],
     );
+    return pageOf(rows, limit, items);
   }
 
-  /** CONSUMED_UNMATCHED transfers whose latest owner hint (CLI) is not decided yet. */
-  async hintPage(wallet: WalletScope, cursor: LateCursor | null, limit: number) {
+  /**
+   * CONSUMED_UNMATCHED transfers whose latest owner hint (CLI) is not decided yet, and the decided
+   * hints whose owner alert is queued again (`nowMs`: the database clock of the tick, R2).
+   */
+  async hintPage(
+    wallet: WalletScope,
+    nowMs: number,
+    cursor: LateCursor | null,
+    limit: number,
+  ): Promise<HintPage> {
     const rows = await this.rows(
       { ...this.ours(wallet), status: 'CONSUMED_UNMATCHED', ...after(cursor) },
       limit,
@@ -155,13 +182,21 @@ export class LateFactsRepository {
         targetId: { in: rows.map((row) => row.id) },
         actorType: 'CLI',
       },
-      select: { id: true, targetId: true, after: true },
+      select: { id: true, targetId: true, after: true, createdAt: true },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     const items: HintItem[] = [];
+    const repeats: Repeat[] = [];
     for (const row of rows) {
+      if (row.attempt === null) continue;
+      const decided = decidedHintOf(row.attempt.response);
+      const decidedAt = audits.find((audit) => audit.id === decided?.auditId)?.createdAt;
+      if (decided !== null && decidedAt !== undefined && insideDedupeWindow(decidedAt, nowMs)) {
+        const { orderId, order } = row.attempt;
+        repeats.push({ ...decided, transferId: row.id, orderId, orderStatus: order.status });
+      }
       const latest = audits.find((audit) => audit.targetId === row.id);
-      if (row.attempt === null || latest === undefined || decidedHint(row) === latest.id) continue;
+      if (latest === undefined || decided?.auditId === latest.id) continue;
       const stored = objectOf(latest.after);
       const parsed = TonTxHintSchema.safeParse({
         transferId: row.id,
@@ -175,7 +210,35 @@ export class LateFactsRepository {
       const hint = { auditId: latest.id, txHash: parsed.data.txHash, lt: parsed.data.lt };
       items.push({ transferId: row.id, orderId: row.attempt.orderId, hint });
     }
-    return pageOf(rows, limit, items);
+    const foreign = repeats
+      .filter((repeat) => repeat.code === 'FOREIGN_MESSAGE')
+      .map(({ transferId, orderId }) => ({ transferId, orderId }));
+    return { ...pageOf(rows, limit, items), foreign, otherLate: await this.otherMarks(repeats) };
+  }
+
+  /** The OTHER_TRANSFER repeats whose marked transfer (same order) holds this very hint's mark. */
+  private async otherMarks(repeats: readonly Repeat[]): Promise<OtherLateItem[]> {
+    const marking = repeats.filter((repeat) => repeat.otherTransferId !== null);
+    if (marking.length === 0) return [];
+    const marked = await this.prisma.client.tonTransfer.findMany({
+      where: { id: { in: marking.flatMap((repeat) => repeat.otherTransferId ?? []) } },
+      select: { id: true, attempt: { select: { orderId: true, response: true } } },
+    });
+    return marking.flatMap((repeat) => {
+      const attempt = marked.find((row) => row.id === repeat.otherTransferId)?.attempt;
+      const holds =
+        attempt?.orderId === repeat.orderId &&
+        isMarkOf(attempt.response, repeat.auditId, repeat.transferId);
+      return holds && repeat.otherTransferId !== null
+        ? [
+            {
+              transferId: repeat.otherTransferId,
+              auditId: repeat.auditId,
+              orderStatus: repeat.orderStatus,
+            },
+          ]
+        : [];
+    });
   }
 
   /** EXPIRED / CONSUMED_UNMATCHED transfers inside the watch window, not found late yet. */

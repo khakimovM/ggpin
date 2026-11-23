@@ -61,7 +61,7 @@ const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['a hand-made wallet lock', /lockWallet/],
   ['a hand-made transition', /transitionOrder|applyTransition/],
   ['a hand-made ledger write', /ledgerEntry\s*\.\s*create|appendLedgerEntry/],
-  ['a hand-made status write', /order\s*\.\s*update(Many)?\s*\(/],
+  ['a hand-made status write', /order\s*\.\s*(update\w*|upsert)\s*\(/],
   // S9c review CR5: no way to the chain or the outcome writes around TonConfirmService.check.
   ['the chain gateway', /TON_GATEWAY|\bTonGateway\b/],
   ['the chain reader', /TonChainReader/],
@@ -88,6 +88,16 @@ const FORBIDDEN_IN_RECONCILER: readonly (readonly [string, RegExp])[] = [
   ['an adapter send', /\.fulfill\s*\(/],
   ['an adapter prepare', /\.prepare\s*\(/],
   ['an adapter recipient lookup', /validateRecipient/],
+  // S9i (S9e SA N-1): no raw write and no hand-made write of the attempt, the transfer or the order
+  // history. Today no reconciler file has one (the late facts, the HELD release and refund write
+  // through TonLateService, transitionOrder and failAndRefundOrder): no named exception is needed.
+  // The model allowlist (reads only, no alias) and the one tagged $queryRaw: the -db spec.
+  ['a raw SQL write', /\$executeRaw/],
+  ['an unsafe raw query', /\$queryRawUnsafe/],
+  ['a typed raw query', /\$queryRawTyped/],
+  ['a hand-made attempt write', /fulfillmentAttempt\s*\.\s*(update|upsert|create|delete)\w*\s*\(/],
+  ['a hand-made transfer write', /tonTransfer\s*\.\s*(update|upsert|create|delete)\w*\s*\(/],
+  ['a hand-made order event', /orderEvent\s*\.\s*create\w*\s*\(/],
 ];
 
 /** Writes a Redis client could make; the stuck-lease walk (S9d, Q-17) has none of them. */

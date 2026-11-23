@@ -1,13 +1,14 @@
-import { setTimeout as sleep } from 'node:timers/promises';
 import { TON_NOT_SENT_MARGIN_MS } from '@repo/shared';
 import type { Address, Transaction } from '@ton/core';
 import { FakeTonGateway } from '../fake-ton.gateway';
 import { TonChainReader } from '../ton-chain-reader';
+import type { TonCheck } from '../ton-confirm.service';
+import { confirmsExpiry, type ExpiryObservation } from '../ton-expiry';
 import type { TonAccountState, TonChainWitness, TxPage } from '../ton-gateway';
 import { witnessConflictNotice } from '../ton-notices';
 import { TonOutcomeRepository, type TonOutcome } from '../ton-outcome.repository';
 import { buildW5Data, type W5Data } from '../ton-w5';
-import { payRequest, rowsOf, tonFactOf } from './ton-e2e.fixtures';
+import { payRequest, rowsOf, tonFactOf, untilLookAfter } from './ton-e2e.fixtures';
 import {
   PAST_VALID_SEC,
   SIGN_AT_SEC,
@@ -27,7 +28,14 @@ import {
 const t = useTonE2e();
 /** More than the test gap (TEST_TIMING.expiryGapSec), so two looks could prove an expiry. */
 const MARGIN_SEC = TON_NOT_SENT_MARGIN_MS / 1_000;
-const PAST_GAP_MS = TEST_TIMING.expiryGapSec * 1_000 + 300;
+
+/** The observation of an EXPIRY_SEEN look (the test fails on any other verdict). */
+function observationOf(check: TonCheck): ExpiryObservation {
+  const verdict = check.verdict;
+  if (verdict?.kind !== 'EXPIRY_SEEN')
+    throw new Error(`expected EXPIRY_SEEN, got ${verdict?.kind}`);
+  return verdict.observation;
+}
 
 /** Reads the same chain; its first `conflicts` account states show the seqno as used (moved). */
 class FlipWitness implements TonChainWitness {
@@ -83,10 +91,13 @@ describe('TON: an expiry witness conflict bars EXPIRED for good (review RR2-4)',
     // A restart (the reader's memory is gone) and the witness now agrees: two looks a gap apart.
     ton.moduleRef.get(TonChainReader).forget(transferId);
     await t.dropJobs([alert]);
-    const first = await ton.confirm.check(transferId);
-    await sleep(PAST_GAP_MS);
-    const second = await ton.confirm.check(transferId);
-    expect([first.verdict?.kind, second.verdict?.kind]).toEqual(['EXPIRY_SEEN', 'EXPIRY_SEEN']);
+    // S9i: a conditional wait (both clocks past the gap), not a fixed sleep. The two looks below
+    // are a valid D-60 (2) pair, so only the kept conflict stops EXPIRED, never a short gap or a
+    // database clock that stepped back (the proof would then just start over).
+    const first = observationOf(await ton.confirm.check(transferId));
+    await untilLookAfter(t.db, first.atMs, TEST_TIMING.expiryGapSec);
+    const second = observationOf(await ton.confirm.check(transferId));
+    expect(confirmsExpiry(first, second, TEST_TIMING.expiryGapSec)).toBe(true);
     const rows = await rowsOf(t.db, fixture);
     expect([rows.transfer?.status, rows.attempt.status, rows.order.status]).toEqual([
       'BROADCAST',

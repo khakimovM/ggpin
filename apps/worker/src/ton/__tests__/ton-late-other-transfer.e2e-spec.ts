@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { ReviewProofError, resolveNeedsReview } from '@repo/db';
 import { HINT_TRANSIENT_LOOKS } from '../ton-late-hint';
+import type { TonNotice } from '../ton-notices';
 import { earlierLivePayout } from '../ton-sign-guards';
 import { rowsOf, tonFactOf } from './ton-e2e.fixtures';
 import { useTonE2e } from './ton-e2e.harness';
@@ -23,6 +24,11 @@ const OWNER_CLI = {
   osUser: 'e2e',
   otpVerified: true,
 } as const;
+
+/** The owner alert of an OTHER_TRANSFER mark on a settled order (S9i N-1): <T1>_<auditId>. */
+function otherLateAlert(transferId: string, auditId: string): TonNotice {
+  return { kind: 'ALERT', alert: 'tonLateConfirmed', refId: `${transferId}_${auditId}` };
+}
 
 function unmatchedProof(transferId: string) {
   return {
@@ -61,7 +67,7 @@ describe('TON late facts: OTHER_TRANSFER marks the other transfer paid (S9f CR M
     expect(tonFactOf((await rowsOf(t.db, fixture)).attempt.response, 'late')).toBeNull();
     expect(await earlierLivePayout(t.db, fixture.orderId, next.attemptId)).toBeNull();
     const late = lateServiceOf(t.ton.moduleRef, t.gateway, [t.gateway.freshConnection()]);
-    const hint = { auditId: 'audit-other-m2', ...landed };
+    const hint = { auditId: 'cmh1auditotherm200000001', ...landed };
     expect(await late.checkHint(liveId, hint)).toEqual({ kind: 'WRITTEN', what: 'HINT_REJECTED' });
 
     const first = await rowsOf(t.db, fixture);
@@ -84,6 +90,8 @@ describe('TON late facts: OTHER_TRANSFER marks the other transfer paid (S9f CR M
     });
     // The M-1 sign gate: T1 may have gone out (a second payout is never signed beside it).
     expect(await earlierLivePayout(t.db, fixture.orderId, next.attemptId)).toBe(firstId);
+    // The order is still in review (its guards stop on the mark): no extra owner alert (S9i N-1).
+    await t.expectNoJob(otherLateAlert(firstId, hint.auditId));
 
     // (a) The owner's proof bound to T2 settles T2 only: T1's late fact stops it, nothing written.
     await withWallet(fixture.userId);
@@ -101,6 +109,33 @@ describe('TON late facts: OTHER_TRANSFER marks the other transfer paid (S9f CR M
     const again = lateServiceOf(t.ton.moduleRef, t.gateway, [t.gateway.freshConnection()]);
     expect(await again.checkHint(liveId, hint)).toEqual({ kind: 'NOTHING', why: 'ALREADY' });
     expect(t.gateway.sentBocs).toHaveLength(2);
+  });
+
+  it('S9i N-1: on a REFUNDED order the mark is the owner’s tonLateConfirmed <T1>_<auditId>, once', async () => {
+    const { fixture, firstId, liveId, landed } = await liveHoldsSeqno(t);
+    // The owner settled the order first (T2 proven not sent): REFUNDED, no guard watches it any more.
+    await withWallet(fixture.userId);
+    expect((await resolveUnmatched(fixture.orderId, liveId)).refund?.outcome).toBe('REFUNDED');
+    const refunded = await ledgerOf(t.db, fixture.userId);
+    const late = lateServiceOf(t.ton.moduleRef, t.gateway, [t.gateway.freshConnection()]);
+    const hint = { auditId: 'cmh1auditotherrefund0001', ...landed };
+    expect(await late.checkHint(liveId, hint)).toEqual({ kind: 'WRITTEN', what: 'HINT_REJECTED' });
+    const rows = await rowsOf(t.db, fixture);
+    expect(rows.order.status).toBe('REFUNDED');
+    expect(tonFactOf(rows.attempt.response, 'late')).toMatchObject({
+      outcome: 'OTHER_TRANSFER',
+      auditId: hint.auditId,
+    });
+    const notice = otherLateAlert(firstId, hint.auditId);
+    await t.expectJobs([notice]);
+    // Money untouched; the transfer's own late alert keeps its plain id (not sent here).
+    expect(await ledgerOf(t.db, fixture.userId)).toEqual(refunded);
+    await t.expectNoJob({ kind: 'ALERT', alert: 'tonLateConfirmed', refId: firstId });
+    // The TON module sends it with the write only: a replay writes nothing and queues nothing (the
+    // re-queue from the kept facts is the reconciler's, late-facts.e2e-spec.ts, review R1).
+    await t.dropJobs([notice]);
+    expect(await late.checkHint(liveId, hint)).toEqual({ kind: 'NOTHING', why: 'ALREADY' });
+    await t.expectNoJob(notice);
   });
 
   it('(d) control: a hint REJECTED for another reason marks nothing; the owner proof for T2 passes', async () => {

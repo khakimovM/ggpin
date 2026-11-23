@@ -21,7 +21,9 @@ export const HELD_AUTO_RELEASE_MAX = 3;
  * the ceiling, the TON per-order / daily limits and a low hot-wallet balance, each only once the
  * cause is gone. Its own list on purpose, not derived from ATTEMPT_HOLD_ERRORS: a new hold error
  * must never become releasable without an owner decision. Typed against the stored reasons, so a
- * misspelled literal fails the typecheck.
+ * misspelled literal fails the typecheck. For the worker reconciler only (S9e SA N-4): the API never
+ * imports it (apps/api releasable-held-boundary.spec.ts), and in the worker only the release
+ * policy does (order-reconcile-static-db.spec.ts).
  */
 export const RELEASABLE_HELD_REASONS = [
   'NO_ADAPTER',
@@ -55,7 +57,7 @@ export const LATE_WATCH_WINDOW_MS = 72 * HOUR_MS;
 
 /**
  * `lock:order:{id}` held while the order's state has not moved for this long (and no job is
- * active): the owner gets the `needsReview` alert with refId `<orderId>_lock`. The key is never
+ * active): the owner gets the `needsReview` alert with refId `<orderId>_lock_<hour>`. The key is never
  * deleted (D-64 (3), Q-17).
  */
 export const ORDER_LOCK_STUCK_AFTER_MS = 30 * MINUTE_MS;

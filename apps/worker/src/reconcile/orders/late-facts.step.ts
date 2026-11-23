@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { RECONCILE_BATCH_LIMIT, describeErrorForLog } from '@repo/shared';
 import { OrderLockUnavailableError } from '../../fulfillment/order-lock';
+import { foreignRef } from '../../ton/ton-late-hint';
+import { otherTransferLateNotices } from '../../ton/ton-notices';
 import { TonLateService, type LateCheck } from '../../ton/ton-late.service';
 import { TON_HOT_WALLET_ADDRESS, type TonHotWalletAddress } from '../../ton/ton-tokens';
 import { episodeRef } from './guard-ref';
@@ -19,7 +21,7 @@ import {
   type StepReport,
 } from './reconcile-step';
 
-// Step 5 of the tick (phase 5 S9f, D-64 (7)): the late chain facts of the worker's own hot wallet.
+// Step 8 of the tick (phase 5 S9f, D-64 (7)): the late chain facts of the worker's own hot wallet.
 // Four short lists, each walked by its own keyset cursor that wraps around, together at most
 // RECONCILE_BATCH_LIMIT transfers a tick: (1) SUSPECT transfers whose transaction sent nothing
 // (ONCHAIN_FAILED, needs every witness), (2) owner hints for CONSUMED_UNMATCHED transfers (Z6),
@@ -32,18 +34,23 @@ import {
 // so a lost enqueue after the commit is made good by the next tick. A `lateDestination` fact (the
 // destination aborted, or the transaction did not pay: owner 2026-11-18) is heard on the existing
 // `reconcileGuardRefused` episode (`<orderId>_ton_<hour>`), at most hourly while the transfer is
-// inside the watch window, from the database fact (no in-memory "settled" can silence it).
+// inside the watch window, from the database fact (no in-memory "settled" can silence it). A hint
+// kept as FOREIGN_MESSAGE re-queues its `tonSeqnoUnmatched` (foreignRef) on every lap of the hint
+// walk, from that fact too (S9i, S9f SA N-2): one lost enqueue at the decision is made good. So
+// does an OTHER_TRANSFER mark of a settled order (`tonLateConfirmed` <T1>_<auditId>, S9i R1), both
+// only while the decided hint is inside the notify dedupe window (R2, late-hint-repeats.ts).
 
 /** Each list's share of the tick's batch. */
 const PAGE = Math.floor(RECONCILE_BATCH_LIMIT / 4);
 
-type Walk = 'hints' | 'notSent' | 'confirmed';
+type Walk = 'failed' | 'hints' | 'notSent' | 'confirmed';
 
 @Injectable()
 export class LateFactsStep implements ReconcileStep {
   readonly name = 'late';
   private readonly logger = new Logger(LateFactsStep.name);
   private readonly cursors: Record<Walk, LateCursor | null> = {
+    failed: null,
     hints: null,
     notSent: null,
     confirmed: null,
@@ -60,13 +67,27 @@ export class LateFactsStep implements ReconcileStep {
   async run(context: ReconcileContext): Promise<StepReport> {
     const tally = new StepTally(this.name);
     const scope = { network: this.wallet.network, rawAddress: this.wallet.rawAddress };
-    for (const item of await this.repository.failedSuspects(scope, PAGE)) {
+    const failed = this.advance(
+      'failed',
+      await this.repository.failedSuspectPage(scope, this.cursors.failed, PAGE),
+    );
+    for (const item of failed) {
       await this.one(item, tally, context, () => this.late.onchainFailed(item.transferId));
     }
-    const hints = this.advance(
-      'hints',
-      await this.repository.hintPage(scope, this.cursors.hints, PAGE),
-    );
+    const hintPage = await this.repository.hintPage(scope, context.nowMs, this.cursors.hints, PAGE);
+    for (const item of hintPage.foreign) {
+      await this.notifier.alert('tonSeqnoUnmatched', foreignRef(item.transferId));
+    }
+    for (const mark of hintPage.otherLate) {
+      for (const notice of otherTransferLateNotices(
+        mark.orderStatus,
+        mark.transferId,
+        mark.auditId,
+      )) {
+        if (notice.kind === 'ALERT') await this.notifier.alert(notice.alert, notice.refId);
+      }
+    }
+    const hints = this.advance('hints', hintPage);
     for (const item of hints) {
       await this.one(item, tally, context, () => this.late.checkHint(item.transferId, item.hint));
     }

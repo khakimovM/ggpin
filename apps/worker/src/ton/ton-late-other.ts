@@ -6,6 +6,7 @@ import {
   type LateRows,
   type LateWrite,
 } from './ton-late-rows';
+import { otherTransferLateNotices } from './ton-notices';
 import { lockAttempt } from './ton-row-locks';
 
 /** OTHER_TRANSFER: the transfer whose message the hinted transaction carries, and that transaction. */
@@ -31,6 +32,10 @@ export interface OtherTransfer {
  * have gone out". Locks: the caller holds the order (then the hinted transfer's attempt and row);
  * this takes the other attempt, then its transfer. Every writer of these rows locks the order first,
  * so the extra locks cannot deadlock against one that keeps docs/06 "Qulf tartibi".
+ *
+ * S9i (S9f SA N-1): when the order is already settled the mark comes with the owner's
+ * `tonLateConfirmed` for the other transfer (otherTransferLateNotices); the reconciler queues it
+ * again from the kept facts (review R1), under the same job id.
  */
 export async function markOtherTransfer(
   tx: Tx,
@@ -57,7 +62,7 @@ export async function markOtherTransfer(
     attemptId,
     attempt,
   };
-  return addFactOnce(tx, otherRows, 'late', {
+  const marked = await addFactOnce(tx, otherRows, 'late', {
     from: transfer.status,
     outcome: 'OTHER_TRANSFER',
     via: 'HINT',
@@ -66,4 +71,7 @@ export async function markOtherTransfer(
     txHash: other.txHash,
     txLt: other.lt,
   });
+  if (!marked.written) return marked;
+  const notices = otherTransferLateNotices(rows.order?.status ?? null, other.transferId, auditId);
+  return { ...marked, notices };
 }

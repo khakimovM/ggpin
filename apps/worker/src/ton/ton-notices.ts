@@ -1,4 +1,4 @@
-import type { FulfillmentAlertKind, NotifyJob, OrderStatusReason } from '@repo/shared';
+import type { FulfillmentAlertKind, NotifyJob, OrderStatus, OrderStatusReason } from '@repo/shared';
 import { isUnresolved, type PayoutState } from './ton-payout';
 
 // What the TON module tells the customer and the owner (plan §5, S6 renders it). The notices are
@@ -96,6 +96,37 @@ export function heldNotices(
  */
 export function earlierPayoutNotice(transferId: string, attemptId: string): TonNotice {
   return alert('tonLateConfirmed', `${transferId}_${attemptId}`);
+}
+
+/**
+ * The order states in which no guard watches a payout any more (S9i, S9f SA N-1): delivered,
+ * failed, refunded or cancelled. An OTHER_TRANSFER mark on such an order can stop nothing.
+ */
+export const OTHER_TRANSFER_ALERT_STATUSES: readonly OrderStatus[] = [
+  'DELIVERED',
+  'FAILED',
+  'REFUNDED',
+  'CANCELLED',
+];
+
+/**
+ * CRITICAL (phase 5 S9i, S9f SA N-1): the owner's hint `auditId` showed that the message of the
+ * transfer `transferId` reached the chain (OTHER_TRANSFER) while its order is settled
+ * (OTHER_TRANSFER_ALERT_STATUSES), so no guard of the order can stop on it: the owner must look.
+ * refId `<transferId>_<auditId>` (read back as the transfer): the transfer's own late alert keeps its
+ * plain id. Sent when the mark is written and queued again from the kept facts by the reconciler
+ * (one stable job id: the owner hears it once). The state is read when the alert is queued, not
+ * when the mark was written (re-review M3, on purpose): none while the order is still open; sent
+ * once it settles within the repeat window (an order settled beside a transfer that reached the
+ * chain is the owner's to look at all the same).
+ */
+export function otherTransferLateNotices(
+  orderStatus: OrderStatus | null,
+  transferId: string,
+  auditId: string,
+): TonNotice[] {
+  if (orderStatus === null || !OTHER_TRANSFER_ALERT_STATUSES.includes(orderStatus)) return [];
+  return [alert('tonLateConfirmed', `${transferId}_${auditId}`)];
 }
 
 export function noticeJob(notice: TonNotice): NotifyJob {
