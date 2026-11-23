@@ -10,6 +10,7 @@ import {
   NonZeroSignedTiyinStringSchema,
   PositiveTiyinStringSchema,
 } from './admin-common-schemas';
+import { AdminMinMarginTiyinSchema } from './admin-catalog-schemas';
 
 type Visit = (schema: z.ZodType, key: string | null, path: string) => void;
 
@@ -117,6 +118,8 @@ const MONEY_SHAPES = new Set<z.ZodType>([
   PositiveTiyinStringSchema,
   NonZeroSignedTiyinStringSchema,
   AdminAdjustAmountSchema,
+  // The tiyin string with the owner's 100 mln so‘m ceiling (S8a fix, 2026-11-22).
+  AdminMinMarginTiyinSchema,
 ]);
 
 describe('admin money fields', () => {

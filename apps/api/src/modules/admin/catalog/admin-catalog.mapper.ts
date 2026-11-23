@@ -5,25 +5,18 @@ import type {
 } from '@repo/shared';
 import { iso } from '../read/admin-read-view';
 import type {
+  AdminCategorySource,
   AdminProductDetailSource,
   AdminProductRowSource,
 } from './admin-catalog-read.repository';
 
-type CategorySource = {
-  id: string;
-  slug: string;
-  nameUz: string;
-  nameRu: string;
-  sort: number;
-  _count: { products: number };
-};
 type Sku = AdminProductDetailResponse['skus'][number];
 type Route = AdminProductDetailResponse['routes'][number];
 
 // Every field is named (SA-S4-4): a column added to a select later never rides along into a
 // response by a spread; the strict shared schemas then catch anything the mapper forgot.
 
-export function toAdminCategory(category: CategorySource): AdminCategoryListResponse[number] {
+export function toAdminCategory(category: AdminCategorySource): AdminCategoryListResponse[number] {
   return {
     id: category.id,
     slug: category.slug,
@@ -53,7 +46,7 @@ export function toAdminProductRow(
   };
 }
 
-const toSku = (sku: AdminProductDetailSource['skus'][number]): Sku => ({
+export const toAdminSku = (sku: AdminProductDetailSource['skus'][number]): Sku => ({
   id: sku.id,
   tab: sku.tab,
   labelUz: sku.labelUz,
@@ -70,7 +63,7 @@ const toSku = (sku: AdminProductDetailSource['skus'][number]): Sku => ({
  * Route health comes from the adapter health key the phase 5 worker writes; until the panel
  * reads it (9-B, S11) every route is UNKNOWN with no check time.
  */
-const toRoute = (route: AdminProductDetailSource['routes'][number]): Route => ({
+export const toAdminRoute = (route: AdminProductDetailSource['routes'][number]): Route => ({
   id: route.id,
   adapter: route.adapter,
   priority: route.priority,
@@ -93,8 +86,8 @@ export function toAdminProductDetail(
     allowCustomQty: product.allowCustomQty,
     minQty: product.minQty,
     maxQty: product.maxQty,
-    skus: product.skus.map(toSku),
-    routes: product.routes.map(toRoute),
+    skus: product.skus.map(toAdminSku),
+    routes: product.routes.map(toAdminRoute),
     updatedAt: iso(product.updatedAt),
   };
 }

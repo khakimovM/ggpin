@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ResourceIdSchema } from '../common-schemas';
 import { DeliveryTypeSchema } from '../catalog/catalog-schemas';
 import { SignedTiyinStringSchema, TiyinStringSchema } from '../money-schemas';
+import { ADMIN_MAX_MIN_MARGIN_TIYIN } from './admin-catalog-rules';
 import {
   AdminReasonSchema,
   IsoDateTimeSchema,
@@ -24,6 +25,11 @@ const TextSchema = adminMultiLine(4000);
 const queryInt = adminQueryInt;
 /** Markup in basis points, 0..10 000 (0–100 %, D-63 (8)). */
 export const MarkupBpsSchema = z.number().int().min(0).max(10_000);
+/** A package's minimum margin written by the panel: 0..10 000 000 000 tiyin (owner 2026-11-22). */
+export const AdminMinMarginTiyinSchema = TiyinStringSchema.refine(
+  (value) => BigInt(value) <= ADMIN_MAX_MIN_MARGIN_TIYIN,
+  { message: 'minimum margin above 100 mln so‘m' },
+);
 /** A site path under `/assets/`, no `..`, no query: images are never uploaded through the panel. */
 export const AssetPathSchema = z
   .string()
@@ -169,13 +175,14 @@ export const AdminProductUpdateBodySchema = z
   .refine(hasChange, NO_CHANGE);
 export type AdminProductUpdateBody = z.infer<typeof AdminProductUpdateBodySchema>;
 
-/** `POST /admin/products/reorder`: every product id once, in the new order (sort = index). */
-export const AdminProductReorderBodySchema = z
-  .strictObject({ productIds: z.array(ResourceIdSchema).min(1).max(500) })
-  .refine((body) => new Set(body.productIds).size === body.productIds.length, {
-    message: 'duplicate product id',
-    path: ['productIds'],
-  });
+/**
+ * `POST /admin/products/reorder`: every product id once, in the new order (sort = index). A
+ * repeated id is not refused here: the API answers it with `PRODUCT_SET_MISMATCH` like a missing
+ * or foreign one (docs/04, S8a review m1), so the panel sees one code for "not the full set".
+ */
+export const AdminProductReorderBodySchema = z.strictObject({
+  productIds: z.array(ResourceIdSchema).min(1).max(500),
+});
 export type AdminProductReorderBody = z.infer<typeof AdminProductReorderBodySchema>;
 
 const skuFields = {
@@ -185,7 +192,7 @@ const skuFields = {
   quantity: z.number().int().min(1).max(1_000_000_000),
   supplierSku: adminSingleLine(128).nullable().optional(),
   markupBps: MarkupBpsSchema,
-  minMarginTiyin: TiyinStringSchema,
+  minMarginTiyin: AdminMinMarginTiyinSchema,
   isActive: z.boolean(),
   sort: SortSchema,
 };
@@ -205,7 +212,7 @@ export const AdminSkuUpdateBodySchema = z
     quantity: skuFields.quantity.optional(),
     supplierSku: skuFields.supplierSku,
     markupBps: MarkupBpsSchema.optional(),
-    minMarginTiyin: TiyinStringSchema.optional(),
+    minMarginTiyin: AdminMinMarginTiyinSchema.optional(),
     isActive: z.boolean().optional(),
     sort: SortSchema.optional(),
     reason: AdminReasonSchema.optional(),

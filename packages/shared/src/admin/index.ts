@@ -19,6 +19,7 @@ export * from './admin-users-schemas';
 export * from './admin-payments-schemas';
 export * from './admin-payment-actions-schemas';
 export * from './admin-catalog-schemas';
+export * from './admin-catalog-rules';
 export * from './admin-settings-schemas';
 export * from './admin-infra-schemas';
 export * from './admin-audit-schemas';

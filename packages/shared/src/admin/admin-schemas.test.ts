@@ -163,6 +163,9 @@ describe('catalog and settings writes', () => {
     expect(ok(a.AdminSkuUpdateBodySchema, { markupBps: 10_000 })).toBe(true);
     expect(ok(a.AdminSkuUpdateBodySchema, { markupBps: 10_001 })).toBe(false);
     expect(ok(a.AdminSkuUpdateBodySchema, { markupBps: -1 })).toBe(false);
+    // The minimum margin: 0..10 000 000 000 tiyin (100 mln so‘m, owner 2026-11-22).
+    expect(ok(a.AdminSkuUpdateBodySchema, { minMarginTiyin: '10000000000' })).toBe(true);
+    expect(ok(a.AdminSkuUpdateBodySchema, { minMarginTiyin: '10000000001' })).toBe(false);
   });
 
   it('takes images only from /assets/ and every product once in a reorder', () => {
@@ -171,7 +174,8 @@ describe('catalog and settings writes', () => {
     expect(ok(a.AssetPathSchema, '/assets//x.png')).toBe(false);
     expect(ok(a.AssetPathSchema, 'https://evil.example/x.png')).toBe(false);
     expect(ok(a.AdminProductReorderBodySchema, { productIds: ['p_1', 'p_2'] })).toBe(true);
-    expect(ok(a.AdminProductReorderBodySchema, { productIds: ['p_1', 'p_1'] })).toBe(false);
+    // A repeat passes the shape: the API answers it PRODUCT_SET_MISMATCH (S8a review m1).
+    expect(ok(a.AdminProductReorderBodySchema, { productIds: ['p_1', 'p_1'] })).toBe(true);
   });
 
   it('sets a manual rate only for the two manual pairs, positive', () => {

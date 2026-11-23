@@ -2,7 +2,20 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@repo/db';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
-const SKU_SELECT = {
+/** One category select for the list and for a catalog write's answer (S8a review m7). */
+export const ADMIN_CATEGORY_SELECT = {
+  id: true,
+  slug: true,
+  nameUz: true,
+  nameRu: true,
+  sort: true,
+  _count: { select: { products: true } },
+} as const satisfies Prisma.CategorySelect;
+export type AdminCategorySource = Prisma.CategoryGetPayload<{
+  select: typeof ADMIN_CATEGORY_SELECT;
+}>;
+
+export const ADMIN_SKU_SELECT = {
   id: true,
   tab: true,
   labelUz: true,
@@ -15,7 +28,7 @@ const SKU_SELECT = {
   sort: true,
 } as const satisfies Prisma.SkuSelect;
 
-const ROUTE_SELECT = {
+export const ADMIN_ROUTE_SELECT = {
   id: true,
   adapter: true,
   priority: true,
@@ -42,7 +55,7 @@ export type AdminProductRowSource = Prisma.ProductGetPayload<{
   select: typeof ADMIN_PRODUCT_ROW_SELECT;
 }>;
 
-const PRODUCT_DETAIL_SELECT = {
+export const ADMIN_PRODUCT_DETAIL_SELECT = {
   ...ADMIN_PRODUCT_ROW_SELECT,
   descriptionUz: true,
   descriptionRu: true,
@@ -54,11 +67,14 @@ const PRODUCT_DETAIL_SELECT = {
   minQty: true,
   maxQty: true,
   updatedAt: true,
-  skus: { select: SKU_SELECT, orderBy: [{ sort: 'asc' }, { quantity: 'asc' }, { id: 'asc' }] },
-  routes: { select: ROUTE_SELECT, orderBy: [{ priority: 'asc' }, { id: 'asc' }] },
+  skus: {
+    select: ADMIN_SKU_SELECT,
+    orderBy: [{ sort: 'asc' }, { quantity: 'asc' }, { id: 'asc' }],
+  },
+  routes: { select: ADMIN_ROUTE_SELECT, orderBy: [{ priority: 'asc' }, { id: 'asc' }] },
 } as const satisfies Prisma.ProductSelect;
 export type AdminProductDetailSource = Prisma.ProductGetPayload<{
-  select: typeof PRODUCT_DETAIL_SELECT;
+  select: typeof ADMIN_PRODUCT_DETAIL_SELECT;
 }>;
 
 // The catalog as the panel reads it (all products, active or not). Writes are S8.
@@ -66,16 +82,9 @@ export type AdminProductDetailSource = Prisma.ProductGetPayload<{
 export class AdminCatalogReadRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  categories() {
+  categories(): Promise<AdminCategorySource[]> {
     return this.prisma.client.category.findMany({
-      select: {
-        id: true,
-        slug: true,
-        nameUz: true,
-        nameRu: true,
-        sort: true,
-        _count: { select: { products: true } },
-      },
+      select: ADMIN_CATEGORY_SELECT,
       orderBy: [{ sort: 'asc' }, { id: 'asc' }],
     });
   }
@@ -88,7 +97,10 @@ export class AdminCatalogReadRepository {
   }
 
   product(id: string): Promise<AdminProductDetailSource | null> {
-    return this.prisma.client.product.findUnique({ where: { id }, select: PRODUCT_DETAIL_SELECT });
+    return this.prisma.client.product.findUnique({
+      where: { id },
+      select: ADMIN_PRODUCT_DETAIL_SELECT,
+    });
   }
 
   fxRate(id: string) {
