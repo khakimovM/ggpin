@@ -7,9 +7,15 @@ import { authRoutes } from './auth-handlers';
 import { confirmRoutes } from './confirm-handlers';
 import { readMockState } from './mock-state';
 import { readRoutes } from './read-handlers';
+import { writeRoutes } from './write-routes';
 import { fail, matchRoute, type MockReply, type MockRoute } from './router';
 
-const ROUTES: readonly MockRoute[] = [...authRoutes, ...confirmRoutes, ...readRoutes];
+const ROUTES: readonly MockRoute[] = [
+  ...authRoutes,
+  ...confirmRoutes,
+  ...readRoutes,
+  ...writeRoutes,
+];
 
 export interface MockTransportOptions {
   apiBaseUrl: string;
@@ -82,11 +88,14 @@ export function createMockTransport(options: MockTransportOptions): Transport {
       if (!state.signedIn || !permissionsFor(state.role).includes(permission)) {
         return toResponse(fail('NOT_FOUND'));
       }
-      if (state.scenario === 'error') return toResponse(fail('INTERNAL_ERROR'));
-      if (state.scenario === 'loading') await never(request.signal);
+      // The view-state scenarios are for reads; writes have their own one-shot `writeScenario`.
+      if (request.method === 'GET' && state.scenario === 'error') {
+        return toResponse(fail('INTERNAL_ERROR'));
+      }
+      if (request.method === 'GET' && state.scenario === 'loading') await never(request.signal);
     }
     return toResponse(
-      matched.route.handler({
+      await matched.route.handler({
         method: request.method,
         params: matched.params,
         query: url.searchParams,

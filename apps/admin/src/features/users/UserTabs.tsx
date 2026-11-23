@@ -27,6 +27,7 @@ import { PagedTable } from '../common/PagedTable';
 import { PaymentStatusTag } from '../common/PaymentStatusTag';
 import { Tag } from '../common/Tag';
 import { UnderlineTabs } from '../common/UnderlineTabs';
+import { camelKey } from '../../lib/camel-key';
 import { ROW_LINK } from '../common/link-style';
 
 export const USER_TAB_IDS = [
@@ -95,12 +96,12 @@ export function UserTabs({ userId }: { userId: string }) {
     {
       id: 'kind',
       header: t('admin.ledger.col.kind'),
-      cell: (e) => <Tag tone="mute">{e.kind}</Tag>,
+      cell: (e) => <Tag tone="mute">{t(`admin.ledger.kind.${camelKey(e.kind)}`)}</Tag>,
     },
     {
       id: 'ref',
       header: t('admin.ledger.col.ref'),
-      cell: (e) => `${e.refType} · ${e.refId}`,
+      cell: (e) => `${t(`admin.ledger.refType.${camelKey(e.refType)}`)} · ${e.refId}`,
       className: MONO,
     },
     {

@@ -5,6 +5,7 @@ import { formatDateTime } from '../../lib/format';
 import { JsonBlock } from '../common/JsonBlock';
 import { KeyValues } from '../common/KeyValues';
 import { MoneyCell } from '../common/MoneyCell';
+import { camelKey } from '../../lib/camel-key';
 import { Tag } from '../common/Tag';
 
 /**
@@ -26,11 +27,15 @@ export function BankMessageView({ message }: { message: AdminBankMessageResponse
             label: t('admin.payments.message.parse'),
             value: (
               <Tag tone={message.parseStatus === 'PARSED' ? 'ok' : 'warn'}>
-                {message.parseStatus}
+                {t(`admin.payments.message.parseStatus.${message.parseStatus}`)}
               </Tag>
             ),
           },
-          { key: 'source', label: t('admin.payments.message.source'), value: message.source },
+          {
+            key: 'source',
+            label: t('admin.payments.message.source'),
+            value: t(`admin.payments.message.sourceName.${camelKey(message.source)}`),
+          },
           {
             key: 'channel',
             label: t('admin.payments.message.channel'),
@@ -39,7 +44,9 @@ export function BankMessageView({ message }: { message: AdminBankMessageResponse
           {
             key: 'direction',
             label: t('admin.payments.message.direction'),
-            value: message.direction ?? '—',
+            value: message.direction
+              ? t(`admin.payments.message.directionName.${message.direction}`)
+              : '—',
           },
           {
             key: 'amount',

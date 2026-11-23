@@ -7,11 +7,11 @@ import { formatCount, formatDate, formatDateTime } from '../../lib/format';
 import { KeyValues } from '../common/KeyValues';
 import { MoneyCell } from '../common/MoneyCell';
 import { Panel } from '../common/Panel';
-import { PendingActions } from '../common/PendingActions';
 import { Tag } from '../common/Tag';
 import { TEXT_LINK } from '../common/link-style';
 import { USER_STATUS_TONE, userStatus } from './user-status';
 import { camelKey } from '../../lib/camel-key';
+import { UserActions } from './UserActions';
 
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -22,13 +22,24 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** How a user is named on screen: full name, else @username, else the Telegram ID. */
+export function userName(user: AdminUserDetailResponse): string {
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+    (user.username ? `@${user.username}` : user.telegramId)
+  );
+}
+
+/** How the action dialogs name a user (design: "@sardor_r ..."): @username, else the name. */
+export function userHandle(user: AdminUserDetailResponse): string {
+  return user.username ? `@${user.username}` : userName(user);
+}
+
 /** The head of a user's page (AdminOps.dc.html `user`): who, state, figures, actions, facts. */
 export function UserSummary({ user }: { user: AdminUserDetailResponse }) {
   const t = useTranslations();
   const status = userStatus(user);
-  const name =
-    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
-    (user.username ? `@${user.username}` : user.telegramId);
+  const name = userName(user);
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <Panel>
@@ -60,14 +71,7 @@ export function UserSummary({ user }: { user: AdminUserDetailResponse }) {
           <Stat label={t('admin.users.col.orders')}>{formatCount(user.ordersCount)}</Stat>
           <Stat label={t('admin.users.col.referrals')}>{formatCount(user.referralsCount)}</Stat>
         </div>
-        <PendingActions
-          labels={[
-            t('admin.users.actions.block'),
-            t('admin.users.actions.freeze'),
-            t('admin.users.actions.adjust'),
-            t('admin.users.actions.sessions'),
-          ]}
-        />
+        <UserActions user={user} name={userHandle(user)} />
       </Panel>
       <Panel title={t('admin.users.detail.facts')}>
         <KeyValues

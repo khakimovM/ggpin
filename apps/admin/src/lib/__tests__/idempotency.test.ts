@@ -129,3 +129,64 @@ describe('the key registry', () => {
     expect(r.pendingAction(conflict)?.conflict).toBe(true);
   });
 });
+
+describe('the 60 s bound of "start as a new action" (SA-2, R-1, R-2)', () => {
+  it('in this tab, the smaller of the wall and the monotonic clock counts', async () => {
+    const r = await reload();
+    const wall = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    const mono = vi.spyOn(performance, 'now').mockReturnValue(500);
+    const action = r.adminActionId(ADMIN, 'payments.reverse', target());
+    const { key, attempt } = r.beginAttempt(action);
+    r.markActionOutcomeUnknown(action, key, { reason: 'x', conflict: false, attempt });
+    const mark = r.pendingAttemptMark(action) ?? '';
+    // The wall clock jumped an hour forward, the monotonic one moved 10 s.
+    wall.mockReturnValue(1_000_000 + 3_600_000);
+    mono.mockReturnValue(10_500);
+    expect(r.pendingElapsedMs(action)).toBe(10_000);
+    expect(r.restartAction(action, key, 60_000, mark, 10_000)).toBeNull();
+    mono.mockReturnValue(60_500);
+    expect(r.restartAction(action, key, 60_000, mark, 60_000)).not.toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('a verdict made before a later attempt with the same key replaces nothing (R-1)', async () => {
+    const r = await reload();
+    const wall = vi.spyOn(Date, 'now').mockReturnValue(3_000_000);
+    const mono = vi.spyOn(performance, 'now').mockReturnValue(0);
+    const action = r.adminActionId(ADMIN, 'payments.reverse', target());
+    const first = r.beginAttempt(action);
+    r.markActionOutcomeUnknown(action, first.key, { reason: 'x', conflict: false, attempt: 1 });
+    const searchedAfter = r.pendingAttemptMark(action) ?? '';
+    // The old search said "not found"; the admin sends again with the same key, again unknown.
+    wall.mockReturnValue(3_061_000);
+    mono.mockReturnValue(61_000);
+    const second = r.beginAttempt(action);
+    expect(second.key).toBe(first.key);
+    r.markActionOutcomeUnknown(action, second.key, { reason: 'x', conflict: false, attempt: 2 });
+    wall.mockReturnValue(3_122_000);
+    mono.mockReturnValue(122_000);
+    expect(r.restartAction(action, first.key, 60_000, searchedAfter, 61_000)).toBeNull();
+    expect(r.pendingAction(action)?.key).toBe(first.key);
+    vi.restoreAllMocks();
+  });
+
+  it('after a reload the wait counts from the reload too; a future wall time is "just now" (R-2)', async () => {
+    const before = await reload();
+    const wall = vi.spyOn(Date, 'now').mockReturnValue(2_000_000);
+    const mono = vi.spyOn(performance, 'now').mockReturnValue(0);
+    const action = before.adminActionId(ADMIN, 'payments.reverse', target());
+    before.beginAttempt(action);
+    // The page is reloaded at monotonic 5 000 (a new document: its clock is fresh).
+    mono.mockReturnValue(5_000);
+    const after = await reload();
+    wall.mockReturnValue(2_000_000 - 30_000);
+    expect(after.pendingElapsedMs(action)).toBe(0);
+    // The wall clock says an hour passed, but only 10 s did since the reload.
+    wall.mockReturnValue(2_000_000 + 3_600_000);
+    mono.mockReturnValue(15_000);
+    expect(after.pendingElapsedMs(action)).toBe(10_000);
+    mono.mockReturnValue(66_000);
+    expect(after.pendingElapsedMs(action)).toBe(61_000);
+    vi.restoreAllMocks();
+  });
+});

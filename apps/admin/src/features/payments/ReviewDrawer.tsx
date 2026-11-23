@@ -8,9 +8,9 @@ import { qk } from '../../lib/query-keys';
 import { KeyValues } from '../common/KeyValues';
 import { LoadError } from '../common/ListStates';
 import { MoneyCell } from '../common/MoneyCell';
-import { PendingActions } from '../common/PendingActions';
 import { Tag } from '../common/Tag';
 import { BankMessageView } from './BankMessageView';
+import { ReviewActions } from './ReviewActions';
 import { camelKey } from '../../lib/camel-key';
 
 /** A payment review (`?review=<id>`): why the money was not credited, and the bank message. */
@@ -46,7 +46,6 @@ export function ReviewDrawer() {
           </p>
           <KeyValues
             rows={[
-              { key: 'kind', label: t('admin.payments.col.kind'), value: review.kind },
               {
                 key: 'amount',
                 label: t('admin.payments.col.amount'),
@@ -70,18 +69,16 @@ export function ReviewDrawer() {
               {
                 key: 'resolution',
                 label: t('admin.payments.review.resolution'),
-                value: review.resolution ?? '—',
+                value: review.resolution
+                  ? t(`admin.payments.reviewResolution.${camelKey(review.resolution)}`)
+                  : '—',
               },
               ...(review.note
                 ? [{ key: 'note', label: t('admin.payments.review.note'), value: review.note }]
                 : []),
             ]}
           />
-          {review.status === 'OPEN' ? (
-            <PendingActions
-              labels={[t('admin.payments.review.credit'), t('admin.payments.review.ignore')]}
-            />
-          ) : null}
+          {review.status === 'OPEN' ? <ReviewActions review={review} /> : null}
           <h3 className="m-0 border-t border-border pt-3 text-sm leading-[18px] font-extrabold">
             {t('admin.payments.message.title')}
           </h3>

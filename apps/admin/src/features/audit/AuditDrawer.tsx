@@ -1,5 +1,5 @@
 import type { AdminAuditRow } from '@repo/shared';
-import { Drawer, Skeleton, cn } from '@repo/ui';
+import { Button, Drawer, Skeleton, cn } from '@repo/ui';
 import { useTranslations } from 'use-intl';
 import { formatDateTime } from '../../lib/format';
 import { KeyValues } from '../common/KeyValues';
@@ -10,6 +10,10 @@ interface Props {
   entry: AdminAuditRow | undefined;
   /** The list page is still loading: the entry may be on it (R-6), so no "not on page" yet. */
   loading: boolean;
+  /** The list failed to load (M-1): say so and offer a retry, never "not on page". */
+  loadFailed?: boolean;
+  onRetry?: () => void;
+  retrying?: boolean;
   open: boolean;
   onClose: () => void;
 }
@@ -21,7 +25,15 @@ const LINE = {
 } as const;
 
 /** One audit entry: who, what, why, and the before / after diff (plain text lines). */
-export function AuditDrawer({ entry, loading, open, onClose }: Props) {
+export function AuditDrawer({
+  entry,
+  loading,
+  loadFailed = false,
+  onRetry,
+  retrying = false,
+  open,
+  onClose,
+}: Props) {
   const t = useTranslations();
   return (
     <Drawer
@@ -80,6 +92,17 @@ export function AuditDrawer({ entry, loading, open, onClose }: Props) {
             </pre>
           )}
         </>
+      ) : loadFailed ? (
+        <div role="alert" className="flex flex-col items-start gap-2">
+          <p className="m-0 text-xs leading-4 font-semibold text-danger-text">
+            {t('admin.states.loadFailed')}
+          </p>
+          {onRetry ? (
+            <Button variant="outline" size="sm" loading={retrying} onClick={onRetry}>
+              {t('admin.states.retry')}
+            </Button>
+          ) : null}
+        </div>
       ) : loading ? (
         <div role="status" aria-label={t('admin.states.loading')} className="flex flex-col gap-2">
           <Skeleton className="h-40 rounded-[10px]" />

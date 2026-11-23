@@ -17,13 +17,14 @@ export const MOCK_BOT_USERNAME = 'ggpin_mock_bot';
 export const MOCK_WRONG_CODE = '000000';
 export const MOCK_ATTEMPTS = 5;
 
+/** The mock admins (one per role); the write routes act as `adminOf(mockRole())`. */
 const NAMES: Record<AdminRole, string> = {
   OWNER: 'Aziz O.',
   OPERATOR: 'Dilshod K.',
   SUPPORT: 'Malika R.',
 };
 
-function adminOf(role: AdminRole): AdminMeResponse['admin'] {
+export function adminOf(role: AdminRole): AdminMeResponse['admin'] {
   return {
     id: `cmadmin${role.toLowerCase()}mock000000001`.slice(0, 25),
     name: NAMES[role],

@@ -10,6 +10,7 @@ import { KeyValues } from '../common/KeyValues';
 import { ListEmpty, LoadError } from '../common/ListStates';
 import { MoneyCell } from '../common/MoneyCell';
 import { Tag, type TagTone } from '../common/Tag';
+import { CardActions } from './CardActions';
 
 type Card = AdminCardListResponse[number];
 
@@ -41,7 +42,7 @@ function CardTile({ card }: { card: Card }) {
         </span>
         <span className="ml-auto flex gap-1">
           {card.autoCreditPaused ? <Tag tone="bad">{t('admin.payments.cards.paused')}</Tag> : null}
-          <Tag tone={TONE[card.status]}>{card.status}</Tag>
+          <Tag tone={TONE[card.status]}>{t(`admin.payments.cardStatus.${card.status}`)}</Tag>
         </span>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -90,6 +91,7 @@ function CardTile({ card }: { card: Card }) {
           },
         ]}
       />
+      <CardActions card={card} />
     </article>
   );
 }

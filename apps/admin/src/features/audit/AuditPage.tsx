@@ -152,6 +152,9 @@ function Audit() {
         open={drawer.id !== null}
         entry={rows?.find((row) => row.id === drawer.id)}
         loading={rows === undefined && !query.isError}
+        loadFailed={query.isError && rows === undefined}
+        onRetry={() => void query.refetch()}
+        retrying={query.isFetching}
         onClose={drawer.close}
       />
     </>

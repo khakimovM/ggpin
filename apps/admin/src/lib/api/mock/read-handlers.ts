@@ -4,14 +4,7 @@
 import { auditCsvRoute } from './audit-csv';
 import { listOf, pageOf, since, whereParam } from './data-common';
 import { dashboardFixture } from './fixtures-dashboard';
-import {
-  CARDS,
-  INTENTS,
-  PAYMENTS,
-  RECONCILE,
-  REVIEWS,
-  bankMessageFixture,
-} from './fixtures-payments';
+import { INTENTS, RECONCILE, bankMessageFixture } from './fixtures-payments';
 import {
   CATEGORIES,
   FX_HISTORY,
@@ -22,13 +15,15 @@ import {
 } from './fixtures-catalog';
 import { ORDERS, REVIEW_QUEUE, orderDetailFixture } from './fixtures-orders';
 import { ADMINS, AUDIT, FRAGMENT, QUEUE_ROWS, WALLET, adminSessionsFixture } from './fixtures-ops';
+import { USERS, USER_LEDGER, USER_REFERRALS, USER_SESSIONS } from './fixtures-users';
 import {
-  USERS,
-  USER_LEDGER,
-  USER_REFERRALS,
-  USER_SESSIONS,
-  userDetailFixture,
-} from './fixtures-users';
+  auditView,
+  cardsView,
+  paymentsView,
+  reviewsView,
+  userDetailView,
+  usersView,
+} from './mock-views';
 import { readMockState } from './mock-state';
 import { fail, ok, type MockRoute } from './router';
 
@@ -50,7 +45,7 @@ function userStatus(user: (typeof USERS)[number]): string {
 const userRoutes: MockRoute[] = [
   get('/admin/users', 'users.read', ({ query }) => {
     const q = query.get('q')?.toLowerCase().replace(/^@/, '');
-    const rows = whereParam(USERS, query, 'status', userStatus).filter(
+    const rows = whereParam(usersView(), query, 'status', userStatus).filter(
       (user) =>
         !q || user.telegramId.includes(q) || (user.username ?? '').toLowerCase().includes(q),
     );
@@ -61,7 +56,7 @@ const userRoutes: MockRoute[] = [
   }),
   get('/admin/users/:id', 'users.read', ({ params }) => {
     const user = USERS.find((one) => one.id === params.id);
-    return user ? ok(userDetailFixture(user, readMockState().role)) : fail('NOT_FOUND');
+    return user ? ok(userDetailView(user, readMockState().role)) : fail('NOT_FOUND');
   }),
   get('/admin/users/:id/orders', 'users.read', ({ params, query }) =>
     pageOf(
@@ -70,7 +65,7 @@ const userRoutes: MockRoute[] = [
     ),
   ),
   get('/admin/users/:id/ledger', 'users.read', ({ query }) => pageOf(USER_LEDGER, query)),
-  get('/admin/users/:id/payments', 'users.read', ({ query }) => pageOf(PAYMENTS, query)),
+  get('/admin/users/:id/payments', 'users.read', ({ query }) => pageOf(paymentsView(), query)),
   get('/admin/users/:id/referrals', 'users.read', ({ query }) => pageOf(USER_REFERRALS, query)),
   get('/admin/users/:id/sessions', 'users.read', ({ query }) => pageOf(USER_SESSIONS, query)),
 ];
@@ -94,7 +89,7 @@ const paymentRoutes: MockRoute[] = [
   get('/admin/payments/reviews', 'payments.read', ({ query }) => {
     const status = query.get('status') ?? 'OPEN';
     const rows = whereParam(
-      REVIEWS.filter((row) => row.status === status),
+      reviewsView().filter((row) => row.status === status),
       query,
       'kind',
       (row) => row.kind,
@@ -102,7 +97,7 @@ const paymentRoutes: MockRoute[] = [
     return pageOf(rows, query);
   }),
   get('/admin/payments/reviews/:id', 'payments.read', ({ params }) => {
-    const review = REVIEWS.find((row) => row.id === params.id);
+    const review = reviewsView().find((row) => row.id === params.id);
     if (review === undefined) return fail('NOT_FOUND');
     const role = readMockState().role;
     return ok({
@@ -116,12 +111,12 @@ const paymentRoutes: MockRoute[] = [
   get('/admin/payments/bank-messages/:id', 'payments.read', ({ params }) =>
     ok(bankMessageFixture(params.id ?? '', readMockState().role)),
   ),
-  get('/admin/payments/cards', 'payments.read', () => listOf(CARDS)),
+  get('/admin/payments/cards', 'payments.read', () => listOf(cardsView())),
   get('/admin/payments/reconcile', 'payments.read', ({ query }) => pageOf(RECONCILE, query)),
   get('/admin/payments', 'payments.read', ({ query }) =>
     pageOf(
       since(
-        whereParam(PAYMENTS, query, 'status', (row) => row.status),
+        whereParam(paymentsView(), query, 'status', (row) => row.status),
         query,
         (row) => row.createdAt,
       ),
@@ -186,9 +181,15 @@ const opsRoutes: MockRoute[] = [
     ok(empty() ? { status: 'NONE', lastOkAt: null, deadAt: null, updatedAt: null } : FRAGMENT),
   ),
   get('/admin/audit-log', 'audit.read', ({ query }) => {
+    const filtered = whereParam(
+      whereParam(auditView(), query, 'actorId', (row) => row.actor.id),
+      query,
+      'targetId',
+      (row) => row.targetId,
+    );
     const rows = whereParam(
       whereParam(
-        whereParam(AUDIT, query, 'actorType', (row) => row.actor.type),
+        whereParam(filtered, query, 'actorType', (row) => row.actor.type),
         query,
         'action',
         (row) => row.action,

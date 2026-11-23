@@ -98,15 +98,48 @@ export function attemptsLeftOf(error: unknown): number | undefined {
 }
 
 /**
+ * A submit that sent nothing (its inputs were not ready, SA I-2). Thrown instead of resolving, so
+ * the form never takes it for a 2xx and never ends the key; it is a definite "not applied".
+ */
+export class NotSentError extends Error {
+  constructor() {
+    super('not sent');
+    this.name = 'NotSentError';
+  }
+}
+
+/**
  * Whether a failed write may still have been applied by the server (SA M-1): no answer at all
  * (NETWORK, status 0), an answer not in our envelope (a proxy said it), any 5xx, or a 409
  * IDEMPOTENCY_CONFLICT (the key was already used, so an earlier attempt may have run). Only a
  * 4xx in our own envelope proves the action did not happen.
  */
 export function isOutcomeUnknown(error: unknown): boolean {
+  if (error instanceof NotSentError) return false;
   if (!isApiError(error)) return true;
   if (!error.fromServer || error.status === 0 || error.status >= 500) return true;
   return error.code === 'IDEMPOTENCY_CONFLICT';
+}
+
+/**
+ * `isOutcomeUnknown` for the answer to an action that was SENT (SA-S6-7, docs/04 «Idempotency-Key»):
+ * a `422 CODE_EXPIRED` may be the twin of a request with the same key and code that committed
+ * first, so it proves nothing either. Never for `POST /admin/confirmations` (no write there).
+ */
+export function isActionOutcomeUnknown(error: unknown): boolean {
+  return isOutcomeUnknown(error) || (isApiError(error) && error.code === 'CODE_EXPIRED');
+}
+
+export interface AdminFieldError {
+  path: string;
+  code: string;
+}
+
+/** Every `details.fields[]` entry of a `400 VALIDATION_ERROR` as sent; empty for anything else. */
+export function adminFieldErrors(error: unknown): AdminFieldError[] {
+  if (!isApiError(error) || error.code !== 'VALIDATION_ERROR') return [];
+  const parsed = fieldsDetails.safeParse(error.details);
+  return parsed.success ? parsed.data.fields : [];
 }
 
 /** 409 IDEMPOTENCY_CONFLICT: the key was already used with another body (docs/04 "Admin"). */

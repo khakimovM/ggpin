@@ -963,9 +963,12 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
   commit qilmagan, kod esa ishlatilgan): SPA submit’dan keyingi `CODE_EXPIRED` ni «natija noma’lum» deb biladi va o‘sha
   kalit bilan qayta so‘raydi (replay) yoki audit’ni ko‘rsatadi — yangi kalit bilan qayta yubormaydi (SA-S6-7).
   Audit qatorining id’si kalitdan aniqlanadi (sir emas): `a` + sha256(`<adminId>|<Idempotency-Key>`) hex’ining birinchi
-  31 belgisi. Natija noma’lum bo‘lsa SPA shu id’ni hisoblab, `GET /admin/audit-log?actorId&targetId&from` javobidan aynan
-  shu qatorni qidiradi: topilsa — amal bajarilgan; topilmasa va submit’dan 60 s o‘tgan bo‘lsa — «Yangi amal sifatida
-  boshlash» yangi kalit beradi (SA L-1; ega qarori 2026-11-22).
+  31 belgisi. Natija noma’lum bo‘lsa SPA shu id’ni hisoblab, `GET /admin/audit-log?actorId&targetId` javobidan (`from`
+  siz, sahifalab, ko‘pi bilan 500 qator; oxirigacha o‘qib bo‘lmasa — «tekshirib bo‘lmadi», kalit qoladi) aynan shu
+  qatorni qidiradi: topilsa — amal bajarilgan; topilmasa, shu kalitning hech bir urinishi yo‘lda bo‘lmasa va oxirgi
+  urinish yuborilgan yoki tugagan paytdan (qaysi biri keyin bo‘lsa) 60 s o‘tgan bo‘lsa — «Yangi amal sifatida boshlash»
+  yangi kalit beradi (SA L-1; ega qarori 2026-11-22). Kalitli yozish so‘roviga SPA 30 s timeout qo‘yadi (timeout —
+  natija noma’lum).
 - **Status kodlari.** Admin amal yo‘llari (POST) muvaffaqiyatda `200`; `POST /admin/confirmations` — `201`.
 - **`reason`** (`AdminReasonSchema`): trim’dan keyin 10–500 belgi, ko‘rinmas/boshqaruv belgisiz, kamida bitta harf yoki
   raqam. Pul, holat, admin boshqaruvi va navbat retry amallarida majburiy; katalog yozuvlarida ixtiyoriy (berilsa — shu

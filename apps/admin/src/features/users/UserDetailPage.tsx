@@ -9,7 +9,8 @@ import { qk } from '../../lib/query-keys';
 import { ListEmpty, LoadError } from '../common/ListStates';
 import { SectionGate } from '../common/SectionGate';
 import { TEXT_LINK } from '../common/link-style';
-import { UserSummary } from './UserSummary';
+import { UserNotes } from './UserNotes';
+import { UserSummary, userHandle } from './UserSummary';
 import { UserTabs } from './UserTabs';
 
 function UserDetail({ userId }: { userId: string }) {
@@ -29,6 +30,7 @@ function UserDetail({ userId }: { userId: string }) {
       <>
         {back}
         <UserSummary user={query.data} />
+        <UserNotes userId={userId} name={userHandle(query.data)} notes={query.data.notes} />
         <UserTabs userId={userId} />
       </>
     );

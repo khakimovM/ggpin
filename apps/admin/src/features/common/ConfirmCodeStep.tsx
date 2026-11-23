@@ -169,10 +169,13 @@ function requestErrorKey(
   error: unknown,
 ):
   | 'admin.confirm.unavailable'
+  | 'admin.confirm.notRequired'
   | 'admin.confirm.rateLimited'
   | 'admin.dialogs.failed'
   | ApiErrorMessageKey {
   if (adminFieldCode(error, 'otp') === 'OTP_UNAVAILABLE') return 'admin.confirm.unavailable';
+  // The action needs no code now (SA-M1): send it without one; the server decides again.
+  if (adminFieldCode(error, 'action') === 'OTP_NOT_REQUIRED') return 'admin.confirm.notRequired';
   if (isApiError(error) && error.code === 'RATE_LIMITED') return 'admin.confirm.rateLimited';
   return isApiError(error) ? error.messageKey : 'admin.dialogs.failed';
 }

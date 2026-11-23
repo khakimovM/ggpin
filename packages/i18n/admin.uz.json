@@ -116,7 +116,46 @@
       "audit": "Bu amal audit logga yoziladi · {name} ({role})",
       "failed": "Amal bajarilmadi",
       "unknownOutcome": "Natija nomaʼlum: amal bajarilgan bo‘lishi mumkin. Avval audit logni tekshiring. Shu oynada qayta yuborsangiz, amal ikki marta bajarilmaydi.",
-      "idempotencyConflict": "Bu amal avval boshqa maʼlumot bilan bajarilgan. Audit logni tekshiring."
+      "idempotencyConflict": "Bu amal avval boshqa maʼlumot bilan bajarilgan. Audit logni tekshiring.",
+      "note": {
+        "label": "Izoh matni",
+        "required": "majburiy",
+        "hint": "{max} ta belgigacha. Izohni faqat adminlar ko‘radi.",
+        "tooShort": "Izoh bo‘sh bo‘lmasin",
+        "tooLong": "Izoh {max} ta belgidan oshmasin",
+        "invalid": "Izohda harf yoki raqam bo‘lsin, boshqaruv belgilarisiz"
+      },
+      "outcome": {
+        "check": "Bajarilganini tekshirish",
+        "checking": "Tekshirilmoqda…",
+        "found": "Amal avval bajarilgan ekan. Maʼlumot yangilandi.",
+        "notFound": "Audit logda bu amalning yozuvi yo‘q: u bajarilmagan.",
+        "wait": "Server javobi hali yo‘lda bo‘lishi mumkin. {seconds} soniyadan keyin yana tekshiring.",
+        "startNew": "Yangi amal sifatida boshlash",
+        "startNewHint": "Yangi amal yangi kalit bilan yuboriladi. Kod so‘ralgan bo‘lsa, yangi kod oling.",
+        "close": "Yopish",
+        "checkFailed": "Tekshirib bo‘lmadi. Qayta urinib ko‘ring."
+      },
+      "amount": {
+        "label": "Summa",
+        "som": "so‘m",
+        "retype": "Summani qayta kiriting",
+        "retypeHint": "Pul amali: xato bo‘lmasligi uchun summani yana bir bor yozing.",
+        "mismatch": "Summa birinchisiga mos emas",
+        "invalid": "Summani raqam bilan yozing, ko‘pi bilan 2 ta kasr belgisi",
+        "tooLarge": "Summa ruxsat etilgan chegaradan katta",
+        "zero": "Summa noldan katta bo‘lsin"
+      },
+      "sign": {
+        "label": "Amal turi",
+        "plus": "Qo‘shish",
+        "minus": "Ayirish"
+      },
+      "result": {
+        "done": "Bajarildi",
+        "replayed": "Bu amal avval bajarilgan: o‘sha natija ko‘rsatildi",
+        "noChange": "O‘zgarish yo‘q: holat allaqachon shunday"
+      }
     },
     "confirm": {
       "title": "Telegram tasdiqlash kodi",
@@ -131,7 +170,8 @@
       "locked": "Urinishlar tugadi. Yangi kod oling.",
       "unavailable": "Kodni Telegramʼga yuborib bo‘lmadi. Botni bloklamaganingizni tekshiring.",
       "required": "Bu amal uchun tasdiqlash kodi kerak.",
-      "rateLimited": "Kodlar juda ko‘p so‘raldi. Keyinroq urinib ko‘ring."
+      "rateLimited": "Kodlar juda ko‘p so‘raldi. Keyinroq urinib ko‘ring.",
+      "notRequired": "Bu amal uchun hozir kod kerak emas. Kodsiz yuboring."
     },
     "probe": {
       "title": "Mavzu tekshiruvi",
@@ -161,7 +201,8 @@
         "today": "Bugun",
         "week": "7 kun",
         "month": "30 kun"
-      }
+      },
+      "actions": "Amallar"
     },
     "dashboard": {
       "updated": "Yangilandi: {time}",
@@ -263,7 +304,10 @@
         "block": "Bloklash",
         "freeze": "Xaridni muzlatish",
         "adjust": "Balansni tuzatish",
-        "sessions": "Sessiyalarni tugatish"
+        "sessions": "Sessiyalarni tugatish",
+        "unblock": "Blokdan chiqarish",
+        "unfreeze": "Muzlatishni ochish",
+        "note": "Izoh qo‘shish"
       },
       "tabs": {
         "label": "Foydalanuvchi bo‘limlari",
@@ -284,6 +328,63 @@
         "coins": "Keshbek tangalari",
         "codes": "Chegirma kodlari",
         "laterPhase": "Bu bo‘lim 10-bosqichda ulanadi."
+      },
+      "dialog": {
+        "block": {
+          "title": "Foydalanuvchini bloklash",
+          "body": "{name} ilovaga kira olmaydi, barcha sessiyalari tugatiladi.",
+          "cta": "Bloklash"
+        },
+        "unblock": {
+          "title": "Blokdan chiqarish",
+          "body": "{name} yana ilovaga kira oladi.",
+          "cta": "Blokdan chiqarish"
+        },
+        "freeze": {
+          "title": "Xaridni muzlatish",
+          "body": "Foydalanuvchi to‘ldira oladi, lekin xarid qila olmaydi.",
+          "cta": "Muzlatish"
+        },
+        "unfreeze": {
+          "title": "Muzlatishni ochish",
+          "body": "{name} yana xarid qila oladi.",
+          "cta": "Ochish"
+        },
+        "sessions": {
+          "title": "Sessiyalarni tugatish",
+          "body": "{count, plural, one {Barcha qurilmalardan chiqariladi (# ta sessiya).} other {Barcha qurilmalardan chiqariladi (# ta sessiya).}}",
+          "cta": "Tugatish"
+        },
+        "adjust": {
+          "title": "Balansni tuzatish",
+          "body": "{name} · joriy balans {balance}",
+          "cta": "Tuzatish"
+        },
+        "note": {
+          "title": "Izoh qo‘shish",
+          "body": "{name} haqida adminlar uchun izoh.",
+          "cta": "Saqlash"
+        }
+      },
+      "adjust": {
+        "current": "Joriy balans",
+        "newBalance": "Yangi balans",
+        "recentTitle": "So‘nggi 7 kundagi avtomatik to‘ldirishlar",
+        "recentConfirm": "Bu to‘ldirishlarni ko‘rdim, tuzatish ularni takrorlamaydi",
+        "openOrdersTitle": "Ochiq buyurtmalar",
+        "openOrdersConfirm": "Bu buyurtmalarni ko‘rdim, tuzatish ular uchun kompensatsiya emas",
+        "codeAlways": "Balansga pul qo‘shish har doim kod bilan tasdiqlanadi.",
+        "cliOnlyRecent": "Ro‘yxat o‘zgardi: oynani yopib, qayta oching.",
+        "manualToday": "Bugun qo‘lda qo‘shilgan:"
+      },
+      "notes": {
+        "title": "Izohlar",
+        "empty": "Hali izoh yo‘q",
+        "by": "{name} · {time}",
+        "counter": "{count, plural, one {# ta izoh} other {# ta izoh}}"
+      },
+      "result": {
+        "revoked": "{count, plural, one {# ta sessiya tugatildi} other {# ta sessiya tugatildi}}"
       }
     },
     "ledger": {
@@ -292,6 +393,21 @@
         "kind": "Turi",
         "ref": "Manba",
         "amount": "Summa"
+      },
+      "kind": {
+        "topup": "To‘ldirish",
+        "topupReversal": "To‘ldirish qaytarildi",
+        "purchase": "Xarid",
+        "refund": "Qaytarish",
+        "referralBonus": "Referal bonusi",
+        "referralBonusReversal": "Referal bonusi qaytarildi",
+        "adjustment": "Tuzatish"
+      },
+      "refType": {
+        "payment": "To‘lov",
+        "order": "Buyurtma",
+        "referral": "Referal",
+        "adminAction": "Admin amali"
       }
     },
     "sessions": {
@@ -402,7 +518,28 @@
         "resolution": "Yechim",
         "note": "Izoh",
         "credit": "Hisobga o‘tkazish",
-        "ignore": "Eʼtiborsiz qoldirish"
+        "creditTitle": "Hisobga o‘tkazish",
+        "creditBody": "{amount} kimning hisobiga o‘tishini tanlang. Kod har doim so‘raladi.",
+        "target": "Kimga",
+        "targetIntent": "So‘rov bo‘yicha",
+        "targetUser": "Foydalanuvchi ID bo‘yicha",
+        "intentIdLabel": "So‘rov ID",
+        "userIdLabel": "Foydalanuvchi ID",
+        "cliOnly": "Bu turdagi tekshiruv faqat CLI orqali yopiladi.",
+        "confirmOverride": "Baribir hisoblash (cheklovni chetlab o‘tish)",
+        "bankVerified": "Pul bankda kelganini o‘zim tekshirdim",
+        "preview": {
+          "title": "Hisoblashdan oldin",
+          "user": "Foydalanuvchi",
+          "blocked": "Bloklangan",
+          "frozen": "Xarid muzlatilgan",
+          "age": "{count, plural, one {Hisob yoshi: # kun} other {Hisob yoshi: # kun}}",
+          "overLimit": "Kunlik limitdan oshadi",
+          "override": "Cheklov: {reason}",
+          "bank": "Bankda tekshirish talab qilinadi",
+          "manual": "So‘rovdan beri qo‘lda berilgan: {adjust} ta tuzatish ({adjustSum}), {credit} ta hisoblash ({creditSum})"
+        },
+        "otherCli": "Boshqa yechimlar (eʼtiborsiz qoldirish, zanjirni qabul qilish) faqat CLI orqali."
       },
       "message": {
         "title": "Bank xabari",
@@ -417,7 +554,20 @@
         "raw": "Xabar matni",
         "hidden": "Faqat OWNER",
         "rawOwnerOnly": "Bank xabarining asl matni faqat OWNER uchun ko‘rinadi.",
-        "rawPurged": "Xabar matni o‘chirilgan."
+        "rawPurged": "Xabar matni o‘chirilgan.",
+        "parseStatus": {
+          "PARSED": "Tanildi",
+          "UNRECOGNIZED": "Tanilmadi",
+          "REJECTED": "Rad etildi"
+        },
+        "sourceName": {
+          "humoBot": "Humo boti",
+          "uzcardBot": "Uzcard boti"
+        },
+        "directionName": {
+          "CREDIT": "Kirim",
+          "DEBIT": "Chiqim"
+        }
       },
       "cards": {
         "usage": "Limitdan foydalanish",
@@ -428,13 +578,94 @@
         "reserved": "Band qilingan",
         "verified": "Tasdiqlangan",
         "paused": "Avto to‘xtatilgan",
-        "emptyHint": "Karta CLI orqali qo‘shiladi."
+        "emptyHint": "Karta CLI orqali qo‘shiladi.",
+        "actions": {
+          "label": "{card} kartasi amallari",
+          "pause": "Pauza",
+          "resume": "Davom ettirish",
+          "limit": "Limit",
+          "retire": "Chiqarish"
+        },
+        "dialog": {
+          "pause": {
+            "title": "Kartani pauza qilish",
+            "body": "{card} kartasiga yangi so‘rovlar berilmaydi.",
+            "cta": "Pauza"
+          },
+          "resume": {
+            "title": "Kartani davom ettirish",
+            "body": "{card} kartasi yana so‘rovlar qabul qiladi.",
+            "cta": "Davom ettirish"
+          },
+          "limit": {
+            "title": "Karta limiti",
+            "body": "{card} kartasining qabul limitlari.",
+            "cta": "Saqlash"
+          },
+          "retire": {
+            "title": "Kartani foydalanishdan chiqarish",
+            "body": "{card} kartasi butunlay chiqariladi. Buni ortga qaytarib bo‘lmaydi.",
+            "cta": "Chiqarish"
+          }
+        },
+        "confirmOverride": "Ochiq tekshiruvlar bor, baribir davom ettirish",
+        "confirmSecurityPause": "Xavfsizlik pauzasini olib tashlash (kod bilan)",
+        "receiveLimit": "Qabul limiti",
+        "monthlyLimit": "Oylik limit",
+        "removeMonthly": "Oylik limitsiz",
+        "lowersNeedsCode": "Limit pasaymoqda: kod bilan tasdiqlanadi.",
+        "emergency": "Favqulodda: hozir chiqarish va kutilayotgan so‘rovlarni bekor qilish",
+        "emergencyHint": "Belgisiz karta yangi so‘rov olmaydi, mavjudlari tugaguncha kutiladi.",
+        "result": {
+          "cancelledIntents": "{count, plural, one {# ta so‘rov bekor qilindi} other {# ta so‘rov bekor qilindi}}"
+        }
       },
       "empty": {
         "reviews": "Tekshiruv navbati bo‘sh",
         "payments": "To‘lov topilmadi",
         "intents": "So‘rov topilmadi",
         "cards": "Qabul kartasi yo‘q"
+      },
+      "reverse": {
+        "action": "Qaytarish",
+        "title": "To‘lovni qaytarish",
+        "body": "{amount} hamyondan ayriladi: «To‘ldirish qaytarildi» yozuvi.",
+        "cta": "Qaytarish",
+        "frozenWarn": "Pul sarflangan: balans manfiy bo‘ldi va xarid muzlatildi."
+      },
+      "paymentStatus": {
+        "CREATED": "Kutilmoqda",
+        "CONFIRMED": "Tasdiqlangan",
+        "CANCELLED": "Bekor qilingan"
+      },
+      "cardStatus": {
+        "VERIFYING": "Tekshirilmoqda",
+        "ACTIVE": "Faol",
+        "FULL": "To‘lgan",
+        "DRAINING": "Yopilmoqda",
+        "RETIRED": "Chiqarilgan"
+      },
+      "reviewResolution": {
+        "creditedUser": "Foydalanuvchiga hisoblandi",
+        "ignored": "Eʼtiborsiz qoldirildi",
+        "returnedOffline": "Bank orqali qaytarildi",
+        "chainAccepted": "Zanjir qabul qilindi"
+      },
+      "reviewKindShort": {
+        "unrecognized": "Tanilmadi",
+        "rejected": "Rad etildi",
+        "cardUnknown": "Nomaʼlum karta",
+        "cardRetired": "Chiqarilgan karta",
+        "chainBreak": "Zanjir uzildi",
+        "autoCreditPaused": "Avto to‘xtatilgan",
+        "noMatch": "Mos so‘rov yo‘q",
+        "ambiguous": "Bir nechta mos",
+        "duplicate": "Takroriy",
+        "timeSkew": "Vaqt farqi",
+        "cancelledLate": "Kech to‘lov",
+        "dailyLimit": "Kunlik limit",
+        "possibleReversal": "Qaytarilgan bo‘lishi mumkin",
+        "userBlocked": "Bloklangan"
       }
     },
     "recon": {
@@ -638,6 +869,39 @@
         "sessions": "Sessiyalar",
         "lastUsed": "Oxirgi faollik"
       }
+    },
+    "fieldErrors": {
+      "amountMismatch": "Qayta kiritilgan summa haqiqiy summaga mos emas",
+      "manualCreditDailyCap": "Qo‘lda hisoblashning kunlik chegarasidan oshadi",
+      "selfTarget": "O‘zingizga bu amalni qila olmaysiz",
+      "adminAccount": "Bu foydalanuvchi admin hisobiga bog‘langan",
+      "alreadyReversed": "Bu to‘lov allaqachon qaytarilgan",
+      "recentAutoTopup": "So‘nggi avtomatik to‘ldirishlar o‘zgardi. Ro‘yxatni qayta tasdiqlang.",
+      "openOrders": "Ochiq buyurtmalar o‘zgardi. Ro‘yxatni qayta tasdiqlang.",
+      "bankVerificationRequired": "Avval pul bankda kelganini tekshiring va belgini qo‘ying",
+      "alreadyCredited": "Bu bank xabari bo‘yicha pul allaqachon hisoblangan",
+      "returnedOffline": "Pul bank orqali qaytarilgan: hisoblab bo‘lmaydi",
+      "amountReallocated": "Bu summa boshqa so‘rovga berilgan",
+      "mismatch": "So‘rov bu bank xabariga mos emas",
+      "creditUndecided": "Bu xabar bo‘yicha qaror hali tekshirilmoqda",
+      "notAChainBreak": "Bu tekshiruv balans zanjiri uzilishi emas",
+      "notAParsedCredit": "Bank xabari tushum sifatida tanilmagan",
+      "userBlocked": "Foydalanuvchi bloklangan: «Baribir hisoblash» belgisini qo‘ying",
+      "dailyLimit": "Kunlik to‘ldirish limitidan oshadi: «Baribir hisoblash» belgisini qo‘ying",
+      "newAccountDailyLimit": "Yangi hisobning kunlik limitidan oshadi: «Baribir hisoblash» belgisini qo‘ying",
+      "graceElapsed": "So‘rov muddati o‘tib ketgan",
+      "noSuchTransition": "So‘rov bu holatdan hisoblanmaydi",
+      "actorNotAllowed": "Bu so‘rovni hisoblashga ruxsat yo‘q",
+      "resolved": "Bu tekshiruv allaqachon hal qilingan",
+      "retired": "Karta foydalanishdan chiqarilgan",
+      "securityPauseOpen": "Karta xavfsizlik sababli to‘xtatilgan: belgini qo‘ying va kodni kiriting",
+      "openPauseReviews": "Kartada ochiq tekshiruvlar bor: «Baribir davom ettirish» belgisini qo‘ying",
+      "otpRequired": "Bu amal uchun tasdiqlash kodi kerak",
+      "otpLocked": "Kod urinishlari tugadi. Yangi kod oling.",
+      "otpUnavailable": "Kodni Telegramʼga yuborib bo‘lmadi",
+      "otpNotRequired": "Bu amal uchun kod kerak emas",
+      "invalid": "Maʼlumot noto‘g‘ri. Maydonlarni tekshiring.",
+      "unknown": "Maʼlumot qabul qilinmadi. Maydonlarni tekshiring."
     }
   }
 }

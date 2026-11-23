@@ -23,12 +23,16 @@ export const qk = {
     list: (params: Params) => ['users', 'list', params] as const,
     detail: (id: string) => ['users', 'detail', id] as const,
     tab: (id: string, tab: string, params: Params) => ['users', 'tab', id, tab, params] as const,
+    adjustPreview: (id: string, amountTiyin: string) =>
+      ['users', 'adjust-preview', id, amountTiyin] as const,
   },
   payments: {
     all: () => ['payments'] as const,
     list: (kind: string, params: Params) => ['payments', kind, params] as const,
     cards: () => ['payments', 'cards'] as const,
     review: (id: string) => ['payments', 'review', id] as const,
+    creditPreview: (id: string, target: string) =>
+      ['payments', 'credit-preview', id, target] as const,
     bankMessage: (id: string) => ['payments', 'bank-message', id] as const,
     reconcile: (params: Params) => ['payments', 'reconcile', params] as const,
   },
@@ -60,6 +64,26 @@ export const qk = {
     sessions: (id: string) => ['admins', 'sessions', id] as const,
   },
 } as const;
+
+/**
+ * What an applied (or found) admin write makes stale, by the action's area: its own records, the
+ * lists that show them, and the audit log that now has its row. Never the session.
+ */
+export function invalidationsFor(kind: string): readonly (readonly unknown[])[] {
+  const area = kind.slice(0, kind.indexOf('.'));
+  const touched: Record<string, readonly (readonly unknown[])[]> = {
+    users: [qk.users.all(), qk.dashboard.all()],
+    payments: [qk.payments.all(), qk.users.all(), qk.dashboard.all()],
+    cards: [qk.payments.all()],
+    orders: [qk.orders.all(), qk.users.all(), qk.dashboard.all()],
+    catalog: [qk.catalog.all()],
+    fx: [qk.settings.all()],
+    admins: [qk.admins.all()],
+    sessions: [qk.admins.all()],
+    queues: [qk.infra.all()],
+  };
+  return [...(touched[area] ?? []), qk.audit.all()];
+}
 
 /** Everything except the session itself: what a sign-out must drop from the cache. */
 export function isPrivateQuery(queryKey: readonly unknown[]): boolean {

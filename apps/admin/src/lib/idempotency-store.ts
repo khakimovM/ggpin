@@ -1,32 +1,54 @@
-import { IdempotencyKeySchema, ResourceIdSchema, type AdminConfirmationBody } from '@repo/shared';
+import {
+  IdempotencyKeySchema,
+  ResourceIdSchema,
+  type AdminConfirmationBody,
+  type AdminPermission,
+} from '@repo/shared';
 import { z } from 'zod';
 
 /**
- * The money and state actions of docs/04, named as `POST /admin/confirmations` names them. The
- * list is checked against the shared union both ways at compile time, so the stored-entry check
- * (`z.enum`) can never drift from it (SA I-1).
+ * Every admin write of docs/04 except `confirmations.create` (issuing a code writes nothing),
+ * named by its permission key. At compile time the list is a subset of the shared matrix and holds
+ * every action a step-up code can confirm; the unit test `idempotency-kinds` proves it equals the
+ * matrix's write keys, so the stored-entry check (`z.enum`) never drifts from it (SA I-1).
  */
 export const ADMIN_ACTION_KINDS = [
+  'orders.note',
+  'orders.retry',
   'orders.cancel',
   'orders.failAndRefund',
-  'orders.refund',
-  'payments.reverse',
   'orders.resolve',
-  'payments.reviewCredit',
+  'orders.refund',
+  'users.note',
+  'users.block',
+  'users.unblock',
+  'users.freeze',
+  'users.unfreeze',
+  'users.sessionsRevoke',
   'users.adjustWallet',
+  'payments.reviewCredit',
+  'payments.reverse',
+  'cards.pause',
   'cards.resume',
-  'cards.retire',
   'cards.limit',
+  'cards.retire',
+  'catalog.categoryUpdate',
+  'catalog.productUpdate',
+  'catalog.productReorder',
+  'catalog.skuCreate',
+  'catalog.skuUpdate',
+  'catalog.routeUpdate',
   'fx.set',
   'admins.create',
   'admins.update',
   'admins.sessionsRevoke',
   'sessions.revoke',
-] as const satisfies readonly AdminConfirmationBody['action'][];
+  'queues.retry',
+] as const satisfies readonly Exclude<AdminPermission, 'confirmations.create'>[];
 export type AdminActionKind = (typeof ADMIN_ACTION_KINDS)[number];
-type Unlisted = Exclude<AdminConfirmationBody['action'], AdminActionKind>;
-const everyKindListed: [Unlisted] extends [never] ? true : never = true;
-void everyKindListed;
+type UnlistedCodeAction = Exclude<AdminConfirmationBody['action'], AdminActionKind>;
+const everyCodeActionListed: [UnlistedCodeAction] extends [never] ? true : never = true;
+void everyCodeActionListed;
 
 /** One registry entry as it is kept in sessionStorage: never the reason, never an OTP code. */
 export const StoredEntrySchema = z.strictObject({
@@ -39,6 +61,10 @@ export const StoredEntrySchema = z.strictObject({
   /** Written BEFORE the request leaves (SA M-2): a reload mid-flight reads it as unknown. */
   inFlight: z.boolean(),
   createdAt: z.number().int().nonnegative(),
+  /** When the last attempt left: "start as a new action" waits 60 s from it (Q1, SA L-1). */
+  sentAt: z.number().int().nonnegative().optional(),
+  /** When the last attempt ended (answer or timeout): the 60 s wait counts from it too (N-1). */
+  endedAt: z.number().int().nonnegative().optional(),
 });
 export type StoredEntry = z.infer<typeof StoredEntrySchema>;
 

@@ -20,6 +20,15 @@ const stateSchema = z.object({
    * `empty` (no rows), `error` (500), `loading` (no answer until the request is dropped).
    */
   scenario: z.enum(['data', 'empty', 'error', 'loading']).default('data'),
+  /**
+   * How the NEXT write answers, then back to `ok` (one-shot, for the outcome tests):
+   * `applyThen500` applies it and answers 500 (outcome unknown), `fail500` answers 500 without
+   * applying, `conflict` answers 409 IDEMPOTENCY_CONFLICT, `applyThenCodeExpired` applies it and
+   * answers 422 CODE_EXPIRED (a twin request committed first, SA-S6-7).
+   */
+  writeScenario: z
+    .enum(['ok', 'applyThen500', 'fail500', 'conflict', 'applyThenCodeExpired'])
+    .default('ok'),
 });
 
 export type MockState = z.infer<typeof stateSchema>;

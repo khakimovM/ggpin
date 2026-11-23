@@ -7,6 +7,7 @@ import type { MockGroupName } from '../../env-schema';
 import { errorFromResponse, parseResponse } from './envelope';
 import { ApiError } from './errors';
 import type { HttpMethod, Transport, TransportRequest, TransportResponse } from './transport';
+import { sendWithTimeout } from './write-timeout';
 
 /** The session probe: a live session answers 200, a dead or missing one 404. */
 export const ME_PATH = '/admin/auth/me';
@@ -107,7 +108,12 @@ export function createAdminHttp(deps: AdminHttpDeps): AdminHttp {
     probe ??= (async () => {
       try {
         const transport = await deps.transportFor('auth');
-        const response = await send(transport, buildRequest(deps.baseUrl, { path: ME_PATH }));
+        // F-2: the probe may follow a keyed write's 404, so it must not hang that form either. A
+        // timeout throws and counts as "unknown" (false), never as "gone".
+        const response = await sendWithTimeout(
+          (request) => send(transport, request),
+          buildRequest(deps.baseUrl, { path: ME_PATH }),
+        );
         return response.status === 404;
       } catch {
         return false;
@@ -120,7 +126,12 @@ export function createAdminHttp(deps: AdminHttpDeps): AdminHttp {
 
   async function respond(request: AdminRequest): Promise<TransportResponse> {
     const transport = await deps.transportFor(request.group);
-    const response = await send(transport, buildRequest(deps.baseUrl, request));
+    const built = buildRequest(deps.baseUrl, request);
+    // N-1: a keyed write never waits forever; its timeout is an unknown outcome like no answer.
+    const response =
+      request.idempotencyKey === undefined
+        ? await send(transport, built)
+        : await sendWithTimeout((r) => send(transport, r), built);
     // D-26: the admin API answers every refusal with the same 404, a missing session included.
     // On `me` that is the answer itself; elsewhere the 404 may also be a missing record or a role
     // that lacks the right, so the session is asked before signing out.

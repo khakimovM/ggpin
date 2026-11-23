@@ -47,7 +47,9 @@ export function ReviewsTab() {
     {
       id: 'kind',
       header: t('admin.payments.col.kind'),
-      cell: (row) => <Tag tone="warn">{row.kind}</Tag>,
+      cell: (row) => (
+        <Tag tone="warn">{t(`admin.payments.reviewKindShort.${camelKey(row.kind)}`)}</Tag>
+      ),
     },
     {
       id: 'why',
@@ -71,7 +73,9 @@ export function ReviewsTab() {
       header: t('admin.payments.col.status'),
       cell: (row) => (
         <Tag tone={row.status === 'OPEN' ? 'warn' : 'ok'}>
-          {row.resolution ?? t(`admin.payments.reviewStatus.${row.status}`)}
+          {row.resolution === null
+            ? t(`admin.payments.reviewStatus.${row.status}`)
+            : t(`admin.payments.reviewResolution.${camelKey(row.resolution)}`)}
         </Tag>
       ),
     },

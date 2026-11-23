@@ -16,6 +16,7 @@ import { PaymentStatusTag } from '../common/PaymentStatusTag';
 import { SelectFilter } from '../common/SelectFilter';
 import { Toolbar } from '../common/Toolbar';
 import { ROW_LINK, TEXT_LINK } from '../common/link-style';
+import { PaymentActionCell } from './PaymentActionCell';
 
 const SPEC = {
   status: { default: 'all', values: ['all', ...PAYMENT_STATUSES] },
@@ -75,6 +76,12 @@ export function PaymentRowsTab() {
           '—'
         ),
     },
+    {
+      id: 'actions',
+      header: <span className="sr-only">{t('admin.list.actions')}</span>,
+      align: 'end',
+      cell: (row) => <PaymentActionCell payment={row} />,
+    },
   ];
   return (
     <>
@@ -85,7 +92,8 @@ export function PaymentRowsTab() {
           onChange={(status) => set({ status })}
           options={SPEC.status.values.map((value) => ({
             value,
-            label: value === 'all' ? t('admin.list.all') : value,
+            label:
+              value === 'all' ? t('admin.list.all') : t(`admin.payments.paymentStatus.${value}`),
           }))}
         />
         <SelectFilter

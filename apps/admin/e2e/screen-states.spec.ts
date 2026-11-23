@@ -104,7 +104,7 @@ test.describe('filters live in the URL', () => {
     await page.goto('/payments');
     await page.getByRole('button', { name: 'Hal qilingan' }).click();
     await expect(page).toHaveURL(/status=RESOLVED/);
-    await expect(page.getByText('CREDITED_USER')).toBeVisible();
+    await expect(page.getByText('Foydalanuvchiga hisoblandi').first()).toBeVisible();
     await page.getByRole('link', { name: 'So‘rovlar' }).click();
     await expect(page).toHaveURL(/tab=intents$/);
     await page.getByRole('button', { name: 'EXPIRED' }).click();
@@ -196,7 +196,7 @@ const AXE_VISITS: readonly [string, string][] = [
   ['/products', 'telegram-stars'],
   ['/fragment', 'Sessiya faol'],
   ['/users', '@sardor_r'],
-  ['/users/mkuser000001?tab=ledger', 'REFERRAL_BONUS'],
+  ['/users/mkuser000001?tab=ledger', 'Referal bonusi'],
   ['/payments', 'Summaga mos so‘rov topilmadi'],
   ['/payments?tab=cards', 'HUMO •4417'],
   ['/recon', 'Hisobga olinmagan kirim'],

@@ -35,6 +35,10 @@ const FORBIDDEN = [
   '5521039917',
   'UQAi7Kx0hot',
   '<b>Diqqat</b>',
+  // S7b mock writes (write-kit, mock-state, write-users): a write scenario and the preview set ids.
+  'applyThenCodeExpired',
+  'a1b2c3d4e5f6',
+  'f6e5d4c3b2a1',
   // The dev-only theme probe page of e2e/theme.spec.ts.
   'dev/theme-probe',
   'probe-danger',

@@ -23,7 +23,9 @@ export default defineConfig({
     { name: 'w768', use: { ...desktopChrome, viewport: { width: 768, height: 1024 } } },
   ],
   webServer: {
-    command: `npx vite --port ${PORT} --strictPort`,
+    // --force: @repo/shared is a linked package whose dist changes without a lockfile change, so
+    // Vite would keep serving a stale pre-bundle of it (S7b: missing card confirmation schemas).
+    command: `npx vite --port ${PORT} --strictPort --force`,
     url: BASE_URL,
     env: {
       VITE_API_URL: 'http://localhost:5000/api/v1',

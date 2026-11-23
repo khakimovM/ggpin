@@ -1,7 +1,8 @@
 import type { PAYMENT_STATUSES } from '@repo/shared';
+import { useTranslations } from 'use-intl';
+import { Tag, type TagTone } from './Tag';
 
 type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
-import { Tag, type TagTone } from './Tag';
 
 const TONE: Record<PaymentStatus, TagTone> = {
   CREATED: 'warn',
@@ -9,7 +10,8 @@ const TONE: Record<PaymentStatus, TagTone> = {
   CANCELLED: 'bad',
 };
 
-/** A payment's status as the API names it (CREATED / CONFIRMED / CANCELLED). */
+/** A payment's status in words (CREATED / CONFIRMED / CANCELLED from the API, never shown raw). */
 export function PaymentStatusTag({ status }: { status: PaymentStatus }) {
-  return <Tag tone={TONE[status]}>{status}</Tag>;
+  const t = useTranslations();
+  return <Tag tone={TONE[status]}>{t(`admin.payments.paymentStatus.${status}`)}</Tag>;
 }

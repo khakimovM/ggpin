@@ -49,6 +49,8 @@ describe('sessionStorage of the key registry', () => {
         conflict: false,
         inFlight: true,
         createdAt: expect.any(Number) as number,
+        // S7b: when the attempt went out, for the 60 s "start as a new action" bound.
+        sentAt: expect.any(Number) as number,
       },
     ]);
   });

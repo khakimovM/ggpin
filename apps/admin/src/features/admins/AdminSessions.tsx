@@ -38,6 +38,10 @@ export function AdminSessions({ admins }: { admins: AdminAccountListResponse }) 
         .map((session) => ({ ...session, adminName: withSessions[index]?.name ?? '' })),
     )
     .sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt));
+  // M-4: rows already shown stay shown while others load or are retried (no skeleton flash); the
+  // skeleton only covers an empty table, and an error only shows once nothing is pending.
+  const state = rows.length > 0 ? 'data' : pending ? 'loading' : failed ? 'error' : 'empty';
+  const partial = failed !== undefined && !pending && rows.length > 0;
   const columns: DataTableColumn<Row>[] = [
     {
       id: 'admin',
@@ -73,7 +77,7 @@ export function AdminSessions({ admins }: { admins: AdminAccountListResponse }) 
       <h2 id="admin-sessions" className="m-0 text-sm leading-[18px] font-extrabold">
         {t('admin.admins.sessionsTitle')}
       </h2>
-      {failed && rows.length > 0 ? (
+      {partial ? (
         // Some admins' sessions came back, others failed (R-7): the list is incomplete, say so.
         <div
           role="alert"
@@ -91,15 +95,7 @@ export function AdminSessions({ admins }: { admins: AdminAccountListResponse }) 
         columns={columns}
         rows={rows}
         rowKey={(row) => row.id}
-        state={
-          failed && rows.length === 0
-            ? 'error'
-            : pending
-              ? 'loading'
-              : rows.length === 0
-                ? 'empty'
-                : 'data'
-        }
+        state={state}
         minWidth={760}
         skeletonRows={3}
         loadingLabel={t('admin.states.loading')}

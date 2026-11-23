@@ -12,7 +12,25 @@ export interface MockSeed {
   pendingPolls?: number;
   /** How the read endpoints answer: the four view states of every screen. */
   scenario?: 'data' | 'empty' | 'error' | 'loading';
+  /** How the next mock write answers (one-shot, mock-state.ts `writeScenario`). */
+  writeScenario?: WriteScenario;
 }
+
+export type WriteScenario = 'ok' | 'applyThen500' | 'fail500' | 'conflict' | 'applyThenCodeExpired';
+
+/** Sets how the NEXT write answers, on a page that is already open (one-shot). */
+export async function setWriteScenario(page: Page, writeScenario: WriteScenario): Promise<void> {
+  await page.evaluate(
+    ([key, value]) => {
+      const current = JSON.parse(window.sessionStorage.getItem(key) ?? '{}') as object;
+      window.sessionStorage.setItem(key, JSON.stringify({ ...current, writeScenario: value }));
+    },
+    [MOCK_STATE_KEY, writeScenario] as const,
+  );
+}
+
+/** The code the mock sends to "Telegram": any six digits but 000000 (the wrong one). */
+export const MOCK_CODE = '123456';
 
 /** Seeds the mock once per page (a reload keeps what the app wrote since, like a cookie). */
 export async function seedMock(page: Page, seed: MockSeed): Promise<void> {

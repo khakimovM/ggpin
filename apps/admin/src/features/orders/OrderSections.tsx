@@ -6,6 +6,7 @@ import { formatDateTime, formatMinor, shortHash } from '../../lib/format';
 import { ListEmpty } from '../common/ListStates';
 import { MoneyCell } from '../common/MoneyCell';
 import { Panel } from '../common/Panel';
+import { camelKey } from '../../lib/camel-key';
 import { Tag } from '../common/Tag';
 
 type Order = AdminOrderDetailResponse;
@@ -68,13 +69,12 @@ export function OrderHistory({ order }: { order: Order }) {
     {
       id: 'kind',
       header: t('admin.ledger.col.kind'),
-      cell: (e) => <Tag tone="mute">{e.kind}</Tag>,
+      cell: (e) => <Tag tone="mute">{t(`admin.ledger.kind.${camelKey(e.kind)}`)}</Tag>,
     },
     {
       id: 'ref',
       header: t('admin.ledger.col.ref'),
-      cell: (e) => e.refType,
-      className: 'font-mono text-[11px]',
+      cell: (e) => t(`admin.ledger.refType.${camelKey(e.refType)}`),
     },
     {
       id: 'amount',

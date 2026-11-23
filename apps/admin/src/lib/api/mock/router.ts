@@ -23,7 +23,8 @@ export interface MockReply {
   text?: string;
 }
 
-export type MockHandler = (request: MockRequest) => MockReply;
+/** Write routes are async (the audit id is a SubtleCrypto digest, as on the API). */
+export type MockHandler = (request: MockRequest) => MockReply | Promise<MockReply>;
 
 export interface MockRoute {
   method: HttpMethod;
@@ -31,8 +32,8 @@ export interface MockRoute {
   pattern: string;
   handler: MockHandler;
   /**
-   * The read permission of the route (the shared matrix): a signed-in role without it gets the
-   * API's 404, and so does a request without a session. Auth routes leave it out.
+   * The permission of the route (the shared matrix): a signed-in role without it gets the API's
+   * 404, and so does a request without a session. Auth routes leave it out.
    */
   permission?: AdminPermission;
 }
