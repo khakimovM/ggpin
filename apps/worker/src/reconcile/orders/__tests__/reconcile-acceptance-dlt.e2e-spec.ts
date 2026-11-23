@@ -79,35 +79,49 @@ async function collision(rec: Reconciler): Promise<Collision> {
   };
 }
 
+/** What the test waits for: a sleeper, a session blocked by a sleeper, or one blocked by a pid. */
+type Wait =
+  | { readonly kind: 'sleeping' }
+  | { readonly kind: 'blocked' }
+  | { readonly kind: 'blockedBy'; readonly pid: number };
+
 /**
- * This test's own sessions only (S9i gate A3), never another client of the database:
- * `sleeping` — a session whose UPDATE of "TonTransfer" sleeps in the test trigger; `blocked` — a
- * session waiting for a lock held by such a sleeper, or (`blocker`) by that backend pid.
+ * Sessions of this database narrowed by what they do (S9i gate A3), not every waiter:
+ * `sleeping` — a session whose current statement is an UPDATE of "TonTransfer" and which sleeps
+ * (PgSleep: only the test trigger sleeps there); `blocked` — a session waiting for a lock that
+ * such a sleeper holds (pg_blocking_pids); `blockedBy` — a session waiting for a lock that this
+ * backend pid holds. The waiter's own statement is not filtered. A client outside this test would
+ * count only by doing the very same thing (an UPDATE of "TonTransfer" asleep in a trigger, or
+ * waiting on the rival's pid); nothing else uses the test database's trigger names or this pid.
  */
-async function sessionsWaiting(what: 'sleeping' | 'blocked', blocker?: number): Promise<number> {
+async function sessionsWaiting(wait: Wait): Promise<number> {
   const [row] =
-    what === 'sleeping'
+    wait.kind === 'sleeping'
       ? await t.db.$queryRaw<{ n: number }[]>`
           SELECT count(*)::int AS n FROM pg_stat_activity
           WHERE datname = current_database() AND wait_event = 'PgSleep'
             AND query ILIKE '%UPDATE%"TonTransfer"%'`
-      : await t.db.$queryRaw<{ n: number }[]>`
-          SELECT count(*)::int AS n FROM pg_stat_activity a
-          WHERE a.datname = current_database() AND a.wait_event_type = 'Lock'
-            AND EXISTS (
-              SELECT 1 FROM pg_stat_activity s
-              WHERE s.pid = ANY (pg_blocking_pids(a.pid))
-                AND (s.pid = ${blocker ?? -1}
-                  OR (s.wait_event = 'PgSleep' AND s.query ILIKE '%UPDATE%"TonTransfer"%')))`;
+      : wait.kind === 'blocked'
+        ? await t.db.$queryRaw<{ n: number }[]>`
+            SELECT count(*)::int AS n FROM pg_stat_activity a
+            WHERE a.datname = current_database() AND a.wait_event_type = 'Lock'
+              AND EXISTS (
+                SELECT 1 FROM pg_stat_activity s
+                WHERE s.pid = ANY (pg_blocking_pids(a.pid)) AND s.wait_event = 'PgSleep'
+                  AND s.query ILIKE '%UPDATE%"TonTransfer"%')`
+        : await t.db.$queryRaw<{ n: number }[]>`
+            SELECT count(*)::int AS n FROM pg_stat_activity a
+            WHERE a.datname = current_database() AND a.wait_event_type = 'Lock'
+              AND ${wait.pid}::int = ANY (pg_blocking_pids(a.pid))`;
   return row?.n ?? 0;
 }
 
-async function until(what: 'sleeping' | 'blocked', blocker?: number): Promise<void> {
+async function until(wait: Wait): Promise<void> {
   for (const deadline = Date.now() + 15_000; Date.now() < deadline;) {
-    if ((await sessionsWaiting(what, blocker)) > 0) return;
+    if ((await sessionsWaiting(wait)) > 0) return;
     await sleep(10);
   }
-  throw new Error(`no session of this test was ${what}`);
+  throw new Error(`no session of this test was ${wait.kind}`);
 }
 
 /** pg_sleep inside every UPDATE of this transfer: its writer holds all three row locks meanwhile. */
@@ -173,9 +187,9 @@ async function inOrder(c: Collision, first: TonOutcome, second: TonOutcome) {
   const b = countingRepository(t.db);
   return withSlowTransfer(c.transferId, async () => {
     const one = a.repo.apply(c.transferId, first);
-    await until('sleeping');
+    await until({ kind: 'sleeping' });
     const two = b.repo.apply(c.transferId, second);
-    await until('blocked');
+    await until({ kind: 'blocked' });
     const [x, y] = await Promise.all([one, two]);
     return { first: x.applied, second: y.applied, tries: a.tries.n + b.tries.n };
   });
@@ -233,8 +247,9 @@ describe('DL-T: the BOUNCED classifier and the worker DELIVERED on one transfer'
       async (tx) => {
         await tx.$queryRaw`SELECT "id" FROM "TonTransfer" WHERE "id" = ${c.transferId} FOR UPDATE`;
         const [me] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+        if (typeof me?.pid !== 'number') throw new Error('the rival has no backend pid');
         // The classifier holds the order and attempt, and waits for this transfer lock.
-        await until('blocked', me?.pid ?? -1);
+        await until({ kind: 'blockedBy', pid: me.pid });
         await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${c.orderId} FOR SHARE`;
         return 'committed' as const;
       },

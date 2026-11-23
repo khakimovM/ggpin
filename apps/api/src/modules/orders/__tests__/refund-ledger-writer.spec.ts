@@ -14,7 +14,13 @@ const API_SRC = join(__dirname, '../../..');
 /** A ledger write: the one helper, the wallet wrapper, a Prisma create, or raw SQL. */
 const LEDGER_WRITE =
   /\b(appendLedgerEntry|appendEntry)\s*\(|\bledgerEntry\s*\.\s*(create|createMany|upsert)\w*\s*\(|INSERT\s+INTO\s+(?:"?public"?\.)?"?LedgerEntry\b/i;
-/** A REFUND kind given to it. */
+/**
+ * A REFUND kind given to it. The scanner needs the LITERAL `kind: 'REFUND'` (or
+ * `LedgerEntryKind.REFUND`) in the same file as the write: a kind passed through a variable or a
+ * parameter (`kind: entry.kind`, as in appendLedgerEntry itself) is not seen. That limit is
+ * accepted on purpose: every writer today spells its kind literally, a source-text scan cannot
+ * follow data flow, and the review of a new money path still has to catch a computed kind.
+ */
 const REFUND_KIND = /\bkind\s*:\s*['"`]REFUND['"`]|\bLedgerEntryKind\s*\.\s*REFUND\b/;
 /** A row written past `appendLedgerEntry` (its checks and the wallet lock). */
 const DIRECT_WRITE =

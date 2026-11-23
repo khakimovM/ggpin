@@ -1,5 +1,5 @@
 import { MANUAL_FX_SOURCE } from '@repo/shared';
-import { CLOCK } from '../../common/clock/clock';
+import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG } from '../../config/config.module';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
@@ -38,10 +38,15 @@ async function removeManualRows(): Promise<void> {
 
 beforeEach(removeManualRows);
 
-/** An owner's row typed `agoMs` ago (the history a test needs, without waiting a minute). */
-async function seed(pair: string, rate: string, agoMs: number): Promise<string> {
+/** An owner's row typed `agoMs` before `nowMs` (the history a test needs, without waiting). */
+async function seed(
+  pair: string,
+  rate: string,
+  agoMs: number,
+  nowMs = Date.now(),
+): Promise<string> {
   const row = await t.db().fxRate.create({
-    data: { pair, rate, source: MANUAL_FX_SOURCE, createdAt: new Date(Date.now() - agoMs) },
+    data: { pair, rate, source: MANUAL_FX_SOURCE, createdAt: new Date(nowMs - agoMs) },
   });
   written.add(row.id);
   return row.id;
@@ -62,6 +67,28 @@ function ownerAlerts(): OwnerAlertRenderer {
   const app = t.app();
   const sources = new NotifySourcesRepository(app.get(PrismaService), app.get(RedisService));
   return new OwnerAlertRenderer(sources, app.get(APP_CONFIG), app.get(CLOCK));
+}
+
+/**
+ * S9i F-1: `previous` (and a derivation's other pair) is the newest row of the pair from ANY source
+ * (fx-admin.plan.ts `latest`), and other suites leave rows (worker fulfill-e2e: USDT_UZS 30000.5).
+ * A test whose seed must be the newest runs the CLI on the app CLOCK moved `agoMs` past them.
+ */
+async function clockAfterOthers(
+  pair: string,
+  agoMs: number,
+): Promise<{
+  readonly nowMs: number;
+  readonly restore: () => void;
+}> {
+  const newest = await t.db().fxRate.findFirst({
+    where: { pair },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: { createdAt: true },
+  });
+  const nowMs = Math.max(Date.now(), (newest?.createdAt.getTime() ?? 0) + 1 + agoMs);
+  const spy = jest.spyOn(t.app().get<Clock>(CLOCK), 'now').mockReturnValue(new Date(nowMs));
+  return { nowMs, restore: () => spy.mockRestore() };
 }
 
 const manualCount = () => t.db().fxRate.count({ where: { source: MANUAL_FX_SOURCE } });
@@ -110,8 +137,14 @@ describe('fx:set (real Postgres)', () => {
   });
 
   it('a small move needs no code; a jump over 10% does', async () => {
-    await seed('USDT_UZS', '12800', 2 * MIN);
-    const small = await t.run(set('USDT_UZS', '13000'));
+    const clock = await clockAfterOthers('USDT_UZS', 2 * MIN);
+    let small: Awaited<ReturnType<typeof t.run>>;
+    try {
+      await seed('USDT_UZS', '12800', 2 * MIN, clock.nowMs);
+      small = await t.run(set('USDT_UZS', '13000'));
+    } finally {
+      clock.restore();
+    }
     expect(small.err).toEqual([]);
     expect(small.code).toBe(0);
     expect(small.asked).toEqual([]);
@@ -224,9 +257,15 @@ describe('fx:set (real Postgres)', () => {
   it('TON_USDT with a fresh manual USDT_UZS derives TON_UZS in the same transaction, rounded UP', async () => {
     // 3.000000000000000001 x 12800.5 = 38401.5000000000000128005: 19 decimals, cut to 18 upwards
     // (rules/40: a rate used for cost rounds up), never down to ...0128.
-    await seed('USDT_UZS', '12800.5', 0);
+    const clock = await clockAfterOthers('USDT_UZS', 0);
     const rate = '3.000000000000000001';
-    const out = await t.run(set('TON_USDT', rate), [rate, t.codeFor(`fx TON_USDT ${rate}`)]);
+    let out: Awaited<ReturnType<typeof t.run>>;
+    try {
+      await seed('USDT_UZS', '12800.5', 0, clock.nowMs);
+      out = await t.run(set('TON_USDT', rate), [rate, t.codeFor(`fx TON_USDT ${rate}`)]);
+    } finally {
+      clock.restore();
+    }
     expect(out.err).toEqual([]);
     expect(out.code).toBe(0);
     const done = fields(out.out);

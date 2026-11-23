@@ -100,10 +100,12 @@ async function operatorRetry(orderId: string): Promise<'released' | 'NOT_HELD' |
 }
 
 /**
- * Until this test's own sessions are where it needs them (S9i gate A3): `sleeping` — a session
- * inserting into `table` sleeps in the test trigger; `blocked` — a session waits for a lock on
- * "Order" that a session sleeping in the trigger holds (pg_blocking_pids). Another client of the
- * database (sleeping or waiting on anything else) does not count.
+ * Until the sessions this test drives are where it needs them, narrowed by what they do (S9i gate
+ * A3), not every waiter of the database: `sleeping` — a session whose current statement is an
+ * INSERT into `table` and which sleeps (PgSleep: only the test trigger sleeps there); `blocked` —
+ * a session waiting for a lock (any lock) whose current statement mentions "Order" (both the
+ * retry's and the refund's order read under lock do), blocked (pg_blocking_pids) by such a
+ * sleeper. A client outside this test would count only by doing the very same thing.
  */
 async function waiting(
   what: 'sleeping' | 'blocked',
