@@ -8,6 +8,7 @@ import type { WalletAdminService } from '../../../wallet/wallet-admin.service';
 import { openOrdersSetHash, type OpenOrder } from '../../../wallet/wallet-open-orders';
 import type { AdminPrincipal } from '../../common/admin-request';
 import type { AdminPaymentsReadService } from '../../payments/admin-payments-read.service';
+import type { AdminConfirmAdminsView } from '../admin-confirm-admins.view';
 import { AdminConfirmService } from '../admin-confirm.service';
 import type { AdminOtpIssuer } from '../admin-otp.issuer';
 
@@ -42,6 +43,7 @@ function setup() {
     {} as AdminPaymentsReadService,
     { ADMIN_CONFIRM_THRESHOLD_TIYIN: 100_000_000n },
     clock,
+    {} as AdminConfirmAdminsView,
   );
   const principal = {
     sessionId: 's1',

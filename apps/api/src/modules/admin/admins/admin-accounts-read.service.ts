@@ -9,7 +9,7 @@ import { AppError } from '../../../common/exceptions/app-error';
 import { APP_CONFIG, type AppConfig } from '../../../config/config.module';
 import { iso, isoOrNull, shownIp } from '../read/admin-read-view';
 import { AdminAccountsReadRepository } from './admin-accounts-read.repository';
-import { isAllowlisted } from './admin-allowlist';
+import { adminAccountOf } from './admin-account.mapper';
 import { AdminUsersRepository } from './admin-users.repository';
 
 const MS = 1000;
@@ -27,18 +27,9 @@ export class AdminAccountsReadService {
   async list(): Promise<AdminAccountListResponse> {
     const rows = await this.admins.list(this.clock.now());
     const logins = await this.repo.lastLogins(rows.map((row) => row.id));
-    return rows.map((row) => ({
-      id: row.id,
-      telegramId: row.telegramId.toString(),
-      name: row.name,
-      role: row.role,
-      isActive: row.isActive,
-      // Read from the config on every call, like the guard: false = cannot sign in yet.
-      allowlisted: isAllowlisted(this.config, row.telegramId),
-      lastLoginAt: isoOrNull(logins.get(row.id) ?? null),
-      activeSessions: row.activeSessions,
-      createdAt: iso(row.createdAt),
-    }));
+    return rows.map((row) =>
+      adminAccountOf({ ...row, lastLoginAt: logins.get(row.id) ?? null }, this.config),
+    );
   }
 
   /** An admin's sessions, newest first; `current` marks the caller's own. */

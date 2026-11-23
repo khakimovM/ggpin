@@ -1332,7 +1332,11 @@
         "confirmSecurityPause": "Подтверждён выход из паузы безопасности",
         "emergency": "Экстренно",
         "monthlyLimit": "Месячный лимит: {amount}",
-        "monthlyLimitRemoved": "Месячный лимит снимается"
+        "monthlyLimitRemoved": "Месячный лимит снимается",
+        "adminRole": "Новая роль: {role}",
+        "adminName": "Новое имя: {name}",
+        "adminDeactivate": "Админ будет деактивирован, его сессии завершатся",
+        "adminReactivate": "Админ будет снова активирован"
       },
       "action": {
         "orders": {

@@ -20,6 +20,7 @@ import { WalletAdminService } from '../../wallet/wallet-admin.service';
 import type { AdminPrincipal } from '../common/admin-request';
 import { AdminPaymentsReadService } from '../payments/admin-payments-read.service';
 import { adminWriteError } from '../write/admin-write-error';
+import { AdminConfirmAdminsView, isAdminsConfirmation } from './admin-confirm-admins.view';
 import { AdminOtpIssuer, type AdminOtpSubjectRef } from './admin-otp.issuer';
 
 const cardRef = (card: { readonly bank: string; readonly last4: string }) => ({
@@ -40,7 +41,8 @@ interface ServerView {
  * only for an action this admin may perform now and that needs one now, decided from the
  * server's own reads (never the client's amounts). The flags are computed with the very functions
  * the action uses, so the two bindings agree. Actions whose routes are not served yet (orders,
- * fx, admins: later slices) are `404` like their routes. Writes no AuditLog row (N8).
+ * fx: later slices) are `404` like their routes. The admin-management actions (S9a) are read by
+ * AdminConfirmAdminsView. Writes no AuditLog row (N8).
  */
 @Injectable()
 export class AdminConfirmService {
@@ -52,6 +54,7 @@ export class AdminConfirmService {
     private readonly cards: AdminPaymentsReadService,
     @Inject(APP_CONFIG) private readonly config: Pick<AppConfig, 'ADMIN_CONFIRM_THRESHOLD_TIYIN'>,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly admins: AdminConfirmAdminsView,
   ) {}
 
   async create(
@@ -90,6 +93,7 @@ export class AdminConfirmService {
     principal: AdminPrincipal,
     body: AdminConfirmationBody,
   ): Promise<ServerView> {
+    if (isAdminsConfirmation(body)) return this.admins.view(body);
     const thresholdTiyin = this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN;
     const adminId = principal.admin.id;
     const now = this.clock.now();

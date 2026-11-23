@@ -90,6 +90,9 @@ export class AdminSessionService {
   async open(tx: Db, admin: AdminUser, ip: string | null, now: Date): Promise<OpenedSession> {
     const token = newAdminToken();
     const expiresAt = new Date(now.getTime() + ADMIN_SESSION_TTL_SEC * MS);
+    // After the caller's FOR SHARE on the admin row (lockForLogin): a panel revoke of this admin
+    // waits for this commit and then ends the session opened here too (CR-2 / SA L-1).
+    await this.repo.lockAdminSessions(tx, admin.id);
     const sessionId = await this.repo.create(tx, {
       adminId: admin.id,
       tokenHash: hashAdminToken(token),

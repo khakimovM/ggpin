@@ -1,5 +1,14 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`admin confirmation code message (ru) add an admin (no row yet: the masked id it asks for) 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Добавление админа
+Сумма: —
+Объект: 55******34
+Флаги: Новая роль: SUPPORT; Новое имя: Shift two
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
 exports[`admin confirmation code message (ru) adjust credit with override 1`] = `
 "🔐 Код подтверждения действия в админ-панели: 123456
 Действие: Корректировка баланса кошелька
@@ -27,12 +36,39 @@ exports[`admin confirmation code message (ru) codeless-budget debit of a user wi
 Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
 `;
 
+exports[`admin confirmation code message (ru) deactivate an admin 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Изменение данных админа
+Сумма: —
+Объект: Operator · 55******34
+Флаги: Админ будет деактивирован, его сессии завершатся
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
 exports[`admin confirmation code message (ru) emergency retire 1`] = `
 "🔐 Код подтверждения действия в админ-панели: 123456
 Действие: Вывод карты из работы
 Сумма: —
 Объект: UZCARD ·9876
 Флаги: Экстренно
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) end every session of an admin 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Завершение сессий админа
+Сумма: —
+Объект: Owner · 55******34
+Флаги: —
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) end one session 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Завершение сессии
+Сумма: —
+Объект: Owner · 55******34
+Флаги: —
 Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
 `;
 
@@ -51,6 +87,24 @@ exports[`admin confirmation code message (ru) raised limit with a monthly cap 1`
 Новый лимит: 20 000 000 сум
 Объект: HUMO ·4321
 Флаги: Месячный лимит: 300 000 000 сум
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) reactivate an admin 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Изменение данных админа
+Сумма: —
+Объект: Operator · 55******34
+Флаги: Админ будет снова активирован
+Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
+`;
+
+exports[`admin confirmation code message (ru) rename and move an admin to SUPPORT 1`] = `
+"🔐 Код подтверждения действия в админ-панели: 123456
+Действие: Изменение данных админа
+Сумма: —
+Объект: Operator · 55******34
+Флаги: Новая роль: SUPPORT; Новое имя: Night shift
 Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
 `;
 
@@ -99,6 +153,15 @@ exports[`admin confirmation code message (ru) security resume 1`] = `
 Код действует 3 минуты, используется один раз и работает только в той сессии панели, где вы его запросили. Если действие, сумма, объект или флаги отличаются от того, что вы ввели в панели, не вводите код, никому его не сообщайте и завершите свои сессии панели."
 `;
 
+exports[`admin confirmation code message (uz) add an admin (no row yet: the masked id it asks for) 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Admin qo‘shish
+Summa: —
+Obyekt: 55******34
+Belgilar: Yangi rol: SUPPORT; Yangi ism: Shift two
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
 exports[`admin confirmation code message (uz) adjust credit with override 1`] = `
 "🔐 Admin amalini tasdiqlash kodi: 123456
 Amal: Hamyon balansini tuzatish
@@ -126,12 +189,39 @@ Belgilar: Kunlik kodsiz limit tugagan
 Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
 `;
 
+exports[`admin confirmation code message (uz) deactivate an admin 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Admin maʼlumotlarini o‘zgartirish
+Summa: —
+Obyekt: Operator · 55******34
+Belgilar: Admin faolsizlantiriladi, sessiyalari yopiladi
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
 exports[`admin confirmation code message (uz) emergency retire 1`] = `
 "🔐 Admin amalini tasdiqlash kodi: 123456
 Amal: Kartani ishdan chiqarish
 Summa: —
 Obyekt: UZCARD ·9876
 Belgilar: Favqulodda
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) end every session of an admin 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Admin sessiyalarini yopish
+Summa: —
+Obyekt: Owner · 55******34
+Belgilar: —
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) end one session 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Sessiyani yopish
+Summa: —
+Obyekt: Owner · 55******34
+Belgilar: —
 Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
 `;
 
@@ -150,6 +240,24 @@ Amal: Karta limitini o‘zgartirish
 Yangi limit: 20 000 000 so‘m
 Obyekt: HUMO ·4321
 Belgilar: Oylik limit: 300 000 000 so‘m
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) reactivate an admin 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Admin maʼlumotlarini o‘zgartirish
+Summa: —
+Obyekt: Operator · 55******34
+Belgilar: Admin qayta faollashtiriladi
+Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
+`;
+
+exports[`admin confirmation code message (uz) rename and move an admin to SUPPORT 1`] = `
+"🔐 Admin amalini tasdiqlash kodi: 123456
+Amal: Admin maʼlumotlarini o‘zgartirish
+Summa: —
+Obyekt: Operator · 55******34
+Belgilar: Yangi rol: SUPPORT; Yangi ism: Night shift
 Kod 3 daqiqa amal qiladi, bir marta ishlatiladi va faqat siz kod so‘ragan panel sessiyasida ishlaydi. Amal, summa, obyekt yoki belgilar siz panelda kiritganingizdan farq qilsa, kodni kiritmang, uni hech kimga bermang va panel sessiyalaringizni yoping."
 `;
 

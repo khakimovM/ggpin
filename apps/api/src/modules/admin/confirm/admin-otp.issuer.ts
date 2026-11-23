@@ -25,6 +25,8 @@ export interface AdminOtpSubjectRef {
   readonly amount?: AdminConfirmSubject['amount'];
   readonly userId?: string;
   readonly card?: AdminConfirmSubject['card'];
+  /** An admin-management target (S9a), as the server read it; masked in the message. */
+  readonly admin?: AdminConfirmSubject['admin'];
 }
 
 export interface AdminOtpIssue {
@@ -101,6 +103,7 @@ export class AdminOtpIssuer {
     return {
       ...(ref.amount === undefined ? {} : { amount: ref.amount }),
       ...(ref.card === undefined ? {} : { card: ref.card }),
+      ...(ref.admin === undefined ? {} : { admin: ref.admin }),
       ...(user === null ? {} : { user: { username: user.username, telegramId: user.telegramId } }),
     };
   }

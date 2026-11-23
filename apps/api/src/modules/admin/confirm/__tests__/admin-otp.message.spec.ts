@@ -132,6 +132,43 @@ const cases: readonly [string, AdminConfirmationBody, readonly string[], AdminCo
     [],
     { amount: { tiyin: 1_000_000_000n, signed: false }, card: { bank: 'HUMO', last4: '4321' } },
   ],
+  // Phase 9 S9a: the admin-management codes name the admin (masked id) and the body in words.
+  [
+    'add an admin (no row yet: the masked id it asks for)',
+    body({ action: 'admins.create', telegramId: '5550001234', name: 'Shift two', role: 'SUPPORT' }),
+    [],
+    { admin: { name: null, telegramId: 5_550_001_234n } },
+  ],
+  [
+    'rename and move an admin to SUPPORT',
+    body({ action: 'admins.update', targetId: ID, name: 'Night shift', role: 'SUPPORT' }),
+    [],
+    { admin: { name: 'Operator', telegramId: 5_550_001_234n } },
+  ],
+  [
+    'deactivate an admin',
+    body({ action: 'admins.update', targetId: ID, isActive: false }),
+    [],
+    { admin: { name: 'Operator', telegramId: 5_550_001_234n } },
+  ],
+  [
+    'reactivate an admin',
+    body({ action: 'admins.update', targetId: ID, isActive: true }),
+    [],
+    { admin: { name: 'Operator', telegramId: 5_550_001_234n } },
+  ],
+  [
+    'end every session of an admin',
+    body({ action: 'admins.sessionsRevoke', targetId: ID }),
+    [],
+    { admin: { name: 'Owner', telegramId: 5_550_001_234n } },
+  ],
+  [
+    'end one session',
+    body({ action: 'sessions.revoke', targetId: ID }),
+    [],
+    { admin: { name: 'Owner', telegramId: 5_550_001_234n } },
+  ],
 ];
 
 describe.each(['uz', 'ru'] as const)('admin confirmation code message (%s)', (locale) => {
@@ -188,6 +225,19 @@ ${newLimit} `);
     expect(text(limit)).not.toContain(sum);
     expect(text(reverse)).toContain(`
 ${sum} `);
+  });
+
+  it('escapes an admin name exactly once, in the target and in the new-name flag', () => {
+    const text = adminConfirmText(locale, {
+      code: '123456',
+      body: body({ action: 'admins.update', targetId: ID, name: 'Tom & Jerry' }),
+      serverFlags: [],
+      subject: { admin: { name: 'Ali & Vali', telegramId: 5_550_001_234n } },
+    });
+    expect(text).toContain('Ali &amp; Vali · 55******34');
+    expect(text).toContain('Tom &amp; Jerry');
+    expect(text).not.toContain('&amp;amp;');
+    expect(text).not.toContain('5550001234');
   });
 
   it('masks the Telegram id: the full id never reaches the chat', () => {

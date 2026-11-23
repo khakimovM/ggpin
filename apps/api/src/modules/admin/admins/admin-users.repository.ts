@@ -6,6 +6,8 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 /** One AuditLog row of the admin surface (panel: actor ADMIN; owner CLI: actor CLI, no id). */
 export interface AdminAuditData {
+  /** A panel write's row id is its Idempotency-Key row (`actor.request.auditId`); else a new id. */
+  readonly id?: string;
   readonly actorType: 'ADMIN' | 'CLI';
   readonly actorId: string | null;
   readonly action: AdminAuditAction;
@@ -32,6 +34,24 @@ export interface OwnerRow {
 
 export interface AdminListRow extends AdminUser {
   readonly activeSessions: number;
+}
+
+export interface AdminAccountRow extends AdminListRow {
+  /** The newest session it opened (a session = one login); null: never signed in. */
+  readonly lastLoginAt: Date | null;
+}
+
+/** What the panel may change on a non-OWNER admin row (`PATCH /admin/admins/:id`). */
+export interface PanelAdminChange {
+  readonly name?: string;
+  readonly role?: 'OPERATOR' | 'SUPPORT';
+  readonly isActive?: boolean;
+}
+
+/** A live session: not revoked, not past `expiresAt`, used within the idle hour (isSessionLive). */
+function liveSessionWhere(now: Date) {
+  const idleSince = new Date(now.getTime() - ADMIN_SESSION_IDLE_SEC * 1000);
+  return { revokedAt: null, expiresAt: { gt: now }, lastUsedAt: { gt: idleSince } };
 }
 
 // All Prisma access to AdminUser and the admin AuditLog rows. Writes take the caller's
@@ -107,6 +127,53 @@ export class AdminUsersRepository {
     return tx.adminUser.findUnique({ where: { id } });
   }
 
+  /**
+   * The panel's admin-management lock on the TARGET row (plan S9a), taken after the acting admin's
+   * FOR SHARE (confirmActorInTx) and before any session row: `UPDATE` for a change of the row
+   * itself (a login's FOR SHARE waits for it, as for the CLI), `SHARE` for a revoke that only ends
+   * sessions (two OWNERs revoking each other's sessions at once must not deadlock on an upgrade).
+   * Read after the lock. Never lockActiveOwners: the panel never changes an OWNER row.
+   */
+  async lockById(tx: Db, id: string, mode: 'UPDATE' | 'SHARE'): Promise<AdminUser | null> {
+    if (mode === 'UPDATE') {
+      await tx.$queryRaw`SELECT "id" FROM "AdminUser" WHERE "id" = ${id} FOR UPDATE`;
+    } else {
+      await tx.$queryRaw`SELECT "id" FROM "AdminUser" WHERE "id" = ${id} FOR SHARE`;
+    }
+    return tx.adminUser.findUnique({ where: { id } });
+  }
+
+  /**
+   * The panel's change of a non-OWNER row: false when the row is an OWNER (or gone). The service
+   * has refused an OWNER under the lock already; the guard in the WHERE keeps the rule in SQL too.
+   */
+  async updateNonOwner(tx: Db, id: string, data: PanelAdminChange): Promise<boolean> {
+    const { count } = await tx.adminUser.updateMany({
+      where: { id, role: { not: 'OWNER' } },
+      data,
+    });
+    return count === 1;
+  }
+
+  /** One admin as `AdminAccount` needs it: live sessions now and the newest login. */
+  async account(
+    id: string,
+    now: Date,
+    db: Db = this.prisma.client,
+  ): Promise<AdminAccountRow | null> {
+    const row = await db.adminUser.findUnique({
+      where: { id },
+      include: { _count: { select: { sessions: { where: liveSessionWhere(now) } } } },
+    });
+    if (row === null) return null;
+    const newest = await db.adminSession.aggregate({
+      where: { adminId: id },
+      _max: { createdAt: true },
+    });
+    const { _count, ...admin } = row;
+    return { ...admin, activeSessions: _count.sessions, lastLoginAt: newest._max.createdAt };
+  }
+
   /** Telegram ids of every active admin (the allowlist decides who of them can sign in). */
   async activeTelegramIds(tx: Db): Promise<bigint[]> {
     const rows = await tx.adminUser.findMany({
@@ -121,11 +188,9 @@ export class AdminUsersRepository {
    * within the idle hour (the same three rules as isSessionLive).
    */
   async list(now: Date): Promise<AdminListRow[]> {
-    const idleSince = new Date(now.getTime() - ADMIN_SESSION_IDLE_SEC * 1000);
-    const live = { revokedAt: null, expiresAt: { gt: now }, lastUsedAt: { gt: idleSince } };
     const rows = await this.prisma.client.adminUser.findMany({
       orderBy: { createdAt: 'asc' },
-      include: { _count: { select: { sessions: { where: live } } } },
+      include: { _count: { select: { sessions: { where: liveSessionWhere(now) } } } },
     });
     return rows.map(({ _count, ...admin }) => ({ ...admin, activeSessions: _count.sessions }));
   }
@@ -133,6 +198,7 @@ export class AdminUsersRepository {
   async createAudit(tx: Db, data: AdminAuditData): Promise<string> {
     const row = await tx.auditLog.create({
       data: {
+        ...(data.id === undefined ? {} : { id: data.id }),
         actorType: data.actorType,
         actorId: data.actorId,
         action: data.action,

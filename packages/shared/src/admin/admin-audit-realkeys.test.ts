@@ -175,6 +175,9 @@ const REAL_KEYS = [
   'isEnabled',
   'sorts',
   'id',
+  // Phase 9 S9a, the panel's admin management (admin-panel-accounts.service.ts).
+  'currentRevoked',
+  'adminId',
 ] as const;
 
 const VIEW: AuditRedactionView = {

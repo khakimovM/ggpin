@@ -1,10 +1,12 @@
 import { ADMIN_CODELESS_BUDGET_FLAG, type AdminConfirmationBody } from '@repo/shared';
+import { escapeHtml } from '../../../common/i18n/html';
 import { translate } from '../../../common/i18n/translate';
 import { moneyText } from '../../notifications/owner-alert.renderer';
 
 // The admin reads every flag the code is bound to in their own language (owner decision
 // 2026-11-18). Only the WORDS change: the binding keeps the raw flags, and a flag this file does
 // not know is shown as it is, never hidden, so a new server flag can never slip past unseen.
+// Every label is HTML-ready (escaped once, here): admin-otp.message.ts puts them in unescaped.
 
 type Locale = 'uz' | 'ru';
 
@@ -44,7 +46,23 @@ function serverFlagLabel(locale: Locale, flag: string): string {
       .map((w) => translate(locale, `${FLAG}.${USER_WARNING[w] ?? w}`));
     return translate(locale, `${FLAG}.overrideUser`, { what: what.join(', ') });
   }
-  return flag;
+  return escapeHtml(flag);
+}
+
+/** An admin-management body in words (S9a): the role, the name, the activity it sets. */
+function adminLabels(locale: Locale, body: AdminConfirmationBody): string[] {
+  if (body.action !== 'admins.create' && body.action !== 'admins.update') return [];
+  const labels: string[] = [];
+  if (body.role !== undefined)
+    labels.push(translate(locale, `${FLAG}.adminRole`, { role: body.role }));
+  if (body.name !== undefined)
+    labels.push(translate(locale, `${FLAG}.adminName`, { name: body.name }));
+  if (body.action === 'admins.update' && body.isActive !== undefined) {
+    labels.push(
+      translate(locale, `${FLAG}.${body.isActive ? 'adminReactivate' : 'adminDeactivate'}`),
+    );
+  }
+  return labels;
 }
 
 /**
@@ -56,7 +74,7 @@ export function adminConfirmFlagLabels(
   body: AdminConfirmationBody,
   serverFlags: readonly string[],
 ): string[] {
-  const labels: string[] = [];
+  const labels: string[] = adminLabels(locale, body);
   // A review credit's and an adjustment's override are in the server's flags already.
   if (body.action === 'cards.resume') {
     if (body.confirmOverride) labels.push(translate(locale, `${FLAG}.confirmOverride`));

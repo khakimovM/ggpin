@@ -11,6 +11,7 @@ import {
   IsoDateTimeSchema,
   TelegramIdStringSchema,
   adminActionResultShape,
+  adminStateResultShape,
 } from './admin-common-schemas';
 import { AdminRoleSchema, PanelAssignableRoleSchema } from './admin-roles';
 
@@ -82,9 +83,13 @@ export type AdminUpdateBody = z.infer<typeof AdminUpdateBodySchema>;
 export const AdminManagementBodySchema = z.strictObject(managementShape);
 export type AdminManagementBody = z.infer<typeof AdminManagementBodySchema>;
 
+/**
+ * A PATCH that changes nothing (every asked field already so) writes nothing: `applied: false`,
+ * `auditId: null` (docs/04 «Javob», the CLI rule), like the catalog writes.
+ */
 export const AdminAccountResponseSchema = z.strictObject({
   admin: AdminAccountSchema,
-  ...adminActionResultShape,
+  ...adminStateResultShape,
 });
 export type AdminAccountResponse = z.infer<typeof AdminAccountResponseSchema>;
 

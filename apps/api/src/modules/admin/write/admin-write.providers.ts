@@ -4,10 +4,14 @@ import { CardPauseService } from '../../payments/card-pause.service';
 import { ReviewCreditService } from '../../payments/review-credit.service';
 import { ReviewEffects } from '../../payments/review-effects';
 import { WalletUnfreezeService } from '../../wallet/wallet-unfreeze.service';
+import { AdminAccountsWriteController } from '../admins/admin-accounts-write.controller';
+import { AdminAccountsWriteReplays } from '../admins/admin-accounts-write.replays';
+import { AdminPanelAccountsService } from '../admins/admin-panel-accounts.service';
 import { AdminCatalogWriteController } from '../catalog/admin-catalog-write.controller';
 import { AdminCatalogWriteReplays } from '../catalog/admin-catalog-write.replays';
 import { AdminCatalogWriteRepository } from '../catalog/admin-catalog-write.repository';
 import { AdminCatalogWriteService } from '../catalog/admin-catalog-write.service';
+import { AdminConfirmAdminsView } from '../confirm/admin-confirm-admins.view';
 import { AdminConfirmController } from '../confirm/admin-confirm.controller';
 import { AdminConfirmService } from '../confirm/admin-confirm.service';
 import { AdminOtpIssuer } from '../confirm/admin-otp.issuer';
@@ -32,6 +36,8 @@ export const ADMIN_WRITE_CONTROLLERS: Type[] = [
   AdminPaymentActionsController,
   // S8a: the catalog writes (docs/04 «Katalog»).
   AdminCatalogWriteController,
+  // S9a: the admin management (docs/04 «Adminlar»).
+  AdminAccountsWriteController,
 ];
 
 export const ADMIN_WRITE_PROVIDERS: Provider[] = [
@@ -47,6 +53,9 @@ export const ADMIN_WRITE_PROVIDERS: Provider[] = [
   AdminCatalogWriteRepository,
   AdminCatalogWriteService,
   AdminCatalogWriteReplays,
+  AdminConfirmAdminsView,
+  AdminPanelAccountsService,
+  AdminAccountsWriteReplays,
   // The owner CLI's services that no other API module provides (cli/ops-cli.module.ts wires them too).
   CardPauseRepository,
   CardPauseService,

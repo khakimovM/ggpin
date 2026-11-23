@@ -1332,7 +1332,11 @@
         "confirmSecurityPause": "Xavfsizlik pauzasidan chiqarish tasdiqlangan",
         "emergency": "Favqulodda",
         "monthlyLimit": "Oylik limit: {amount}",
-        "monthlyLimitRemoved": "Oylik limit olib tashlanadi"
+        "monthlyLimitRemoved": "Oylik limit olib tashlanadi",
+        "adminRole": "Yangi rol: {role}",
+        "adminName": "Yangi ism: {name}",
+        "adminDeactivate": "Admin faolsizlantiriladi, sessiyalari yopiladi",
+        "adminReactivate": "Admin qayta faollashtiriladi"
       },
       "action": {
         "orders": {

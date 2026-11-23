@@ -27,7 +27,10 @@ export async function lockAdminActor(tx: Db, adminId: string): Promise<AdminActo
 
 /**
  * The session still belongs to the admin, is not revoked and not past its absolute end. Read
- * without a lock: the guard's `lastUsedAt` touches must not wait for a money transaction.
+ * without a lock: the guard's `lastUsedAt` touches must not wait for a money transaction. The
+ * idle limit (ADMIN_SESSION_IDLE_SEC) is not re-checked here on purpose: AdminGuard checked it on
+ * this very request a moment earlier, and an action must not fail half-way because the hour
+ * ran out between the guard and its transaction (SA I-1).
  */
 export async function adminSessionOpen(
   tx: Db,
