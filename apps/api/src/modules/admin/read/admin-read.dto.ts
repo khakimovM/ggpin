@@ -1,4 +1,5 @@
 import {
+  AdminAdjustPreviewQuerySchema,
   AdminAuditExportQuerySchema,
   AdminAuditListQuerySchema,
   AdminCreditPreviewQuerySchema,
@@ -29,3 +30,4 @@ export class AdminAuditListQueryDto extends createZodDto(AdminAuditListQuerySche
 export class AdminAuditExportQueryDto extends createZodDto(AdminAuditExportQuerySchema) {}
 export class AdminPricePreviewQueryDto extends createZodDto(AdminPricePreviewQuerySchema) {}
 export class AdminFxHistoryQueryDto extends createZodDto(AdminFxHistoryQuerySchema) {}
+export class AdminAdjustPreviewQueryDto extends createZodDto(AdminAdjustPreviewQuerySchema) {}

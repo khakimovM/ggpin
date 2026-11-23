@@ -110,6 +110,7 @@ describe('WalletAdminService.adjust: the transaction', () => {
           otpVerified: false,
           override: false,
           recentAutoTopups: [],
+          openOrders: [],
         },
         reason: 'support credit',
         ip: '203.0.113.7',

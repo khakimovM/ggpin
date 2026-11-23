@@ -12,6 +12,8 @@ const FLAG = 'alerts.adminConfirm.flag';
 
 /** `override: N recent auto top-up(s), set <hash>` (wallet-admin.input.ts adjustOtpFlags). */
 const RECENT_TOPUPS = /^override: (\d+) recent auto top-up\(s\), set ([0-9a-f]{12})$/;
+/** `open orders: N open order(s), set <hash>` (wallet-open-orders.ts openOrdersFlag, I-5). */
+const OPEN_ORDERS = /^open orders: (\d+) open order\(s\), set ([0-9a-f]{12})$/;
 /** `override: blocked, overLimit` (review-credit.checks.ts creditOtpFlags). */
 const USER_OVERRIDE = /^override: ((?:blocked|overLimit)(?:, (?:blocked|overLimit))*)$/;
 
@@ -30,6 +32,10 @@ function serverFlagLabel(locale: Locale, flag: string): string {
       count: recent[1] ?? '',
       set: recent[2] ?? '',
     });
+  }
+  const open = OPEN_ORDERS.exec(flag);
+  if (open !== null) {
+    return translate(locale, `${FLAG}.openOrders`, { count: open[1] ?? '', set: open[2] ?? '' });
   }
   const user = USER_OVERRIDE.exec(flag);
   if (user !== null) {

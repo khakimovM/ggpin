@@ -1,5 +1,6 @@
 import { Get, Param, Query } from '@nestjs/common';
 import type {
+  AdminAdjustPreview,
   AdminOrderRow,
   AdminPaymentRow,
   AdminUserDetailResponse,
@@ -13,17 +14,27 @@ import { AdminAction } from '../common/admin-action.decorator';
 import { AdminController } from '../common/admin-controller.decorator';
 import type { AdminPrincipal } from '../common/admin-request';
 import { CurrentAdmin } from '../common/current-admin.decorator';
-import { AdminUserListQueryDto, AdminUserTabQueryDto } from '../read/admin-read.dto';
+import { withAdminFieldErrors } from '../read/admin-domain-error';
+import {
+  AdminAdjustPreviewQueryDto,
+  AdminUserListQueryDto,
+  AdminUserTabQueryDto,
+} from '../read/admin-read.dto';
 import { adminReadView, adminResourceId } from '../read/admin-read-view';
+import { AdminAdjustPreviewService } from './admin-adjust-preview.service';
 import { AdminUsersReadService } from './admin-users-read.service';
 
 type Page<T> = Promise<WithMeta<readonly T[]>>;
 
 // `GET /api/v1/admin/users/*` (docs/04 «Foydalanuvchilar»): every role reads; SUPPORT sees the
-// phone masked (`users.phoneFull`). The write routes (block, freeze, notes, ...) are S6.
+// phone masked (`users.phoneFull`). The write routes (block, freeze, notes, ...) are S6; the
+// adjust preview (S7a) is OWNER's.
 @AdminController('users')
 export class AdminUsersController {
-  constructor(private readonly users: AdminUsersReadService) {}
+  constructor(
+    private readonly users: AdminUsersReadService,
+    private readonly adjust: AdminAdjustPreviewService,
+  ) {}
 
   @AdminAction('users.read')
   @Get()
@@ -77,5 +88,18 @@ export class AdminUsersController {
     @Query() query: AdminUserTabQueryDto,
   ): Page<AdminUserSessionsResponse[number]> {
     return this.users.sessions(adminResourceId(id), query);
+  }
+
+  /** What an adjustment would meet now (I-5, S7a); OWNER only, writes nothing. */
+  @AdminAction('users.adjustPreview')
+  @Get(':id/adjust-preview')
+  adjustPreview(
+    @CurrentAdmin() principal: AdminPrincipal,
+    @Param('id') id: string,
+    @Query() query: AdminAdjustPreviewQueryDto,
+  ): Promise<AdminAdjustPreview> {
+    const userId = adminResourceId(id);
+    const amountTiyin = BigInt(query.amountTiyin);
+    return withAdminFieldErrors(() => this.adjust.preview(principal.admin.id, userId, amountTiyin));
   }
 }

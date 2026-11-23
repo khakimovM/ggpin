@@ -21,6 +21,7 @@ import {
 } from './admin-payments-schemas';
 import { AdminTxHashSchema } from './admin-orders-schemas';
 import { AdminResolveProofSchema } from './admin-resolve-proof-schemas';
+import { AdminConfirmSetSchema } from './admin-users-schemas';
 import { PanelAssignableRoleSchema } from './admin-roles';
 import { ADMIN_MANUAL_FX_PAIRS, AdminManualFxRateSchema } from './admin-settings-schemas';
 
@@ -72,10 +73,9 @@ export const AdminConfirmationBodySchema = z.discriminatedUnion('action', [
     action: z.literal('users.adjustWallet'),
     targetId: ResourceIdSchema,
     amountTiyin: AdminAdjustAmountSchema,
-    confirmOverrideSet: z
-      .string()
-      .regex(/^[0-9a-f]{12}$/)
-      .optional(),
+    confirmOverrideSet: AdminConfirmSetSchema.optional(),
+    /** The open orders' set id (I-5): the action's own field, bound like every other one. */
+    confirmOpenOrdersSet: AdminConfirmSetSchema.optional(),
     /**
      * The owner CLI's adjust target contains the idempotency key (wallet-admin.input.ts); the
      * action's `Idempotency-Key` header must equal it, so one code moves money once.

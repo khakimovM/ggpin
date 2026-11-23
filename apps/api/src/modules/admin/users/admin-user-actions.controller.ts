@@ -165,6 +165,8 @@ export class AdminUserActionsController {
     const confirm = body.confirmAmountTiyin;
     const overrideSet = body.confirmOverrideSet;
     const override = overrideSet === undefined ? {} : { confirmOverrideSet: overrideSet };
+    const openSet = body.confirmOpenOrdersSet;
+    const open = openSet === undefined ? {} : { confirmOpenOrdersSet: openSet };
     return this.runner.run(
       {
         ...{ principal, ip, key, body, targetId: userId, otp: body.otp },
@@ -175,6 +177,7 @@ export class AdminUserActionsController {
           targetId: userId,
           amountTiyin: confirm ?? body.amountTiyin,
           ...override,
+          ...open,
           idempotencyKey: key,
         }),
         replay: (row) => this.replays.adjust(row),
@@ -186,6 +189,7 @@ export class AdminUserActionsController {
           reason: body.reason,
           ...(confirm === undefined ? {} : { confirmAmountTiyin: BigInt(confirm) }),
           ...override,
+          ...open,
           actor,
         });
         if (change.applied) await this.effects.adminAction(change.auditId);

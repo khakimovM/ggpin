@@ -4,7 +4,7 @@ import { ReviewService } from '../../modules/payments/review.service';
 import { WalletAdminService } from '../../modules/wallet/wallet-admin.service';
 import { terminalLines, terminalSafe } from '../cli-io';
 import { OPS_COMMANDS, helpText } from '../ops-cli.runner';
-import { NOOP_CHANGE, NO_RECENT, WHO, runFake as run } from './fake-cli';
+import { NOOP_CHANGE, NO_OPEN, NO_RECENT, WHO, runFake as run } from './fake-cli';
 
 describe('owner CLI (no database)', () => {
   it('lists every command of the plan in its help (English, internal tool)', () => {
@@ -90,7 +90,7 @@ describe('owner CLI (no database)', () => {
     expect((await run(['review:list', '--everything'])).code).toBe(2);
     const adjust = jest.fn();
     const services = new Map<unknown, unknown>([
-      [WalletAdminService, { adjust, recentFor: NO_RECENT }],
+      [WalletAdminService, { adjust, recentFor: NO_RECENT, openFor: NO_OPEN }],
     ]);
     for (const amount of ['1e6', '12.345', 'abc']) {
       const result = await run(
@@ -105,7 +105,7 @@ describe('owner CLI (no database)', () => {
   it('below the threshold nothing is asked', async () => {
     const adjust = jest.fn().mockResolvedValue(NOOP_CHANGE);
     const services = new Map<unknown, unknown>([
-      [WalletAdminService, { adjust, recentFor: NO_RECENT }],
+      [WalletAdminService, { adjust, recentFor: NO_RECENT, openFor: NO_OPEN }],
     ]);
     const small = await run(
       ['wallet:adjust', '--user', 'u1', '--amount', '1000000', '--key', 'k1', ...WHO],
@@ -122,7 +122,7 @@ describe('owner CLI (no database)', () => {
       .fn()
       .mockRejectedValue(new AppError('VALIDATION_ERROR', { field: 'reason' }));
     const services = new Map<unknown, unknown>([
-      [WalletAdminService, { adjust, recentFor: NO_RECENT }],
+      [WalletAdminService, { adjust, recentFor: NO_RECENT, openFor: NO_OPEN }],
     ]);
     const result = await run(
       ['wallet:adjust', '--user', 'u1', '--amount', '5', '--key', 'k1', ...WHO],

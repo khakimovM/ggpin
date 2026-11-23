@@ -26,6 +26,13 @@ export interface AdjustWalletFields {
    * `override` and the payment ids.
    */
   readonly confirmOverrideSet?: string;
+  /**
+   * Add money although the user has open orders (I-5, owner decision 2026-11-22): the id of
+   * exactly that set (`openOrdersSetHash`, 12 hex). Needed for a positive adjustment whenever
+   * one is open; refused under the lock when missing or stale. When given, it must equal the
+   * current set even if nothing is open any more (CR #2). AuditLog.after keeps the order ids.
+   */
+  readonly confirmOpenOrdersSet?: string;
 }
 
 export type ReverseTopupInput = ReverseTopupFields & ActorInput;

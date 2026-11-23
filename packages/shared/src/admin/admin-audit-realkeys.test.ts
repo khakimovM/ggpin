@@ -108,6 +108,7 @@ const REAL_KEYS = [
   'remainingPauseReasons',
   'balanceTiyin',
   'recentAutoTopups',
+  'openOrders',
   'paymentStatus',
   'reversedTiyin',
   'retiredAt',

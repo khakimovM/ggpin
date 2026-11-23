@@ -51,3 +51,6 @@ export const NOOP_CHANGE = {
 
 /** WalletAdminService.recentFor with no recent automatic top-up (S9 F-L1). */
 export const NO_RECENT = (): Promise<readonly never[]> => Promise.resolve([]);
+
+/** WalletAdminService.openFor with no open order (I-5, S7a). */
+export const NO_OPEN = (): Promise<readonly never[]> => Promise.resolve([]);

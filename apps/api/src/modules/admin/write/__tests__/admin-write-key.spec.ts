@@ -13,6 +13,13 @@ describe('adminAuditIdFor', () => {
     expect(adminAuditIdFor('adm2', 'key-12345678')).not.toBe(id);
     expect(adminAuditIdFor('adm1', 'key-87654321')).not.toBe(id);
   });
+
+  it('the golden vector shared with the SPA test (owner decision 2026-11-22, Q1 = A)', () => {
+    // The panel computes the same id with SubtleCrypto to find the audit row of an unknown outcome.
+    expect(adminAuditIdFor('cmadmin0golden0vector00001', 'golden-key_0001')).toBe(
+      'a4a27d4c0f956eb31c1081662e576705',
+    );
+  });
 });
 
 describe('adminRequestHash (S3 micro reviews)', () => {

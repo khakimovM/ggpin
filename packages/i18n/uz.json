@@ -1327,6 +1327,7 @@
         "userBlocked": "foydalanuvchi bloklangan",
         "userOverLimit": "foydalanuvchi limitdan oshgan",
         "overrideRecentTopups": "Ogohlantirish chetlab o‘tilgan: so‘nggi avtomatik to‘ldirishlar soni {count}, to‘plam {set}",
+        "openOrders": "Ochiq buyurtmalar bor: {count} ta, to‘plam {set}",
         "confirmOverride": "Karta ogohlantirishlari chetlab o‘tilgan",
         "confirmSecurityPause": "Xavfsizlik pauzasidan chiqarish tasdiqlangan",
         "emergency": "Favqulodda",

@@ -63,6 +63,7 @@ describe('admin role matrix (D-63 (3))', () => {
       'admins.read',
       'payments.bankMessageRaw',
       'payments.creditPreview',
+      'users.adjustPreview',
       'audit.ipFull',
     ] as const) {
       expect(roleHas('OPERATOR', ownerOnly), ownerOnly).toBe(false);

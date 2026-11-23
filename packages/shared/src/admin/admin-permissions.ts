@@ -64,6 +64,7 @@ export const ADMIN_PERMISSION_KEYS = Object.freeze([
   'orders.read',
   'users.read',
   'users.phoneFull',
+  'users.adjustPreview',
   'payments.read',
   'payments.creditPreview',
   'payments.bankMessageRaw',
@@ -174,6 +175,8 @@ export const ADMIN_PERMISSIONS: Readonly<Record<AdminPermission, AdminPermission
     ),
     // Field level: SUPPORT sees the phone masked (D-63 (3)).
     'users.phoneFull': read(STAFF),
+    // What an adjustment would meet (sets, code, cap), before the OWNER sends it (I-5, S7a).
+    'users.adjustPreview': read(OWNER, get('users/:id/adjust-preview')),
     'payments.read': read(
       ALL,
       get('payments/intents'),

@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto';
 import { AUTO_CREDIT_HORIZON_MS } from '@repo/db';
-import { z } from 'zod';
-import { ADMIN_ADJUST_MAX_TIYIN } from '@repo/shared';
+import { ADMIN_ADJUST_MAX_TIYIN, AdminConfirmSetSchema } from '@repo/shared';
 import { validationError } from '../../common/admin/admin-input';
+import {
+  OPEN_ORDERS_REASON,
+  openOrdersConfirmed,
+  openOrdersFlag,
+  type OpenOrder,
+} from './wallet-open-orders';
 
 // Wallet-only checks of the owner CLI; the common ones (reason, operator, ip, ids) live in
 // common/admin/admin-input.ts, shared with the card services.
@@ -60,8 +65,11 @@ export function recentSetHash(recent: readonly RecentAutoTopup[]): string {
   return createHash('sha256').update(ids.join(',')).digest('hex').slice(0, 12);
 }
 
-/** What `--confirm-override` takes: the set id printed as `recentAutoTopupSet`. */
-export const OverrideSetSchema = z.string().regex(/^[0-9a-f]{12}$/);
+/**
+ * What `--confirm-override` takes: the set id printed as `recentAutoTopupSet`. The panel's own
+ * schema, not a copy of it (CR #6): the CLI and the panel can never accept different set ids.
+ */
+export const OverrideSetSchema = AdminConfirmSetSchema;
 
 export function checkedOverrideSet(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
@@ -74,4 +82,43 @@ export function adjustOtpFlags(recent: readonly RecentAutoTopup[], override: boo
   if (!override) return '';
   if (recent.length === 0) return 'override: none';
   return `override: ${String(recent.length)} recent auto top-up(s), set ${recentSetHash(recent)}`;
+}
+
+/**
+ * Every flag a wallet:adjust code is bound to: the override's and the open orders' (I-5), joined
+ * by `; ` (admin-otp-flags.ts shows each). Without open orders it is `adjustOtpFlags` unchanged,
+ * so the CLI's binding of an adjustment without them is what it was before S7a.
+ */
+export function adjustBindingFlags(
+  recent: readonly RecentAutoTopup[],
+  override: boolean,
+  open: readonly Pick<OpenOrder, 'id'>[],
+): string {
+  return [adjustOtpFlags(recent, override), openOrdersFlag(open)]
+    .filter((flag) => flag !== '')
+    .join('; ');
+}
+
+/** What a positive adjustment confirmed, next to what the server read (F-L1, I-5). */
+export interface AdjustSets {
+  readonly recent: readonly RecentAutoTopup[];
+  readonly overrideSet: string | undefined;
+  readonly open: readonly Pick<OpenOrder, 'id'>[];
+  readonly openSet: string | undefined;
+}
+
+/**
+ * The two set refusals of wallet:adjust, `400 fields[{ path: "user", code }]`: the recent automatic
+ * top-ups (`RECENT_AUTO_TOPUP`, S9F-L1) and the open orders (`OPEN_ORDERS`, I-5). The action runs
+ * it under the wallet lock (authoritative); `POST /admin/confirmations` runs the very same check
+ * on unlocked reads before issuing a code (owner decision 2026-11-22), so a code is never spent
+ * on an adjustment that would be refused anyway.
+ */
+export function refuseUnconfirmedSets(amountTiyin: bigint, sets: AdjustSets): void {
+  if (sets.recent.length > 0 && sets.overrideSet !== recentSetHash(sets.recent)) {
+    throw validationError('user', 'RECENT_AUTO_TOPUP');
+  }
+  if (!openOrdersConfirmed(amountTiyin, sets.open, sets.openSet)) {
+    throw validationError('user', OPEN_ORDERS_REASON);
+  }
 }

@@ -13,14 +13,15 @@ const CODE = '481516';
 function wallet() {
   const adjust = jest.fn().mockResolvedValue(NOOP_CHANGE);
   const recentFor = jest.fn().mockResolvedValue([]);
+  const openFor = jest.fn().mockResolvedValue([]);
   const issue = jest.fn().mockResolvedValue({ challengeId: CHALLENGE, expiresInSec: 180 });
   const discard = jest.fn().mockResolvedValue(undefined);
   const services = new Map<unknown, unknown>([
-    [WalletAdminService, { adjust, recentFor }],
+    [WalletAdminService, { adjust, recentFor, openFor }],
     [OwnerOtpIssuer, { issue, discard }],
     [ReviewEffects, { adminAction: jest.fn().mockResolvedValue(true) }],
   ]);
-  return { adjust, recentFor, issue, discard, services };
+  return { adjust, recentFor, openFor, issue, discard, services };
 }
 
 const BIG = ['wallet:adjust', '--user', 'u1', '--amount=-2000000', '--key', 'k1', ...WHO];

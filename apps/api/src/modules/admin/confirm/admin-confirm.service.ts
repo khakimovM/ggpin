@@ -15,7 +15,7 @@ import { lowersCardLimit } from '../../payments/card-admin.step-up';
 import { CardPauseService } from '../../payments/card-pause.service';
 import { creditOtpFlags } from '../../payments/review-credit.checks';
 import { ReviewCreditService } from '../../payments/review-credit.service';
-import { adjustOtpFlags } from '../../wallet/wallet-admin.input';
+import { adjustBindingFlags, refuseUnconfirmedSets } from '../../wallet/wallet-admin.input';
 import { WalletAdminService } from '../../wallet/wallet-admin.service';
 import type { AdminPrincipal } from '../common/admin-request';
 import { AdminPaymentsReadService } from '../payments/admin-payments-read.service';
@@ -101,11 +101,22 @@ export class AdminConfirmService {
         const amountTiyin = BigInt(body.amountTiyin);
         const recent = await this.wallet.recentFor(body.targetId, amountTiyin);
         const override = body.confirmOverrideSet !== undefined;
+        // The open orders as read now (I-5): the action reads them again and compares.
+        const open = await this.wallet.openFor(body.targetId, amountTiyin);
+        // A set not confirmed or already stale gets no code (owner decision 2026-11-22): the
+        // action's own check, so the error is the one the action would give, and the daily code
+        // limit is not spent on it. The action checks again under the wallet lock.
+        refuseUnconfirmedSets(amountTiyin, {
+          recent,
+          overrideSet: body.confirmOverrideSet,
+          open,
+          openSet: body.confirmOpenOrdersSet,
+        });
         const budget =
           amountTiyin < 0n ? await this.wallet.codelessFlags(adminId, amountTiyin, now) : [];
         return {
           otp: { amountTiyin, thresholdTiyin, codelessBudgetExceeded: budget.length > 0 },
-          flags: [...stepUpFlagList(adjustOtpFlags(recent, override)), ...budget],
+          flags: [...stepUpFlagList(adjustBindingFlags(recent, override, open)), ...budget],
           subject: { amount: { tiyin: amountTiyin, signed: true }, userId: body.targetId },
         };
       }

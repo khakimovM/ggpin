@@ -28,6 +28,7 @@ import { AdminPaymentsReadService } from '../payments/admin-payments-read.servic
 import { AdminFxReadRepository } from '../settings/admin-fx-read.repository';
 import { AdminSettingsController } from '../settings/admin-settings.controller';
 import { AdminSettingsService } from '../settings/admin-settings.service';
+import { AdminAdjustPreviewService } from '../users/admin-adjust-preview.service';
 import { AdminUsersController } from '../users/admin-users.controller';
 import { AdminUsersReadRepository } from '../users/admin-users-read.repository';
 import { AdminUsersReadService } from '../users/admin-users-read.service';
@@ -53,6 +54,8 @@ export const ADMIN_READ_PROVIDERS: Provider[] = [
   AdminOrderRowsRepository,
   AdminUsersReadRepository,
   AdminUsersReadService,
+  // The adjust preview (S7a) reads through WalletAdminService, as the action does.
+  AdminAdjustPreviewService,
   AdminPaymentsReadRepository,
   AdminPaymentsReadService,
   AdminAuditRepository,

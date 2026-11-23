@@ -7,9 +7,11 @@ import {
   type LedgerEntryInput,
   type LedgerKind,
   type LedgerRefType,
+  type OrderStatus,
   type Payment,
   type Prisma,
 } from '@repo/db';
+import { ADMIN_OPEN_ORDER_STATUSES, type AdminOpenOrderStatus } from '@repo/shared';
 import { isAdminsOwnUser } from '../../common/admin/admin-target.repository';
 import { codelessBudgetFlags } from '../../common/admin/codeless-budget';
 import {
@@ -18,6 +20,7 @@ import {
 } from '../../common/admin/manual-credit.repository';
 import type { Db } from '../../infra/prisma/db';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import type { OpenOrder } from './wallet-open-orders';
 
 export interface LedgerPageQuery {
   readonly kind?: LedgerKind;
@@ -125,6 +128,19 @@ export class WalletRepository {
     });
   }
 
+  /**
+   * The user's orders still in flight (I-5), newest first: all of them (the set id covers every
+   * one). Decides only when read under the Wallet lock, which order creation also takes.
+   */
+  async openOrders(userId: string, db: Db = this.prisma.client): Promise<OpenOrder[]> {
+    const rows = await db.order.findMany({
+      where: { userId, status: { in: [...ADMIN_OPEN_ORDER_STATUSES] } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      select: { id: true, number: true, status: true, priceTiyin: true, createdAt: true },
+    });
+    return rows.map((row) => ({ ...row, status: openStatus(row.status) }));
+  }
+
   /** One entry by its idempotency key, scoped to the owner. */
   findEntry(tx: Db, key: EntryKey): Promise<LedgerEntry | null> {
     return tx.ledgerEntry.findFirst({
@@ -216,6 +232,11 @@ export class WalletRepository {
     return manualCreditTotalSince(tx, since);
   }
 
+  /** The same total without the cap lock: shown by the adjust preview, never deciding a write. */
+  manualCreditTotalSinceUnlocked(since: Date): Promise<bigint> {
+    return manualCreditTotalSince(this.prisma.client, since);
+  }
+
   /** The panel's codeless-budget binding flag, read without a lock (common/admin/codeless-budget). */
   codelessFlags(
     adminId: string | null,
@@ -244,6 +265,13 @@ export class WalletRepository {
     });
     return user?.purchaseFrozen ?? false;
   }
+}
+
+/** The status of a row the open-orders query returned (it filters by the same list). */
+function openStatus(status: OrderStatus): AdminOpenOrderStatus {
+  const open = ADMIN_OPEN_ORDER_STATUSES.find((candidate) => candidate === status);
+  if (open === undefined) throw new Error(`order status ${status} is not an open one`);
+  return open;
 }
 
 /** A unique index refused the write (Prisma P2002), e.g. a reused AuditLog id. */

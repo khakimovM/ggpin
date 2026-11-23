@@ -209,11 +209,12 @@ describe('admin list limits', () => {
 
 // Response keys that would carry a secret: the SAME classification as the audit redactor
 // (admin-audit-keys.ts, review M-2 / N2), so the two can never drift apart.
-// A response may still carry three such names on purpose, each pinned to its one place:
+// A response may still carry four such names on purpose, each pinned to its one place:
 const RESPONSE_EXCEPTIONS: ReadonlySet<string> = new Set([
   'AdminMeResponseSchema $.session', // the caller's own session metadata (expiry), no token
   'AdminConfirmationResponseSchema $.challengeId', // the step-up handle, useless without the code
   'AdminUserDetailResponseSchema $.referralCode', // the public invite code the user shares
+  'AdminAdjustPreviewResponseSchema $.otpReason', // why a code would be asked (an enum), no code
 ]);
 
 describe('admin responses carry no secret', () => {

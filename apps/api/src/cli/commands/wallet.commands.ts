@@ -1,16 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { validationError } from '../../common/admin/admin-input';
-import { AppError } from '../../common/exceptions/app-error';
 import { ReviewEffects } from '../../modules/payments/review-effects';
 import { WalletAdminService, type WalletChange } from '../../modules/wallet/wallet-admin.service';
 import {
-  OverrideSetSchema,
-  RECENT_AUTO_TOPUPS_SHOWN,
-  adjustOtpFlags,
+  adjustBindingFlags,
   adjustOtpTarget,
   recentSetHash,
   reverseOtpTarget,
 } from '../../modules/wallet/wallet-admin.input';
+import {
+  OPEN_ORDERS_REASON,
+  openOrdersConfirmed,
+  openOrdersSetHash,
+} from '../../modules/wallet/wallet-open-orders';
 import { WalletUnfreezeService } from '../../modules/wallet/wallet-unfreeze.service';
 import {
   ACTOR_OPTIONS,
@@ -28,82 +30,16 @@ import {
   type CliCommand,
   type CliContext,
 } from './command';
+import {
+  explainSetChange,
+  openOrdersSetOf,
+  overrideSetOf,
+  refuseBareSetFlags,
+  showOpenOrders,
+  showRecent,
+} from './wallet-adjust.cli-view';
 
 const KEY_SHAPE = /^[A-Za-z0-9_]{1,64}$/;
-
-const OVERRIDE_VALUE_NEEDED =
-  'wallet:adjust --confirm-override takes a VALUE: --confirm-override=<recentAutoTopupSet>, the ' +
-  '12 lowercase hex characters the command printed (in review:credit and card:resume it is a ' +
-  'bare flag without a value)';
-
-/**
- * A bare `--confirm-override` (the review:credit / card:resume form, or wallet:adjust before
- * S9F-L1), at the end of argv or followed by another option, is refused with a clear message
- * BEFORE parsing: parseArgs would only say "argument missing" or "ambiguous".
- */
-function refuseBareOverride(argv: readonly string[]): void {
-  argv.forEach((arg, i) => {
-    const next = argv[i + 1];
-    if (arg === '--confirm-override' && (next === undefined || next.startsWith('-'))) {
-      throw new UsageError(OVERRIDE_VALUE_NEEDED);
-    }
-  });
-}
-
-/** `--confirm-override=<set>`: the 12-hex set id. */
-function overrideSetOf(p: Parameters<typeof text>[0]): string | undefined {
-  const value = text(p, 'confirm-override');
-  if (value === undefined) return undefined;
-  if (!OverrideSetSchema.safeParse(value).success) throw new UsageError(OVERRIDE_VALUE_NEEDED);
-  return value;
-}
-
-/** Prints the automatic top-ups a positive adjustment would override (ids, amount, time, set). */
-async function showRecent(
-  ctx: CliContext,
-  wallets: WalletAdminService,
-  userId: string,
-  amount: bigint,
-) {
-  const recent = await wallets.recentFor(userId, amount);
-  for (const payment of recent.slice(0, RECENT_AUTO_TOPUPS_SHOWN)) {
-    const at = payment.confirmedAt?.toISOString() ?? '-';
-    report(ctx, { recentAutoTopup: `${payment.id} +${money(payment.amountTiyin)} at ${at}` });
-  }
-  // The set id covers all of them (recentSetHash); only the newest are printed.
-  if (recent.length > RECENT_AUTO_TOPUPS_SHOWN) {
-    report(ctx, { recentAutoTopupMore: recent.length - RECENT_AUTO_TOPUPS_SHOWN });
-  }
-  if (recent.length > 0) report(ctx, { recentAutoTopupSet: recentSetHash(recent) });
-  return recent;
-}
-
-/**
- * The set changed between the CLI's read and the service's lock (a top-up arrived meanwhile):
- * RECENT_AUTO_TOPUP, or OTP_MISMATCH when the owner's code was bound to the old set (n1). The
- * new list and set id are printed with the reason; nothing was written.
- */
-async function explainSetChange(
-  ctx: CliContext,
-  error: unknown,
-  reshowSame: () => Promise<boolean>,
-): Promise<void> {
-  if (!(error instanceof AppError)) return;
-  const reason = error.details?.['reason'];
-  if (reason === 'RECENT_AUTO_TOPUP') {
-    ctx.io.err('nothing written: the automatic top-ups changed meanwhile (new list below).');
-    await reshowSame();
-  } else if (reason === 'OTP_MISMATCH') {
-    ctx.io.err(
-      'nothing written: the owner code does not match this request (list as of now below).',
-    );
-    if (!(await reshowSame())) {
-      ctx.io.err(
-        'the automatic top-ups changed after the code was sent: it was bound to the old set.',
-      );
-    }
-  }
-}
 
 // Money corrections (docs/05 §9). The services do the money and the AuditLog in one
 // transaction; here the operator's input is read, the amount re-typed and the owner's code asked
@@ -131,14 +67,16 @@ const adjust: CliCommand = {
   name: 'wallet:adjust',
   summary: "add (+) or take (-) money on a user's wallet (ADJUSTMENT)",
   usage:
-    `wallet:adjust --user <userId> --amount <so'm, not 0> --key <id> [--confirm-override=<set>] ${ACTOR_USAGE}` +
+    `wallet:adjust --user <userId> --amount <so'm, not 0> --key <id> [--confirm-override=<set>] [--confirm-open-orders=<set>] ${ACTOR_USAGE}` +
     '   (a negative amount is written --amount=-500; --key makes a re-run safe: the same key ' +
     'and request write nothing again, run without it once to get a fresh one; ' +
     '--confirm-override=<set>: add money although the user got automatic top-ups recently; <set> is ' +
     'the recentAutoTopupSet the command printed, so it confirms exactly those payments; here the ' +
-    'flag TAKES A VALUE, unlike the bare --confirm-override of review:credit and card:resume)',
+    'flag TAKES A VALUE, unlike the bare --confirm-override of review:credit and card:resume; ' +
+    '--confirm-open-orders=<set>: add money although the user has open orders (I-5); <set> is the ' +
+    'openOrdersSet the command printed)',
   async run(ctx, argv) {
-    refuseBareOverride(argv);
+    refuseBareSetFlags(argv);
     const p = parse(
       argv,
       {
@@ -147,6 +85,7 @@ const adjust: CliCommand = {
         amount: { type: 'string' },
         key: { type: 'string' },
         'confirm-override': { type: 'string' },
+        'confirm-open-orders': { type: 'string' },
       },
       0,
     );
@@ -164,6 +103,7 @@ const adjust: CliCommand = {
     if (!KEY_SHAPE.test(key)) throw new UsageError('--key: 1..64 letters, digits or _');
     const wallets = ctx.app.get(WalletAdminService);
     const overrideSet = overrideSetOf(p);
+    const openSet = openOrdersSetOf(p);
     // S9 F-L1: the matcher may already have credited the money about to be given by hand.
     const recent = await showRecent(ctx, wallets, userId, amountTiyin);
     if (recent.length > 0 && overrideSet !== recentSetHash(recent)) {
@@ -179,7 +119,30 @@ const adjust: CliCommand = {
       );
       throw validationError('user', 'RECENT_AUTO_TOPUP');
     }
-    const flags = adjustOtpFlags(recent, overrideSet !== undefined);
+    // I-5: an open order may still be refunded automatically; compensation on top pays twice.
+    const open = await showOpenOrders(ctx, wallets, userId, amountTiyin);
+    if (!openOrdersConfirmed(amountTiyin, open, openSet)) {
+      // CR #2: a given set must still be the current one, even with nothing open any more (an
+      // order the owner confirmed may have been refunded automatically in between).
+      if (open.length > 0) {
+        ctx.io.err('this run wrote nothing; the user has open orders (above).');
+        ctx.io.err(
+          'if the money is owed anyway, run again with the set and the same --key: ' +
+            `--confirm-open-orders=<openOrdersSet> --key ${key}`,
+        );
+      } else {
+        ctx.io.err(
+          'this run wrote nothing; the open orders you confirmed are closed now (one may have ' +
+            "been refunded automatically): check the user's orders before paying.",
+        );
+        ctx.io.err(
+          'if the money is still owed, run again without --confirm-open-orders and the same ' +
+            `--key ${key}`,
+        );
+      }
+      throw validationError('user', OPEN_ORDERS_REASON);
+    }
+    const flags = adjustBindingFlags(recent, overrideSet !== undefined, open);
     report(ctx, { confirms: flags === '' ? '-' : flags });
     const confirmation = await confirmIfLarge(
       ctx,
@@ -203,13 +166,20 @@ const adjust: CliCommand = {
           osUser: actor.osUser ?? null,
           auditId: key,
           ...(overrideSet === undefined ? {} : { confirmOverrideSet: overrideSet }),
+          ...(openSet === undefined ? {} : { confirmOpenOrdersSet: openSet }),
           ...confirmation.fields,
         }),
       );
     } catch (error) {
       await explainSetChange(ctx, error, async () => {
         const now = await showRecent(ctx, wallets, userId, amountTiyin);
-        return now.length === recent.length && recentSetHash(now) === recentSetHash(recent);
+        const openNow = await showOpenOrders(ctx, wallets, userId, amountTiyin);
+        return (
+          now.length === recent.length &&
+          recentSetHash(now) === recentSetHash(recent) &&
+          openNow.length === open.length &&
+          openOrdersSetHash(openNow) === openOrdersSetHash(open)
+        );
       });
       throw error;
     } finally {

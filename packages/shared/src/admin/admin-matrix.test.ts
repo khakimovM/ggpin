@@ -18,6 +18,7 @@ const EXPECTED: readonly Row[] = [
   ['orders.read', 'OPS', 'NEVER', false, ''],
   ['users.read', 'OPS', 'NEVER', false, ''],
   ['users.phoneFull', 'OP', 'NEVER', false, ''],
+  ['users.adjustPreview', 'O', 'NEVER', false, ''],
   ['payments.read', 'OPS', 'NEVER', false, ''],
   ['payments.creditPreview', 'O', 'NEVER', false, ''],
   ['payments.bankMessageRaw', 'O', 'NEVER', false, ''],

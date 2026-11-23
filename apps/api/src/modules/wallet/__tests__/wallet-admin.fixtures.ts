@@ -49,6 +49,8 @@ export function setup(balance = 1_000_000n) {
     isPurchaseFrozen: jest.fn().mockResolvedValue(false),
     // No automatic P2P top-up in the last 48 h unless a test says so (S9 F-L1).
     recentAutoTopups: jest.fn().mockResolvedValue([]),
+    // No open order unless a test says so (I-5, S7a).
+    openOrders: jest.fn().mockResolvedValue([]),
     // The daily cap of money created by hand (S6): nothing given by hand yet today.
     lockManualCredits: jest.fn().mockResolvedValue(undefined),
     manualCreditTotalSince: jest.fn().mockResolvedValue(0n),

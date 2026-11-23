@@ -18,14 +18,15 @@ import { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifie
 import { requireStepUp, stepUpGiven, verifyStepUp } from '../../common/admin/step-up';
 import {
   RECENT_AUTO_TOPUP_WINDOW_MS,
-  adjustOtpFlags,
+  adjustBindingFlags,
   adjustOtpTarget,
   checkedAdjustAmount,
   checkedOverrideSet,
-  recentSetHash,
+  refuseUnconfirmedSets,
   type RecentAutoTopup,
 } from './wallet-admin.input';
 import { WALLET_ADJUST, findAdjustReplay, type Committed } from './wallet-admin.replay';
+import { checkedOpenOrdersSet, type OpenOrder } from './wallet-open-orders';
 import { WalletTopupReversal } from './wallet-admin-reverse.service';
 import { WalletAdminSteps } from './wallet-admin.steps';
 import { WalletCache } from './wallet-cache';
@@ -76,13 +77,18 @@ export class WalletAdminService {
     const target = adjustOtpTarget(userId, auditId);
     const overrideSet = checkedOverrideSet(input.confirmOverrideSet);
     const override = overrideSet !== undefined;
-    // The code is bound to the override and the top-ups as read now (D-46); checked again below
-    // against the same window (one clock read for both).
+    const openSet = checkedOpenOrdersSet(input.confirmOpenOrdersSet);
+    // The code is bound to the override, the top-ups and the open orders as read now (D-46, I-5);
+    // checked again below against the same window (one clock read for both).
     const now = this.clock.now();
     const threshold = this.config.ADMIN_CONFIRM_THRESHOLD_TIYIN;
     const given = stepUpGiven(actor, input.otp);
     const otpFlags = given
-      ? adjustOtpFlags(await this.recentFor(userId, amount, now), override)
+      ? adjustBindingFlags(
+          await this.recentFor(userId, amount, now),
+          override,
+          await this.openFor(userId, amount),
+        )
       : '';
     // A panel debit's code may be asked for by the codeless budget: that reason is bound too.
     const budgetCheck = { amountTiyin: amount, thresholdTiyin: threshold, now };
@@ -112,12 +118,14 @@ export class WalletAdminService {
       }
       // F-L1: the matcher may already have credited the money the owner is about to give. The
       // override names the exact set the owner saw, under the lock, at any amount (S9F-L1).
+      // I-5: compensation on top of an open order's later automatic refund would pay twice. Both
+      // sets the owner confirmed are compared with the ones read under the lock (a debit reads
+      // none); POST /admin/confirmations runs the same check unlocked before issuing a code.
       const recent = await this.recentFor(userId, amount, now, tx);
-      if (recent.length > 0 && overrideSet !== recentSetHash(recent)) {
-        throw validationError('user', 'RECENT_AUTO_TOPUP');
-      }
-      if (otpVerified && adjustOtpFlags(recent, override) !== otpFlags) {
-        throw validationError('otp', 'OTP_MISMATCH'); // the set changed after the code
+      const open = await this.openFor(userId, amount, tx);
+      refuseUnconfirmedSets(amount, { recent, overrideSet, open, openSet });
+      if (otpVerified && adjustBindingFlags(recent, override, open) !== otpFlags) {
+        throw validationError('otp', 'OTP_MISMATCH'); // a set changed after the code
       }
       await refuseSelfTarget(tx, actor, userId);
       const codelessBudgetExceeded =
@@ -144,6 +152,7 @@ export class WalletAdminService {
           otpVerified,
           override: recent.length > 0,
           recentAutoTopups: recent.map((payment) => payment.id),
+          openOrders: open.map((order) => order.id),
         },
         reason,
       });
@@ -171,6 +180,12 @@ export class WalletAdminService {
     if (amount <= 0n) return [];
     const since = new Date(now.getTime() - RECENT_AUTO_TOPUP_WINDOW_MS);
     return this.repo.recentAutoTopups(checkedId('userId', userId), since, tx);
+  }
+
+  /** The open orders a positive adjustment must confirm (I-5); none for a debit. Like recentFor. */
+  async openFor(userId: string, amount: bigint, tx?: Db): Promise<readonly OpenOrder[]> {
+    if (amount <= 0n) return [];
+    return this.repo.openOrders(checkedId('userId', userId), tx);
   }
 
   /**
