@@ -9,6 +9,11 @@ export interface RecipientFixtures {
   readonly stars: { readonly id: string; readonly sku50: string };
   /** A second active product with the same form, to show a token is bound to its product. */
   readonly other: { readonly id: string; readonly sku50: string };
+  /**
+   * Premium-like (phase 6): the fake worker answers its `haspremium_` / `premiumext_` users as
+   * the simulator does for Premium; a 3-month pack with a fresh cost, so it can be quoted.
+   */
+  readonly premium: { readonly id: string; readonly sku3: string };
   readonly inactive: { readonly id: string };
   /** Active, but its form has no field: nothing to validate in this phase. */
   readonly noForm: { readonly id: string };
@@ -42,6 +47,7 @@ export async function buildRecipientFixtures(
   const other = await product('other', true, TG_FORM);
   const inactive = await product('inactive', false, TG_FORM);
   const noForm = await product('noform', true, []);
+  const premium = await product('premium', true, TG_FORM);
   const sku = await db.sku.create({
     data: {
       productId: stars.id,
@@ -69,18 +75,34 @@ export async function buildRecipientFixtures(
       createdAt: base,
     },
   });
+  const premiumSku = await db.sku.create({
+    data: { productId: premium.id, quantity: 3, labelUz: '3', labelRu: '3', markupBps: 1000 },
+  });
+  const premiumCost = await db.costSnapshot.create({
+    data: {
+      productId: premium.id,
+      skuId: premiumSku.id,
+      adapter: 'FRAGMENT',
+      currency: 'TON',
+      basisQuantity: 3,
+      costMinor: 3_750_000_000n,
+      source: 'fixture',
+      createdAt: base,
+    },
+  });
   const fx = await db.fxRate.create({
     data: { pair: 'TON_UZS', rate: '40000', source: 'fixture', createdAt: base },
   });
-  const productIds = [stars.id, other.id, inactive.id, noForm.id];
+  const productIds = [stars.id, other.id, inactive.id, noForm.id, premium.id];
 
   return {
     stars: { id: stars.id, sku50: sku.id },
     other: { id: other.id, sku50: otherSku.id },
     inactive: { id: inactive.id },
     noForm: { id: noForm.id },
+    premium: { id: premium.id, sku3: premiumSku.id },
     remove: async () => {
-      await db.costSnapshot.deleteMany({ where: { id: cost.id } });
+      await db.costSnapshot.deleteMany({ where: { id: { in: [cost.id, premiumCost.id] } } });
       await db.fxRate.deleteMany({ where: { id: fx.id } });
       await db.sku.deleteMany({ where: { productId: { in: productIds } } });
       await db.product.deleteMany({ where: { id: { in: productIds } } });

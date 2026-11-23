@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '@repo/db';
-import { simulatedFragmentCost } from '../../adapters/simulator/simulated-fragment.adapter';
+import { SIMULATED_STAR_NANO_TON } from '../../adapters/simulator/simulated-fragment-prices';
 import {
   RESELLER_STARS_ADAPTER,
   SIMULATED_STAR_MICRO_USDT,
@@ -44,7 +44,7 @@ export interface OrderOptions {
 
 function costOf(adapter: string) {
   if (adapter === 'FRAGMENT') {
-    const cost = simulatedFragmentCost({ id: null, quantity: STARS });
+    const cost = SIMULATED_STAR_NANO_TON * BigInt(STARS);
     return { currency: 'TON', cost, max: (cost * 110n) / 100n } as const;
   }
   const cost = SIMULATED_STAR_MICRO_USDT * BigInt(STARS);

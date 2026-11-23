@@ -63,6 +63,18 @@ describe('RecipientCheckClient.check', () => {
     expect(outage.remove).toHaveBeenCalledWith(ID);
   });
 
+  it('REFUSED and FOUND with a notice are definite answers: kept for the bucket (phase 6)', async () => {
+    const answers = [
+      { status: 'REFUSED', reason: 'HAS_PREMIUM' },
+      { ...FOUND, notices: ['PREMIUM_EXTENDS'] },
+    ];
+    for (const returnvalue of answers) {
+      const kept = setup({ job: { state: 'completed', returnvalue } });
+      await expect(kept.client.check(REQUEST)).resolves.toEqual(returnvalue);
+      expect(kept.remove).not.toHaveBeenCalled();
+    }
+  });
+
   it('Redis refusing the job is 503', async () => {
     const { client } = setup({ addError: new Error('Connection is closed.') });
     expect(await code(client.check(REQUEST))).toBe('RECIPIENT_CHECK_UNAVAILABLE');

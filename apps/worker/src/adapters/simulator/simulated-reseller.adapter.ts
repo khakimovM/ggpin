@@ -1,4 +1,9 @@
-import type { CostCurrency, NeedsReviewProof, RecipientCheckResult } from '@repo/shared';
+import {
+  fragmentProductKind,
+  type CostCurrency,
+  type NeedsReviewProof,
+  type RecipientCheckResult,
+} from '@repo/shared';
 import type {
   AdapterBalance,
   ConfirmResult,
@@ -55,11 +60,12 @@ export class SimulatedResellerAdapter implements FulfillmentAdapter {
   }
 
   validateRecipient(
-    _product: ProductRef,
+    product: ProductRef,
     input: Readonly<Record<string, string>>,
     signal?: AbortSignal,
   ): Promise<RecipientCheckResult> {
-    return simulatedValidation(this.script.scenarioFor(null), input, signal);
+    const kind = fragmentProductKind(product.slug);
+    return simulatedValidation(this.script.scenarioFor(null), input, signal, kind);
   }
 
   quote(
@@ -74,8 +80,10 @@ export class SimulatedResellerAdapter implements FulfillmentAdapter {
 
   prepare(context: PrepareContext): Promise<PrepareResult> {
     const scenario = this.script.scenarioFor(context.orderId);
-    const problem = simulatedRecipientProblem(scenario, context.recipient);
+    const kind = fragmentProductKind(context.product.slug);
+    const problem = simulatedRecipientProblem(scenario, context.recipient, kind);
     if (problem !== null) return Promise.resolve({ status: problem });
+    if (scenario === 'GOT_PREMIUM') return Promise.resolve({ status: 'RECIPIENT_REFUSED' });
     const base = SIMULATED_STAR_MICRO_USDT * BigInt(context.sku.quantity);
     const costMinor = scenario === 'PRICE_UP' ? base * 2n : base;
     const externalRef = simulatedSupplierRef(context.orderId);

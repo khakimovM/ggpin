@@ -70,6 +70,14 @@ describe('recipientFor', () => {
     await expect(recipientFor(adapter, PRODUCT, stored)).resolves.toEqual({ kind: 'CHANGED' });
   });
 
+  it('another issuer answering REFUSED HAS_PREMIUM: REFUSED, not CHANGED (phase 6)', async () => {
+    const { adapter } = reseller(() =>
+      Promise.resolve({ status: 'REFUSED', reason: 'HAS_PREMIUM' }),
+    );
+    const stored = { fields: FIELDS, confirmedAt: new Date(), providerRef: 'FRAGMENT:f-1' };
+    await expect(recipientFor(adapter, PRODUCT, stored)).resolves.toEqual({ kind: 'REFUSED' });
+  });
+
   it.each([
     ['UNAVAILABLE', () => Promise.resolve({ status: 'UNAVAILABLE' }), 'UNAVAILABLE'],
     ['a throw', () => Promise.reject(new Error('down')), 'UNAVAILABLE'],

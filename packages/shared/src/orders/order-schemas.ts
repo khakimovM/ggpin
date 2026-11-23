@@ -37,8 +37,9 @@ export type ValidateRecipientBody = z.infer<typeof ValidateRecipientBodySchema>;
 /**
  * A non-blocking remark about a valid recipient (recommendation Q-A: a recipient who cannot
  * receive the product stays a blocking 422 such as `RECIPIENT_HAS_PREMIUM`; `warnings` is for
- * cases that do not block). No warning exists yet, so the array is `[]` for Telegram Stars and
- * the code list is open: `message` is an i18n key in a future `warnings.*` namespace.
+ * cases that do not block). Phase 6: `PREMIUM_EXTENDS` for a Premium recipient whose gift
+ * extends the term (fulfillment/recipient-warnings.ts); `[]` otherwise, always for Telegram
+ * Stars. The code list stays open: `message` is an i18n key in the `warnings.*` namespace.
  */
 export const RecipientWarningSchema = z.strictObject({
   code: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/),

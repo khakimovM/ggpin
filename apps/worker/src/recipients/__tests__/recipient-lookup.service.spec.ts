@@ -150,4 +150,29 @@ describe('RecipientLookupService', () => {
     );
     await expect(late).resolves.toEqual({ status: 'UNAVAILABLE' });
   });
+
+  it('phase 6: REFUSED passes through as it is; FOUND keeps its notices with the namespaced handle', async () => {
+    const refused = { status: 'REFUSED', reason: 'HAS_PREMIUM' } as const;
+    const a = setup([stubAdapter('FRAGMENT', { validate: () => Promise.resolve(refused) })]);
+    await expect(a.lookup.check(REQUEST, BUDGET, MIN_CALL)).resolves.toEqual({
+      kind: 'RESULT',
+      result: refused,
+      reason: 'ANSWERED',
+      adapter: 'FRAGMENT',
+    });
+    const ext = { ...FOUND, notices: ['PREMIUM_EXTENDS'] };
+    const b = setup([stubAdapter('FRAGMENT', { validate: () => Promise.resolve(ext) })]);
+    const outcome = await b.lookup.check(REQUEST, BUDGET, MIN_CALL);
+    expect(outcome.kind === 'RESULT' && outcome.result).toEqual({
+      ...ext,
+      providerRef: 'FRAGMENT:ref-1',
+    });
+    // A refusal that carries a handle or a name does not parse: UNAVAILABLE, never passed on.
+    const leaky = { ...refused, displayName: 'Aziz' };
+    const c = setup([stubAdapter('FRAGMENT', { validate: () => Promise.resolve(leaky) })]);
+    await expect(c.lookup.check(REQUEST, BUDGET, MIN_CALL)).resolves.toMatchObject({
+      result: { status: 'UNAVAILABLE' },
+      reason: 'BAD_ANSWER',
+    });
+  });
 });

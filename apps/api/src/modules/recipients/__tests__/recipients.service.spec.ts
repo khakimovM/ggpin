@@ -223,3 +223,48 @@ describe('RecipientsService.validate', () => {
     expect(release).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('RecipientsService.validate: Premium (phase 6, owner Q1/Q3)', () => {
+  it('REFUSED HAS_PREMIUM is 422 RECIPIENT_HAS_PREMIUM: no token, the slot released', async () => {
+    const result: RecipientCheckResult = { status: 'REFUSED', reason: 'HAS_PREMIUM' };
+    const { service, issue, release, calls } = setup({ result });
+    const error = await failure(service.validate('u1', body('aziz_k')));
+    expect(error.code).toBe('RECIPIENT_HAS_PREMIUM');
+    expect(error.details).toBeUndefined();
+    expect(issue).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(['limit', 'product', 'slot', 'check', 'release']);
+  });
+
+  it('an unknown refusal reason issues no token either (fail closed)', async () => {
+    const result = { status: 'REFUSED', reason: 'KYC' } as unknown as RecipientCheckResult;
+    const { service, issue } = setup({ result });
+    await expect(service.validate('u1', body('aziz_k'))).rejects.toThrow(
+      'unexpected recipient check status',
+    );
+    expect(issue).not.toHaveBeenCalled();
+  });
+
+  it('FOUND with PREMIUM_EXTENDS: 200 with the token and one warning (i18n key, no text)', async () => {
+    const result: RecipientCheckResult = { ...FOUND, notices: ['PREMIUM_EXTENDS'] };
+    const { service, issue } = setup({ result });
+    const out = await service.validate('u1', body('aziz_k'));
+    expect(out).toStrictEqual({
+      recipientToken: TOKEN,
+      displayName: 'Aziz',
+      warnings: [{ code: 'PREMIUM_EXTENDS', message: 'warnings.premiumExtends' }],
+    });
+    // The notice is not part of the token: the token is the same as without it.
+    expect(issue).toHaveBeenCalledWith(
+      'u1',
+      'p1',
+      { username: 'aziz_k', displayName: 'Aziz' },
+      'fragment-ref-1',
+    );
+  });
+
+  it('FOUND with an empty notice list answers warnings []', async () => {
+    const { service } = setup({ result: { ...FOUND, notices: [] } });
+    await expect(service.validate('u1', body('aziz_k'))).resolves.toMatchObject({ warnings: [] });
+  });
+});

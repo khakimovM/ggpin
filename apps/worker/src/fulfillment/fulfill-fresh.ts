@@ -25,6 +25,7 @@ import { FulfillReviewer } from './fulfill-review';
 import { FulfillSupplierRunner } from './fulfill-supplier.runner';
 import { isLiveAttempt, isTonPaid, judgePrepared, purchaseAmountOf } from './fulfill-steps';
 import { FulfillTonRunner, type RunStep } from './fulfill-ton.runner';
+import { recipientRefund, type RecipientRefund } from './fulfill-eligibility';
 import { FULFILL_HOOKS, type FulfillHooks } from './fulfill-tokens';
 import { RECHECKED_REF_KEY, recipientFor } from './fulfill-recipient';
 import { FulfillmentNotifier } from './fulfillment-notifier';
@@ -45,7 +46,7 @@ import { OrderStateRepository, type RunOrder } from './order-state.repository';
 
 type Decision =
   | { readonly kind: 'HOLD'; readonly reason: OrderStatusReason; readonly why: string }
-  | { readonly kind: 'REFUND'; readonly reason: 'RECIPIENT_CHANGED' | 'RECIPIENT_GONE' }
+  | RecipientRefund
   | {
       readonly kind: 'READY';
       readonly adapter: FulfillmentAdapter;
@@ -105,7 +106,7 @@ export class FreshAttempt {
     }
     // S2 audit L2 / N2: no handle (null, empty, whitespace) -> never paid unchecked.
     if (!hasProviderRef({ fields: order.fields, providerRef: order.providerRef })) {
-      return this.refund(order.id, 'RECIPIENT_GONE');
+      return this.refund(order.id, recipientRefund('RECIPIENT_GONE'));
     }
     const context = contextOf(order, (previous.at(-1)?.attemptNo ?? 0) + 1);
     let decision: Decision;
@@ -119,7 +120,7 @@ export class FreshAttempt {
       return this.hold(order.id, 'ADAPTER_ERROR', 'prepare failed through the last retry');
     }
     if (decision.kind === 'HOLD') return this.hold(order.id, decision.reason, decision.why);
-    if (decision.kind === 'REFUND') return this.refund(order.id, decision.reason);
+    if (decision.kind === 'REFUND') return this.refund(order.id, decision);
     const { adapter, prepared } = decision;
     const created = await this.attempts.createSending({
       orderId: order.id,
@@ -195,14 +196,19 @@ export class FreshAttempt {
     }
     if (recipient.kind === 'CHANGED') {
       this.logger.warn(`order ${order.id}: adapter ${adapter.code} re-check: another recipient`);
-      return { kind: 'REFUND', reason: 'RECIPIENT_CHANGED' };
+      return recipientRefund('RECIPIENT_CHANGED');
+    }
+    if (recipient.kind === 'REFUSED') {
+      this.logger.warn(`order ${order.id}: adapter ${adapter.code} re-check: recipient refused`);
+      return recipientRefund('RECIPIENT_REFUSED');
     }
     const own = contextOf(order, context.attemptNo, recipient.providerRef);
     const result = await adapter.prepare(own);
     switch (result.status) {
       case 'RECIPIENT_CHANGED':
       case 'RECIPIENT_GONE':
-        return { kind: 'REFUND', reason: result.status };
+      case 'RECIPIENT_REFUSED':
+        return recipientRefund(result.status);
       case 'REFUSED':
         this.logger.warn(`order ${order.id}: adapter ${adapter.code} refused to prepare`);
         return { kind: 'HOLD', reason: 'ADAPTER_ERROR', why: 'the provider refused' };
@@ -261,19 +267,18 @@ export class FreshAttempt {
     return 'DONE';
   }
 
-  private async refund(
-    orderId: string,
-    reason: 'RECIPIENT_CHANGED' | 'RECIPIENT_GONE',
-  ): Promise<RunStep> {
+  private async refund(orderId: string, { reason, note }: RecipientRefund): Promise<RunStep> {
     let outcome: RefundOutcome | null;
     try {
-      outcome = await this.orders.failAndRefund(orderId, reason);
+      outcome = await this.orders.failAndRefund(orderId, reason, note);
     } catch (error) {
       if (await this.reviewer.reviewIfPayoutLive(orderId, `refund ${reason}`, error)) return 'DONE';
       throw error;
     }
     if (outcome?.outcome === 'REFUNDED') {
-      this.logger.warn(`order ${orderId} failed and refunded: ${reason}`);
+      // A fixed marker when the refund carries a note (SA L2): never the note or recipient data.
+      const marker = note === null ? '' : ' (recipient refused)';
+      this.logger.warn(`order ${orderId} failed and refunded: ${reason}${marker}`);
       await this.afterRefund(orderId, outcome.userId);
     }
     return 'DONE';

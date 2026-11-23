@@ -133,11 +133,19 @@ export class OrderStateRepository {
   /**
    * PROCESSING -> FAILED -> REFUNDED with the REFUND ledger entry, in ONE transaction (rules/40).
    * Only before any value left: `failAndRefundOrder` refuses when an attempt may have paid out.
+   * `note`: written on BOTH events, PROCESSING -> FAILED and FAILED -> REFUNDED (failAndRefundOrder
+   * passes it to each leg). Null keeps the defaults: "failed: <reason>" on FAILED and "refund of
+   * a failed order" on REFUNDED.
    */
-  async failAndRefund(orderId: string, reason: OrderStatusReason): Promise<RefundOutcome | null> {
+  async failAndRefund(
+    orderId: string,
+    reason: OrderStatusReason,
+    note: string | null = null,
+  ): Promise<RefundOutcome | null> {
+    const input = { orderId, from: 'PROCESSING', reason, actor: 'system' } as const;
     const outcome = await this.stale(() =>
       this.prisma.client.$transaction((tx) =>
-        failAndRefundOrder(tx, { orderId, from: 'PROCESSING', reason, actor: 'system' }),
+        failAndRefundOrder(tx, note === null ? input : { ...input, note }),
       ),
     );
     return outcome === false ? null : outcome;
