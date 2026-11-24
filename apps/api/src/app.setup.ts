@@ -4,6 +4,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 import { API_DEFAULT_VERSION, API_PREFIX } from './common/http/api-path';
 import { registerRequestHooks } from './common/logging/request-logging';
+import { registerRequestReceived } from './common/http/request-received';
 import { applyCachePolicy } from './common/http/cache-policy';
 import { applyCors, applySecurityHeaders } from './common/http/security-headers';
 import { setupSwagger } from './common/http/setup-swagger';
@@ -17,6 +18,7 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
   // Pairs with bufferLogs in main.ts: logs written while the app was being built are replayed
   // through Pino, so boot output is structured and redacted like everything else.
   app.useLogger(app.get(Logger));
+  registerRequestReceived(app); // first: an admin write's deadline starts here (docs/04)
   registerRequestHooks(app);
   app.setGlobalPrefix(API_PREFIX);
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: API_DEFAULT_VERSION });

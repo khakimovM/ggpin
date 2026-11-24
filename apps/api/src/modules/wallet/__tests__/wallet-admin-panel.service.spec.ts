@@ -1,6 +1,7 @@
 import type { AdminActor } from '../../../common/admin/audit-actor';
 import { checkedAdjustAmount } from '../wallet-admin.input';
 import { THRESHOLD, entry, entryByKind, payment, setup } from './wallet-admin.fixtures';
+import { OPEN_DEADLINE } from '../../../common/admin/__tests__/admin-deadline.fixture';
 
 // The panel's own rules on the CLI's wallet services (S6 fix round): the codeless daily budget
 // (SA-S6-3), no money to the admin's own account (SA-S6-9), ALREADY_REVERSED (C-4) and the
@@ -13,6 +14,7 @@ const actor = (permission: AdminActor['permission']): AdminActor => ({
   ip: null,
   permission,
   request: { auditId: `a${'0'.repeat(63)}`, requestHash: 'h'.repeat(64) },
+  deadline: OPEN_DEADLINE,
 });
 
 /** A tx whose raw reads answer by their SQL: the admin row, the budget usage, the own account. */

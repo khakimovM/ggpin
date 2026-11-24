@@ -8,6 +8,7 @@ import {
   toAuditColumns,
 } from '../../common/admin/audit-actor';
 import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../common/admin/admin-transaction';
 import { budgetAdminId, codelessBudgetInTx } from '../../common/admin/codeless-budget';
 import type { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
 import { requireStepUp, verifyStepUp } from '../../common/admin/step-up';
@@ -82,7 +83,7 @@ export class WalletTopupReversal {
       adminFlags,
     });
 
-    const committed = await this.repo.transaction(async (tx): Promise<Committed> => {
+    const committed = await runActorTransaction<Committed>(this.repo, actor, async (tx) => {
       const who = await confirmActorInTx(tx, actor, this.clock.now());
       await this.steps.lock(tx, userId);
       // Re-read under the lock: a concurrent reversal may have finished while we waited.

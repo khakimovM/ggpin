@@ -5,6 +5,7 @@ import type { AdminLoginRequestRepository } from '../../auth/admin-login-request
 import type { AdminSessionRepository } from '../../auth/admin-session.repository';
 import { AdminPanelAccountsService } from '../admin-panel-accounts.service';
 import type { AdminUsersRepository } from '../admin-users.repository';
+import { OPEN_DEADLINE } from '../../../../common/admin/__tests__/admin-deadline.fixture';
 
 // The fakes of AdminPanelAccountsService's unit specs: every repository call is logged in order.
 
@@ -103,6 +104,7 @@ export function setup(target: AdminUser | null = row(), opts: { stepUp?: boolean
     ip: '203.0.113.7',
     permission: 'admins.update',
     request: { auditId: 'a0123456789abcdef0123456789abcde', requestHash: 'h' },
+    deadline: OPEN_DEADLINE,
     ...(opts.stepUp === false
       ? {}
       : {

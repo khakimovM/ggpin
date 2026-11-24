@@ -1258,7 +1258,8 @@
     "RECIPIENT_CHECK_UNAVAILABLE": "Qabul qiluvchini tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.",
     "PRICE_UNAVAILABLE": "Narx hozircha mavjud emas. Keyinroq qayta urinib ko‘ring.",
     "TOPUP_ALREADY_PENDING": "Sizda tugallanmagan to‘ldirish so‘rovi bor. Uni yakunlang yoki bekor qiling.",
-    "PAYMENT_METHOD_UNAVAILABLE": "To‘ldirish usuli hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
+    "PAYMENT_METHOD_UNAVAILABLE": "To‘ldirish usuli hozircha mavjud emas. Keyinroq qayta urinib ko‘ring.",
+    "ADMIN_DEADLINE_EXCEEDED": "So‘rov juda uzoq davom etdi, hech narsa yozilmadi. Qayta yuborish xavfsiz."
   },
   "alerts": {
     "bankFeed": {

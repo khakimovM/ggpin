@@ -6,6 +6,7 @@ import { AdminAction } from '../common/admin-action.decorator';
 import { AdminController } from '../common/admin-controller.decorator';
 import type { AdminPrincipal } from '../common/admin-request';
 import { CurrentAdmin } from '../common/current-admin.decorator';
+import { RequestReceivedAt } from '../../../common/http/request-received';
 import { adminResourceId } from '../read/admin-read-view';
 import type { AdminAuditRow } from '../write/admin-write.repository';
 import { AdminWriteRunner } from '../write/admin-write.runner';
@@ -24,6 +25,7 @@ import { AdminCatalogWriteService } from './admin-catalog-write.service';
 interface Call {
   readonly principal: AdminPrincipal;
   readonly ip: string;
+  readonly receivedAtMs: number;
   readonly key: string;
   readonly targetId: string;
   readonly body: object;
@@ -51,12 +53,13 @@ export class AdminCatalogWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminCategoryUpdateBodyDto,
   ): Promise<CatalogResults['category']> {
     const targetId = adminResourceId(id);
     return this.run(
-      { principal, ip, key, targetId, body, permission: 'catalog.categoryUpdate' },
+      { principal, ip, receivedAtMs, key, targetId, body, permission: 'catalog.categoryUpdate' },
       (row) => this.replays.category(row),
       (actor) => this.catalog.updateCategory(actor, targetId, body),
     );
@@ -68,12 +71,13 @@ export class AdminCatalogWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminProductUpdateBodyDto,
   ): Promise<CatalogResults['product']> {
     const targetId = adminResourceId(id);
     return this.run(
-      { principal, ip, key, targetId, body, permission: 'catalog.productUpdate' },
+      { principal, ip, receivedAtMs, key, targetId, body, permission: 'catalog.productUpdate' },
       (row) => this.replays.product(row),
       (actor) => this.catalog.updateProduct(actor, targetId, body),
     );
@@ -86,11 +90,12 @@ export class AdminCatalogWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Body() body: AdminProductReorderBodyDto,
   ): Promise<CatalogResults['reorder']> {
     return this.run(
       {
-        ...{ principal, ip, key, body },
+        ...{ principal, ip, receivedAtMs, key, body },
         targetId: REORDER_TARGET,
         permission: 'catalog.productReorder',
       },
@@ -106,12 +111,13 @@ export class AdminCatalogWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminSkuCreateBodyDto,
   ): Promise<CatalogResults['sku']> {
     const targetId = adminResourceId(id);
     return this.run(
-      { principal, ip, key, targetId, body, permission: 'catalog.skuCreate' },
+      { principal, ip, receivedAtMs, key, targetId, body, permission: 'catalog.skuCreate' },
       (row) => this.replays.skuCreate(row),
       (actor) => this.catalog.createSku(actor, targetId, body),
     );
@@ -123,12 +129,13 @@ export class AdminCatalogWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminSkuUpdateBodyDto,
   ): Promise<CatalogResults['sku']> {
     const targetId = adminResourceId(id);
     return this.run(
-      { principal, ip, key, targetId, body, permission: 'catalog.skuUpdate' },
+      { principal, ip, receivedAtMs, key, targetId, body, permission: 'catalog.skuUpdate' },
       (row) => this.replays.skuUpdate(row),
       (actor) => this.catalog.updateSku(actor, targetId, body),
     );
@@ -140,12 +147,13 @@ export class AdminCatalogWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminRouteUpdateBodyDto,
   ): Promise<CatalogResults['route']> {
     const targetId = adminResourceId(id);
     return this.run(
-      { principal, ip, key, targetId, body, permission: 'catalog.routeUpdate' },
+      { principal, ip, receivedAtMs, key, targetId, body, permission: 'catalog.routeUpdate' },
       (row) => this.replays.route(row),
       (actor) => this.catalog.updateRoute(actor, targetId, body),
     );

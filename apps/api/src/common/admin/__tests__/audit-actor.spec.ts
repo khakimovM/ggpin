@@ -6,6 +6,7 @@ import {
   toAuditColumns,
   type AdminActor,
 } from '../audit-actor';
+import { OPEN_DEADLINE } from './admin-deadline.fixture';
 
 // Who wrote an AuditLog row (phase 9 S6): the CLI keeps its old columns (the repositories add
 // actorType=CLI), an admin is ADMIN + its id, and the panel's audit id comes from the request key.
@@ -16,6 +17,7 @@ const ADMIN: AdminActor = {
   ip: '203.0.113.7',
   permission: 'users.block',
   request: { auditId: 'a'.repeat(32), requestHash: 'h' },
+  deadline: OPEN_DEADLINE,
 };
 
 function details(fn: () => unknown): unknown {

@@ -13,6 +13,7 @@ import type {
   AdminWriteRepository,
 } from '../admin-write.repository';
 import { AdminWriteRunner } from '../admin-write.runner';
+import { FakeMonotonicClock } from '../../../../common/admin/__tests__/admin-deadline.fixture';
 
 // 9-B SA-1 unit level: the void's answer from the key's audit row, its actor check, and the
 // runner's explicit tombstone branch (docs/04 «Idempotency-Key» (d), «Kalitni bekor qilish»).
@@ -25,6 +26,8 @@ const BODY: AdminWriteKeyVoidBody = {
   targetId: 'cmuser0void0unit000000001',
 };
 const AUDIT_ID = adminAuditIdFor(ADMIN_ID, BODY.idempotencyKey);
+/** The request's receive stamp; the clock below stays on it unless a test moves it. */
+const RECEIVED = 0;
 
 const principal = (role: AdminUser['role'] = 'OWNER'): AdminPrincipal =>
   ({ sessionId: SESSION_ID, admin: { id: ADMIN_ID, role } }) as AdminPrincipal;
@@ -75,10 +78,13 @@ function harness(world: World) {
     }),
     findAudit: jest.fn(() => Promise.resolve(world.existing)),
   };
-  const service = new AdminWriteVoidService(repo as unknown as AdminWriteRepository, {
-    now: () => NOW,
-  });
-  return { service, repo, inserted };
+  const clock = new FakeMonotonicClock(RECEIVED);
+  const service = new AdminWriteVoidService(
+    repo as unknown as AdminWriteRepository,
+    { now: () => NOW },
+    clock,
+  );
+  return { service, repo, inserted, clock };
 }
 
 const live = (existing: AdminAuditRow | null = null): World => ({
@@ -90,7 +96,7 @@ const live = (existing: AdminAuditRow | null = null): World => ({
 describe('AdminWriteVoidService', () => {
   it('writes the tombstone: VOIDED, no key and no request hash in it', async () => {
     const { service, inserted } = harness(live());
-    const answer = await service.void(principal(), '203.0.113.7', BODY);
+    const answer = await service.void(principal(), '203.0.113.7', BODY, RECEIVED);
     expect(answer).toEqual({ status: 'VOIDED', auditId: AUDIT_ID, at: NOW.toISOString() });
     expect(inserted).toEqual([
       {
@@ -109,7 +115,7 @@ describe('AdminWriteVoidService', () => {
 
   it('a key whose action committed is APPLIED with that row, nothing written', async () => {
     const { service, inserted } = harness(live(row('WALLET_ADJUST')));
-    const answer = await service.void(principal(), null, BODY);
+    const answer = await service.void(principal(), null, BODY, RECEIVED);
     expect(answer).toEqual({
       status: 'APPLIED',
       auditId: AUDIT_ID,
@@ -121,7 +127,7 @@ describe('AdminWriteVoidService', () => {
 
   it('a key voided before is VOIDED again with the first tombstone', async () => {
     const { service, inserted } = harness(live(row('IDEMPOTENCY_VOID')));
-    await expect(service.void(principal(), null, BODY)).resolves.toMatchObject({
+    await expect(service.void(principal(), null, BODY, RECEIVED)).resolves.toMatchObject({
       status: 'VOIDED',
       auditId: AUDIT_ID,
     });
@@ -138,7 +144,7 @@ describe('AdminWriteVoidService', () => {
     ['OPERATOR voiding an adjustment', { admin: { role: 'OPERATOR', isActive: true } }],
   ])('%s: 404 before any write', async (_name, change) => {
     const { service, repo } = harness({ ...live(), ...change });
-    const refused = service.void(principal(), null, BODY);
+    const refused = service.void(principal(), null, BODY, RECEIVED);
     await expect(refused).rejects.toBeInstanceOf(AppError);
     await expect(refused).rejects.toMatchObject({ code: 'NOT_FOUND' });
     expect(repo.insertTombstone).not.toHaveBeenCalled();
@@ -147,17 +153,22 @@ describe('AdminWriteVoidService', () => {
   it('SUPPORT voids a key of an action its role holds (a note)', async () => {
     const support: World = { ...live(), admin: { role: 'SUPPORT', isActive: true } };
     const { service, inserted } = harness(support);
-    const answer = await service.void(principal('SUPPORT'), null, {
-      ...BODY,
-      action: 'users.note',
-    });
+    const answer = await service.void(
+      principal('SUPPORT'),
+      null,
+      {
+        ...BODY,
+        action: 'users.note',
+      },
+      RECEIVED,
+    );
     expect(answer).toMatchObject({ status: 'VOIDED', auditId: AUDIT_ID });
     expect(inserted).toHaveLength(1);
   });
 
   it('a row of another actor under the id is a 500, never an answer', async () => {
     const { service } = harness(live(row('WALLET_ADJUST', { actorType: 'CLI', actorId: null })));
-    await expect(service.void(principal(), null, BODY)).rejects.toMatchObject({
+    await expect(service.void(principal(), null, BODY, RECEIVED)).rejects.toMatchObject({
       code: 'INTERNAL_ERROR',
     });
   });
@@ -170,6 +181,7 @@ describe('AdminWriteRunner and a tombstone', () => {
     permission: 'users.adjustWallet' as const,
     targetId: BODY.targetId,
     key: BODY.idempotencyKey,
+    receivedAtMs: RECEIVED,
     body: { amountTiyin: '-500', reason: 'a reason long enough' },
     replay,
   });
@@ -184,6 +196,7 @@ describe('AdminWriteRunner and a tombstone', () => {
     const runner = new AdminWriteRunner(
       repo as unknown as AdminWriteRepository,
       {} as AdminOtpVerifier,
+      new FakeMonotonicClock(RECEIVED),
     );
     const work = jest.fn((_actor: AdminActor) => Promise.resolve({ applied: true }));
     await expect(runner.run(s, work)).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
@@ -199,6 +212,7 @@ describe('AdminWriteRunner and a tombstone', () => {
     const runner = new AdminWriteRunner(
       repo as unknown as AdminWriteRepository,
       {} as AdminOtpVerifier,
+      new FakeMonotonicClock(RECEIVED),
     );
     const work = jest.fn(() => Promise.reject(new Error('P2002 on AuditLog_pkey')));
     await expect(runner.run(s, work)).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });

@@ -1,4 +1,5 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { MonotonicClock } from '../../../common/admin/admin-deadline';
 import type { AdminRole, AdminUser } from '@repo/db';
 import type { CaptureStream } from '../../../common/logging/__tests__/capture-stream';
 import type { Env } from '../../../config/env';
@@ -69,4 +70,6 @@ export interface AdminE2eOptions {
   readonly nodeEnv?: 'production' | 'development' | 'test';
   /** Runs the bot in webhook mode on this fake Bot API (the outbox sender is stubbed too). */
   readonly bot?: FakeTelegram;
+  /** Replaces MONOTONIC_CLOCK (the admin write deadline's clock), on performance.now()'s line. */
+  readonly monotonicClock?: MonotonicClock;
 }

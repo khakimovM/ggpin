@@ -976,8 +976,13 @@ IDEMPOTENCY_CONFLICT`, hech narsa yozilmaydi. (e) Void va o‘sha kalitli eski s
   bilan yozadi. Replay tekshiruvidan keyin, tranzaksiya boshida va commit oldidan qabul qilinganidan beri 45 s
   (`ADMIN_WRITE_DEADLINE_MS`, server konstantasi) o‘tgan bo‘lsa — `503 ADMIN_DEADLINE_EXCEEDED`: audit qatori va hech
   qanday yozuv yo‘q (tranzaksiya rollback), kalit bo‘sh qoladi (qoida (b)) — o‘sha kalit bilan qayta yuborish xavfsiz.
-  O‘sha kalitning bajarilgan amali (replay) deadline’dan qat’i nazar javob oladi. Void yo‘li ham shu qoidadan o‘tadi.
-  Ega CLI’sida deadline yo‘q.
+  O‘sha kalitning bajarilgan amali (replay) deadline’dan qat’i nazar javob oladi. Void yo‘li ham shu qoidadan o‘tadi
+  (tombstone yozilgach deadline o‘tsa — rollback va `503`, void’ni qayta so‘rash xavfsiz). Kod talab qiladigan yo‘llarda
+  kod tranzaksiyadan oldin sarflanadi va server uni sarflashdan oldin ham deadline’ni tekshiradi: shu paytgacha bo‘lgan
+  `503` da kod sarflanmaydi; tranzaksiya boshida yoki commit oldidan `503` bo‘lsa, qayta yuborish yangi kod bilan bo‘ladi
+  (kalit o‘sha qoladi). `503` da faqat amal holatiga kirmaydigan hisoblagichlar o‘zgaradi (sessiya faolligi, limit
+  hisoblagichlari, kod urinishlari). Deadline faqat kalitli admin yozuvlari va void uchun: `POST /admin/confirmations` va
+  `/admin/auth/*` unga kirmaydi (kodning o‘z muddati va bog‘lanishi bor). Ega CLI’sida deadline yo‘q.
 - **Status kodlari.** Admin amal yo‘llari (POST) muvaffaqiyatda `200`; `POST /admin/confirmations` — `201`.
 - **`reason`** (`AdminReasonSchema`): trim’dan keyin 10–500 belgi, ko‘rinmas/boshqaruv belgisiz, kamida bitta harf yoki
   raqam. Pul, holat, admin boshqaruvi va navbat retry amallarida majburiy; katalog yozuvlarida ixtiyoriy (berilsa — shu

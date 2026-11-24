@@ -9,6 +9,7 @@ import {
   type ActorInput,
 } from '../../common/admin/audit-actor';
 import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../common/admin/admin-transaction';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
 import { WalletRepository } from './wallet.repository';
@@ -45,7 +46,7 @@ export class WalletUnfreezeService {
     const reason = checkedReason(input.reason);
     const actor = checkedAuditActor(actorOfInput(input));
     const auditId = auditIdOf(actor);
-    return this.repo.transaction(async (tx) => {
+    return runActorTransaction(this.repo, actor, async (tx) => {
       const who = await confirmActorInTx(tx, actor, this.clock.now());
       try {
         await this.repo.lock(tx, userId);

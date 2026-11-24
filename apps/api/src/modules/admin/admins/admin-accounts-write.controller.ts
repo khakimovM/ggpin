@@ -14,6 +14,7 @@ import { AdminAction } from '../common/admin-action.decorator';
 import { AdminController } from '../common/admin-controller.decorator';
 import type { AdminPrincipal } from '../common/admin-request';
 import { CurrentAdmin } from '../common/current-admin.decorator';
+import { RequestReceivedAt } from '../../../common/http/request-received';
 import { adminResourceId } from '../read/admin-read-view';
 import { AdminWriteRunner } from '../write/admin-write.runner';
 import { AdminAccountsWriteReplays } from './admin-accounts-write.replays';
@@ -45,12 +46,13 @@ export class AdminAccountsWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Body() body: AdminCreateBodyDto,
   ): Promise<AdminAccountResponse> {
     const { telegramId, name, role } = body;
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, otp: body.otp },
         // No row yet: the request's target is the Telegram id it asks for.
         targetId: telegramId,
         permission: 'admins.create',
@@ -67,6 +69,7 @@ export class AdminAccountsWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminUpdateBodyDto,
   ): Promise<AdminAccountResponse> {
@@ -74,7 +77,7 @@ export class AdminAccountsWriteController {
     const { name, role, isActive } = body;
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId, otp: body.otp },
         permission: 'admins.update',
         confirmation: () => ({ action: 'admins.update', targetId, name, role, isActive }),
         replay: (row) => this.replays.account(row),
@@ -90,6 +93,7 @@ export class AdminAccountsWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminManagementBodyDto,
     @Res({ passthrough: true }) reply: AdminCookieReply,
@@ -97,7 +101,7 @@ export class AdminAccountsWriteController {
     const targetId = adminResourceId(id);
     const result = await this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId, otp: body.otp },
         permission: 'admins.sessionsRevoke',
         confirmation: () => ({ action: 'admins.sessionsRevoke', targetId }),
         replay: (row) => this.replays.sessions(row, principal.sessionId),
@@ -114,6 +118,7 @@ export class AdminAccountsWriteController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminManagementBodyDto,
     @Res({ passthrough: true }) reply: AdminCookieReply,
@@ -121,7 +126,7 @@ export class AdminAccountsWriteController {
     const targetId = adminResourceId(id);
     const result = await this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId, otp: body.otp },
         permission: 'sessions.revoke',
         confirmation: () => ({ action: 'sessions.revoke', targetId }),
         replay: (row) => this.replays.sessions(row, principal.sessionId),

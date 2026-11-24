@@ -11,6 +11,7 @@ import {
 import { checkedReason } from '../../../common/admin/admin-input';
 import { checkedAuditActor, type AdminActor } from '../../../common/admin/audit-actor';
 import { confirmActorInTx, type ActorAfter } from '../../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../../common/admin/admin-transaction';
 import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { AppError } from '../../../common/exceptions/app-error';
 import type { Db } from '../../../infra/prisma/db';
@@ -245,7 +246,7 @@ export class AdminCatalogWriteService {
     const checked = checkedAuditActor(actor);
     const why = reason === undefined ? undefined : checkedReason(reason);
     const now = this.clock.now();
-    const done = await this.repo.transaction(async (tx) => {
+    const done = await runActorTransaction(this.repo, checked, async (tx) => {
       // Per attempt: only an audit row written in the committed transaction raises the alert.
       const raised = { alert: false };
       const who: ActorAfter = await confirmActorInTx(tx, checked, now);

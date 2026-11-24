@@ -10,6 +10,7 @@ import {
 } from '../../common/admin/audit-actor';
 import { refuseSelfTarget } from '../../common/admin/admin-target';
 import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../common/admin/admin-transaction';
 import { checkManualCreditCap } from '../../common/admin/manual-credit-cap';
 import type { OtpAnswer } from '../../common/admin/owner-otp/owner-otp';
 import { OwnerOtpVerifier } from '../../common/admin/owner-otp/owner-otp.verifier';
@@ -130,7 +131,7 @@ export class ReviewCreditService {
 
     let committed: Omit<ReviewCredit, 'notified'>;
     try {
-      committed = await this.pool.transaction(async (tx) => {
+      committed = await runActorTransaction(this.pool, actor, async (tx) => {
         const now = this.clock.now();
         const who = await confirmActorInTx(tx, actor, now);
         if (cardId !== null) await this.pool.lockCard(tx, cardId);

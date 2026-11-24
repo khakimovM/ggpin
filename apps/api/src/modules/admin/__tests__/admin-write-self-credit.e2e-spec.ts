@@ -6,6 +6,7 @@ import { ReviewCreditService } from '../../payments/review-credit.service';
 import { adminAuditIdFor } from '../write/admin-write-key';
 import { useAdminE2e } from './admin-e2e.harness';
 import { adminWriteKit } from './admin-write.e2e-kit';
+import { OPEN_DEADLINE } from '../../../common/admin/__tests__/admin-deadline.fixture';
 
 // Phase 9 S6 re-review (N-2): the action side of SA-S6-9 in review:credit. Through HTTP the code's
 // binding (the whole body) and the confirmation's own SELF_TARGET check stop a credit to the
@@ -45,6 +46,7 @@ async function panelActor(admin: AdminUser): Promise<AdminActor> {
     ip: null,
     permission: 'payments.reviewCredit',
     request: { auditId: adminAuditIdFor(admin.id, randomUUID()), requestHash: 'n2-self-target' },
+    deadline: OPEN_DEADLINE,
     stepUp: { verify: () => Promise.resolve() },
   };
 }

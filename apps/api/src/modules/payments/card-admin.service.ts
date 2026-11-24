@@ -7,6 +7,7 @@ import {
   type CheckedAuditActor,
 } from '../../common/admin/audit-actor';
 import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../common/admin/admin-transaction';
 import { verifyAdminStepUp } from '../../common/admin/step-up';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppError } from '../../common/exceptions/app-error';
@@ -83,7 +84,7 @@ export class CardAdminService {
 
     let added: Committed<AddedCard>;
     try {
-      added = await this.pool.transaction(async (tx) => {
+      added = await runActorTransaction(this.pool, audit.actor, async (tx) => {
         // D-52 r2 (review I-A): the pause lock first, then the pause state (see below).
         await this.repo.lockSecurityPause(tx);
         const block = await this.repo.last4Block(
@@ -260,22 +261,26 @@ export class CardAdminService {
     ) => Promise<{ card: TopupCard; audit: CardAudit; extra: AuditExtra } | null>,
   ): Promise<CardChange> {
     const cardId = checkedCardId(rawCardId);
-    const result = await this.pool.transaction(async (tx): Promise<Committed<CardChange>> => {
-      const who = await confirmActorInTx(tx, actor, this.clock.now());
-      await this.pool.lockCard(tx, cardId);
-      const card = await this.repo.findCard(tx, cardId);
-      if (card === null) throw new AppError('NOT_FOUND');
-      const changed = await mutate(tx, card);
-      if (changed === null) {
-        return { applied: false, cardId, status: card.status, auditId: null };
-      }
-      const row = { cardId, audit: changed.audit, who };
-      const auditId = await writeCardAudit(this.repo, tx, row, json(card), {
-        ...json(changed.card),
-        ...changed.extra,
-      });
-      return { applied: true, cardId, status: changed.card.status, auditId };
-    });
+    const result = await runActorTransaction<Committed<CardChange>>(
+      this.pool,
+      actor,
+      async (tx) => {
+        const who = await confirmActorInTx(tx, actor, this.clock.now());
+        await this.pool.lockCard(tx, cardId);
+        const card = await this.repo.findCard(tx, cardId);
+        if (card === null) throw new AppError('NOT_FOUND');
+        const changed = await mutate(tx, card);
+        if (changed === null) {
+          return { applied: false, cardId, status: card.status, auditId: null };
+        }
+        const row = { cardId, audit: changed.audit, who };
+        const auditId = await writeCardAudit(this.repo, tx, row, json(card), {
+          ...json(changed.card),
+          ...changed.extra,
+        });
+        return { applied: true, cardId, status: changed.card.status, auditId };
+      },
+    );
     return { ...result, alertQueued: await raiseCardAlerts(this.alerts, result) };
   }
 

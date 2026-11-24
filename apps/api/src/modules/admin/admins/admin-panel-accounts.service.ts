@@ -10,6 +10,7 @@ import type {
 import { checkedId, checkedReason, validationError } from '../../../common/admin/admin-input';
 import { checkedAuditActor, type AdminActor } from '../../../common/admin/audit-actor';
 import { confirmActorInTx, type ActorAfter } from '../../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../../common/admin/admin-transaction';
 import { verifyAdminStepUp } from '../../../common/admin/step-up';
 import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { AppError } from '../../../common/exceptions/app-error';
@@ -208,7 +209,7 @@ export class AdminPanelAccountsService {
     const why = checkedReason(reason);
     if (!(await verifyAdminStepUp(checked))) throw validationError('otp', 'OTP_REQUIRED');
     const now = this.clock.now();
-    const done = await this.admins.transaction(async (tx) => {
+    const done = await runActorTransaction(this.admins, checked, async (tx) => {
       const raised = { alert: false };
       const who: ActorAfter = await confirmActorInTx(tx, checked, now);
       const audit: AuditWriter = async (facts, after, extra = {}) => {

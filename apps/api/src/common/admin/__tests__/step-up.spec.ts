@@ -1,6 +1,7 @@
 import { AppError } from '../../exceptions/app-error';
 import type { AdminActor, CheckedAuditActor } from '../audit-actor';
 import { requireStepUp, stepUpFlagList, verifyStepUp, type StepUpCheck } from '../step-up';
+import { OPEN_DEADLINE } from './admin-deadline.fixture';
 
 // One code rule for both actors (D-46 CLI, D-63 (4) / D-65 panel): what each one needs; a wrong
 // re-typed amount is AMOUNT_MISMATCH for both (D-65 (5), C-7).
@@ -15,6 +16,7 @@ function admin(permission: AdminActor['permission'], verify?: jest.Mock): AdminA
     ip: null,
     permission,
     request: { auditId: 'a1', requestHash: 'h' },
+    deadline: OPEN_DEADLINE,
     ...(verify === undefined ? {} : { stepUp: { verify } }),
   };
 }

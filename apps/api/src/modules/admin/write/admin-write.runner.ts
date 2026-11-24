@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   AdminConfirmationBodySchema,
   IDEMPOTENCY_VOID_ACTION,
@@ -6,6 +6,12 @@ import {
   type AdminOtpAnswer,
   type AdminPermission,
 } from '@repo/shared';
+import {
+  MONOTONIC_CLOCK,
+  assertWithinDeadline,
+  type AdminDeadline,
+  type MonotonicClock,
+} from '../../../common/admin/admin-deadline';
 import { validationError } from '../../../common/admin/admin-input';
 import type { AdminActor, AdminStepUp } from '../../../common/admin/audit-actor';
 import { AppError } from '../../../common/exceptions/app-error';
@@ -18,6 +24,8 @@ import { AdminWriteRepository, afterField, type AdminAuditRow } from './admin-wr
 export interface AdminWriteSpec<T> {
   readonly principal: AdminPrincipal;
   readonly ip: string | null;
+  /** The request's monotonic receive time (`@RequestReceivedAt()`): its deadline starts here. */
+  readonly receivedAtMs: number;
   readonly permission: AdminPermission;
   readonly targetId: string;
   /** The `Idempotency-Key` header (already shape-checked). */
@@ -38,12 +46,15 @@ export interface AdminWriteSpec<T> {
  * same key can only collide with the first (primary key). A refusal re-checks the row: a parallel
  * twin that won is a replay, not an error. Never a 4xx after a commit: the services' after-commit
  * steps are best effort, and a failed read here is a 5xx.
+ * The request deadline (docs/04 «So‘rov deadline’i») is checked AFTER the replay lookup, so a
+ * key whose work committed always gets its answer, and again in the work's transaction.
  */
 @Injectable()
 export class AdminWriteRunner {
   constructor(
     private readonly repo: AdminWriteRepository,
     private readonly otp: AdminOtpVerifier,
+    @Inject(MONOTONIC_CLOCK) private readonly clock: MonotonicClock,
   ) {}
 
   async run<T>(spec: AdminWriteSpec<T>, work: (actor: AdminActor) => Promise<T>): Promise<T> {
@@ -53,6 +64,10 @@ export class AdminWriteRunner {
     const earlier = await this.repo.findAudit(auditId);
     if (earlier !== null) return this.replayOf(earlier, adminId, requestHash, spec);
 
+    const deadline = { receivedAtMs: spec.receivedAtMs, clock: this.clock };
+    // Point 1: nothing has been read or locked for the work yet; past it, 503 and the key stays
+    // free (nothing written).
+    assertWithinDeadline(deadline);
     const actor: AdminActor = {
       kind: 'ADMIN',
       adminId,
@@ -60,7 +75,8 @@ export class AdminWriteRunner {
       ip: spec.ip,
       permission: spec.permission,
       request: { auditId, requestHash },
-      ...(spec.otp === undefined ? {} : { stepUp: this.stepUp(spec, spec.otp) }),
+      deadline,
+      ...(spec.otp === undefined ? {} : { stepUp: this.stepUp(spec, spec.otp, deadline) }),
     };
     let result: T;
     try {
@@ -103,10 +119,16 @@ export class AdminWriteRunner {
   }
 
   // The admin's code, checked against the binding of the body rebuilt from THIS request, the
-  // flags the service computed, and this admin and session (docs/04 «Tasdiq kodi»).
-  private stepUp<T>(spec: AdminWriteSpec<T>, otp: AdminOtpAnswer): AdminStepUp {
+  // flags the service computed, and this admin and session (docs/04 «Tasdiq kodi»). The deadline
+  // first (CR-5): the check uses the code up, so a request already too late must not burn it.
+  private stepUp<T>(
+    spec: AdminWriteSpec<T>,
+    otp: AdminOtpAnswer,
+    deadline: AdminDeadline,
+  ): AdminStepUp {
     return {
       verify: async (serverFlags) => {
+        assertWithinDeadline(deadline);
         const body = this.confirmationBody(spec);
         await this.otp.verify(otp, {
           body,

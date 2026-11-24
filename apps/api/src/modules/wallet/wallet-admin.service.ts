@@ -11,6 +11,7 @@ import {
   toAuditColumns,
 } from '../../common/admin/audit-actor';
 import { confirmActorInTx } from '../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../common/admin/admin-transaction';
 import { SELF_TARGET_REASON, refuseSelfTarget } from '../../common/admin/admin-target';
 import { budgetAdminId, codelessBudgetInTx } from '../../common/admin/codeless-budget';
 import { checkManualCreditCap } from '../../common/admin/manual-credit-cap';
@@ -109,7 +110,7 @@ export class WalletAdminService {
     // only known under its lock: optimistic here, authoritative below.
     requireStepUp(actor, { ...need, verified: otpVerified, codelessBudgetExceeded: false });
 
-    const committed = await this.repo.transaction(async (tx): Promise<Committed> => {
+    const committed = await runActorTransaction<Committed>(this.repo, actor, async (tx) => {
       const who = await confirmActorInTx(tx, actor, now);
       await this.steps.lock(tx, userId);
       if (auditId !== undefined) {

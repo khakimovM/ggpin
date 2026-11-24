@@ -1,5 +1,6 @@
 import type { AdminActor, CheckedAuditActor } from '../../../common/admin/audit-actor';
 import { lowersCardLimit, requireCardStepUp } from '../card-admin.step-up';
+import { OPEN_DEADLINE } from '../../../common/admin/__tests__/admin-deadline.fixture';
 
 // Owner decision 2026-11-18 (SA-S6-3): every card retire and every LOWERED limit asks the panel's
 // code; raising a limit does not; the CLI is never asked.
@@ -49,6 +50,7 @@ describe('requireCardStepUp', () => {
     ip: null,
     permission,
     request: { auditId: `a${'0'.repeat(63)}`, requestHash: 'h'.repeat(64) },
+    deadline: OPEN_DEADLINE,
   });
   const cli: CheckedAuditActor = { kind: 'CLI', operator: 'aziz', ip: null, osUser: null };
 

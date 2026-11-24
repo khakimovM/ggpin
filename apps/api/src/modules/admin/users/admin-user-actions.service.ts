@@ -4,6 +4,7 @@ import { checkedId, checkedReason, validationError } from '../../../common/admin
 import { isAnAdminsUser } from '../../../common/admin/admin-target.repository';
 import { checkedAuditActor, type AdminActor } from '../../../common/admin/audit-actor';
 import { confirmActorInTx, type ActorAfter } from '../../../common/admin/audit-actor.check';
+import { runActorTransaction } from '../../../common/admin/admin-transaction';
 import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { AppError } from '../../../common/exceptions/app-error';
 import type { Db } from '../../../infra/prisma/db';
@@ -100,7 +101,7 @@ export class AdminUserActionsService {
     const why = checkedReason(reason);
     const checked = checkedAuditActor(actor);
     const now = this.clock.now();
-    const revokedSessions = await this.repo.transaction(async (tx) => {
+    const revokedSessions = await runActorTransaction(this.repo, checked, async (tx) => {
       const who = await confirmActorInTx(tx, checked, now);
       if ((await this.repo.flags(tx, userId)) === null) throw new AppError('NOT_FOUND');
       const count = await this.repo.revokeWebSessions(tx, userId, now);
@@ -125,7 +126,7 @@ export class AdminUserActionsService {
     const userId = checkedId('userId', rawUserId);
     const checked = checkedAuditActor(actor);
     const now = this.clock.now();
-    await this.repo.transaction(async (tx) => {
+    await runActorTransaction(this.repo, checked, async (tx) => {
       const who = await confirmActorInTx(tx, checked, now);
       if ((await this.repo.flags(tx, userId)) === null) throw new AppError('NOT_FOUND');
       await this.repo.createAudit(tx, {
@@ -148,7 +149,7 @@ export class AdminUserActionsService {
     const why = checkedReason(reason);
     const checked = checkedAuditActor(actor);
     const now = this.clock.now();
-    const change = await this.repo.transaction(async (tx): Promise<UserStateChange> => {
+    const change = await runActorTransaction<UserStateChange>(this.repo, checked, async (tx) => {
       const who: ActorAfter = await confirmActorInTx(tx, checked, now);
       await this.lockWallet(tx, userId);
       const before = await this.repo.flags(tx, userId);

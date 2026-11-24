@@ -14,6 +14,7 @@ import { AdminAction } from '../common/admin-action.decorator';
 import { AdminController } from '../common/admin-controller.decorator';
 import type { AdminPrincipal } from '../common/admin-request';
 import { CurrentAdmin } from '../common/current-admin.decorator';
+import { RequestReceivedAt } from '../../../common/http/request-received';
 import { adminResourceId } from '../read/admin-read-view';
 import { AdminWriteReplays } from '../write/admin-write.replays';
 import { AdminWriteRunner } from '../write/admin-write.runner';
@@ -29,6 +30,7 @@ type StateAction = (actor: AdminActor, userId: string, reason: string) => Promis
 interface Call<B> {
   readonly principal: AdminPrincipal;
   readonly ip: string;
+  readonly receivedAtMs: number;
   readonly key: string;
   readonly id: string;
   readonly body: B;
@@ -53,10 +55,11 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminReasonBodyDto,
   ): Promise<AdminUserStateResponse> {
-    const call = { principal, ip, key, id, body };
+    const call = { principal, ip, receivedAtMs, key, id, body };
     return this.state(call, 'users.block', (a, u, r) => this.users.block(a, u, r));
   }
 
@@ -67,10 +70,11 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminReasonBodyDto,
   ): Promise<AdminUserStateResponse> {
-    const call = { principal, ip, key, id, body };
+    const call = { principal, ip, receivedAtMs, key, id, body };
     return this.state(call, 'users.unblock', (a, u, r) => this.users.unblock(a, u, r));
   }
 
@@ -81,10 +85,11 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminReasonBodyDto,
   ): Promise<AdminUserStateResponse> {
-    const call = { principal, ip, key, id, body };
+    const call = { principal, ip, receivedAtMs, key, id, body };
     return this.state(call, 'users.freeze', (a, u, r) => this.users.freeze(a, u, r));
   }
 
@@ -95,10 +100,11 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminReasonBodyDto,
   ): Promise<AdminUserStateResponse> {
-    const call = { principal, ip, key, id, body };
+    const call = { principal, ip, receivedAtMs, key, id, body };
     return this.state(call, 'users.unfreeze', (a, u, r) => this.users.unfreeze(a, u, r));
   }
 
@@ -109,13 +115,14 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminReasonBodyDto,
   ): Promise<AdminUserSessionsRevokeResponse> {
     const userId = adminResourceId(id);
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: userId },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: userId },
         permission: 'users.sessionsRevoke',
         replay: (row) => this.replays.sessions(row),
       },
@@ -130,13 +137,14 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminNoteBodyDto,
   ): Promise<AdminNoteResponse> {
     const userId = adminResourceId(id);
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: userId },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: userId },
         permission: 'users.note',
         replay: (row) => this.replays.note(row),
       },
@@ -158,6 +166,7 @@ export class AdminUserActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminAdjustWalletBodyDto,
   ): Promise<AdminAdjustWalletResponse> {
@@ -169,7 +178,7 @@ export class AdminUserActionsController {
     const open = openSet === undefined ? {} : { confirmOpenOrdersSet: openSet };
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: userId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: userId, otp: body.otp },
         permission: 'users.adjustWallet',
         // The code is bound to this very key too: one code moves money once (docs/04).
         confirmation: () => ({
@@ -210,10 +219,10 @@ export class AdminUserActionsController {
     action: StateAction,
   ): Promise<AdminUserStateResponse> {
     const userId = adminResourceId(call.id);
-    const { principal, ip, key, body } = call;
+    const { principal, ip, receivedAtMs, key, body } = call;
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: userId, permission },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: userId, permission },
         replay: (row) => this.replays.userState(row),
       },
       (actor) => action(actor, userId, body.reason),

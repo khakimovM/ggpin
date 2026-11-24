@@ -12,6 +12,7 @@ import { AdminAction } from '../common/admin-action.decorator';
 import { AdminController } from '../common/admin-controller.decorator';
 import type { AdminPrincipal } from '../common/admin-request';
 import { CurrentAdmin } from '../common/current-admin.decorator';
+import { RequestReceivedAt } from '../../../common/http/request-received';
 import { adminResourceId } from '../read/admin-read-view';
 import {
   AdminCardLimitBodyDto,
@@ -28,6 +29,7 @@ import { AdminPaymentActionsService } from './admin-payment-actions.service';
 interface CardCall {
   readonly principal: AdminPrincipal;
   readonly ip: string;
+  readonly receivedAtMs: number;
   readonly key: string;
   readonly id: string;
   readonly body: object;
@@ -56,6 +58,7 @@ export class AdminPaymentActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminReviewCreditBodyDto,
   ): Promise<AdminReviewCreditResponse> {
@@ -64,7 +67,7 @@ export class AdminPaymentActionsController {
       body.intentId !== undefined ? { intentId: body.intentId } : { userId: body.userId };
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: reviewId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: reviewId, otp: body.otp },
         permission: 'payments.reviewCredit',
         confirmation: () => ({
           action: 'payments.reviewCredit',
@@ -87,13 +90,14 @@ export class AdminPaymentActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminPaymentReverseBodyDto,
   ): Promise<AdminPaymentReverseResponse> {
     const paymentId = adminResourceId(id);
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: paymentId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: paymentId, otp: body.otp },
         permission: 'payments.reverse',
         confirmation: () => ({
           action: 'payments.reverse',
@@ -113,11 +117,14 @@ export class AdminPaymentActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminCardPauseBodyDto,
   ): Promise<AdminCardChangeResponse> {
-    return this.card({ principal, ip, key, id, body }, 'cards.pause', (actor, cardId) =>
-      this.actions.pause(actor, cardId, body.reason),
+    return this.card(
+      { principal, ip, receivedAtMs, key, id, body },
+      'cards.pause',
+      (actor, cardId) => this.actions.pause(actor, cardId, body.reason),
     );
   }
 
@@ -128,13 +135,14 @@ export class AdminPaymentActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminCardResumeBodyDto,
   ): Promise<AdminCardChangeResponse> {
     const cardId = adminResourceId(id);
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: cardId, otp: body.otp },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: cardId, otp: body.otp },
         permission: 'cards.resume',
         confirmation: () => ({
           action: 'cards.resume',
@@ -155,6 +163,7 @@ export class AdminPaymentActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminCardLimitBodyDto,
   ): Promise<AdminCardChangeResponse> {
@@ -167,8 +176,10 @@ export class AdminPaymentActionsController {
         monthlyLimitTiyin: body.monthlyLimitTiyin,
       }),
     });
-    return this.card({ principal, ip, key, id, body, step }, 'cards.limit', (actor, cardId) =>
-      this.actions.limit(actor, cardId, body),
+    return this.card(
+      { principal, ip, receivedAtMs, key, id, body, step },
+      'cards.limit',
+      (actor, cardId) => this.actions.limit(actor, cardId, body),
     );
   }
 
@@ -179,6 +190,7 @@ export class AdminPaymentActionsController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @IdempotencyKey() key: string,
+    @RequestReceivedAt() receivedAtMs: number,
     @Param('id') id: string,
     @Body() body: AdminCardRetireBodyDto,
   ): Promise<AdminCardChangeResponse> {
@@ -186,8 +198,10 @@ export class AdminPaymentActionsController {
       otp: body.otp,
       confirmation: () => ({ action: 'cards.retire', targetId: cardId, emergency: body.emergency }),
     });
-    return this.card({ principal, ip, key, id, body, step }, 'cards.retire', (actor, cardId) =>
-      this.actions.retire(actor, cardId, body.reason, body.emergency),
+    return this.card(
+      { principal, ip, receivedAtMs, key, id, body, step },
+      'cards.retire',
+      (actor, cardId) => this.actions.retire(actor, cardId, body.reason, body.emergency),
     );
   }
 
@@ -197,10 +211,10 @@ export class AdminPaymentActionsController {
     work: (actor: AdminActor, cardId: string) => Promise<AdminCardChangeResponse>,
   ): Promise<AdminCardChangeResponse> {
     const cardId = adminResourceId(call.id);
-    const { principal, ip, key, body } = call;
+    const { principal, ip, receivedAtMs, key, body } = call;
     return this.runner.run(
       {
-        ...{ principal, ip, key, body, targetId: cardId, permission },
+        ...{ principal, ip, receivedAtMs, key, body, targetId: cardId, permission },
         ...(call.step === undefined ? {} : call.step(cardId)),
         replay: (row) => this.replays.card(row),
       },

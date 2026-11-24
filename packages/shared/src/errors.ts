@@ -36,6 +36,8 @@ export const ERROR_CODES = [
   'RECIPIENT_CHECK_UNAVAILABLE',
   'PRICE_UNAVAILABLE',
   'PAYMENT_METHOD_UNAVAILABLE',
+  // An admin write past its server deadline: nothing written, the key stays free (9-B M-1).
+  'ADMIN_DEADLINE_EXCEEDED',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);
@@ -75,6 +77,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   RECIPIENT_CHECK_UNAVAILABLE: 503,
   PRICE_UNAVAILABLE: 503,
   PAYMENT_METHOD_UNAVAILABLE: 503,
+  ADMIN_DEADLINE_EXCEEDED: 503,
 };
 
 /** The wire `message` for an error: the i18n key, never user-facing text. */

@@ -6,6 +6,7 @@ import { ACCESS_COOKIE_NAME, CSRF_HEADER, QUEUES, adminSessionCookieName } from 
 import type { Queue } from 'bullmq';
 import { AppModule } from '../../../app.module';
 import { configureApp } from '../../../app.setup';
+import { MONOTONIC_CLOCK } from '../../../common/admin/admin-deadline';
 import { CLOCK } from '../../../common/clock/clock';
 import { CaptureStream } from '../../../common/logging/__tests__/capture-stream';
 import { createHttpAdapter } from '../../../common/http/create-http-adapter';
@@ -100,6 +101,9 @@ export function useAdminE2e(options: AdminE2eOptions = {}): AdminE2e {
     // check (D-52 r2), as the other production suites do.
     if (nodeEnv === 'production') {
       builder.overrideProvider(PrismaService).useClass(TestDatabasePrismaService);
+    }
+    if (options.monotonicClock !== undefined) {
+      builder.overrideProvider(MONOTONIC_CLOCK).useValue(options.monotonicClock);
     }
     if (options.bot !== undefined) {
       builder.overrideProvider(BOT).useValue(options.bot.bot);

@@ -12,6 +12,7 @@ import type {
   CatalogWriteStore,
   LockedProduct,
 } from '../admin-catalog-write.repository';
+import { OPEN_DEADLINE } from '../../../../common/admin/__tests__/admin-deadline.fixture';
 
 // An in-memory CatalogWriteStore (the repository slice the service uses) for the unit tests: one
 // product with its packages and routes, one category, a log of every call (the lock comes first)
@@ -37,6 +38,7 @@ export function ownerActor(): AdminActor {
     ip: '203.0.113.7',
     permission: 'catalog.skuUpdate',
     request: { auditId: IDS.audit, requestHash: 'h'.repeat(64) },
+    deadline: OPEN_DEADLINE,
   };
 }
 

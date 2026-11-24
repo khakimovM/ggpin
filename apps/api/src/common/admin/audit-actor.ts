@@ -1,4 +1,5 @@
 import type { AdminPermission } from '@repo/shared';
+import type { AdminDeadline } from './admin-deadline';
 import { checkedIp, checkedOperator, checkedOsUser, validationError } from './admin-input';
 
 // Who performs an owner money or account action (phase 9 plan §4.6, S6): the owner CLI on the
@@ -40,6 +41,12 @@ export interface AdminActor {
   /** The matrix permission the route performs: re-checked against the role read in the tx. */
   readonly permission: AdminPermission;
   readonly request: AdminRequestKey;
+  /**
+   * The request's server deadline (docs/04 «So‘rov deadline’i»): checked in confirmActorInTx and
+   * before the commit (runActorTransaction). Required here and absent from CliActor on purpose:
+   * the owner CLI has no deadline, and a panel write cannot be built without one.
+   */
+  readonly deadline: AdminDeadline;
   /** Present only when the request carried `otp`. */
   readonly stepUp?: AdminStepUp;
 }

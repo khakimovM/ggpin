@@ -6,10 +6,17 @@ import {
   type AdminWriteKeyVoidBody,
   type AdminWriteKeyVoidResponse,
 } from '@repo/shared';
+import {
+  MONOTONIC_CLOCK,
+  assertWithinDeadline,
+  type MonotonicClock,
+} from '../../../common/admin/admin-deadline';
+import { runActorTransaction } from '../../../common/admin/admin-transaction';
 import { confirmActorInTx } from '../../../common/admin/audit-actor.check';
 import type { AdminActor } from '../../../common/admin/audit-actor';
 import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { AppError } from '../../../common/exceptions/app-error';
+import type { Db } from '../../../infra/prisma/db';
 import type { AdminPrincipal } from '../common/admin-request';
 import { adminAuditIdFor, adminRequestHash } from './admin-write-key';
 import { VOID_TARGET_TYPES } from './admin-write-void.targets';
@@ -38,12 +45,14 @@ export class AdminWriteVoidService {
   constructor(
     private readonly repo: AdminWriteRepository,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(MONOTONIC_CLOCK) private readonly monotonic: MonotonicClock,
   ) {}
 
   async void(
     principal: AdminPrincipal,
     ip: string | null,
     body: AdminWriteKeyVoidBody,
+    receivedAtMs: number,
   ): Promise<AdminWriteKeyVoidResponse> {
     const adminId = principal.admin.id;
     const auditId = adminAuditIdFor(adminId, body.idempotencyKey);
@@ -55,9 +64,18 @@ export class AdminWriteVoidService {
       permission: 'writeKeys.void',
       // The actor type needs a request hash; it is never stored (the tombstone has none, K1).
       request: { auditId, requestHash: adminRequestHash('writeKeys.void', body.targetId, body) },
+      deadline: { receivedAtMs, clock: this.monotonic },
     };
+    // The request deadline as on every admin write (docs/04 «So‘rov deadline’i»): here (there is no
+    // replay lookup before it), in confirmActorInTx and before the commit. Past it: 503, no
+    // tombstone, and the panel asks again.
+    assertWithinDeadline(actor.deadline);
     const now = this.clock.now();
-    const row = await this.repo.transaction(async (tx) => {
+    // The repository's transaction with the void's own timeout (a 25 s wait for a writer's lock).
+    const voidTx = {
+      transaction: <R>(fn: (tx: Db) => Promise<R>) => this.repo.transaction(fn, VOID_TX_TIMEOUT_MS),
+    };
+    const row = await runActorTransaction(voidTx, actor, async (tx) => {
       // Still active, the role read now holds `writeKeys.void`, the session still open: else 404.
       const who = await confirmActorInTx(tx, actor, now);
       if (!('adminRole' in who)) throw new AppError('INTERNAL_ERROR'); // an ADMIN actor's answer
@@ -78,7 +96,7 @@ export class AdminWriteVoidService {
       // Read in this transaction after the insert: under READ COMMITTED it sees the row the
       // insert waited for, or the tombstone it wrote (now or on an earlier void).
       return this.repo.findAudit(auditId, tx);
-    }, VOID_TX_TIMEOUT_MS);
+    });
     return answerOf(row, adminId);
   }
 }

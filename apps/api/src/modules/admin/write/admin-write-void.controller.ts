@@ -4,6 +4,7 @@ import { AdminAction } from '../common/admin-action.decorator';
 import { AdminController } from '../common/admin-controller.decorator';
 import type { AdminPrincipal } from '../common/admin-request';
 import { CurrentAdmin } from '../common/current-admin.decorator';
+import { RequestReceivedAt } from '../../../common/http/request-received';
 import { AdminWriteVoidService } from './admin-write-void.service';
 import { AdminWriteKeyVoidBodyDto } from './admin-write.dto';
 
@@ -21,7 +22,8 @@ export class AdminWriteVoidController {
     @CurrentAdmin() principal: AdminPrincipal,
     @Ip() ip: string,
     @Body() body: AdminWriteKeyVoidBodyDto,
+    @RequestReceivedAt() receivedAtMs: number,
   ): Promise<AdminWriteKeyVoidResponse> {
-    return this.voids.void(principal, ip, body);
+    return this.voids.void(principal, ip, body, receivedAtMs);
   }
 }
