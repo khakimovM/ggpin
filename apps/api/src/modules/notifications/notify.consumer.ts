@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   BankFeedAlertKindSchema,
   FulfillmentAlertKindSchema,
+  PROMO_NOTIFY_KINDS,
   describeErrorForLog,
   notifyJobId,
   notifyJobSchema,
@@ -9,6 +10,7 @@ import {
   ownerAlertOutboxJobId,
   ownerAlertPriority,
   type NotifyJob,
+  type PromoNotifyKind,
   type TgInlineKeyboard,
 } from '@repo/shared';
 import { UnrecoverableError, type Job } from 'bullmq';
@@ -40,6 +42,12 @@ export class OwnerChatMissingError extends Error {
 type TopupJob = Extract<NotifyJob, { kind: 'TOPUP_CREDITED' | 'TOPUP_LATE_CREDITED' }>;
 type OrderJob = Extract<NotifyJob, { kind: `ORDER_${string}` }>;
 type OwnerAlertJob = Extract<NotifyJob, { kind: 'OWNER_ALERT' }>;
+type PromoJob = Extract<NotifyJob, { kind: PromoNotifyKind }>;
+type RoutedJob = Exclude<NotifyJob, PromoJob>;
+
+function isPromoJob(job: NotifyJob): job is PromoJob {
+  return PROMO_NOTIFY_KINDS.some((kind) => kind === job.kind);
+}
 /** What the consumer reads of a BullMQ job; the attempt fields decide the last-attempt fallback. */
 export type NotifyJobLike = Pick<Job, 'id' | 'data'> & Partial<Pick<Job, 'attemptsMade' | 'opts'>>;
 
@@ -88,8 +96,15 @@ export class NotifyConsumer {
       this.log(job, 'invalid-payload');
       throw new UnrecoverableError('invalid notify payload');
     }
+    const data = parsed.data;
+    if (isPromoJob(data)) {
+      // Phase 10: the shapes exist (shared notify.ts) before their renderers (S3, S7). Until
+      // then such a job fails for good instead of completing unsent.
+      this.log(job, 'unrouted-kind');
+      throw new UnrecoverableError('notify kind not routed yet');
+    }
     try {
-      const outcome = await this.route(parsed.data, job);
+      const outcome = await this.route(data, job);
       this.log(job, outcome);
       return outcome;
     } catch (error) {
@@ -110,7 +125,7 @@ export class NotifyConsumer {
     }
   }
 
-  private route(data: NotifyJob, job: NotifyJobLike): Promise<NotifyOutcome> {
+  private route(data: RoutedJob, job: NotifyJobLike): Promise<NotifyOutcome> {
     switch (data.kind) {
       case 'OWNER_ALERT':
         return this.ownerAlert(data, job);

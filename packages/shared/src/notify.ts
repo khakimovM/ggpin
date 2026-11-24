@@ -22,10 +22,15 @@ export const ORDER_NOTIFY_KINDS = [
 ] as const;
 export type OrderNotifyKind = (typeof ORDER_NOTIFY_KINDS)[number];
 
+/** Phase 10 (D-72): `refId` = the delivered order / the BonusRedemption. A reversal sends nothing. */
+export const PROMO_NOTIFY_KINDS = ['REFERRAL_BONUS', 'BONUS_REDEEMED'] as const;
+export type PromoNotifyKind = (typeof PROMO_NOTIFY_KINDS)[number];
+
 export const NOTIFY_KINDS = [
   'TOPUP_CREDITED',
   'TOPUP_LATE_CREDITED',
   ...ORDER_NOTIFY_KINDS,
+  ...PROMO_NOTIFY_KINDS,
   'OWNER_ALERT',
 ] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
@@ -53,6 +58,12 @@ const orderNotifySchema = z.strictObject({
   refId: IdSegmentSchema,
 });
 
+// No userId and no amount, as above: the API reads both from the OrderReward / BonusRedemption row.
+const promoNotifySchema = z.strictObject({
+  kind: z.enum(PROMO_NOTIFY_KINDS),
+  refId: IdSegmentSchema,
+});
+
 const ownerAlertSchema = z.strictObject({
   kind: z.literal('OWNER_ALERT'),
   alert: OwnerAlertKindSchema,
@@ -63,6 +74,7 @@ const ownerAlertSchema = z.strictObject({
 export const notifyJobSchema = z.discriminatedUnion('kind', [
   topupNotifySchema,
   orderNotifySchema,
+  promoNotifySchema,
   ownerAlertSchema,
 ]);
 export type NotifyJob = z.infer<typeof notifyJobSchema>;
@@ -179,8 +191,8 @@ const ORDER_NOTIFY_SUFFIX: Readonly<Record<OrderNotifyKind, string>> = Object.fr
 });
 
 /**
- * Stable per logical notification: `topup-<paymentId>`, `order-<orderId>-<event>` and
- * `alert-<alert>-<refId>`. BullMQ drops an `add()` whose id still exists, so a retried producer
+ * Stable per logical notification: `topup-<paymentId>`, `order-<orderId>-<event>`,
+ * `referral-<orderId>`, `bonus-<redemptionId>` and `alert-<alert>-<refId>`. BullMQ drops an `add()` whose id still exists, so a retried producer
  * notifies once. An alert that must repeat for the same row (listener still down an hour later)
  * puts a time bucket in `refId`. An order is told about each event once: a second HELD of the
  * same order does not send a second "being checked" message.
@@ -197,6 +209,10 @@ export function notifyJobId(job: NotifyJob): string {
     case 'ORDER_REVIEW':
     case 'ORDER_REFUNDED':
       return tgOutboxJobId('order', job.refId, ORDER_NOTIFY_SUFFIX[job.kind]);
+    case 'REFERRAL_BONUS':
+      return tgOutboxJobId('referral', job.refId);
+    case 'BONUS_REDEEMED':
+      return tgOutboxJobId('bonus', job.refId);
   }
 }
 

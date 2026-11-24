@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import {
   FULFILLMENT_ALERT_KINDS,
   ORDER_NOTIFY_KINDS,
+  PROMO_NOTIFY_KINDS,
   tgOutboxJobSchema,
   type NotifyJob,
   type TgOutboxJob,
@@ -89,6 +90,15 @@ describe('notify consumer: order messages', () => {
     ).resolves.toBe('skipped-blocked');
     expect(sent.size).toBe(0);
     expect(info).toHaveBeenCalledWith('job=n1 outcome=skipped-blocked');
+  });
+
+  it.each(PROMO_NOTIFY_KINDS)('%s fails for good until phase 10 routes it', async (kind) => {
+    const { consumer, sent } = setup(accepted);
+    await expect(
+      consumer.handle({ id: 'n1', data: { kind, refId: 'cmorder1' } }),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(sent.size).toBe(0);
+    expect(info).toHaveBeenCalledWith('job=n1 outcome=unrouted-kind');
   });
 
   it('a missing order fails as unrecoverable', async () => {

@@ -33,6 +33,7 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 422  | `PRODUCT_UNAVAILABLE`, `OUT_OF_STOCK`, `QTY_OUT_OF_RANGE`                      | katalog                                                                                                                                                                                              |
 | 422  | `TOPUP_AMOUNT_OUT_OF_RANGE` (`details: {min, max, step, reason?}`)             | to‘ldirish chegaralari; `reason`: `DAILY_LIMIT` (barcha akkaunt, 24 soat), `NEW_ACCOUNT_DAILY_LIMIT` (7 kundan yosh akkaunt); kunlik limitda `max` = bugun QOLGAN limit (`max < min` — limit tugadi) |
 | 422  | `CODE_INVALID`, `CODE_EXPIRED`, `CODE_ALREADY_USED`, `NOT_ENOUGH_COINS`        | promo; `CODE_INVALID`/`CODE_EXPIRED` web kirish OTP’si uchun ham (D-26)                                                                                                                              |
+| 422  | `CODE_LIMIT_REACHED`, `CODE_NOT_APPLICABLE`                                    | promo (10-bosqich, D-72 (5)): bir vaqtda faol chegirma kodlari chegarasi (5 ta); chegirma narxni marja chegarasidan pastga tushiradi                                                                 |
 | 429  | `RATE_LIMITED`                                                                 | throttler; to‘ldirish: 5 so‘rov / 10 daqiqa, 10 so‘rov / 24 soat, bir vaqtda 3 TO‘LANMAGAN band so‘rov (`Retry-After`)                                                                               |
 | 500  | `INTERNAL_ERROR`                                                               | kutilmagan server xatosi (stack trace hech qachon javobga chiqmaydi)                                                                                                                                 |
 | 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                                                                                                                                                    |
@@ -42,6 +43,8 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 Buzilgan percent-kodlashli URL (masalan `%ZZ`) marshrutlashdan oldin HTTP qatlamida standart shaklsiz xom `400` oladi (D-42 (3)); bizning havolalarimiz (id va token base64url) buni hech qachon keltirib chiqarmaydi.
 
 Kodlar va HTTP holatlari ro‘yxati — `packages/shared/src/errors.ts` (`ERROR_CODES`, `ERROR_HTTP_STATUS`); bu jadval u bilan aynan mos turadi.
+Istisno (vaqtinchalik): `CODE_LIMIT_REACHED` va `CODE_NOT_APPLICABLE` `ERROR_CODES` ga i18n matnlari (`errors.*`, uz + ru) bilan bitta
+o‘zgarishda qo‘shiladi (10-bosqich S5); shu paytgacha API ularni qaytarmaydi.
 
 - `details.fields` — `[{ path, code }]`: faqat maydon yo‘li va Zod xato kodi; rad etilgan qiymatning o‘zi javobga chiqmaydi.
 - Kodsiz framework xatolari holat bo‘yicha xaritalanadi: `415` (qo‘llab-quvvatlanmaydigan `Content-Type`) — `400 VALIDATION_ERROR`;
@@ -150,10 +153,11 @@ Ikkala yo‘l ham sessiya talab qiladi, javoblari `Cache-Control: no-store`. Pul
 
 - `balanceTiyin` ishorali: to‘ldirish bekor qilinib (`TOPUP_REVERSAL`) pul allaqachon sarflangan bo‘lsa manfiy bo‘lishi mumkin
   (`"-550000"`); shunda hisob xaridlar uchun muzlatiladi (`403 PURCHASE_FROZEN`), to‘ldirish esa ochiq qoladi.
-- `coins` — keshbek tangalari soni, string; 10-bosqichgacha doim `"0"`.
+- `coins` — keshbek tangalari soni (`SUM(CoinEntry.coins)`), butun son, string. 1 tanga = 100 so‘m keshbek (D-72 (4)); tangalar
+  so‘mga aylanmaydi, faqat chegirma kodiga sarflanadi (`POST /discounts/codes`). Tanga yozuvlari 10-bosqich S3 dan; ungacha `"0"`.
 
 **`GET /me/ledger?kind=&page=1&limit=20`** — moliya tarixi, eng yangisi birinchi. `kind` ixtiyoriy
-(`TOPUP`, `TOPUP_REVERSAL`, `PURCHASE`, `REFUND`, `REFERRAL_BONUS`, `REFERRAL_BONUS_REVERSAL`, `ADJUSTMENT`); noma’lum qiymat,
+(`TOPUP`, `TOPUP_REVERSAL`, `PURCHASE`, `REFUND`, `REFERRAL_BONUS`, `REFERRAL_BONUS_REVERSAL`, `ADJUSTMENT`, `BONUS_CODE`); noma’lum qiymat,
 noma’lum kalit, `limit` 1..100 dan yoki `page` 1..10 000 dan tashqari — `400 VALIDATION_ERROR`. Faqat o‘zining yozuvlari
 (`createdAt`, keyin `id` bo‘yicha kamayish tartibida).
 
@@ -184,7 +188,9 @@ noma’lum kalit, `limit` 1..100 dan yoki `page` 1..10 000 dan tashqari — `400
 
 - `amountTiyin` ishorali: kirim musbat, chiqim manfiy.
 - `orderId` faqat buyurtmadan kelgan yozuvda (`PURCHASE`, `REFUND`), `paymentId` faqat to‘lovdan kelganida (`TOPUP`,
-  `TOPUP_REVERSAL`); qolganlarida (`REFERRAL_BONUS*`, `ADJUSTMENT`) ikkalasi `null` — ichki audit id ko‘rsatilmaydi.
+  `TOPUP_REVERSAL`); qolganlarida (`REFERRAL_BONUS*`, `ADJUSTMENT`, `BONUS_CODE`) ikkalasi `null` — ichki audit id ko‘rsatilmaydi.
+- `BONUS_CODE` (10-bosqich, D-72 (9)) — so‘m beruvchi bonus kod faollashtirilgani, doim musbat. `kind=BONUS_CODE` filtri ledger turi
+  bazaga qo‘shilgan migratsiya (10-bosqich S2) bilan birga ishlaydi.
   Havola faqat yozuv turi **va** manba turi (`refType` `ORDER` / `PAYMENT`) mos kelganda beriladi: masalan admin qisman
   qaytargan `REFUND` (`ADMIN_ACTION` manbali) da `orderId` ham `null`. `refType`/`refId` javobga chiqmaydi.
 
@@ -422,8 +428,32 @@ Body `strict`: noma’lum kalit — `400`. `userId` hech qachon body'da emas, fa
 
 - Kotirovka **10 daqiqa** amal qiladi (`expiresAt`) va shu foydalanuvchiga bog‘langan: narx
   shu paytda qulflanadi. Javobda tannarx, kurs, ustama yoki ichki id'lar **yo‘q**.
-- `totalTiyin = priceTiyin − discountTiyin`. Chegirma kodlari 10-bosqichda; hozir
-  `discountCode` berilsa — `422 CODE_INVALID`.
+- `totalTiyin = priceTiyin − discountTiyin`.
+- **Chegirma kodi (10-bosqich S6, D-72 (5)).** `discountCode` — foydalanuvchining o‘z kodi (`POST /discounts/codes` bergani). Kod
+  `normalizePromoCode` bilan normallashtiriladi (bo‘shliq, defis, ko‘rinmas format belgilari (Unicode Cf), katta-kichik harf,
+  kirillcha o‘xshash harflar). Body’da `discountCode` — xom matn, 1..64 belgi (`PROMO_CODE_RAW_MAX_LENGTH`; `POST /bonus-codes/redeem`
+  `code` bilan bitta qoida — `PromoCodeInputSchema`); **4..32 belgi — normallashtirilgandan keyin** tekshiriladi, o‘tmasa
+  `422 CODE_INVALID` (`400` emas). Kod faqat egasiniki, ishlatilmagan va muddati o‘tmagan bo‘lsa qabul qilinadi. Tekshiruv tartibi:
+  **egasi → ishlatilgan → muddati**. Boshqa foydalanuvchining kodi (ishlatilgan yoki muddati o‘tgan bo‘lsa ham) har doim
+  `CODE_INVALID` — javob kod borligini oshkor qilmaydi (S6 testi: boshqa foydalanuvchining faol, ishlatilgan va muddati o‘tgan kodi —
+  uchalasi `CODE_INVALID`). `discountTiyin = min(narx × bps, kodning maxDiscountTiyin)`, pastga, butun so‘mga yaxlitlanadi (har kodda
+  chegara bor). Javobga `discountCode: { code, bps }` qo‘shiladi; kodsiz kotirovkada `discountCode: null`.
+  S6 gacha `discountCode` berilsa — `422 CODE_INVALID`.
+
+  ```json
+  // 201, chegirma kodi bilan
+  {
+    "quoteId": "ghj3p0w7k1cz9r4t6u8v2xyb",
+    "priceTiyin": "10000000",
+    "discountTiyin": "150000",
+    "totalTiyin": "9850000",
+    "discountCode": { "code": "GG7KQ2MXP4", "bps": 150 },
+    "expiresAt": "2026-11-03T10:10:00.000Z",
+    "recipient": { "username": "aziz_k", "displayName": "Aziz" },
+    "currency": "UZS"
+  }
+  ```
+
 - Javob har doim `Cache-Control: no-store` (muvaffaqiyatda ham, xatoda ham).
 - Kotirovka pul harakatlantirmaydi, shuning uchun `Idempotency-Key` yo‘q; bir kotirovka ikki
   marta sarflanmasligini 5-bosqichda `Order.quoteId` (unique) va `usedAt` kafolatlaydi.
@@ -441,11 +471,15 @@ Xatolar:
 | 422    | `PRODUCT_UNAVAILABLE`                        | mahsulot faol emas; `skuId` shu mahsulotning faol paketi emas (noma’lum, nofaol yoki boshqa mahsulotniki)                                                             |
 | 422    | `QTY_OUT_OF_RANGE` + `details: { min, max }` | erkin miqdor katalogdagi `minQty..maxQty` oralig‘idan tashqarida (`details` — shu amaldagi oraliq). Erkin miqdori yo‘q mahsulotda `details: { min: null, max: null }` |
 | 422    | `RECIPIENT_INVALID`                          | token noma’lum, muddati o‘tgan, boshqa foydalanuvchiniki yoki boshqa mahsulotniki (javob bir xil)                                                                     |
-| 422    | `CODE_INVALID`                               | `discountCode` berilgan (10-bosqichgacha)                                                                                                                             |
+| 422    | `CODE_INVALID`                               | `discountCode` noma’lum, boshqa foydalanuvchiniki (holatidan qat’i nazar) yoki normallashtirib bo‘lmaydi (javob bir xil); S6 gacha — har qanday `discountCode`        |
+| 422    | `CODE_ALREADY_USED`                          | o‘zining kodi boshqa buyurtmada ishlatilgan (S6 dan); muddatdan oldin tekshiriladi                                                                                    |
+| 422    | `CODE_EXPIRED`                               | o‘zining ishlatilmagan kodining muddati o‘tgan (S6 dan)                                                                                                               |
+| 422    | `CODE_NOT_APPLICABLE`                        | chegirma narxni marja chegarasidan pastga tushiradi (D-72 (5)); kotirovka yozilmaydi (S6 dan)                                                                         |
 | 429    | `RATE_LIMITED` + `Retry-After`               | foydalanuvchiga 30 kotirovka/daqiqa                                                                                                                                   |
 | 503    | `PRICE_UNAVAILABLE`                          | kurs yoki tannarx yo‘q / 30 daqiqadan eski; hech narsa yozilmaydi                                                                                                     |
 
-Tekshiruv tartibi: limit → mahsulot → paket/miqdor → token → chegirma kodi → narx.
+Tekshiruv tartibi: limit → mahsulot → paket/miqdor → token → chegirma kodi (normallashtirish → egasi → ishlatilgan → muddati) → narx →
+chegirmaning marja chegarasi (`CODE_NOT_APPLICABLE`).
 
 **Telegram Premium.** Mahsulot turi slug bo‘yicha aniqlanadi (`telegram-premium`); paket miqdori — **oylar**, faqat 3, 6 yoki 12
 (`quantity` shu oylarni bildiradi; buyurtmada ham `order.quantity` = oylar). Kotirovka va buyurtma qabul qiluvchini qayta tekshirmaydi:
@@ -525,25 +559,34 @@ shuning uchun server tomonida (5-bosqich, D-49):
    replay’dan keyingi `404` “kotirovka yo‘q” emas, “buyurtma yo‘q” deb o‘qiladi.
 
 Klient shunga tayanadi: noaniq urinishni hal qiluvchi javoblar — `201`; `409 QUOTE_ALREADY_USED` + `orderId`; `410 QUOTE_EXPIRED`;
-`422 INSUFFICIENT_BALANCE`; Mini App’da `404` — hammasi FAQAT bizning javob konvertida (`success:false`). Konvertsiz javob
+`422 INSUFFICIENT_BALANCE`; `422 CODE_ALREADY_USED` (10-bosqich S6); Mini App’da `404` — hammasi FAQAT bizning javob konvertida (`success:false`). Konvertsiz javob
 (proksining HTML sahifasi, `502`) hech narsani hal qilmaydi. Webda konvertli `404` CSRF qo‘riqchisi ham bo‘lishi mumkin (D-26),
 shuning uchun klient uni hal qiluvchi deb olmaydi. Kod va status juftligi ham tekshiriladi (`410`+`QUOTE_EXPIRED`, `422`+`INSUFFICIENT_BALANCE`,
-`409`+`QUOTE_ALREADY_USED`, `404`+`NOT_FOUND`); mos kelmasa javob hal qilmaydi. Proksi/WAF ning o‘z xato javoblari hech qachon bizning
+`422`+`CODE_ALREADY_USED`, `409`+`QUOTE_ALREADY_USED`, `404`+`NOT_FOUND`); mos kelmasa javob hal qilmaydi. Proksi/WAF ning o‘z xato javoblari hech qachon bizning
 konvert shaklida (`success:false`) bo‘lmasin (devops). Javob shakli o‘zgarmaydi.
 
-| Status | Kod                                                       | Qachon                                                    |
-| ------ | --------------------------------------------------------- | --------------------------------------------------------- |
-| 400    | `VALIDATION_ERROR`                                        | body shakli; `Idempotency-Key` yo‘q yoki shakli noto‘g‘ri |
-| 401    | `UNAUTHORIZED`                                            | sessiya yo‘q                                              |
-| 403    | `USER_BLOCKED`, `PURCHASE_FROZEN`                         | bloklangan; to‘lovi qaytarilgan (xarid cheklangan)        |
-| 404    | `NOT_FOUND`                                               | kotirovka yo‘q yoki boshqa foydalanuvchiniki              |
-| 409    | `IDEMPOTENCY_CONFLICT`                                    | bir xil kalit, boshqa body                                |
-| 409    | `QUOTE_ALREADY_USED` + `{ orderId }` (tavsiya)            | kotirovka boshqa kalit bilan allaqachon ishlatilgan       |
-| 410    | `QUOTE_EXPIRED`                                           | kotirovka muddati tugagan                                 |
-| 422    | `INSUFFICIENT_BALANCE` + `{balance, required, shortfall}` | balans yetmaydi; hech narsa yozilmaydi                    |
-| 429    | `RATE_LIMITED` + `Retry-After`                            | foydalanuvchiga 10 buyurtma/daqiqa                        |
+| Status | Kod                                                       | Qachon                                                                                                  |
+| ------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`                                        | body shakli; `Idempotency-Key` yo‘q yoki shakli noto‘g‘ri                                               |
+| 401    | `UNAUTHORIZED`                                            | sessiya yo‘q                                                                                            |
+| 403    | `USER_BLOCKED`, `PURCHASE_FROZEN`                         | bloklangan; to‘lovi qaytarilgan (xarid cheklangan)                                                      |
+| 404    | `NOT_FOUND`                                               | kotirovka yo‘q yoki boshqa foydalanuvchiniki                                                            |
+| 409    | `IDEMPOTENCY_CONFLICT`                                    | bir xil kalit, boshqa body                                                                              |
+| 409    | `QUOTE_ALREADY_USED` + `{ orderId }` (tavsiya)            | kotirovka boshqa kalit bilan allaqachon ishlatilgan                                                     |
+| 410    | `QUOTE_EXPIRED`                                           | kotirovka muddati tugagan                                                                               |
+| 422    | `INSUFFICIENT_BALANCE` + `{balance, required, shortfall}` | balans yetmaydi; hech narsa yozilmaydi                                                                  |
+| 422    | `CODE_ALREADY_USED`                                       | kotirovkadagi chegirma kodini shu orada boshqa buyurtma ishlatdi; hech narsa yozilmaydi (10-bosqich S6) |
+| 429    | `RATE_LIMITED` + `Retry-After`                            | foydalanuvchiga 10 buyurtma/daqiqa                                                                      |
 
 `422 INSUFFICIENT_BALANCE` `details`: uchalasi tiyin string; `balance` manfiy bo‘lishi mumkin (masalan `TOPUP_REVERSAL` dan keyin, D-60), `required` va `shortfall` doim musbat.
+
+Chegirma kodli kotirovka (10-bosqich S6): kod `PURCHASE` bilan bitta tranzaksiyada band qilinadi (`DiscountCode.usedOrderId`, faqat bo‘sh bo‘lsa).
+Tekshiruv tartibi (hamyon qulfi ostida): **D-49 replay → kotirovka ishlatilgan (`409 QUOTE_ALREADY_USED` + `orderId`) → kodni band
+qilish (CAS)**. Kod aynan shu kotirovkaning buyurtmasida band bo‘lsa — `409 QUOTE_ALREADY_USED` + o‘sha `orderId` (kotirovka tekshiruvi
+koddan oldin; `422 CODE_ALREADY_USED` emas). Kodni boshqa buyurtma band qilgan bo‘lsa — `422 CODE_ALREADY_USED`: hech narsa yozilmaydi (buyurtma ham, debet ham yo‘q), bu kalit va kotirovka
+bo‘yicha kod sarflanmagan. Bu hal qiluvchi javob (yuqoridagi ro‘yxat). D-49 replay qoidasi bilan mos: o‘sha kalit bilan takror so‘rov
+replay yozuvini topmaydi (`Order` yozilmagan); kod band ekan, natija o‘zgarmaydi — yana o‘sha `422 CODE_ALREADY_USED`.
+Buyurtma avtomatik `FAILED`/`CANCELLED` bo‘lib pul qaytsa, kod yana faol bo‘ladi; yetkazilgan buyurtmaning admin refund’ida kod qaytmaydi (D-72 (8)).
 
 «10 buyurtma/daqiqa» — o‘ylab topilmagan: manba `.claude/rules/10-backend-nestjs.md` («order create 10/min/user»).
 
@@ -924,10 +967,216 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
 
 ## Referal, keshbek, promo
 
-| GET  | `/referrals`                                                                       | `{ link, miniAppLink, invitedCount, earnedTiyin, invited: [...] }` |
-| ---- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| GET  | `/discounts/tiers` · POST `/discounts/codes` `{ tierId }` · GET `/discounts/codes` | chegirma kodlari                                                   |
-| POST | `/bonus-codes/redeem`                                                              | `{ code }` → mukofot                                               |
+10-bosqich (D-72). Shakllar `packages/shared/src/promo/promo-schemas.ts` da. Hamma yo‘l sessiya talab qiladi (cookie sessiyada
+yozuvchi so‘rovlarga `X-CSRF-Token` + `Origin`, aks holda `404`), javoblar `Cache-Control: no-store`. Pul va tangalar — string;
+tanga butun son. `userId` faqat sessiyadan. Har yo‘lda: sessiya yo‘q — `401 UNAUTHORIZED`, bloklangan foydalanuvchi —
+`403 USER_BLOCKED`.
+
+| Metod | Yo‘l                                    | Qisqacha                                                |
+| ----- | --------------------------------------- | ------------------------------------------------------- |
+| GET   | `/referrals?page=1&limit=20`            | referal havolasi, statistika va taklif qilinganlar      |
+| GET   | `/discounts/tiers`                      | chegirma kodi tier’lari                                 |
+| POST  | `/discounts/codes`                      | `Idempotency-Key`; `{ tierId }` → tangaga chegirma kodi |
+| GET   | `/discounts/codes?status=&page=&limit=` | o‘z chegirma kodlari                                    |
+| POST  | `/bonus-codes/redeem`                   | `{ code }` → mukofot (hamyonga so‘m yoki tanga)         |
+
+### Mukofot qoidalari (D-72 (3)–(7))
+
+- **Referal bonus:** taklif qilgan foydalanuvchiga taklif qilinganning har **yetkazilgan** (`DELIVERED`) xaridining 1% i (`Setting`
+  `REFERRAL_BPS`), to‘langan summadan (`priceTiyin − discountTiyin`), butun so‘mga pastga. Umrbod. Bitta inviter’ga kuniga ko‘pi bilan
+  100 000 so‘m (`REFERRAL_DAILY_CAP_TIYIN`, Toshkent kuni). Chegaragacha **qisman** beriladi (bugun 99 500 so‘m berilgan, yangi bonus
+  1 000 so‘m → 500 so‘m, butun so‘mga pastga; `capReferralBonus`); oshgani berilmaydi va keyinga surilmaydi. Kunlik summa **gross**:
+  bugun berilgan `REFERRAL_BONUS` lar yig‘indisi, qaytarishlar (`REFERRAL_BONUS_REVERSAL`) chegarani bo‘shatmaydi. Qoldiq 0 bo‘lsagina
+  bonus yozilmaydi va `skipReason: DAILY_CAP`. Ledger: `REFERRAL_BONUS`.
+- **Keshbek:** xaridorga yetkazilgan xariddan 0,5% (`CASHBACK_BPS`), tangada: 1 tanga = 100 so‘m keshbek (`COIN_UNIT_TIYIN`), butun
+  tangaga pastga. Tangalar hozircha muddatsiz.
+- Mukofot faqat `DELIVERED` o‘tishi bilan bitta tranzaksiyada yoziladi. Admin yetkazilgan buyurtmani qaytarsa, mukofot ham qaytariladi:
+  to‘liq refund’da qolgani to‘liq, qisman refund’da proporsional va **kumulyativ**: shu refund’dan keyin jami qaytarilgan =
+  `ceil(berilgan × jami_refund / to‘langan)` (bir marta yuqoriga yaxlitlanadi; avval qaytarilgandan kam emas, berilgandan oshmaydi),
+  shuning uchun ko‘p kichik refund bitta yig‘indi refund’dan ko‘p olmaydi (`reversalShare`). Qaytarishda inviter’ga
+  xabar yuborilmaydi; u tarixda (`REFERRAL_BONUS_REVERSAL`) ko‘rinadi.
+- Stavkalarni faqat OWNER o‘zgartiradi; o‘zgarish keyingi yetkazishlarga amal qiladi.
+
+### `GET /referrals?page=1&limit=20`
+
+```json
+{
+  "success": true,
+  "data": {
+    "link": "https://t.me/ggpin_bot?start=ref_ab12cd34",
+    "miniAppLink": "https://t.me/ggpin_bot?startapp=ref_ab12cd34",
+    "invitedCount": 2,
+    "earnedTiyin": "2500000",
+    "rateBps": 100,
+    "invited": [
+      {
+        "displayName": "Sardor",
+        "usernameMasked": "@sa***",
+        "joinedAt": "2026-11-20T08:00:00.000Z",
+        "earnedTiyin": "2500000"
+      },
+      {
+        "displayName": null,
+        "usernameMasked": null,
+        "joinedAt": "2026-11-21T08:00:00.000Z",
+        "earnedTiyin": "0"
+      }
+    ]
+  },
+  "meta": { "page": 1, "limit": 20, "total": 2 }
+}
+```
+
+- `link` botni, `miniAppLink` Mini App’ni ochadi (`ref_<referralCode>`, docs/07). Web uchun `?ref=` havolasi yo‘q (D-72 (14)).
+- `invitedCount` — taklif qilinganlar soni; `earnedTiyin` — ulardan jami **net** bonus (berilgan minus qaytarilgan, D-72 (13)).
+- `rateBps` — hozirgi referal stavkasi.
+- `invited[]` — eng yangisi birinchi. Har birida ism (`firstName`), maskalangan username (`@` + 2 belgi + `***`), qo‘shilgan sana va
+  undan net bonus. Ism yoki username bo‘lmasa — `null`. Telegram ID, telefon va boshqa ma’lumot **yo‘q**.
+- Sahifalash umumiy qoida bo‘yicha (`?page=1&limit=20`, `meta: { page, limit, total }`) va faqat `invited` ro‘yxatiga tegishli: `total` —
+  taklif qilinganlar soni. `limit` 1..100, `page` 1..10 000; noma’lum kalit — `400`.
+
+### `GET /discounts/tiers`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm3tier00000000000000001",
+      "bps": 20,
+      "priceCoins": "15",
+      "maxDiscountTiyin": "200000",
+      "validDays": 30
+    },
+    {
+      "id": "cm3tier00000000000000002",
+      "bps": 50,
+      "priceCoins": "35",
+      "maxDiscountTiyin": "500000",
+      "validDays": 30
+    },
+    {
+      "id": "cm3tier00000000000000003",
+      "bps": 100,
+      "priceCoins": "70",
+      "maxDiscountTiyin": "1000000",
+      "validDays": 30
+    },
+    {
+      "id": "cm3tier00000000000000004",
+      "bps": 150,
+      "priceCoins": "90",
+      "maxDiscountTiyin": "1500000",
+      "validDays": 30
+    }
+  ]
+}
+```
+
+- Faqat faol tier’lar, `bps` o‘sish tartibida. `maxDiscountTiyin` — bitta kodning eng katta chegirmasi (har tier’da bor, `null` emas);
+  `validDays` — kod sotib olingandan necha kun amal qiladi.
+
+### `POST /discounts/codes`
+
+`Idempotency-Key` majburiy. Body `.strict()`: `{ "tierId": "cm3tier00000000000000004" }`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cm3dcode0000000000000001",
+    "code": "GG7KQ2MXP4",
+    "bps": 150,
+    "maxDiscountTiyin": "1500000",
+    "expiresAt": "2026-12-24T10:00:00.000Z"
+  }
+}
+```
+
+- `201`. Bitta tranzaksiyada tanga balansi tekshiriladi, `CoinEntry(SPEND)` va `DiscountCode` yoziladi (`bps`, `maxDiscountTiyin`,
+  muddat tier’dan nusxa). Idempotent takror (bir xil kalit va body) — o‘sha kod yana `201` bilan, tanga ikkinchi marta yechilmaydi;
+  bir xil kalit, boshqa body — `409 IDEMPOTENCY_CONFLICT`.
+- Kod formati: `GG` + generatsiya alifbosidan (`PROMO_CODE_ALPHABET`, 30 belgi: `0`, `1`, `I`, `L`, `O`, `U` yo‘q) 8 ta tasodifiy belgi
+  (`DISCOUNT_CODE_PREFIX`, `DISCOUNT_CODE_RANDOM_LENGTH`; 30^8 ≈ 6,6 × 10^11, ~39 bit). Kod egasiga bog‘langan: boshqa foydalanuvchi uni
+  bilsa ham `CODE_INVALID` oladi.
+- Kod kotirovkada ishlatiladi (`POST /quotes` `discountCode`); ko‘rsatishda guruhlab yozish mumkin (`GG-7KQ2-MXP4`), server bo‘shliq va
+  defislarni olib tashlaydi.
+- Tekshiruv tartibi: tier faol (aks holda `404`) → `CODE_LIMIT_REACHED` → `NOT_ENOUGH_COINS`.
+
+| Status | Kod                            | Qachon                                                                         |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------ |
+| 400    | `VALIDATION_ERROR`             | body shakli; `Idempotency-Key` yo‘q yoki shakli noto‘g‘ri                      |
+| 401    | `UNAUTHORIZED`                 | sessiya yo‘q yoki yaroqsiz                                                     |
+| 403    | `USER_BLOCKED`                 | bloklangan foydalanuvchi                                                       |
+| 404    | `NOT_FOUND`                    | tier yo‘q yoki nofaol                                                          |
+| 409    | `IDEMPOTENCY_CONFLICT`         | bir xil kalit, boshqa body                                                     |
+| 422    | `CODE_LIMIT_REACHED`           | foydalanuvchida allaqachon 5 ta faol (ishlatilmagan, muddati o‘tmagan) kod bor |
+| 422    | `NOT_ENOUGH_COINS`             | tanga yetmaydi (yoki balansi manfiy); hech narsa yozilmaydi                    |
+| 429    | `RATE_LIMITED` + `Retry-After` | throttler                                                                      |
+
+### `GET /discounts/codes?status=ACTIVE|USED|EXPIRED&page=1&limit=20`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm3dcode0000000000000001",
+      "code": "GG7KQ2MXP4",
+      "bps": 150,
+      "maxDiscountTiyin": "1500000",
+      "expiresAt": "2026-12-24T10:00:00.000Z",
+      "usedAt": null,
+      "orderNumber": null
+    }
+  ],
+  "meta": { "page": 1, "limit": 20, "total": 1 }
+}
+```
+
+- Faqat o‘z kodlari, eng yangisi birinchi. `status` ixtiyoriy: `ACTIVE` — ishlatilmagan va muddati o‘tmagan, `USED` — buyurtmada
+  ishlatilgan, `EXPIRED` — ishlatilmay muddati o‘tgan; noma’lum qiymat — `400`.
+- Sahifalangan (umumiy qoida, rule 60): `limit` 1..100 (standart 20), `page` 1..10 000, `meta: { page, limit, total }`. Faol kodlar ≤ 5,
+  lekin ishlatilgan va muddati o‘tganlari cheksiz o‘sadi.
+- `usedAt` — kodni ishlatgan buyurtma yaratilgan vaqt, `orderNumber` — o‘sha buyurtmaning `#`; ishlatilmagan kodda ikkalasi `null`.
+  Avtomatik refund’dan keyin kod yana `ACTIVE` (D-72 (8)).
+
+### `POST /bonus-codes/redeem`
+
+Body `.strict()`: `{ "code": "GG5000" }` — xom matn, 1..64 belgi (`PROMO_CODE_RAW_MAX_LENGTH`; kotirovkaning `discountCode` bilan bitta
+qoida); **4..32 belgi — normallashtirilgandan keyin**, o‘tmasa `422 CODE_INVALID`. Kod normallashtiriladi: bo‘shliq, defislar va
+ko‘rinmas format belgilari (Unicode Cf: ZWSP, ZWJ, soft hyphen, LRM/RLM …) olib tashlanadi, harflar katta qilinadi, kirillcha
+o‘xshash harflar (`А`, `С`, `О` …) lotinchaga almashtiriladi. Generatsiya qilingan bonus kodda kamida 10 ta tasodifiy belgi
+(`BONUS_CODE_RANDOM_MIN_LENGTH`; 30^10 ≈ 5,9 × 10^14, ~49 bit; docs/10); qo‘lda tanlangan (vanity) kod kamida 6 belgi.
+
+```json
+{ "success": true, "data": { "rewardType": "WALLET", "amountTiyin": "500000" } }
+{ "success": true, "data": { "rewardType": "COINS", "coins": "10" } }
+```
+
+- `200`. `rewardType: WALLET` — hamyonga so‘m (`LedgerEntry(BONUS_CODE)`, faqat `amountTiyin`), `COINS` — tanga (`CoinEntry(EARN)`, faqat
+  `coins`). Bitta tranzaksiyada kodning `usedCount` i oshiriladi va `BonusRedemption` yoziladi.
+- Har kodni bitta foydalanuvchi bir marta ishlatadi. **Idempotent:** foydalanuvchida shu kodning o‘z `BonusRedemption` i bo‘lsa,
+  takroriy so‘rov yana `200` va o‘sha natija shaklini oladi (yozilgan mukofot; ikkinchi marta berilmaydi) va xato hisobiga kirmaydi;
+  shuning uchun `Idempotency-Key` kerak emas.
+- Bir foydalanuvchining ikkita parallel so‘rovida ikkinchisi `BonusRedemption` unique to‘qnashuviga uriladi: unique to‘qnashuv →
+  rollback → o‘z redemption’i qayta o‘qiladi → `200`, o‘sha shakl (mukofot bitta, xato hisobiga kirmaydi).
+- Tekshiruv tartibi: IP throttle (`429`, bundan mustasno — har doim birinchi) → normallashtirish va hash bo‘yicha qidiruv → o‘z
+  redemption’i (idempotent `200`) → foydalanuvchi xato limiti (`429`) → kodning faolligi, muddati va `maxUses` → xarid sharti → yozish.
+  Ya’ni o‘z redemption’i xato limitidan OLDIN: xato limiti bo‘yicha bloklangan foydalanuvchi ham allaqachon olgan natijasini `200` bilan oladi.
+- Qolgan hamma rad (`CODE_INVALID`, `CODE_EXPIRED`, xarid sharti) xato hisobiga kiradi: 15 daqiqada 5 ta yoki sutkada 20 ta → `429`.
+- So‘m beruvchi kod standart holatda faqat kamida bitta yetkazilgan xaridi bor foydalanuvchiga ishlaydi (D-72 (9)). Shart bajarilmaganda
+  qaytadigan xato kodi hali tanlanmagan — 10-bosqich S7 dan oldin egasi hal qiladi.
+- Kodlar bazada faqat HMAC xeshi bilan saqlanadi; noma’lum, nofaol va normallashtirib bo‘lmaydigan kod bir xil javob oladi.
+
+| Status | Kod                            | Qachon                                                                                                                               |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 400    | `VALIDATION_ERROR`             | body shakli; `code` bo‘sh, 64 belgidan uzun yoki boshqaruv belgisi bor                                                               |
+| 401    | `UNAUTHORIZED`                 | sessiya yo‘q yoki yaroqsiz                                                                                                           |
+| 403    | `USER_BLOCKED`                 | bloklangan foydalanuvchi                                                                                                             |
+| 422    | `CODE_INVALID`                 | kod noma’lum, nofaol yoki normallashtirib bo‘lmaydi (normallashtirilgani 4..32 dan tashqari ham; javob bir xil)                      |
+| 422    | `CODE_EXPIRED`                 | muddati o‘tgan yoki foydalanish limiti (`maxUses`) tugagan                                                                           |
+| 429    | `RATE_LIMITED` + `Retry-After` | 15 daqiqada 5 ta xato yoki sutkada 20 ta xato (keyin 24 soat blok); IP throttle; sutkalik muvaffaqiyatli faollashtirishlar chegarasi |
 
 ## Admin (`/api/v1/admin/*`) — batafsil `docs/09-ADMIN-PANEL.md`
 

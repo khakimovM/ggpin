@@ -80,6 +80,24 @@ Salomlashish xabari (rasm/banner + matn):
 
 Ruscha matnlar `ru.json`da. Xabarlar HTML parse mode, foydalanuvchi matnlari escape qilinadi.
 
+### 10-bosqich: referal va bonus kod xabarlari (D-72)
+
+Matnlar yuqoridagi jadvaldagidek (uz); ruscha matnni egasi tasdiqlaydi (D-72 (15)). Worker/API `notify` navbatiga faqat id yuboradi
+(`packages/shared/src/notify.ts`, `PROMO_NOTIFY_KINDS`); API qatorni o‘qib, oluvchining tilida matn yasaydi.
+
+| `notify` turi    | `refId`              | Oluvchi                            | Kalit                                                  | Job id                 |
+| ---------------- | -------------------- | ---------------------------------- | ------------------------------------------------------ | ---------------------- |
+| `REFERRAL_BONUS` | yetkazilgan buyurtma | inviter (`OrderReward.referrerId`) | `bot.referral.bonus` (`{amount}` — `OrderReward` dan)  | `referral-<orderId>`   |
+| `BONUS_REDEEMED` | `BonusRedemption.id` | kodni ishlatgan foydalanuvchi      | `bot.bonus.redeemedWallet` / `bot.bonus.redeemedCoins` | `bonus-<redemptionId>` |
+
+- Bitta buyurtmaga bitta bonus xabari, bitta faollashtirishga bitta xabar (job id, 30 kunlik dublikat oynasi).
+- Bonus 0 bo‘lsa (kunlik cheklov, stavka 0, inviter yo‘q) xabar yo‘q. Keshbek tangalari uchun alohida xabar yo‘q: ular «Yetkazildi»
+  dan keyin hamyonda ko‘rinadi.
+- Admin refund’ida mukofot qaytarilsa, inviter’ga **xabar yuborilmaydi** (D-72 (7)); u moliya tarixida ko‘rinadi.
+- Botni bloklagan foydalanuvchiga yuborilmaydi.
+- `/ref` (10-bosqich S8): havola bilan birga qisqa statistika (`bot.ref.stats`: taklif qilinganlar soni, net bonus).
+- Renderer’lar ulanguncha (S3, S7) API bu turdagi job’ni yubormasdan qaytarib bo‘lmaydigan xato bilan rad etadi (`unrouted-kind`).
+
 Buyurtma xabarlari (5-bosqich S6): kalitlar `bot.order.*`; tugma Mini App `/tg/orders/:id` ni ochadi
 (`MINI_APP_URL` https bo‘lmasa tugmasiz). `{product}` — mahsulot nomi, paket bo‘lsa `Nom (paket)`, erkin
 miqdorda `Nom × N`; `{recipient}` — `<code>Ism</code> (@username)`: ism (Telegram’dagi erkin matn) bosiladigan
@@ -164,11 +182,22 @@ Commit'dan keyin API yoki worker qulaganda yo‘qolgan navbatga qo‘yishlar rec
 
 ## Rassilka (broadcast)
 
-- Admin paneldan: uz va ru matnlari, rasm (ixtiyoriy), tugma, auditoriya (hammasi / til / oxirgi N kun faol /
-  xarid qilganlar).
+- Admin paneldan, **faqat OWNER** (D-72 (11), (12)): uz va ru matnlari, tugma (matn uz/ru + https havola), auditoriya (hammasi / til /
+  oxirgi N kun faol / xarid qilganlar). Rasm keyinroq (fayl saqlash hali yo‘q). OPERATOR va SUPPORT faqat ko‘radi.
+- Holatlar: `DRAFT` → (o‘ziga test) → `SENDING` → `DONE` yoki `CANCELLED`. Yuborishdan oldin OWNER o‘ziga **test xabarini** olishi
+  shart (`testSentAt`); testsiz yuborish rad etiladi.
+- Chegaralar: kuniga ko‘pi bilan 2 ta rassilka (`BROADCAST_DAILY_MAX`); 22:00–09:00 (Toshkent) oralig‘ida yuborilmaydi
+  (`BROADCAST_QUIET_HOURS`); 25 xabar/s (`BROADCAST_RATE_PER_SEC`).
+- Har xabar ostida «Yangiliklarni o‘chirish» tugmasi (`bot.broadcast.optOut`); bosilsa `User.marketingOptOut = true` va tasdiq
+  (`bot.broadcast.optedOut`). Opt-out qilganlar, `isBlocked` va `botBlockedAt` foydalanuvchilar auditoriyadan chiqariladi.
+  Opt-out buyurtma va to‘lov xabarlariga ta’sir qilmaydi.
+- Yuborish API jarayonida (bot tokeni shu yerda): `broadcast-send` job’i id bo‘yicha sahifalab (`cursorUserId`), har xabar `tg-outbox`
+  ga **past ustuvorlik** bilan, job id `bc-<broadcastId>-<userId>`: qayta ishga tushganda hech kimga ikki marta ketmaydi va buyurtma
+  xabarlari navbatda oldinda qoladi.
+- Matn HTML escape qilinadi; har yaratish, test, yuborish va bekor qilish `AuditLog` ga yoziladi.
 - Har bir foydalanuvchiga o‘z tilida; 25 xabar/s, bitta chatga 1 xabar/s (`tg-outbox` navbati);
   botni bloklaganlarga `User.botBlockedAt` yoziladi (admin bloki `isBlocked` emas, D-28).
-- Hisobot: yuborildi / xato / bloklangan.
+- Hisobot: yuborildi / xato / bloklangan (`sentCount`, `failCount`, `blockedCount`).
 
 ## Yordam (support)
 

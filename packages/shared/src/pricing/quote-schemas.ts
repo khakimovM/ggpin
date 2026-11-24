@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { NO_CONTROL_CHARS, ResourceIdSchema } from '../common-schemas';
 import { TiyinStringSchema } from '../money-schemas';
+import { PromoCodeInputSchema } from '../promo/promo-schemas';
 
 // Telegram usernames: 5-32 chars, letters/digits/underscore, start with a letter. Stored
 // without the leading "@".
@@ -87,7 +88,7 @@ export const CreateQuoteBodySchema = z
     skuId: ResourceIdSchema.optional(),
     quantity: z.number().int().positive().max(INT32_MAX).optional(),
     recipientToken: z.string().regex(RECIPIENT_TOKEN_PATTERN),
-    discountCode: z.string().trim().min(1).max(64).regex(NO_CONTROL_CHARS).optional(),
+    discountCode: PromoCodeInputSchema.optional(),
   })
   .refine(({ skuId, quantity }) => (skuId === undefined) !== (quantity === undefined), {
     message: 'provide exactly one of skuId or quantity',

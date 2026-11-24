@@ -12,6 +12,7 @@ export default defineConfig({
         'src/money-schemas.ts',
         'src/catalog/*.ts',
         'src/pricing/*.ts',
+        'src/promo/*.ts',
         'src/order-state.ts',
         'src/env-secrets.ts',
         'src/job-enqueue.ts',

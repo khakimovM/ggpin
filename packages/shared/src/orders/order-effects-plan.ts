@@ -233,3 +233,36 @@ export function orderEffectsPlan(
       return effectsOf({ kind: 'ADMIN_ACTION', auditId: audit.id, byOperator });
   }
 }
+
+/** What a DELIVERED transition granted (its OrderReward row, phase 10 S3), after its commit. */
+export interface DeliveryRewardFacts {
+  readonly orderId: string;
+  readonly buyerId: string;
+  /** Null: the buyer has no inviter, or no bonus was granted (skipReason). */
+  readonly referrerId: string | null;
+  readonly referralTiyin: bigint;
+  readonly cashbackCoins: bigint;
+}
+
+export interface RewardEffectsPlan {
+  /** REFERRAL_BONUS (`referral-<orderId>`) for the inviter; nothing for cashback or a skip. */
+  readonly notifyJobs: readonly NotifyJob[];
+  /** The inviter, whose `wallet:{userId}` cache is stale after the REFERRAL_BONUS entry. */
+  readonly invalidateWalletOf: string | null;
+  /** The buyer, whose coin balance cache is stale after the cashback EARN entry. */
+  readonly invalidateCoinsOf: string | null;
+}
+
+/**
+ * The after-commit effects of the rewards of one delivery (plan 3.1). Pure, so the delivery path
+ * and the reconciler's replay from the OrderReward row queue the same ids. Zero amounts plan
+ * nothing: no message about a bonus of 0, no cache to delete.
+ */
+export function rewardEffectsOf(facts: DeliveryRewardFacts): RewardEffectsPlan {
+  const inviter = facts.referralTiyin > 0n ? facts.referrerId : null;
+  return {
+    notifyJobs: inviter === null ? [] : [{ kind: 'REFERRAL_BONUS', refId: facts.orderId }],
+    invalidateWalletOf: inviter,
+    invalidateCoinsOf: facts.cashbackCoins > 0n ? facts.buyerId : null,
+  };
+}
