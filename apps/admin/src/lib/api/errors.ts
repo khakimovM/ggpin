@@ -1,6 +1,8 @@
 import {
+  ADMIN_CATALOG_FIELD_ERROR_CODES,
   ADMIN_FIELD_ERROR_CODES,
   errorCodeSchema,
+  type AdminCatalogFieldErrorCode,
   type AdminFieldErrorCode,
   type ErrorCode,
 } from '@repo/shared';
@@ -78,16 +80,34 @@ const fieldsDetails = z.object({
 const attemptsDetails = z.object({ attemptsLeft: z.number().int().min(0) });
 
 /**
- * The admin domain code of a `400 VALIDATION_ERROR` for one field (`details.fields[].code`,
- * docs/04 "Xatolar (admin)"): `OTP_REQUIRED`, `OTP_LOCKED`, ... `undefined` for any other error,
- * for a Zod code, or for details that do not match.
+ * `quantity` of an admin price preview outside the product's range (the catalog read path, S8a
+ * CR m3): a field code like the write ones, though no shared list names it.
  */
-export function adminFieldCode(error: unknown, path: string): AdminFieldErrorCode | undefined {
+export const ADMIN_PREVIEW_FIELD_ERROR_CODES = ['QTY_OUT_OF_RANGE'] as const;
+
+/** Every domain field code the panel knows by name: step-up, catalog writes, catalog preview. */
+export const KNOWN_ADMIN_FIELD_CODES = [
+  ...ADMIN_FIELD_ERROR_CODES,
+  ...ADMIN_CATALOG_FIELD_ERROR_CODES,
+  ...ADMIN_PREVIEW_FIELD_ERROR_CODES,
+] as const;
+export type KnownAdminFieldCode =
+  | AdminFieldErrorCode
+  | AdminCatalogFieldErrorCode
+  | (typeof ADMIN_PREVIEW_FIELD_ERROR_CODES)[number];
+
+/**
+ * The admin domain code of a `400 VALIDATION_ERROR` for one field (`details.fields[].code`,
+ * docs/04 "Xatolar (admin)"): `OTP_REQUIRED`, `OTP_LOCKED`, the catalog's `DUPLICATE_PACKAGE`,
+ * `QUANTITY_RANGE`... (CR m2). `undefined` for any other error, for a Zod code, or for details
+ * that do not match.
+ */
+export function adminFieldCode(error: unknown, path: string): KnownAdminFieldCode | undefined {
   if (!isApiError(error) || error.code !== 'VALIDATION_ERROR') return undefined;
   const parsed = fieldsDetails.safeParse(error.details);
   if (!parsed.success) return undefined;
   const code = parsed.data.fields.find((field) => field.path === path)?.code;
-  return ADMIN_FIELD_ERROR_CODES.find((known) => known === code);
+  return KNOWN_ADMIN_FIELD_CODES.find((known) => known === code);
 }
 
 /** `details.attemptsLeft` of a `422 CODE_INVALID`, when the server sent a valid one. */

@@ -11,10 +11,7 @@ import { PageHeader } from '../common/PageHeader';
 import { Panel } from '../common/Panel';
 import { PendingActions } from '../common/PendingActions';
 import { SectionGate } from '../common/SectionGate';
-import { Tag } from '../common/Tag';
 import { MockNote } from '../common/MockNote';
-
-const TONE = { ACTIVE: 'ok', DEAD: 'bad', NONE: 'mute' } as const;
 
 function Fragment() {
   const t = useTranslations();
@@ -47,7 +44,6 @@ function Fragment() {
               <span className="text-base leading-5 font-extrabold">
                 {t(`admin.fragment.status.${data.status}`)}
               </span>
-              <Tag tone={TONE[data.status]}>{data.status}</Tag>
             </span>
           </div>
           {data.status === 'DEAD' ? (

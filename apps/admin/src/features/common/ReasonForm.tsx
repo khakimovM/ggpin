@@ -73,7 +73,7 @@ export function ReasonForm({
   const [touched, setTouched] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState(() => noticeOf(action));
-  const issue = textIssue(text, textField);
+  const issue = textField === 'none' ? null : textIssue(text, textField);
   const showIssue = touched && issue !== null;
   const max = textField === 'note' ? ADMIN_NOTE_MAX_LENGTH : ADMIN_REASON_MAX_LENGTH;
 
@@ -112,46 +112,52 @@ export function ReasonForm({
     }
   };
 
-  const hint = showIssue
-    ? t(`admin.dialogs.${textField}.${issue}`, { min: ADMIN_REASON_MIN_LENGTH, max })
-    : t(`admin.dialogs.${textField}.hint`, { min: ADMIN_REASON_MIN_LENGTH, max });
+  const field = textField === 'none' ? null : textField;
+  const hint =
+    field === null
+      ? null
+      : showIssue
+        ? t(`admin.dialogs.${field}.${issue ?? 'invalid'}`, { min: ADMIN_REASON_MIN_LENGTH, max })
+        : t(`admin.dialogs.${field}.hint`, { min: ADMIN_REASON_MIN_LENGTH, max });
 
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-3.5">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={fieldId} className="text-xs leading-4 font-extrabold">
-          {t(`admin.dialogs.${textField}.label`)}{' '}
-          <span className="text-danger-text" aria-hidden="true">
-            *
+      {field === null ? null : (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={fieldId} className="text-xs leading-4 font-extrabold">
+            {t(`admin.dialogs.${field}.label`)}{' '}
+            <span className="text-danger-text" aria-hidden="true">
+              *
+            </span>
+            <span className="sr-only">({t('admin.dialogs.reason.required')})</span>
+          </label>
+          <textarea
+            id={fieldId}
+            value={text}
+            rows={3}
+            maxLength={max + 50}
+            placeholder={placeholder}
+            aria-invalid={showIssue}
+            aria-describedby={`${fieldId}-hint`}
+            onChange={(event) => setText(event.target.value)}
+            onBlur={() => setTouched(true)}
+            className={cn(
+              'min-h-[72px] resize-y rounded-sm border-[1.5px] bg-input px-3 py-2.5 text-[13px] leading-[19px] font-semibold text-foreground',
+              'focus:border-ring focus:ring-[3px] focus:ring-primary-soft focus:outline-none',
+              showIssue ? 'border-danger' : 'border-input-border',
+            )}
+          />
+          <span
+            id={`${fieldId}-hint`}
+            className={cn(
+              'text-[11px] leading-[15px] font-semibold',
+              showIssue ? 'text-danger-text' : 'text-foreground-muted',
+            )}
+          >
+            {hint}
           </span>
-          <span className="sr-only">({t('admin.dialogs.reason.required')})</span>
-        </label>
-        <textarea
-          id={fieldId}
-          value={text}
-          rows={3}
-          maxLength={max + 50}
-          placeholder={placeholder}
-          aria-invalid={showIssue}
-          aria-describedby={`${fieldId}-hint`}
-          onChange={(event) => setText(event.target.value)}
-          onBlur={() => setTouched(true)}
-          className={cn(
-            'min-h-[72px] resize-y rounded-sm border-[1.5px] bg-input px-3 py-2.5 text-[13px] leading-[19px] font-semibold text-foreground',
-            'focus:border-ring focus:ring-[3px] focus:ring-primary-soft focus:outline-none',
-            showIssue ? 'border-danger' : 'border-input-border',
-          )}
-        />
-        <span
-          id={`${fieldId}-hint`}
-          className={cn(
-            'text-[11px] leading-[15px] font-semibold',
-            showIssue ? 'text-danger-text' : 'text-foreground-muted',
-          )}
-        >
-          {hint}
-        </span>
-      </div>
+        </div>
+      )}
       {children}
       {notice !== null ? (
         <div role="status" className={cn(BOX, 'flex-col bg-warning-soft text-warning-text')}>

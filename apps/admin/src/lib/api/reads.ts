@@ -92,11 +92,22 @@ export const getProduct = (id: string, signal?: AbortSignal) =>
     AdminProductDetailResponseSchema,
   );
 
-export const getPricePreview = (id: string, skuId: string, signal?: AbortSignal) =>
+/** A proposed markup / minimum margin previews an edit before it is saved (docs/04). */
+export interface PricePreviewDraft {
+  markupBps?: number;
+  minMarginTiyin?: string;
+}
+
+export const getPricePreview = (
+  id: string,
+  skuId: string,
+  signal?: AbortSignal,
+  draft: PricePreviewDraft = {},
+) =>
   apiFetch(
     {
       path: `/admin/products/${encodeURIComponent(id)}/price-preview`,
-      query: { skuId },
+      query: { skuId, markupBps: draft.markupBps, minMarginTiyin: draft.minMarginTiyin },
       group: 'catalog',
       signal,
     },

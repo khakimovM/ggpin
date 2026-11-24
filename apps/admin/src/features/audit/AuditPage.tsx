@@ -3,6 +3,7 @@ import { DataTable, FOCUS_RING, cn, type DataTableColumn } from '@repo/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useTranslations } from 'use-intl';
+import { enumKey } from '../../lib/enum-text';
 import { useAdmin } from '../../app/admin-context';
 import { listAudit } from '../../lib/api/people';
 import { DATE_PRESETS, fromOfPreset } from '../../lib/date-range';
@@ -66,7 +67,7 @@ function Audit() {
     {
       id: 'action',
       header: t('admin.audit.col.action'),
-      cell: (row) => <Tag tone="info">{row.action}</Tag>,
+      cell: (row) => <Tag tone="info">{t(enumKey('auditAction', row.action))}</Tag>,
     },
     {
       id: 'target',
@@ -112,7 +113,7 @@ function Audit() {
           onChange={(action) => set({ action })}
           options={SPEC.action.values.map((value) => ({
             value,
-            label: value === 'all' ? t('admin.list.all') : value,
+            label: value === 'all' ? t('admin.list.all') : t(enumKey('auditAction', value)),
           }))}
         />
         <SelectFilter

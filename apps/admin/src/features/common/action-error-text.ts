@@ -1,5 +1,10 @@
 import { camelKey, type CamelKey } from '../../lib/camel-key';
-import { adminFieldErrors, isApiError, type ApiErrorMessageKey } from '../../lib/api/errors';
+import {
+  adminFieldErrors,
+  isApiError,
+  type ApiErrorMessageKey,
+  type KnownAdminFieldCode,
+} from '../../lib/api/errors';
 
 /**
  * Domain refusals an admin write may name in `details.fields[].code` (docs/04 «Xatolar (admin)»
@@ -36,9 +41,20 @@ export const ACTION_FIELD_CODES = [
   'OTP_LOCKED',
   'OTP_UNAVAILABLE',
   'OTP_NOT_REQUIRED',
+  'RATE_MISMATCH',
+  // Catalog writes and the catalog price preview (S8a, docs/04 «Katalog»; CR m2).
+  'DUPLICATE_PACKAGE',
+  'PREMIUM_MONTHS',
+  'PRODUCT_SET_MISMATCH',
+  'QUANTITY_RANGE',
+  'QTY_OUT_OF_RANGE',
   'INVALID',
 ] as const;
 export type ActionFieldCode = (typeof ACTION_FIELD_CODES)[number];
+// Every code `adminFieldCode` knows has a text here too (compile time).
+type UntextedFieldCode = Exclude<KnownAdminFieldCode, ActionFieldCode>;
+const everyKnownCodeTexted: [UntextedFieldCode] extends [never] ? true : never = true;
+void everyKnownCodeTexted;
 
 export type ActionErrorKey =
   | `admin.fieldErrors.${CamelKey<ActionFieldCode>}`

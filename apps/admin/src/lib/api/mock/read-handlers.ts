@@ -6,13 +6,12 @@ import { listOf, pageOf, since, whereParam } from './data-common';
 import { dashboardFixture } from './fixtures-dashboard';
 import { INTENTS, RECONCILE, bankMessageFixture } from './fixtures-payments';
 import {
-  CATEGORIES,
-  FX_HISTORY,
-  PRODUCTS,
-  SETTINGS,
-  pricePreviewFixture,
-  productDetailFixture,
-} from './fixtures-catalog';
+  categoriesView,
+  pricePreviewView,
+  productDetailView,
+  productRowsView,
+} from './catalog-views';
+import { FX_HISTORY, SETTINGS } from './fixtures-catalog';
 import { ORDERS, REVIEW_QUEUE, orderDetailFixture } from './fixtures-orders';
 import { ADMINS, AUDIT, FRAGMENT, QUEUE_ROWS, WALLET, adminSessionsFixture } from './fixtures-ops';
 import { USERS, USER_LEDGER, USER_REFERRALS, USER_SESSIONS } from './fixtures-users';
@@ -129,14 +128,14 @@ const catalogRoutes: MockRoute[] = [
   get('/admin/dashboard', 'dashboard.read', ({ query }) =>
     ok(dashboardFixture(query.get('period') ?? 'today', empty())),
   ),
-  get('/admin/categories', 'catalog.read', () => listOf(CATEGORIES)),
-  get('/admin/products', 'catalog.read', () => listOf(PRODUCTS)),
+  get('/admin/categories', 'catalog.read', () => listOf(categoriesView())),
+  get('/admin/products', 'catalog.read', () => listOf(productRowsView())),
   get('/admin/products/:id', 'catalog.read', ({ params }) => {
-    const product = productDetailFixture(params.id ?? '');
+    const product = productDetailView(params.id ?? '');
     return product ? ok(product) : fail('NOT_FOUND');
   }),
-  get('/admin/products/:id/price-preview', 'catalog.read', ({ query }) =>
-    ok(pricePreviewFixture(query.get('skuId') ?? '')),
+  get('/admin/products/:id/price-preview', 'catalog.read', ({ params, query }) =>
+    pricePreviewView(params.id ?? '', query),
   ),
   get('/admin/settings', 'settings.read', () => ok(empty() ? { items: [] } : SETTINGS)),
   get('/admin/fx/history', 'settings.read', ({ query }) =>

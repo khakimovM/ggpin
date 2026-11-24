@@ -3,6 +3,7 @@ import type { DataTableColumn } from '@repo/ui';
 import { Receipt } from 'lucide-react';
 import { Link } from 'react-router';
 import { useTranslations } from 'use-intl';
+import { enumKey } from '../../lib/enum-text';
 import { listIntents } from '../../lib/api/reads';
 import { DATE_PRESETS, fromOfPreset } from '../../lib/date-range';
 import { formatDateTime } from '../../lib/format';
@@ -82,7 +83,7 @@ export function IntentsTab() {
     {
       id: 'status',
       header: t('admin.payments.col.status'),
-      cell: (row) => <Tag tone={TONE[row.status]}>{row.status}</Tag>,
+      cell: (row) => <Tag tone={TONE[row.status]}>{t(enumKey('intentStatus', row.status))}</Tag>,
     },
   ];
   return (
@@ -94,7 +95,7 @@ export function IntentsTab() {
           onChange={(status) => set({ status })}
           options={SPEC.status.values.map((value) => ({
             value,
-            label: value === 'all' ? t('admin.list.all') : value,
+            label: value === 'all' ? t('admin.list.all') : t(enumKey('intentStatus', value)),
           }))}
         />
         <SelectFilter

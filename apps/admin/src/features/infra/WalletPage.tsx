@@ -3,6 +3,7 @@ import { DataTable, Skeleton, type DataTableColumn } from '@repo/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Gem } from 'lucide-react';
 import { useTranslations } from 'use-intl';
+import { enumKey } from '../../lib/enum-text';
 import { getWallet } from '../../lib/api/people';
 import { formatDateTime, formatMinor, ratioOf, shortHash } from '../../lib/format';
 import { qk } from '../../lib/query-keys';
@@ -61,7 +62,7 @@ function Wallet({ wallet }: { wallet: AdminInfraWalletResponse }) {
                 : 'bad'
           }
         >
-          {row.status}
+          {t(enumKey('tonStatus', row.status))}
         </Tag>
       ),
     },

@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
+import { enumKey } from '../../lib/enum-text';
 import { listOrders } from '../../lib/api/people';
 import { DATE_PRESETS, fromOfPreset } from '../../lib/date-range';
 import { formatCost, formatDateTime } from '../../lib/format';
@@ -123,7 +124,7 @@ function Orders() {
           onChange={(status) => set({ status })}
           options={STATUS_VIEWS.map((value) => ({
             value,
-            label: value === 'all' ? t('admin.list.all') : value,
+            label: value === 'all' ? t('admin.list.all') : t(enumKey('orderStatus', value)),
           }))}
         />
         <SelectFilter

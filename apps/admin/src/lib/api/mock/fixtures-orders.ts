@@ -64,11 +64,7 @@ export const ORDERS: readonly AdminOrderRow[] = SAMPLE.map(
       profitTiyin: delivered ? `${Math.round(totalSom * 0.09)}00` : null,
       status,
       statusReason:
-        status === 'NEEDS_REVIEW'
-          ? 'SUPPLIER_TIMEOUT'
-          : status === 'HELD'
-            ? 'COST_ABOVE_CEILING'
-            : null,
+        status === 'NEEDS_REVIEW' ? 'ADAPTER_ERROR' : status === 'HELD' ? 'PRICE_ABOVE_MAX' : null,
       adapter,
       deliveredAt: delivered ? ago(minutes - 1) : null,
     });

@@ -47,6 +47,21 @@ const JournalSchema = z.object({
     .default({}),
   payments: z.record(z.string(), z.object({ status: z.string() })).default({}),
   reviews: z.record(z.string(), z.object({ resolution: z.string() })).default({}),
+  /**
+   * Catalog edits (S8b): field patches by id, the saved product order and packages created in
+   * the mock. Loose records here; the catalog views parse every merged record with its shared
+   * schema again (catalog-views.ts).
+   */
+  catalog: z
+    .object({
+      categories: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+      products: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+      order: z.array(z.string()).nullable().default(null),
+      skus: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+      newSkus: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))).default({}),
+      routes: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+    })
+    .prefault({}),
   /** Issued codes: challenge id → the canonical confirmation body and who asked. */
   challenges: z
     .record(z.string(), z.object({ canonical: z.string(), adminId: z.string() }))

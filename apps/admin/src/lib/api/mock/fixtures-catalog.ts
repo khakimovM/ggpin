@@ -30,81 +30,148 @@ export const CATEGORIES = AdminCategoryListResponseSchema.parse([
   },
 ]);
 
+/**
+ * Per product: slug, category, name, delivery, active, packages [quantity, uz unit, ru unit,
+ * supplier SKU prefix], routes [adapter, enabled, health]. Ids are `mk…` + (product − 1) × 10 + n,
+ * so product 1 keeps the ids `mksku000001..6` / `mkroute000001..2` the screen tests use.
+ */
 const PRODUCT_ROWS = [
-  ['telegram-stars', 1, 'Telegram Stars', 'TG_USERNAME', true, 6, 1],
-  ['telegram-premium', 1, 'Telegram Premium', 'TG_USERNAME', true, 3, 1],
-  ['pubg-mobile', 2, 'PUBG Mobile', 'GAME_ID', true, 8, 2],
-  ['mobile-legends', 2, 'Mobile Legends', 'GAME_ID', true, 7, 1],
-  ['steam', 2, 'Steam', 'STEAM_LOGIN', false, 0, 0],
-  ['roblox', 2, 'Roblox', 'VOUCHER', true, 4, 1],
+  ['telegram-stars', 1, 'Telegram Stars', 'TG_USERNAME', true],
+  ['telegram-premium', 1, 'Telegram Premium', 'TG_USERNAME', true],
+  ['pubg-mobile', 2, 'PUBG Mobile', 'GAME_ID', true],
+  ['mobile-legends', 2, 'Mobile Legends', 'GAME_ID', true],
+  ['steam', 2, 'Steam', 'STEAM_LOGIN', false],
+  ['roblox', 2, 'Roblox', 'VOUCHER', true],
 ] as const;
 
-export const PRODUCTS = AdminProductListResponseSchema.parse(
-  PRODUCT_ROWS.map(([slug, category, name, delivery, active, skus, routes], index) => ({
-    id: mid('prod', index + 1),
-    slug,
-    categoryId: mid('cat', category),
-    nameUz: name,
-    nameRu: name,
-    imageUrl: `/assets/products/${slug}.webp`,
-    deliveryType: delivery,
-    isActive: active,
-    isFeatured: index < 2,
-    sort: index,
-    activeSkusCount: skus,
-    routesEnabledCount: routes,
-  })),
+const PACKAGES: Record<string, { sizes: number[]; uz: string; ru: string; sup: string | null }> = {
+  'telegram-stars': {
+    sizes: [50, 100, 250, 500, 1000, 2500],
+    uz: '⭐',
+    ru: '⭐',
+    sup: null,
+  },
+  'telegram-premium': { sizes: [3, 6, 12], uz: 'oy', ru: 'мес.', sup: null },
+  'pubg-mobile': {
+    sizes: [60, 325, 660, 1800, 8100],
+    uz: 'UC',
+    ru: 'UC',
+    sup: 'MB-UC-',
+  },
+  'mobile-legends': {
+    sizes: [86, 172, 257, 706],
+    uz: '💎',
+    ru: '💎',
+    sup: 'GS-ML-',
+  },
+  steam: { sizes: [], uz: '', ru: '', sup: null },
+  roblox: { sizes: [400, 800, 1700], uz: 'Robux', ru: 'Robux', sup: 'VC-RBX-' },
+};
+
+const ROUTES: Record<string, [string, boolean, 'OK' | 'DEGRADED' | 'DOWN' | 'UNKNOWN'][]> = {
+  'telegram-stars': [
+    ['FRAGMENT', true, 'OK'],
+    ['FRAGMENT_BACKUP', false, 'UNKNOWN'],
+  ],
+  'telegram-premium': [['FRAGMENT', true, 'OK']],
+  'pubg-mobile': [
+    ['MIDASBUY', true, 'OK'],
+    ['UNIPIN', true, 'DEGRADED'],
+  ],
+  'mobile-legends': [['GAMESUP', true, 'OK']],
+  steam: [],
+  roblox: [['VOUCHER_STOCK', true, 'OK']],
+};
+
+/** What one unit of a product costs us (the live preview's input): currency and minor units. */
+export const UNIT_COST: Record<string, { currency: 'TON' | 'USDT'; minor: bigint }> = {
+  'telegram-stars': { currency: 'TON', minor: 4_350_000n },
+  'telegram-premium': { currency: 'TON', minor: 1_160_000_000n },
+  'pubg-mobile': { currency: 'USDT', minor: 16_000n },
+  'mobile-legends': { currency: 'USDT', minor: 20_000n },
+  steam: { currency: 'USDT', minor: 1_000_000n },
+  roblox: { currency: 'USDT', minor: 12_500n },
+};
+
+export const MOCK_RATES = { TON: '43850.5', USDT: '12650' } as const;
+
+const details: AdminProductDetailResponse[] = PRODUCT_ROWS.map(
+  ([slug, category, name, delivery, active], index) => {
+    const pack = PACKAGES[slug] ?? { sizes: [], uz: '', ru: '', sup: null };
+    const stars = slug === 'telegram-stars';
+    return AdminProductDetailResponseSchema.parse({
+      id: mid('prod', index + 1),
+      slug,
+      categoryId: mid('cat', category),
+      nameUz: name,
+      nameRu: name,
+      imageUrl: `/assets/products/${slug}.webp`,
+      deliveryType: delivery,
+      isActive: active,
+      isFeatured: index < 2,
+      sort: index,
+      activeSkusCount: 0,
+      routesEnabledCount: 0,
+      descriptionUz: `${name} to‘g‘ridan-to‘g‘ri akkauntingizga.`,
+      descriptionRu: `${name} прямо на ваш аккаунт.`,
+      helpUz: null,
+      helpRu: null,
+      regionBadge: slug === 'pubg-mobile' ? 'UZ' : null,
+      isAuto: true,
+      allowCustomQty: stars,
+      minQty: stars ? 50 : null,
+      maxQty: stars ? 1_000_000 : null,
+      skus: pack.sizes.map((quantity, n) => ({
+        id: mid('sku', index * 10 + n + 1),
+        tab: null,
+        labelUz: `${quantity} ${pack.uz}`,
+        labelRu: `${quantity} ${pack.ru}`,
+        quantity,
+        supplierSku: pack.sup === null ? null : `${pack.sup}${quantity}`,
+        markupBps: stars && n === 5 ? 800 : 1200,
+        minMarginTiyin: '200000',
+        isActive: !(stars && n === 4),
+        sort: n,
+      })),
+      routes: (ROUTES[slug] ?? []).map(([adapter, isEnabled, health], n) => ({
+        id: mid('route', index * 10 + n + 1),
+        adapter,
+        priority: n * 10,
+        isEnabled,
+        health,
+        healthCheckedAt: health === 'UNKNOWN' ? null : ago(2),
+      })),
+      updatedAt: ago(4_000),
+    });
+  },
 );
 
-export function productDetailFixture(id: string): AdminProductDetailResponse | undefined {
-  const row = PRODUCTS.find((product) => product.id === id);
-  if (row === undefined) return undefined;
-  const stars = [50, 100, 250, 500, 1000, 2500];
-  return AdminProductDetailResponseSchema.parse({
-    ...row,
-    descriptionUz: 'Telegram yulduzlari to‘g‘ridan-to‘g‘ri akkauntingizga.',
-    descriptionRu: 'Звёзды Telegram прямо на ваш аккаунт.',
-    helpUz: null,
-    helpRu: null,
-    regionBadge: null,
-    isAuto: true,
-    allowCustomQty: false,
-    minQty: null,
-    maxQty: null,
-    skus: stars.map((quantity, index) => ({
-      id: mid('sku', index + 1),
-      tab: null,
-      labelUz: `${quantity} ⭐`,
-      labelRu: `${quantity} ⭐`,
-      quantity,
-      supplierSku: null,
-      markupBps: index === 5 ? 800 : 1200,
-      minMarginTiyin: '200000',
-      isActive: index !== 4,
-      sort: index,
-    })),
-    routes: [
-      {
-        id: mid('route', 1),
-        adapter: 'FRAGMENT',
-        priority: 0,
-        isEnabled: true,
-        health: 'OK',
-        healthCheckedAt: ago(2),
-      },
-      {
-        id: mid('route', 2),
-        adapter: 'FRAGMENT_BACKUP',
-        priority: 10,
-        isEnabled: false,
-        health: 'UNKNOWN',
-        healthCheckedAt: null,
-      },
-    ],
-    updatedAt: ago(4_000),
-  });
+/** The list row of a detail: the counts come from its packages and routes. */
+export function rowOf(detail: AdminProductDetailResponse) {
+  return {
+    id: detail.id,
+    slug: detail.slug,
+    categoryId: detail.categoryId,
+    nameUz: detail.nameUz,
+    nameRu: detail.nameRu,
+    imageUrl: detail.imageUrl,
+    deliveryType: detail.deliveryType,
+    isActive: detail.isActive,
+    isFeatured: detail.isFeatured,
+    sort: detail.sort,
+    activeSkusCount: detail.skus.filter((sku) => sku.isActive).length,
+    routesEnabledCount: detail.routes.filter((route) => route.isEnabled).length,
+  };
 }
 
+export const PRODUCTS = AdminProductListResponseSchema.parse(details.map(rowOf));
+
+export function productDetailFixture(id: string): AdminProductDetailResponse | undefined {
+  const detail = details.find((product) => product.id === id);
+  return detail === undefined ? undefined : AdminProductDetailResponseSchema.parse(detail);
+}
+
+/** The Stars packages' saved previews (fixed numbers of the screen tests; sku 6 is below min). */
 export function pricePreviewFixture(skuId: string): AdminPricePreviewResponse {
   const low = skuId === mid('sku', 6);
   return AdminPricePreviewResponseSchema.parse({
@@ -118,7 +185,6 @@ export function pricePreviewFixture(skuId: string): AdminPricePreviewResponse {
     belowMinMargin: low,
   });
 }
-
 export const SETTINGS = AdminSettingsResponseSchema.parse({
   items: [
     ['TOPUP_MIN_TIYIN', '500000', 'TIYIN', 'env'],

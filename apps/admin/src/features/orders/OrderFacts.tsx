@@ -71,7 +71,7 @@ export function OrderFacts({ order }: { order: Order }) {
             {
               key: 'rate',
               label: t('admin.orders.detail.rate'),
-              value: `${order.fxRate.pair} = ${order.fxRate.rate}`,
+              value: `${order.fxRate.pair.replace('_', '/')} = ${order.fxRate.rate}`,
             },
             {
               key: 'profit',

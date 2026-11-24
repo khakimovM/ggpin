@@ -1,105 +1,73 @@
 import type { AdminProductDetailResponse } from '@repo/shared';
-import { DataTable, FOCUS_RING, Skeleton, cn, type DataTableColumn } from '@repo/ui';
+import { Skeleton } from '@repo/ui';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, PackageX } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { isApiError } from '../../lib/api/errors';
 import { getProduct } from '../../lib/api/reads';
-import { formatBps, formatDateTime } from '../../lib/format';
+import { enumKey } from '../../lib/enum-text';
+import { formatCount, formatDateTime } from '../../lib/format';
 import { qk } from '../../lib/query-keys';
 import { KeyValues } from '../common/KeyValues';
 import { ListEmpty, LoadError } from '../common/ListStates';
-import { MoneyCell } from '../common/MoneyCell';
 import { PageHeader } from '../common/PageHeader';
 import { Panel } from '../common/Panel';
 import { SectionGate } from '../common/SectionGate';
 import { Tag } from '../common/Tag';
 import { TEXT_LINK } from '../common/link-style';
+import { useAdminAction } from '../common/use-admin-action';
 import { PricePreview } from './PricePreview';
+import { ProductEditForm } from './ProductEditForm';
+import { RouteTable } from './RouteTable';
+import { SkuTable } from './SkuTable';
 
-type Sku = AdminProductDetailResponse['skus'][number];
-type Route = AdminProductDetailResponse['routes'][number];
+/** What the panel shows but never edits; the texts too when the admin may not edit them. */
+function Facts({
+  product,
+  withTexts,
+}: {
+  product: AdminProductDetailResponse;
+  withTexts: boolean;
+}) {
+  const t = useTranslations();
+  const yesNo = (value: boolean) => t(value ? 'admin.catalog.yes' : 'admin.catalog.no');
+  const range =
+    product.allowCustomQty && product.minQty !== null && product.maxQty !== null
+      ? `${formatCount(product.minQty)}–${formatCount(product.maxQty)}`
+      : '—';
+  const texts = withTexts
+    ? [
+        { key: 'region', label: t('admin.catalog.region'), value: product.regionBadge ?? '—' },
+        { key: 'descUz', label: t('admin.catalog.descUz'), value: product.descriptionUz ?? '—' },
+        { key: 'descRu', label: t('admin.catalog.descRu'), value: product.descriptionRu ?? '—' },
+      ]
+    : [];
+  return (
+    <Panel title={t('admin.catalog.facts')}>
+      <KeyValues
+        rows={[
+          { key: 'slug', label: t('admin.list.col.slug'), value: product.slug },
+          {
+            key: 'delivery',
+            label: t('admin.catalog.col.delivery'),
+            value: t(enumKey('deliveryType', product.deliveryType)),
+          },
+          { key: 'auto', label: t('admin.catalog.auto'), value: yesNo(product.isAuto) },
+          { key: 'range', label: t('admin.catalog.sku.quantity'), value: range },
+          ...texts,
+        ]}
+      />
+    </Panel>
+  );
+}
 
 function Detail({ product }: { product: AdminProductDetailResponse }) {
   const t = useTranslations();
+  const act = useAdminAction();
   const [search, setSearch] = useSearchParams();
   const skuId = product.skus.find((sku) => sku.id === search.get('sku'))?.id ?? null;
-  const pick = (id: string) => setSearch({ sku: id }, { replace: true });
-  const skuColumns: DataTableColumn<Sku>[] = [
-    {
-      id: 'label',
-      header: t('admin.catalog.sku.label'),
-      cell: (sku) => (
-        <button
-          type="button"
-          aria-pressed={sku.id === skuId}
-          onClick={() => pick(sku.id)}
-          className={cn('rounded-xs font-extrabold hover:underline', FOCUS_RING)}
-        >
-          {sku.labelUz}
-        </button>
-      ),
-    },
-    {
-      id: 'supplier',
-      header: t('admin.catalog.sku.supplier'),
-      cell: (sku) => sku.supplierSku ?? '—',
-      className: 'font-mono text-[11px]',
-    },
-    {
-      id: 'markup',
-      header: t('admin.catalog.sku.markup'),
-      align: 'end',
-      cell: (sku) => `${formatBps(sku.markupBps)}%`,
-    },
-    {
-      id: 'margin',
-      header: t('admin.catalog.sku.minMargin'),
-      align: 'end',
-      cell: (sku) => <MoneyCell tiyin={sku.minMarginTiyin} />,
-    },
-    {
-      id: 'state',
-      header: t('admin.catalog.col.state'),
-      cell: (sku) => (
-        <Tag tone={sku.isActive ? 'ok' : 'mute'}>
-          {t(sku.isActive ? 'admin.catalog.active' : 'admin.catalog.inactive')}
-        </Tag>
-      ),
-    },
-  ];
-  const routeColumns: DataTableColumn<Route>[] = [
-    {
-      id: 'adapter',
-      header: t('admin.catalog.route.adapter'),
-      cell: (route) => <span className="font-extrabold">{route.adapter}</span>,
-    },
-    {
-      id: 'priority',
-      header: t('admin.catalog.route.priority'),
-      align: 'end',
-      cell: (route) => route.priority,
-    },
-    {
-      id: 'health',
-      header: t('admin.catalog.route.health'),
-      cell: (route) => (
-        <Tag tone={route.health === 'OK' ? 'ok' : route.health === 'UNKNOWN' ? 'mute' : 'bad'}>
-          {route.health}
-        </Tag>
-      ),
-    },
-    {
-      id: 'enabled',
-      header: t('admin.catalog.col.state'),
-      cell: (route) => (
-        <Tag tone={route.isEnabled ? 'ok' : 'mute'}>
-          {t(route.isEnabled ? 'admin.catalog.active' : 'admin.catalog.inactive')}
-        </Tag>
-      ),
-    },
-  ];
+  const editable = act.can('catalog.productUpdate');
   return (
     <>
       <PageHeader
@@ -111,70 +79,26 @@ function Detail({ product }: { product: AdminProductDetailResponse }) {
           </Tag>
         }
       />
+      {editable ? null : (
+        <p className="m-0 -mt-1 text-xs leading-4 font-semibold text-foreground-muted">
+          {t('admin.catalog.readOnly')}
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-3">
-          <Panel title={t('admin.catalog.sku.title')}>
-            <DataTable
-              label={t('admin.catalog.sku.title')}
-              columns={skuColumns}
-              rows={product.skus}
-              rowKey={(sku) => sku.id}
-              state={product.skus.length === 0 ? 'empty' : 'data'}
-              framed={false}
-              minWidth={560}
-              onRowClick={(sku) => pick(sku.id)}
-              rowClassName={(sku) => (sku.id === skuId ? 'bg-primary-soft' : undefined)}
-              loadingLabel={t('admin.states.loading')}
-              empty={<ListEmpty icon={PackageX} title={t('admin.catalog.sku.empty')} />}
-            />
-          </Panel>
-          <Panel title={t('admin.catalog.route.title')}>
-            <DataTable
-              label={t('admin.catalog.route.title')}
-              columns={routeColumns}
-              rows={product.routes}
-              rowKey={(route) => route.id}
-              state={product.routes.length === 0 ? 'empty' : 'data'}
-              framed={false}
-              loadingLabel={t('admin.states.loading')}
-              empty={<ListEmpty icon={PackageX} title={t('admin.catalog.route.empty')} />}
-            />
-          </Panel>
+          {editable ? <ProductEditForm key={product.updatedAt} product={product} /> : null}
+          <SkuTable
+            product={product}
+            selectedId={skuId}
+            onSelect={(id) => setSearch({ sku: id }, { replace: true })}
+            canCreate={act.can('catalog.skuCreate')}
+            canEdit={act.can('catalog.skuUpdate')}
+          />
+          <RouteTable product={product} editable={act.can('catalog.routeUpdate')} />
         </div>
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3 xl:sticky xl:top-5 xl:self-start">
           <PricePreview productId={product.id} skuId={skuId} />
-          <Panel title={t('admin.catalog.facts')}>
-            <KeyValues
-              rows={[
-                { key: 'slug', label: t('admin.list.col.slug'), value: product.slug },
-                {
-                  key: 'delivery',
-                  label: t('admin.catalog.col.delivery'),
-                  value: product.deliveryType,
-                },
-                {
-                  key: 'auto',
-                  label: t('admin.catalog.auto'),
-                  value: t(product.isAuto ? 'admin.catalog.yes' : 'admin.catalog.no'),
-                },
-                {
-                  key: 'region',
-                  label: t('admin.catalog.region'),
-                  value: product.regionBadge ?? '—',
-                },
-                {
-                  key: 'descUz',
-                  label: t('admin.catalog.descUz'),
-                  value: product.descriptionUz ?? '—',
-                },
-                {
-                  key: 'descRu',
-                  label: t('admin.catalog.descRu'),
-                  value: product.descriptionRu ?? '—',
-                },
-              ]}
-            />
-          </Panel>
+          <Facts product={product} withTexts={!editable} />
         </div>
       </div>
     </>
@@ -187,15 +111,6 @@ function ProductDetail({ productId }: { productId: string }) {
     queryKey: qk.catalog.product(productId),
     queryFn: ({ signal }) => getProduct(productId, signal),
   });
-  const back = (
-    <Link
-      to="/products"
-      className={`inline-flex items-center gap-1 self-start text-xs ${TEXT_LINK}`}
-    >
-      <ArrowLeft size={14} aria-hidden="true" />
-      {t('admin.nav.products')}
-    </Link>
-  );
   let body;
   if (query.data) body = <Detail product={query.data} />;
   else if (query.isError) {
@@ -222,7 +137,13 @@ function ProductDetail({ productId }: { productId: string }) {
   }
   return (
     <>
-      {back}
+      <Link
+        to="/products"
+        className={`inline-flex items-center gap-1 self-start text-xs ${TEXT_LINK}`}
+      >
+        <ArrowLeft size={14} aria-hidden="true" />
+        {t('admin.nav.products')}
+      </Link>
       {body}
     </>
   );

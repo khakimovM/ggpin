@@ -107,7 +107,7 @@ test.describe('filters live in the URL', () => {
     await expect(page.getByText('Foydalanuvchiga hisoblandi').first()).toBeVisible();
     await page.getByRole('link', { name: 'So‘rovlar' }).click();
     await expect(page).toHaveURL(/tab=intents$/);
-    await page.getByRole('button', { name: 'EXPIRED' }).click();
+    await page.getByRole('button', { name: 'Muddati o‘tgan' }).click();
     await expect(page).toHaveURL(/status=EXPIRED/);
     await page.reload();
     await expect(page.getByText('mkint000004')).toBeVisible();
@@ -192,8 +192,8 @@ const AXE_VISITS: readonly [string, string][] = [
   ['/dashboard', 'Ogohlantirishlar'],
   // Orders, review and products carry the premium chip (HELD, "featured"): R-2 contrast.
   ['/orders', '#48213'],
-  ['/review', 'SUPPLIER_TIMEOUT'],
-  ['/products', 'telegram-stars'],
+  ['/review', 'Taʼminotchi xatosi'],
+  ['/products', 'Telegram Stars'],
   ['/fragment', 'Sessiya faol'],
   ['/users', '@sardor_r'],
   ['/users/mkuser000001?tab=ledger', 'Referal bonusi'],
@@ -202,7 +202,7 @@ const AXE_VISITS: readonly [string, string][] = [
   ['/recon', 'Hisobga olinmagan kirim'],
   ['/products/mkprod000001?sku=mksku000001', 'Minimal marjadan yuqori'],
   ['/pricing', 'Kurs manbalari'],
-  ['/audit?entry=mkaud000002', 'USER_FREEZE'],
+  ['/audit?entry=mkaud000002', 'Xarid muzlatildi'],
   ['/admins', 'Faol sessiyalar'],
   ['/orders/mkord000001', 'Bajarish urinishlari'],
   ['/wallet', 'Hot wallet'],

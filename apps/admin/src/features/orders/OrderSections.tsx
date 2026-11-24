@@ -1,17 +1,22 @@
 import type { AdminOrderDetailResponse, OrderStatus } from '@repo/shared';
 import { DataTable, Timeline, type DataTableColumn, type TimelineTone } from '@repo/ui';
 import { History } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import { formatDateTime, formatMinor, shortHash } from '../../lib/format';
 import { ListEmpty } from '../common/ListStates';
 import { MoneyCell } from '../common/MoneyCell';
 import { Panel } from '../common/Panel';
 import { camelKey } from '../../lib/camel-key';
+import { UNKNOWN_ENUM_KEY, enumKey, eventActorKey } from '../../lib/enum-text';
 import { Tag } from '../common/Tag';
 
 type Order = AdminOrderDetailResponse;
 type Attempt = Order['attempts'][number];
 type Entry = Order['ledger'][number];
+
+/** A machine reason code: upper case with at least one underscore. */
+const REASON_CODE = /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/;
 
 const TONE: Partial<Record<OrderStatus, TimelineTone>> = {
   NEEDS_REVIEW: 'warning',
@@ -25,6 +30,21 @@ const TONE: Partial<Record<OrderStatus, TimelineTone>> = {
 export function OrderHistory({ order }: { order: Order }) {
   const t = useTranslations();
   const last = order.events.length - 1;
+  // A reason code (LOW_BALANCE, ADAPTER_ERROR) in words. An unknown code gets the general word
+  // and keeps the code itself in monospace for diagnosis (CR A7); a note an admin wrote (no
+  // underscore code) stays exactly as written.
+  const describe = (createdAt: string, note: string | null): ReactNode => {
+    const time = formatDateTime(createdAt);
+    if (note === null || note === '') return time;
+    if (!REASON_CODE.test(note)) return `${time} · ${note}`;
+    const key = enumKey('orderReason', note);
+    if (key !== UNKNOWN_ENUM_KEY) return `${time} · ${t(key)}`;
+    return (
+      <>
+        {time} · {t(key)} <code className="font-mono text-[11px]">{note}</code>
+      </>
+    );
+  };
   const attempts: DataTableColumn<Attempt>[] = [
     { id: 'no', header: '#', cell: (a) => a.attemptNo },
     {
@@ -46,7 +66,7 @@ export function OrderHistory({ order }: { order: Order }) {
                 : 'info'
           }
         >
-          {a.status}
+          {t(enumKey('attemptStatus', a.status))}
         </Tag>
       ),
     },
@@ -98,8 +118,8 @@ export function OrderHistory({ order }: { order: Order }) {
             id: `${index}`,
             state: index === last ? 'active' : 'done',
             tone: index === last ? TONE[event.to] : undefined,
-            title: `${event.to} · ${event.actor}`,
-            description: [formatDateTime(event.createdAt), event.note].filter(Boolean).join(' · '),
+            title: `${t(enumKey('orderStatus', event.to))} · ${t(eventActorKey(event.actor))}`,
+            description: describe(event.createdAt, event.note),
           }))}
         />
       </Panel>
@@ -120,8 +140,8 @@ export function OrderHistory({ order }: { order: Order }) {
             key={transfer.id}
             className="m-0 rounded-[10px] bg-surface px-3 py-2 font-mono text-[11px] leading-4 break-all"
           >
-            TON {transfer.status} · {formatMinor('TON', transfer.amountNanoTon)} TON · seqno{' '}
-            {transfer.seqno}
+            TON · {t(enumKey('tonStatus', transfer.status))} ·{' '}
+            {formatMinor('TON', transfer.amountNanoTon)} TON · seqno {transfer.seqno}
             {transfer.txHash ? ` · tx ${shortHash(transfer.txHash)}` : ''}
           </p>
         ))}

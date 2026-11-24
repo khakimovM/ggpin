@@ -693,8 +693,7 @@
       }
     },
     "catalog": {
-      "readOnly": "Faqat ko‘rish: tahrirlash keyingi bosqichda ulanadi",
-      "add": "Mahsulot qo‘shish",
+      "readOnly": "Faqat ko‘rish: katalogni faqat ega o‘zgartiradi",
       "empty": "Mahsulot yo‘q",
       "notFound": "Mahsulot topilmadi",
       "active": "Faol",
@@ -722,14 +721,47 @@
         "supplier": "Taʼminotchi SKU",
         "markup": "Ustama",
         "minMargin": "Min marja",
-        "empty": "SKU yo‘q"
+        "empty": "SKU yo‘q",
+        "add": "SKU qo‘shish",
+        "edit": "{label}: tahrirlash",
+        "pick": "{label}: narxni ko‘rish",
+        "quantity": "Miqdor",
+        "tab": "Guruh (tab)",
+        "tabHint": "Ixtiyoriy. Bo‘sh — guruhsiz.",
+        "labelUz": "Nomi (uz)",
+        "labelRu": "Nomi (ru)",
+        "markupHint": "0–100 %, ko‘pi bilan 2 ta kasr raqam: 12,5",
+        "minMarginHint": "0 dan 100 mln so‘mgacha",
+        "sort": "Tartib raqami",
+        "active": "Sotuvda faol",
+        "quantityWarn": "Miqdor o‘zgarmoqda: yangi tannarx kelguncha bu paketga narx chiqmaydi va uni sotib bo‘lmaydi. Mavjud kotirovkalar o‘zgarmaydi.",
+        "dialog": {
+          "create": {
+            "title": "Yangi SKU",
+            "body": "{product} uchun yangi paket",
+            "cta": "Qo‘shish"
+          },
+          "edit": {
+            "title": "SKUʼni tahrirlash",
+            "body": "{product} · {label}",
+            "cta": "Saqlash"
+          }
+        }
       },
       "route": {
         "title": "Yetkazish yo‘nalishlari",
         "adapter": "Adapter",
         "priority": "Tartib",
         "health": "Holati",
-        "empty": "Yo‘nalish yo‘q"
+        "empty": "Yo‘nalish yo‘q",
+        "edit": "{adapter}: sozlash",
+        "enabled": "Yo‘nalish yoqilgan",
+        "priorityHint": "0–1000: kichik raqamli yo‘nalish birinchi sinaladi",
+        "dialog": {
+          "title": "Yo‘nalishni sozlash",
+          "body": "{adapter} · {product}",
+          "cta": "Saqlash"
+        }
       },
       "preview": {
         "title": "Narx hisobi",
@@ -741,7 +773,90 @@
         "price": "Narx",
         "margin": "Marja",
         "aboveMin": "Minimal marjadan yuqori",
-        "belowMin": "Marja minimaldan past"
+        "belowMin": "Marja minimaldan past",
+        "live": "Jonli narx · saqlanmagan qiymatlar bilan",
+        "waiting": "Ustama va min marja to‘g‘ri kiritilganda narx shu yerda hisoblanadi.",
+        "unavailable": "Narxni hisoblab bo‘lmadi: tannarx yoki kurs yo‘q. Saqlash mumkin, narx sinxrondan keyin chiqadi."
+      },
+      "form": {
+        "required": "To‘ldirish shart",
+        "invalid": "Qiymat noto‘g‘ri",
+        "noChanges": "O‘zgarish yo‘q — saqlashga hech narsa yo‘q"
+      },
+      "toggle": {
+        "label": "{name}: katalogda faol",
+        "on": {
+          "title": "Mahsulotni yoqish",
+          "body": "{name} katalog va Mini Appʼda yana ko‘rinadi.",
+          "cta": "Yoqish"
+        },
+        "off": {
+          "title": "Mahsulotni o‘chirish",
+          "body": "{name} katalog va Mini Appʼdan yashiriladi. Ochiq buyurtmalarga taʼsir qilmaydi.",
+          "cta": "O‘chirish"
+        }
+      },
+      "reorder": {
+        "hint": "Tartibni o‘zgartirish uchun qatorni sudrang yoki strelkalarni bosing (Alt+↑/↓) — katalog va Mini Appʼda shu tartib ko‘rinadi.",
+        "filtered": "Tartibni o‘zgartirish uchun «Barchasi» filtrini tanlang.",
+        "up": "{name}: yuqoriga",
+        "down": "{name}: pastga",
+        "moved": "{name}: {position}-o‘rin",
+        "changed": "Tartib o‘zgardi, hali saqlanmagan",
+        "save": "Tartibni saqlash",
+        "reset": "Bekor qilish",
+        "dialog": {
+          "title": "Mahsulotlar tartibini saqlash",
+          "body": "{count} ta mahsulot yangi tartibda saqlanadi. Katalog va Mini Appʼda darhol ko‘rinadi.",
+          "cta": "Saqlash"
+        }
+      },
+      "edit": {
+        "title": "Tahrirlash",
+        "langLabel": "Matn tili",
+        "langUz": "O‘zbekcha",
+        "langRu": "Ruscha",
+        "name": "Nomi",
+        "description": "Tavsif",
+        "help": "Yordam matni (ID qayerda?)",
+        "region": "Hudud belgisi",
+        "regionHint": "2–12 ta katta lotin harfi, masalan UZ. Bo‘sh — belgisiz.",
+        "image": "Rasm yo‘li",
+        "imageHint": "Faqat /assets/ ichidagi fayl yo‘li: rasm panel orqali yuklanmaydi.",
+        "active": "Katalogda faol",
+        "featured": "Asosiy sahifada",
+        "fixedHint": "Kategoriya, yetkazish turi va kiritish sxemasi panelda o‘zgarmaydi.",
+        "save": "Saqlash",
+        "reset": "Bekor qilish",
+        "unsaved": "{count} ta maydon o‘zgardi",
+        "dialog": {
+          "title": "Mahsulotni saqlash",
+          "body": "{name}: {fields}",
+          "cta": "Saqlash"
+        },
+        "field": {
+          "nameUz": "Nomi (uz)",
+          "nameRu": "Nomi (ru)",
+          "descriptionUz": "Tavsif (uz)",
+          "descriptionRu": "Tavsif (ru)",
+          "helpUz": "Yordam (uz)",
+          "helpRu": "Yordam (ru)",
+          "regionBadge": "Hudud belgisi",
+          "imageUrl": "Rasm",
+          "isActive": "Faollik",
+          "isFeatured": "Asosiy sahifa"
+        }
+      },
+      "category": {
+        "edit": "Kategoriyani tahrirlash",
+        "nameUz": "Nomi (uz)",
+        "nameRu": "Nomi (ru)",
+        "sort": "Tartib raqami",
+        "dialog": {
+          "title": "Kategoriyani tahrirlash",
+          "body": "{name} · {count} ta mahsulot",
+          "cta": "Saqlash"
+        }
       }
     },
     "pricing": {
@@ -900,8 +1015,126 @@
       "otpLocked": "Kod urinishlari tugadi. Yangi kod oling.",
       "otpUnavailable": "Kodni Telegramʼga yuborib bo‘lmadi",
       "otpNotRequired": "Bu amal uchun kod kerak emas",
+      "duplicatePackage": "Shu miqdorli faol paket allaqachon bor",
+      "premiumMonths": "Telegram Premium paketi faqat 3, 6 yoki 12 oylik bo‘ladi",
+      "productSetMismatch": "Mahsulotlar ro‘yxati eskirgan: sahifani yangilab, tartibni qayta o‘rnating",
+      "quantityRange": "Miqdor mahsulotning ruxsat etilgan oralig‘idan tashqarida",
+      "qtyOutOfRange": "Miqdor ruxsat etilgan oraliqdan tashqarida",
+      "rateMismatch": "Qayta kiritilgan kurs o‘rnatilayotgan kursga teng emas",
       "invalid": "Maʼlumot noto‘g‘ri. Maydonlarni tekshiring.",
       "unknown": "Maʼlumot qabul qilinmadi. Maydonlarni tekshiring."
+    },
+    "enums": {
+      "unknown": "Nomaʼlum qiymat",
+      "orderStatus": {
+        "paid": "To‘langan",
+        "queued": "Navbatda",
+        "processing": "Bajarilmoqda",
+        "held": "To‘xtatilgan",
+        "needsReview": "Tekshiruvda",
+        "delivered": "Yetkazildi",
+        "failed": "Bajarilmadi",
+        "cancelled": "Bekor qilingan",
+        "refunded": "Pul qaytarilgan"
+      },
+      "intentStatus": {
+        "pending": "To‘lov kutilmoqda",
+        "paid": "To‘langan",
+        "cancelled": "Bekor qilingan",
+        "expired": "Muddati o‘tgan"
+      },
+      "orderReason": {
+        "priceAboveMax": "Tannarx narx chegarasidan oshdi",
+        "limitPerOrder": "Bitta buyurtma TON limiti",
+        "limitDaily": "Kunlik TON limiti",
+        "lowBalance": "Hamyonda TON yetarli emas",
+        "noAdapter": "Ishlaydigan yetkazish yo‘nalishi yo‘q",
+        "recipientChanged": "Qabul qiluvchi o‘zgargan",
+        "recipientGone": "Qabul qiluvchi topilmadi",
+        "adapterError": "Taʼminotchi xatosi",
+        "confirmTimeout": "Blokcheyn tasdig‘i kechikdi",
+        "heldExpired": "To‘xtatish muddati tugadi"
+      },
+      "deliveryType": {
+        "tgUsername": "Telegram username",
+        "gameId": "O‘yin ID",
+        "steamLogin": "Steam login",
+        "voucher": "Voucher kod",
+        "username": "Username"
+      },
+      "routeHealth": {
+        "ok": "Ishlayapti",
+        "degraded": "Sekinlashgan",
+        "down": "Ishlamayapti",
+        "unknown": "Maʼlum emas"
+      },
+      "attemptStatus": {
+        "sending": "Yuborilmoqda",
+        "sent": "Yuborildi",
+        "confirmed": "Tasdiqlandi",
+        "failed": "Xato",
+        "unknown": "Natija nomaʼlum"
+      },
+      "tonStatus": {
+        "signed": "Imzolangan",
+        "broadcast": "Tarmoqqa yuborilgan",
+        "confirmed": "Tasdiqlangan",
+        "onchainFailed": "Zanjirda xato",
+        "expired": "Muddati o‘tgan",
+        "consumedUnmatched": "Sarflangan, mos kelmadi",
+        "bounced": "Qaytib keldi"
+      },
+      "eventActor": {
+        "system": "Tizim",
+        "reconciler": "Solishtiruvchi",
+        "admin": "Admin",
+        "user": "Mijoz",
+        "worker": "Worker"
+      },
+      "auditAction": {
+        "adminLogin": "Admin kirdi",
+        "adminLogout": "Admin chiqdi",
+        "orderNote": "Buyurtmaga izoh",
+        "orderRetry": "Buyurtma qayta urinildi",
+        "orderReviewResolve": "Buyurtma tekshiruvi yopildi",
+        "orderCancel": "Buyurtma bekor qilindi",
+        "orderFailRefund": "Buyurtma bajarilmadi, pul qaytarildi",
+        "orderRefund": "Buyurtma puli qaytarildi",
+        "userNote": "Foydalanuvchiga izoh",
+        "userBlock": "Foydalanuvchi bloklandi",
+        "userUnblock": "Blokdan chiqarildi",
+        "userFreeze": "Xarid muzlatildi",
+        "userUnfreeze": "Muzlatish ochildi",
+        "userSessionsRevoke": "Sessiyalar tugatildi",
+        "walletAdjust": "Balans tuzatildi",
+        "reviewCredit": "Review bo‘yicha pul tushirildi",
+        "paymentReverse": "To‘lov qaytarildi",
+        "cardPause": "Karta to‘xtatildi",
+        "cardResume": "Karta qayta yoqildi",
+        "cardLimit": "Karta limiti o‘zgardi",
+        "cardRetire": "Karta chiqarildi",
+        "cardRetireEmergency": "Karta favqulodda chiqarildi",
+        "categoryUpdate": "Kategoriya tahrirlandi",
+        "productUpdate": "Mahsulot tahrirlandi",
+        "productReorder": "Mahsulotlar tartibi o‘zgardi",
+        "skuCreate": "SKU qo‘shildi",
+        "skuUpdate": "SKU tahrirlandi",
+        "routeUpdate": "Yo‘nalish o‘zgardi",
+        "fxSet": "Kurs qo‘lda o‘rnatildi",
+        "adminCreate": "Admin qo‘shildi",
+        "adminUpdate": "Admin o‘zgartirildi",
+        "adminSessionsRevoke": "Admin sessiyalari tugatildi",
+        "adminSessionRevoke": "Admin sessiyasi tugatildi",
+        "queueJobRetry": "Navbat vazifasi qayta ishga tushirildi",
+        "auditExport": "Audit log eksport qilindi",
+        "cardAdd": "Karta qo‘shildi",
+        "reviewIgnore": "Review yopildi (eʼtiborsiz)",
+        "reviewReturnedOffline": "Pul bank orqali qaytarildi",
+        "reviewAcceptChain": "Zanjir uzilishi qabul qilindi",
+        "cardRetireDrained": "Karta bo‘shatilib chiqarildi",
+        "paymentReconcile": "To‘lov solishtirildi",
+        "idempotencyVoid": "Amal kaliti bekor qilindi"
+      }
     }
   }
 }

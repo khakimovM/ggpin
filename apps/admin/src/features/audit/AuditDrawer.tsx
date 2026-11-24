@@ -1,6 +1,7 @@
 import type { AdminAuditRow } from '@repo/shared';
 import { Button, Drawer, Skeleton, cn } from '@repo/ui';
 import { useTranslations } from 'use-intl';
+import { enumKey } from '../../lib/enum-text';
 import { formatDateTime } from '../../lib/format';
 import { KeyValues } from '../common/KeyValues';
 import { Tag } from '../common/Tag';
@@ -41,8 +42,8 @@ export function AuditDrawer({
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
-      title={entry ? entry.action : t('admin.audit.title')}
-      badge={entry ? <Tag tone="mute">{entry.actor.type}</Tag> : null}
+      title={entry ? t(enumKey('auditAction', entry.action)) : t('admin.audit.title')}
+      badge={entry ? <Tag tone="mute">{t(`admin.audit.actor.${entry.actor.type}`)}</Tag> : null}
       closeLabel={t('admin.dialogs.close')}
     >
       {entry ? (
@@ -69,7 +70,7 @@ export function AuditDrawer({
             ]}
           />
           <h3 className="m-0 text-[13px] leading-[18px] font-extrabold">
-            {t('admin.audit.changes', { action: entry.action })}
+            {t('admin.audit.changes', { action: t(enumKey('auditAction', entry.action)) })}
           </h3>
           {entry.before === null && entry.after === null ? (
             <p className="m-0 text-xs leading-4 font-semibold text-foreground-muted">

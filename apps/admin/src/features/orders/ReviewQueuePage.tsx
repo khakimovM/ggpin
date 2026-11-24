@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ClipboardCheck } from 'lucide-react';
 import { Link } from 'react-router';
 import { useTranslations } from 'use-intl';
+import { enumKey } from '../../lib/enum-text';
 import { listReviewQueue } from '../../lib/api/people';
 import { formatCost, formatCount } from '../../lib/format';
 import { useListParams } from '../../lib/list-params';
@@ -44,7 +45,10 @@ function ReviewCard({ order }: { order: Entry }) {
           ],
           [t('admin.orders.col.recipient'), order.recipient.displayName ?? '—'],
           [t('admin.orders.col.cost'), formatCost(order.costCurrency, order.costMinor)],
-          [t('admin.review.reason'), order.statusReason ?? '—'],
+          [
+            t('admin.review.reason'),
+            order.statusReason === null ? '—' : t(enumKey('orderReason', order.statusReason)),
+          ],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -95,7 +99,7 @@ function ReviewQueue() {
         onChange={(status) => set({ status })}
         options={SPEC.status.values.map((value) => ({
           value,
-          label: value === 'all' ? t('admin.list.all') : value,
+          label: value === 'all' ? t('admin.list.all') : t(enumKey('orderStatus', value)),
         }))}
       />
       {items && items.length > 0 ? (

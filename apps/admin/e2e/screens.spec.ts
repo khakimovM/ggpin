@@ -7,10 +7,10 @@ const SCREENS: readonly { name: string; path: string; h1: string | RegExp; ready
   { name: 'dashboard', path: '/dashboard', h1: 'Dashboard', ready: 'Ogohlantirishlar' },
   { name: 'orders', path: '/orders', h1: 'Buyurtmalar', ready: '#48213' },
   { name: 'order', path: '/orders/mkord000002', h1: /#48212/, ready: 'Bajarish urinishlari' },
-  { name: 'review', path: '/review', h1: 'Tekshiruv navbati', ready: 'SUPPLIER_TIMEOUT' },
+  { name: 'review', path: '/review', h1: 'Tekshiruv navbati', ready: 'Taʼminotchi xatosi' },
   { name: 'users', path: '/users', h1: 'Foydalanuvchilar', ready: '@sardor_r' },
   { name: 'user', path: '/users/mkuser000001', h1: 'Sardor Rahimov', ready: 'Jami xarid' },
-  { name: 'products', path: '/products', h1: 'Mahsulotlar', ready: 'telegram-stars' },
+  { name: 'products', path: '/products', h1: 'Mahsulotlar', ready: 'Telegram Stars' },
   {
     name: 'product',
     path: '/products/mkprod000001?sku=mksku000006',
@@ -30,7 +30,7 @@ const SCREENS: readonly { name: string; path: string; h1: string | RegExp; ready
   { name: 'wallet', path: '/wallet', h1: 'Hamyon (TON)', ready: 'Hot wallet' },
   { name: 'fragment', path: '/fragment', h1: 'Fragment sessiyasi', ready: 'Sessiya faol' },
   { name: 'queues', path: '/queues', h1: 'Navbatlar', ready: 'fulfill-order' },
-  { name: 'audit', path: '/audit', h1: 'Audit log', ready: 'ORDER_REFUND' },
+  { name: 'audit', path: '/audit', h1: 'Audit log', ready: 'Buyurtma puli qaytarildi' },
   { name: 'admins', path: '/admins', h1: 'Adminlar', ready: 'Malika R.' },
 ];
 
@@ -70,7 +70,7 @@ for (const theme of ['light', 'dark'] as ThemeName[]) {
       await expect(page).not.toHaveURL(/review=/);
 
       await page.goto('/audit?entry=mkaud000001');
-      const audit = page.getByRole('dialog', { name: 'ORDER_REFUND' });
+      const audit = page.getByRole('dialog', { name: 'Buyurtma puli qaytarildi' });
       await expect(audit.getByText('+ status: "REFUNDED"')).toBeVisible();
       await page.screenshot({
         path: shotPath(`s5-drawer-audit-${testInfo.project.name}-${theme}`),

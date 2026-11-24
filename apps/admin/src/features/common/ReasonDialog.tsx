@@ -44,8 +44,11 @@ export interface ReasonDialogProps {
   extraValid?: boolean;
   /** The extra fields as they will be sent: kept in memory with an unknown outcome (never a code). */
   fields?: ActionFields;
-  /** `note`: the field is a note's text (1-1000 characters, docs/04 notes) instead of a reason. */
-  textField?: 'reason' | 'note';
+  /**
+   * `note`: the field is a note's text (1-1000 characters, docs/04 notes) instead of a reason;
+   * `none`: no text field, for a write whose body has no reason (the catalog reorder, docs/04).
+   */
+  textField?: 'reason' | 'note' | 'none';
   /**
    * Where the outcome check looks for the action's row when the audit log is not readable
    * (SUPPORT notes: the user's `notes[].id`). Resolves true when the row is there.
