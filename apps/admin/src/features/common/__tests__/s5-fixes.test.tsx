@@ -3,7 +3,9 @@ import type { AdminSessionListResponse } from '@repo/shared';
 import { fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AdminContext } from '../../../app/admin-context';
 import { listAdminSessions } from '../../../lib/api/reads';
+import { meFixture } from '../../../lib/api/mock/fixtures';
 import { dashboardFixture } from '../../../lib/api/mock/fixtures-dashboard';
 import { ADMINS, adminSessionsFixture } from '../../../lib/api/mock/fixtures-ops';
 import { renderAdmin } from '../../../test/render';
@@ -60,7 +62,12 @@ describe('R-7 / M-4: admin sessions with a partial failure', () => {
       if (adminId !== owner && fail) return Promise.reject(new Error('boom'));
       return Promise.resolve(adminSessionsFixture(adminId));
     });
-    renderAdmin(<AdminSessions admins={ADMINS} />);
+    // S9b: the section has row actions now, so it reads the signed-in admin (as under <RequireAdmin>).
+    renderAdmin(
+      <AdminContext.Provider value={meFixture('OWNER', new Date())}>
+        <AdminSessions admins={ADMINS} />
+      </AdminContext.Provider>,
+    );
     expect(
       await screen.findByText(
         'Ayrim adminlarning sessiyalarini yuklab bo‘lmadi — ro‘yxat to‘liq emas.',

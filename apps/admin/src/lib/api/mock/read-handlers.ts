@@ -13,7 +13,8 @@ import {
 } from './catalog-views';
 import { FX_HISTORY, SETTINGS } from './fixtures-catalog';
 import { ORDERS, REVIEW_QUEUE, orderDetailFixture } from './fixtures-orders';
-import { ADMINS, AUDIT, FRAGMENT, QUEUE_ROWS, WALLET, adminSessionsFixture } from './fixtures-ops';
+import { adminSessionsView, adminsView } from './admins-views';
+import { AUDIT, FRAGMENT, QUEUE_ROWS, WALLET } from './fixtures-ops';
 import { USERS, USER_LEDGER, USER_REFERRALS, USER_SESSIONS } from './fixtures-users';
 import {
   auditView,
@@ -203,9 +204,9 @@ const opsRoutes: MockRoute[] = [
     );
   }),
   auditCsvRoute(AUDIT),
-  get('/admin/admins', 'admins.read', () => listOf(ADMINS)),
+  get('/admin/admins', 'admins.read', () => listOf(adminsView())),
   get('/admin/admins/:id/sessions', 'admins.read', ({ params }) =>
-    listOf(adminSessionsFixture(params.id ?? '')),
+    listOf(adminSessionsView(params.id ?? '')),
   ),
 ];
 

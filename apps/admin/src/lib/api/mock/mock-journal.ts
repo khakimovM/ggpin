@@ -62,6 +62,17 @@ const JournalSchema = z.object({
       routes: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
     })
     .prefault({}),
+  /**
+   * Admin management (S9b): field patches by admin id, admins added in the mock and ended
+   * sessions. Loose here; admins-views.ts parses every merged record with its shared schema.
+   */
+  admins: z
+    .object({
+      patches: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+      added: z.array(z.record(z.string(), z.unknown())).default([]),
+      endedSessions: z.array(z.string()).default([]),
+    })
+    .prefault({}),
   /** Issued codes: challenge id → the canonical confirmation body and who asked. */
   challenges: z
     .record(z.string(), z.object({ canonical: z.string(), adminId: z.string() }))

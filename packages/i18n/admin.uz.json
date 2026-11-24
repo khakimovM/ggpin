@@ -983,6 +983,60 @@
         "lastLogin": "Oxirgi kirish",
         "sessions": "Sessiyalar",
         "lastUsed": "Oxirgi faollik"
+      },
+      "ownerCliOnly": "Faqat CLI",
+      "currentRevoked": "Joriy sessiyangiz ham yopildi — qayta kiring.",
+      "replayStale": "Bu kalit bilan avvalgi so‘rov bajarilgan edi, holat o‘shandan beri o‘zgargan — amalni qayta bajaring.",
+      "actions": {
+        "named": "{action}: {name}",
+        "change": "O‘zgartirish",
+        "deactivate": "Deaktivatsiya",
+        "reactivate": "Faollashtirish",
+        "revokeAll": "Sessiyalarni yopish",
+        "revokeSession": "Yakunlash"
+      },
+      "dialog": {
+        "add": {
+          "title": "Admin qo‘shish",
+          "body": "Telegram ID bo‘yicha qo‘shiladi. Kirish faqat Telegram orqali.",
+          "telegramId": "Telegram ID",
+          "telegramIdInvalid": "Telegram ID faqat raqamlardan iborat, 0 bilan boshlanmaydi",
+          "name": "Ism",
+          "nameInvalid": "Ismni kiriting: 64 belgigacha, < va > belgilarisiz",
+          "role": "Rol",
+          "cta": "Qo‘shish",
+          "notAllowlisted": "{name} qo‘shildi, lekin hali kira olmaydi: Telegram ID {telegramId} serverdagi ruxsat ro‘yxatida yo‘q. Devops uni shu o‘zgaruvchiga qo‘shishi kerak:"
+        },
+        "change": {
+          "title": "Adminni o‘zgartirish",
+          "body": "{name}: ism yoki rolni o‘zgartiring. OWNER rolini faqat CLI beradi.",
+          "cta": "Saqlash",
+          "nothing": "Hech narsa o‘zgarmagan: ism yoki rolni o‘zgartiring.",
+          "roleEndsSessions": "Rol o‘zgarsa, adminning barcha sessiyalari yopiladi."
+        },
+        "deactivate": {
+          "title": "Adminni deaktivatsiya qilish",
+          "body": "{name} panelga kira olmaydi: barcha sessiyalari va ochiq login kodlari shu zahoti bekor qilinadi.",
+          "cta": "Deaktivatsiya"
+        },
+        "reactivate": {
+          "title": "Adminni qayta faollashtirish",
+          "body": "{name} yana panelga kira oladi (Telegram ID ro‘yxatda bo‘lsa). Eski sessiyalar ishlamaydi — qayta kirishi kerak.",
+          "cta": "Faollashtirish"
+        },
+        "revokeAll": {
+          "title": "Sessiyalarni yopish",
+          "body": "{name}: barcha qurilmalardagi sessiyalar yopiladi ({count, plural, one {# ta sessiya} other {# ta sessiya}}).",
+          "cta": "Yopish",
+          "ownerAlert": "Bu OWNER sessiyalari: amal haqida egalarga ogohlantirish (Telegram xabari) yuboriladi.",
+          "result": "{count, plural, one {# ta sessiya yopildi} other {# ta sessiya yopildi}}"
+        },
+        "revokeSession": {
+          "title": "Sessiyani yakunlash",
+          "body": "{name} · {device} sessiyasi yopiladi.",
+          "current": "Bu sizning joriy sessiyangiz: yopilgach, panel kirish sahifasiga qaytadi.",
+          "cta": "Yakunlash"
+        }
       }
     },
     "fieldErrors": {
@@ -1021,6 +1075,8 @@
       "quantityRange": "Miqdor mahsulotning ruxsat etilgan oralig‘idan tashqarida",
       "qtyOutOfRange": "Miqdor ruxsat etilgan oraliqdan tashqarida",
       "rateMismatch": "Qayta kiritilgan kurs o‘rnatilayotgan kursga teng emas",
+      "adminExists": "Bu Telegram ID bilan admin allaqachon bor",
+      "ownerRow": "OWNERʼni panelda o‘zgartirib bo‘lmaydi — faqat CLI orqali",
       "invalid": "Maʼlumot noto‘g‘ri. Maydonlarni tekshiring.",
       "unknown": "Maʼlumot qabul qilinmadi. Maydonlarni tekshiring."
     },

@@ -48,6 +48,9 @@ export const ACTION_FIELD_CODES = [
   'PRODUCT_SET_MISMATCH',
   'QUANTITY_RANGE',
   'QTY_OUT_OF_RANGE',
+  // Admin management (S9a, docs/04 «Adminlar»): a taken Telegram id; an OWNER row is the CLI's (Q7 a).
+  'ADMIN_EXISTS',
+  'OWNER_ROW',
   'INVALID',
 ] as const;
 export type ActionFieldCode = (typeof ACTION_FIELD_CODES)[number];

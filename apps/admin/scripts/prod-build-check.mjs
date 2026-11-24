@@ -39,6 +39,10 @@ const FORBIDDEN = [
   'applyThenCodeExpired',
   'a1b2c3d4e5f6',
   'f6e5d4c3b2a1',
+  // S8b mock catalog writes (write-catalog: a new package id prefix) and S9b mock admins
+  // (admins-views: the allowlist-only Telegram ID).
+  'skunew',
+  '5550000001',
   // The dev-only theme probe page of e2e/theme.spec.ts.
   'dev/theme-probe',
   'probe-danger',

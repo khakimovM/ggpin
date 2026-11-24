@@ -37,10 +37,18 @@ export function onSessionLost(listener: SessionLostListener): () => void {
   };
 }
 
+/**
+ * This tab's session is over and the API said so in a 2xx (an admin revoked their own current
+ * session, docs/04 `currentRevoked`; the cookie is already cleared): same path as a lost session.
+ */
+export function endCurrentSession(): void {
+  sessionLostListeners.forEach((listener) => listener());
+}
+
 const http = createAdminHttp({
   baseUrl: env.VITE_API_URL,
   transportFor,
-  onSessionLost: () => sessionLostListeners.forEach((listener) => listener()),
+  onSessionLost: endCurrentSession,
 });
 
 export function apiFetch<S extends z.ZodType>(
