@@ -36,7 +36,10 @@ afterEach(() => {
   vi.mocked(requestConfirmation).mockReset();
 });
 
-describe('add an admin: the code step is bound to the new admin', () => {
+// The case types four fields, a reason and a six-digit code: 2.7–3.4 s alone, up to 8.0 s with the web
+// suite running beside it (turbo --concurrency=2), over the 5 s default. A timed-out body keeps
+// typing into the next case (seen as "kYangi…" in the change dialog), so this block gets its own budget.
+describe('add an admin: the code step is bound to the new admin', { timeout: 30_000 }, () => {
   it('no error on open; the code opens once the fields are valid; the body carries the code', async () => {
     const user = userEvent.setup();
     vi.mocked(requestConfirmation).mockResolvedValue({ challengeId: 'ch_add', expiresInSec: 180 });

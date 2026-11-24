@@ -61,10 +61,16 @@ export const StoredEntrySchema = z.strictObject({
   /** Written BEFORE the request leaves (SA M-2): a reload mid-flight reads it as unknown. */
   inFlight: z.boolean(),
   createdAt: z.number().int().nonnegative(),
-  /** When the last attempt left: "start as a new action" waits 60 s from it (Q1, SA L-1). */
+  /** When the last attempt left (part of the attempt mark that keys the outcome check). */
   sentAt: z.number().int().nonnegative().optional(),
-  /** When the last attempt ended (answer or timeout): the 60 s wait counts from it too (N-1). */
+  /** When the last attempt ended (answer or timeout). */
   endedAt: z.number().int().nonnegative().optional(),
+  /**
+   * The `targetId` the key void names when the API's audit row names another id than the registry
+   * target (docs/04 «Kalitni bekor qilish»): `admins.create` → the new admin's Telegram ID, the
+   * product switch → the product id. Kept so a reload still voids with it (9B-3, 9B-1 SA R-1).
+   */
+  voidTargetId: ResourceIdSchema.optional(),
 });
 export type StoredEntry = z.infer<typeof StoredEntrySchema>;
 

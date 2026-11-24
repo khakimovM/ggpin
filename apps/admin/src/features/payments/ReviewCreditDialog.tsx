@@ -130,7 +130,7 @@ function ReviewCreditOpen({ review, onOpenChange }: Props) {
         retype,
         asks: previewAsks(data) ?? '',
       }}
-      onOutcomeFound={() => act.found('payments.reviewCredit')}
+      onOutcomeFound={(applied) => act.found('payments.reviewCredit', applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (input === null || code.otp === null) throw new NotSentError();

@@ -2,15 +2,18 @@ import { ApiError } from './errors';
 import type { TransportRequest, TransportResponse } from './transport';
 
 /**
- * How long an admin write (a request with an `Idempotency-Key`) may stay without an answer (N-1),
- * and the session probe after one of its 404s (F-2). Then it is reported as NETWORK, which the
- * forms treat as "outcome unknown": the key is kept and "start as a new action" waits 60 s from
- * this end. What the server can spend on a write (the API sets no Fastify request timeout): waits
- * for a pg pool connection before the transaction (up to 5 s each), Redis calls (~5-10 s worst
- * case), then the transaction (card and review-credit: 4 s maxWait + 15 s, card-lock-timing.ts;
- * user and wallet: Prisma's 2 s + 5 s). 30 s alone does NOT cover all of that: the margin is
- * 30 s + OUTCOME_WAIT_MS (60 s) after the end, ~90 s from the send; the hard guarantee is the
- * server voiding the old key (SA-1, phase 9-B).
+ * How long an admin write (a request with an `Idempotency-Key`, and the key void) may stay without
+ * an answer (N-1), and the session probe after one of its 404s (F-2). Then it is reported as
+ * NETWORK, which the forms treat as "outcome unknown": the key is kept and the form stays locked
+ * until «Natijani aniqlash» voids it. No client wait is needed after that: the API refuses a write
+ * after 45 s (ADMIN_DEADLINE_EXCEEDED), and the void's answer is decided by the key's audit row id,
+ * so a late old request either committed (APPLIED) or never will (VOIDED) (docs/04, 9-B Q2 = A).
+ *
+ * Keep it BELOW the server deadline (45 s, SA I-1). Above it, the panel would be waiting on a
+ * request the API has already given up on: a keyed write would then come back as the deadline 503
+ * ("nothing written") instead of an unknown outcome, which is right but slower, and the void —
+ * which also carries this timeout — would hang past the point where its verdict is final. Below it,
+ * the panel gives up first and the key void settles the outcome; that is fail-closed.
  */
 export const WRITE_TIMEOUT_MS = 30_000;
 

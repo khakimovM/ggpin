@@ -90,7 +90,7 @@ function CategoryEditOpen({ category, onOpenChange }: Props) {
       actor={act.actor}
       extraValid={body !== null}
       fields={{ ...draft }}
-      onOutcomeFound={() => act.found('catalog.categoryUpdate')}
+      onOutcomeFound={(applied) => act.found('catalog.categoryUpdate', applied)}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (body === null) throw new NotSentError();
         const result = await updateCategory(category.id, { ...body, reason }, idempotencyKey);

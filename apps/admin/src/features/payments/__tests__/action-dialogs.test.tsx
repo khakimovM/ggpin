@@ -40,6 +40,9 @@ function refusal(code: string, path = 'action') {
     status: 422,
     code: 'VALIDATION_ERROR',
     details: { fields: [{ path, code }] },
+    // The API's own envelope: a definite refusal. Without it the outcome is unknown and, since
+    // 9B-3, the form stays locked until the key void, which the next test would inherit.
+    fromServer: true,
   });
 }
 

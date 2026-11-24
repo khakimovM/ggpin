@@ -205,7 +205,7 @@ export function ProductReorder({ products, visible, categoryName, canReorder, ca
         submitLabel={t('admin.catalog.reorder.dialog.cta')}
         actor={act.actor}
         textField="none"
-        onOutcomeFound={() => act.found('catalog.productReorder')}
+        onOutcomeFound={(applied) => act.found('catalog.productReorder', applied)}
         onSubmit={async ({ idempotencyKey }) => {
           const result = await reorderProducts({ productIds: [...order] }, idempotencyKey);
           act.finished('catalog.productReorder', result);

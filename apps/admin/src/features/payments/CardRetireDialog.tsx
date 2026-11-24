@@ -48,7 +48,7 @@ function CardRetireOpen({ card, onOpenChange }: Props) {
       actor={act.actor}
       extraValid={code.otp !== null}
       fields={{ emergency }}
-      onOutcomeFound={() => act.found('cards.retire')}
+      onOutcomeFound={(applied) => act.found('cards.retire', applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (code.otp === null) throw new NotSentError();

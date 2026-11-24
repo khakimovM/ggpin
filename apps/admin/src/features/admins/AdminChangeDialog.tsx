@@ -6,10 +6,8 @@ import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { requestConfirmation } from '../../lib/api/confirmations';
 import { NotSentError } from '../../lib/api/errors';
-import { listAudit } from '../../lib/api/people';
 import { updateAdmin } from '../../lib/api/writes-admins';
-import { actionParts, pendingFields } from '../../lib/idempotency';
-import { findActionAudit } from '../../lib/idempotency-outcome';
+import { pendingFields } from '../../lib/idempotency';
 import { ConfirmCodeStep } from '../common/ConfirmCodeStep';
 import { ReasonDialog } from '../common/ReasonDialog';
 import { resultKind, useAdminAction } from '../common/use-admin-action';
@@ -58,7 +56,6 @@ export function AdminChangeDialog({ admin, mode, onOpenChange }: Props) {
   const act = useAdminAction();
   const replayed = useReplayCheck();
   const action = act.idOf('admins.update', changeTargetOf(admin.id, mode));
-  const { adminId } = actionParts(action);
   const [sent] = useState(() => pendingFields(action));
   const assignable = PANEL_ASSIGNABLE_ROLES.find((role) => role === admin.role) ?? 'SUPPORT';
   const [name, setName] = useState(() => textFrom(sent, 'name', admin.name));
@@ -83,12 +80,8 @@ export function AdminChangeDialog({ admin, mode, onOpenChange }: Props) {
       extraValid={change !== null && code.otp !== null}
       fields={mode === 'change' ? { name, role } : { isActive: mode === 'reactivate' }}
       // The audit row names the admin itself, not the registry's `-deactivate` target.
-      lookupOutcome={async (auditId) =>
-        (await findActionAudit({ adminId, targetId: admin.id, auditId }, (query) =>
-          listAudit(query),
-        )) === 'found'
-      }
-      onOutcomeFound={() => act.found('admins.update')}
+      voidTargetId={admin.id}
+      onOutcomeFound={(applied) => act.found('admins.update', applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (change === null || code.otp === null) throw new NotSentError();

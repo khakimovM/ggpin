@@ -14,9 +14,20 @@ export interface MockSeed {
   scenario?: 'data' | 'empty' | 'error' | 'loading';
   /** How the next mock write answers (one-shot, mock-state.ts `writeScenario`). */
   writeScenario?: WriteScenario;
+  /** How the next key void answers (one-shot, mock-state.ts `voidScenario`). */
+  voidScenario?: VoidScenario;
 }
 
-export type WriteScenario = 'ok' | 'applyThen500' | 'fail500' | 'conflict' | 'applyThenCodeExpired';
+export type WriteScenario =
+  | 'ok'
+  | 'applyThen500'
+  | 'fail500'
+  | 'conflict'
+  | 'applyThenCodeExpired'
+  | 'deadline503'
+  | 'applyThenHang';
+
+export type VoidScenario = 'ok' | 'deadline503' | 'notFound';
 
 /** Sets how the NEXT write answers, on a page that is already open (one-shot). */
 export async function setWriteScenario(page: Page, writeScenario: WriteScenario): Promise<void> {
@@ -26,6 +37,17 @@ export async function setWriteScenario(page: Page, writeScenario: WriteScenario)
       window.sessionStorage.setItem(key, JSON.stringify({ ...current, writeScenario: value }));
     },
     [MOCK_STATE_KEY, writeScenario] as const,
+  );
+}
+
+/** Sets how the NEXT key void answers, on a page that is already open (one-shot). */
+export async function setVoidScenario(page: Page, voidScenario: VoidScenario): Promise<void> {
+  await page.evaluate(
+    ([key, value]) => {
+      const current = JSON.parse(window.sessionStorage.getItem(key) ?? '{}') as object;
+      window.sessionStorage.setItem(key, JSON.stringify({ ...current, voidScenario: value }));
+    },
+    [MOCK_STATE_KEY, voidScenario] as const,
   );
 }
 

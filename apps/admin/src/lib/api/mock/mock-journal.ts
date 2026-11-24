@@ -73,6 +73,11 @@ const JournalSchema = z.object({
       endedSessions: z.array(z.string()).default([]),
     })
     .prefault({}),
+  /**
+   * Voided keys (9B-3, docs/04 «Kalitni bekor qilish»): `<adminId>|<key>` → the tombstone's audit
+   * id and time. A write with such a key is 409, a void again is VOIDED with the same row.
+   */
+  voided: z.record(z.string(), z.object({ auditId: z.string(), at: z.string() })).default({}),
   /** Issued codes: challenge id → the canonical confirmation body and who asked. */
   challenges: z
     .record(z.string(), z.object({ canonical: z.string(), adminId: z.string() }))

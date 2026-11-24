@@ -43,6 +43,11 @@ const FORBIDDEN = [
   // (admins-views: the allowlist-only Telegram ID).
   'skunew',
   '5550000001',
+  // 9B-3 mock key void (write-keys, mock-state): the one-shot void and deadline scenarios.
+  'deadline503',
+  'voidScenario',
+  'spendCodeThenDeadline',
+  'applyThenHang',
   // The dev-only theme probe page of e2e/theme.spec.ts.
   'dev/theme-probe',
   'probe-danger',

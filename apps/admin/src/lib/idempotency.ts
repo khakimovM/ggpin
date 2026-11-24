@@ -1,4 +1,6 @@
+import { ResourceIdSchema } from '@repo/shared';
 import {
+  actionParts,
   createIdempotencyKey,
   endAttempt,
   entries,
@@ -54,14 +56,27 @@ export function pendingFields(action: AdminActionId): ActionFields | null {
   return entry?.unknown ? entry.fields : null;
 }
 
-/** Write-ahead (SA M-2): call right BEFORE sending; the key to send and this attempt's number. */
-export function beginAttempt(action: AdminActionId): { key: string; attempt: number } {
+/** A valid `targetId` for the key void, or undefined (the registry target is used then). */
+function voidTarget(value: string | undefined): string | undefined {
+  return value !== undefined && ResourceIdSchema.safeParse(value).success ? value : undefined;
+}
+
+/**
+ * Write-ahead (SA M-2): call right BEFORE sending; the key to send and this attempt's number.
+ * `voidTargetId`: the id the action's audit row names when it is not the registry target (stored,
+ * so a reload still voids with it; docs/04 «Kalitni bekor qilish»).
+ */
+export function beginAttempt(
+  action: AdminActionId,
+  voidTargetId?: string,
+): { key: string; attempt: number } {
   const entry = entryOf(action);
+  const target = voidTarget(voidTargetId);
+  if (target !== undefined) entry.voidTargetId = target;
   entry.attempt += 1;
   entry.out.add(entry.attempt);
   entry.inFlight = true;
   entry.sentAt = Date.now();
-  entry.sinceMono = performance.now();
   persist();
   return { key: entry.key, attempt: entry.attempt };
 }
@@ -90,11 +105,18 @@ export function endRefusedAttempt(action: AdminActionId, key: string, attempt?: 
 export function markActionOutcomeUnknown(
   action: AdminActionId,
   key: string,
-  sent: { reason: string; conflict: boolean; fields?: ActionFields; attempt?: number },
+  sent: {
+    reason: string;
+    conflict: boolean;
+    fields?: ActionFields;
+    attempt?: number;
+    voidTargetId?: string;
+  },
 ): void {
   const entry = entryOf(action, key);
   entry.unknown = true;
   if (entry.key === key) {
+    entry.voidTargetId ??= voidTarget(sent.voidTargetId);
     entry.reason = sent.reason;
     entry.fields = sent.fields ?? entry.fields;
     entry.conflict = entry.conflict || sent.conflict;
@@ -116,26 +138,8 @@ export function pendingInFlight(action: AdminActionId): boolean {
 }
 
 /**
- * How long ago the last attempt of `action` left OR ended, whichever is later (its creation if
- * none left yet), or null. The server may still run a request that left long ago and is still out,
- * so the wait counts from its end too (N-1). Within this tab the wall clock and the monotonic clock
- * must both agree (the smaller wins), so a clock jumped forward cannot open the 60 s bound early
- * (SA-2); after a reload the monotonic clock counts from the reload (R-2), and a wall time in the
- * future counts as "just now" (wait longer, never shorter).
- */
-export function pendingElapsedMs(action: AdminActionId): number | null {
-  const entry = entries.get(action);
-  if (!entry) return null;
-  const now = Date.now();
-  const wallFrom = Math.max(entry.sentAt ?? entry.createdAt, entry.endedAt ?? 0);
-  const monoFrom = Math.max(entry.sinceMono, entry.endedMono ?? entry.sinceMono);
-  const wall = Math.max(0, now - wallFrom);
-  return Math.min(wall, Math.max(0, performance.now() - monoFrom));
-}
-
-/**
- * The state of `action`'s attempts: it changes with every `beginAttempt` AND every end (N-1), so a
- * search verdict given while an attempt was out no longer counts once that attempt ends.
+ * The state of `action`'s attempts: it changes with every `beginAttempt` AND every end (N-1). The
+ * outcome check is keyed by it, so a new attempt or the end of one starts it afresh.
  */
 export function pendingAttemptMark(action: AdminActionId): string | null {
   const entry = entries.get(action);
@@ -144,26 +148,20 @@ export function pendingAttemptMark(action: AdminActionId): string | null {
   return `${sent}#${String(entry.attempt)}#${String(entry.endSeq)}`;
 }
 
+/** The `targetId` to void `action`'s key with: the stored one, else the registry target. */
+export function pendingVoidTarget(action: AdminActionId): string {
+  return entries.get(action)?.voidTargetId ?? actionParts(action).targetId;
+}
+
 /**
- * "Start as a new action" (Q1 = A): the outcome check proved the old key wrote no audit row and
- * the server's bound has passed, so a new key may be used. Compare-and-swap on `key` AND on the
- * attempt state the search was made after (R-1, N-1): a later attempt, or the end of one that was
- * out, may have been applied, so an older "not found" no longer counts and nothing is replaced.
- * Refused while any attempt is out, and unless both now and at the search (`searchedElapsedMs`,
- * SA I-2) at least `minElapsedMs` had passed. Returns the new key, or null.
+ * The void answered VOIDED for `key` (docs/04, 9-B Q2 = A): the old key is dead on the server and
+ * no request with it will ever commit, so a new key replaces it at once. Compare-and-swap on the
+ * key, and refused while any attempt is out (N-1): such an attempt was sent after the void and
+ * will come back 409, so its entry must not be replaced under it. Returns the new key, or null.
  */
-export function restartAction(
-  action: AdminActionId,
-  key: string,
-  minElapsedMs: number,
-  searchedAfter: string,
-  searchedElapsedMs: number,
-): string | null {
+export function replaceVoidedKey(action: AdminActionId, key: string): string | null {
   const entry = entries.get(action);
   if (entry?.key !== key || entry.out.size > 0) return null;
-  if (pendingAttemptMark(action) !== searchedAfter) return null;
-  if (searchedElapsedMs < minElapsedMs) return null;
-  if ((pendingElapsedMs(action) ?? 0) < minElapsedMs) return null;
   const next = freshEntry(action, createIdempotencyKey());
   entries.set(action, next);
   persist();
@@ -173,7 +171,7 @@ export function restartAction(
 /**
  * A confirmed sign-out (SA L-1): drops only plain entries. An unknown, in-conflict or in-flight
  * one stays (fail-closed): the action may have run, so its key must outlive the session; the
- * outcome check ("start as a new action") is the way out after it.
+ * key void («Natijani aniqlash») is the way out after it.
  */
 export function dropPlainActions(): void {
   for (const [action, entry] of entries) {

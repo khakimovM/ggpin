@@ -21,8 +21,13 @@ export interface AdminRequest {
   path: string;
   query?: Readonly<Record<string, QueryValue>>;
   body?: unknown;
-  /** Required by the API on every admin write except auth and confirmations. */
+  /** Required by the API on every admin write except auth, confirmations and the key void. */
   idempotencyKey?: string;
+  /**
+   * A write without a key that must not wait forever either (the key void, 9-B): it gets the
+   * keyed writes' timeout, and the timeout is a NETWORK error ("no verdict"), never an answer.
+   */
+  writeTimeout?: boolean;
   /**
    * `session` (default): a 404 may mean the session is gone, and is checked. `none`: the open
    * login routes, where a 404 is about the login request itself (an expired nonce).
@@ -128,10 +133,10 @@ export function createAdminHttp(deps: AdminHttpDeps): AdminHttp {
     const transport = await deps.transportFor(request.group);
     const built = buildRequest(deps.baseUrl, request);
     // N-1: a keyed write never waits forever; its timeout is an unknown outcome like no answer.
-    const response =
-      request.idempotencyKey === undefined
-        ? await send(transport, built)
-        : await sendWithTimeout((r) => send(transport, r), built);
+    const bounded = request.idempotencyKey !== undefined || request.writeTimeout === true;
+    const response = bounded
+      ? await sendWithTimeout((r) => send(transport, r), built)
+      : await send(transport, built);
     // D-26: the admin API answers every refusal with the same 404, a missing session included.
     // On `me` that is the answer itself; elsewhere the 404 may also be a missing record or a role
     // that lacks the right, so the session is asked before signing out.

@@ -65,7 +65,7 @@ function ReverseOpen({ payment, onOpenChange }: Props) {
       actor={act.actor}
       extraValid={!needsCode || (confirmation !== null && code.otp !== null)}
       fields={{ code: needsCode, retype }}
-      onOutcomeFound={() => act.found('payments.reverse')}
+      onOutcomeFound={(applied) => act.found('payments.reverse', applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         try {

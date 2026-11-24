@@ -8,6 +8,7 @@ import {
   adminFieldCode,
   attemptsLeftOf,
   isApiError,
+  isDeadlineExceeded,
   type ApiErrorMessageKey,
 } from '../../lib/api/errors';
 import { formatCountdown } from '../../lib/format';
@@ -18,7 +19,9 @@ export type ConfirmCodeProblem =
   | { kind: 'wrong'; attemptsLeft: number }
   | { kind: 'locked' }
   | { kind: 'expired' }
-  | { kind: 'required' };
+  | { kind: 'required' }
+  /** 503 ADMIN_DEADLINE_EXCEEDED: the code may be spent; the key stays, a new code is needed. */
+  | { kind: 'deadline' };
 
 export interface ConfirmCodeStepProps {
   /** Calls `POST /admin/confirmations` with the action's exact body (the code is bound to it). */
@@ -42,6 +45,7 @@ export function confirmProblemOf(error: unknown): ConfirmCodeProblem | null {
   const attemptsLeft = attemptsLeftOf(error);
   if (attemptsLeft !== undefined) return { kind: 'wrong', attemptsLeft };
   if (isApiError(error) && error.code === 'CODE_EXPIRED') return { kind: 'expired' };
+  if (isDeadlineExceeded(error)) return { kind: 'deadline' };
   const field = adminFieldCode(error, 'otp');
   if (field === 'OTP_LOCKED') return { kind: 'locked' };
   if (field === 'OTP_REQUIRED') return { kind: 'required' };
@@ -66,15 +70,20 @@ export function ConfirmCodeStep({
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [code, setCode] = useState('');
   const [requesting, setRequesting] = useState(false);
+  // From "new code" until a new challenge arrives the old one is dead to this step (CR-8): it
+  // may be spent (a deadline 503) or expired, and a failed request (429...) must not revive it.
+  const [staleChallenge, setStaleChallenge] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [staleProblem, setStaleProblem] = useState<ConfirmCodeProblem | null>(null);
   const problem = givenProblem && givenProblem !== staleProblem ? givenProblem : null;
   const left = useCountdown(challenge?.deadline ?? null);
   const expired = challenge !== null && left === 0;
-  const stale = problem?.kind === 'locked' || problem?.kind === 'expired';
+  const stale =
+    problem?.kind === 'locked' || problem?.kind === 'expired' || problem?.kind === 'deadline';
 
   const request = async () => {
     setRequesting(true);
+    setStaleChallenge(true);
     setRequestError(null);
     setStaleProblem(givenProblem ?? null);
     onCodeRequested?.();
@@ -83,6 +92,7 @@ export function ConfirmCodeStep({
     try {
       const result = await requestCode();
       setChallenge({ id: result.challengeId, deadline: Date.now() + result.expiresInSec * 1000 });
+      setStaleChallenge(false);
     } catch (error) {
       setRequestError(t(requestErrorKey(error)));
     } finally {
@@ -109,7 +119,9 @@ export function ConfirmCodeStep({
           ? t('admin.confirm.expired')
           : problem?.kind === 'required'
             ? t('admin.confirm.required')
-            : null;
+            : problem?.kind === 'deadline'
+              ? t('admin.confirm.deadline')
+              : null;
 
   return (
     <fieldset className="m-0 flex flex-col gap-2.5 rounded-sm border-0 bg-warning-soft p-3">
@@ -125,7 +137,9 @@ export function ConfirmCodeStep({
           </span>
         </div>
       </div>
-      {challenge === null || stale || expired ? (
+      {/* Until a new code arrives the old challenge stays hidden: an answer typed into it would go
+          out with the old challenge id and come back CODE_EXPIRED (9B-3 e2e, CR-8). */}
+      {challenge === null || stale || expired || staleChallenge ? (
         <Button
           type="button"
           variant="outline"
@@ -138,7 +152,7 @@ export function ConfirmCodeStep({
           {challenge === null ? t('admin.confirm.request') : t('admin.confirm.newCode')}
         </Button>
       ) : null}
-      {challenge !== null && !expired && !stale ? (
+      {challenge !== null && !expired && !stale && !staleChallenge ? (
         <div className="flex flex-col gap-1.5">
           <OtpInput
             value={code}
@@ -157,7 +171,14 @@ export function ConfirmCodeStep({
         </div>
       ) : null}
       {message !== null || requestError !== null ? (
-        <p role="alert" className="m-0 text-xs leading-4 font-bold text-danger-text">
+        // CR-6: after a deadline 503 the form's own alert announces it; this line only says what
+        // to do with the code, so it is not a second alert.
+        <p
+          role={
+            requestError === null && !expired && problem?.kind === 'deadline' ? undefined : 'alert'
+          }
+          className="m-0 text-xs leading-4 font-bold text-danger-text"
+        >
           {requestError ?? message}
         </p>
       ) : null}

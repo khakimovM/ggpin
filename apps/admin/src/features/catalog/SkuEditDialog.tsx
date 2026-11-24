@@ -115,7 +115,7 @@ function SkuEditOpen({ product, sku, onOpenChange }: Props) {
       actor={act.actor}
       extraValid={valid}
       fields={{ ...draft }}
-      onOutcomeFound={() => act.found(kind)}
+      onOutcomeFound={(applied) => act.found(kind, applied)}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (sku === null) {
           if (createBody === null) throw new NotSentError();

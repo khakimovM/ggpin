@@ -26,8 +26,15 @@ export function useCodeStep(confirmation: AdminConfirmationBody | null) {
     problem,
     binding,
     clearProblem: () => setProblem(null),
-    /** After a refused submit: keep only what concerns the code (wrong, locked, expired...). */
-    refused: (error: unknown) => setProblem(confirmProblemOf(error)),
+    /**
+     * After a refused submit: keep only what concerns the code (wrong, locked, expired...). A
+     * deadline 503 may have spent the code (docs/04): the answer is dropped, a new code is asked.
+     */
+    refused: (error: unknown) => {
+      const next = confirmProblemOf(error);
+      if (next?.kind === 'deadline') setOtp(null);
+      setProblem(next);
+    },
     reset: () => {
       setOtp(null);
       setProblem(null);

@@ -53,7 +53,7 @@ export function UserStateDialog({ kind, user, name, open, onOpenChange }: Props)
       tone={look.tone}
       submitLabel={t(`admin.users.dialog.${look.dialog}.cta`)}
       actor={act.actor}
-      onOutcomeFound={() => act.found(kind)}
+      onOutcomeFound={(applied) => act.found(kind, applied)}
       onSubmit={async ({ reason, idempotencyKey }) => {
         const result =
           kind === 'users.sessionsRevoke'

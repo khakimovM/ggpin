@@ -61,13 +61,6 @@ export type Entry = Omit<StoredEntry, 'kind'> & {
   out: Set<number>;
   /** How many attempts ended in this tab: the attempt mark changes on every end too (N-1). */
   endSeq: number;
-  /**
-   * `performance.now()` of the last attempt (or of the entry, or of the reload that brought it
-   * back) in THIS tab, never stored: it does not jump with the wall clock (SA-2, R-2).
-   */
-  sinceMono: number;
-  /** `performance.now()` of the last end in this tab (N-1); the wall time is `endedAt`. */
-  endedMono?: number;
 };
 
 /**
@@ -114,6 +107,7 @@ export function persist(): void {
         createdAt: entry.createdAt,
         ...(entry.sentAt === undefined ? {} : { sentAt: entry.sentAt }),
         ...(entry.endedAt === undefined ? {} : { endedAt: entry.endedAt }),
+        ...(entry.voidTargetId === undefined ? {} : { voidTargetId: entry.voidTargetId }),
       })),
   );
 }
@@ -131,9 +125,6 @@ function load(): void {
       attempt: 0,
       out: new Set(),
       endSeq: 0,
-      // R-2: after a reload the wall clock alone could have jumped forward; counting from the
-      // reload too keeps at least the full wait in this tab (wait longer, never shorter).
-      sinceMono: performance.now(),
     });
   }
 }
@@ -164,7 +155,6 @@ export function freshEntry(action: AdminActionId, key: string): Entry {
     attempt: 0,
     out: new Set(),
     endSeq: 0,
-    sinceMono: performance.now(),
   };
 }
 
@@ -178,13 +168,11 @@ export function entryOf(action: AdminActionId, key = createIdempotencyKey()): En
 
 /**
  * Attempt `attempt` of the entry's key got its answer (or timed out): it is no longer out, and
- * the end is stamped on both clocks, so the 60 s wait counts from it (N-1). Without a number
- * (an old caller) the latest attempt is meant.
+ * the attempt mark changes (N-1). Without a number (an old caller) the latest attempt is meant.
  */
 export function endAttempt(entry: Entry, attempt: number | undefined): void {
   entry.out.delete(attempt ?? entry.attempt);
   entry.inFlight = entry.out.size > 0;
   entry.endSeq += 1;
   entry.endedAt = Date.now();
-  entry.endedMono = performance.now();
 }

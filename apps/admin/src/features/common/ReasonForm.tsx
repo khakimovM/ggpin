@@ -6,8 +6,8 @@ import {
   AdminReasonSchema,
 } from '@repo/shared';
 import { Button, Icon, cn } from '@repo/ui';
-import { CircleAlert, CircleHelp, ScrollText } from 'lucide-react';
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { CircleAlert, CircleCheck, CircleHelp, ScrollText } from 'lucide-react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useTranslations } from 'use-intl';
 import { isActionOutcomeUnknown, isIdempotencyConflict } from '../../lib/api/errors';
 import {
@@ -16,10 +16,16 @@ import {
   endRefusedAttempt,
   markActionOutcomeUnknown,
   pendingAction,
+  pendingInFlight,
+  registryVersion,
   settleActionIdempotencyKey,
+  subscribeRegistry,
   type AdminActionId,
 } from '../../lib/idempotency';
+import { blockingOpposite, type OppositeTitleKey } from '../../lib/opposite-actions';
 import { actionErrorKey } from './action-error-text';
+import { NOTICE_BOX } from './notice-box';
+import { OppositeNotice } from './OppositeNotice';
 import { OutcomeCheck } from './OutcomeCheck';
 import type { ReasonDialogProps } from './ReasonDialog';
 
@@ -43,8 +49,6 @@ function textIssue(value: string, field: 'reason' | 'note'): TextIssue | null {
   return 'invalid';
 }
 
-const BOX = 'flex items-start gap-2 rounded-sm px-3 py-2.5 text-[13px] leading-[18px] font-bold';
-
 /** The body of <ReasonDialog>: the text field, the parent's fields, notices and the buttons. */
 export function ReasonForm({
   action,
@@ -57,7 +61,7 @@ export function ReasonForm({
   extraValid = true,
   fields,
   textField = 'reason',
-  lookupOutcome,
+  voidTargetId,
   onOutcomeFound,
   onRestart,
   onSubmit,
@@ -69,10 +73,34 @@ export function ReasonForm({
   const fieldId = useId();
   // Synchronous: two submits in one tick both see `busy === false` in state, never in a ref.
   const sending = useRef(false);
+  // R3-1: a notice that a submit of THIS dialog just caused is announced and takes the focus the
+  // disabled submit lost; one already there when the dialog opens stays a quiet status.
+  const [noticeAlert, setNoticeAlert] = useState(false);
+  const focusResolve = useRef(false);
+  const noticeBox = useRef<HTMLDivElement>(null);
   const [text, setText] = useState(() => pendingAction(action)?.reason ?? '');
   const [touched, setTouched] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [notice, setNotice] = useState(() => noticeOf(action));
+  // The void said VOIDED: say that the old request is dead and a new key is ready.
+  const [voided, setVoided] = useState(false);
+  // The opposite action's void said VOIDED (N-3): which one, for its own text.
+  const [oppositeVoided, setOppositeVoided] = useState<OppositeTitleKey | null>(null);
+  // CR-S9b-1: the registry decides; an answer arriving after this dialog closed counts too.
+  useSyncExternalStore(subscribeRegistry, registryVersion);
+  const notice = noticeOf(action);
+  // While the outcome is unknown only the void may go on (9B-3): a resend could silently replay
+  // the old key's action, e.g. a deactivation over a reactivation made since. While an attempt is
+  // out (the dialog was closed and reopened meanwhile) a second one would only race it (CR-2). An
+  // unknown or still-out opposite action on the same target locks this one too (SA L-2, L-4).
+  const opposite = blockingOpposite(action);
+  const locked =
+    pendingAction(action)?.unknown === true || pendingInFlight(action) || opposite !== null;
+  // Once the submit settled (the button is no longer busy), the focus goes to «Natijani aniqlash».
+  useEffect(() => {
+    if (!focusResolve.current || busy || notice === null) return;
+    focusResolve.current = false;
+    noticeBox.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }, [busy, notice]);
   const issue = textField === 'none' ? null : textIssue(text, textField);
   const showIssue = touched && issue !== null;
   const max = textField === 'note' ? ADMIN_NOTE_MAX_LENGTH : ADMIN_REASON_MAX_LENGTH;
@@ -81,31 +109,41 @@ export function ReasonForm({
     event.preventDefault();
     setTouched(true);
     if (issue !== null || !extraValid || sending.current) return;
+    if (pendingAction(action)?.unknown === true || pendingInFlight(action)) return;
+    if (blockingOpposite(action) !== null) return;
     sending.current = true;
     setBusy(true);
     setFailure(null);
-    const { key, attempt } = beginAttempt(action);
+    setNoticeAlert(false);
+    setVoided(false);
+    setOppositeVoided(null);
+    const { key, attempt } = beginAttempt(action, voidTargetId);
     const sent = { reason: text.trim(), idempotencyKey: key };
     try {
       await onSubmit(sent);
       settleActionIdempotencyKey(action, key);
       onOpenChange(false);
     } catch (error) {
-      // Only a 2xx ends the key. A refusal (4xx, 404, 429) keeps it and its flags, an unknown
-      // outcome (CODE_EXPIRED after a submit included, SA-S6-7) marks it; this runs even if the
-      // dialog unmounted meanwhile.
+      // Only a 2xx ends the key. A refusal (4xx, 404, 429, the API's deadline 503) keeps it and
+      // its flags, an unknown outcome (CODE_EXPIRED after a submit included, SA-S6-7) marks it;
+      // this runs even if the dialog unmounted meanwhile.
       if (isActionOutcomeUnknown(error)) {
         markActionOutcomeUnknown(action, key, {
           reason: sent.reason,
           conflict: isIdempotencyConflict(error),
           ...(fields === undefined ? {} : { fields }),
           attempt,
+          ...(voidTargetId === undefined ? {} : { voidTargetId }),
         });
       } else {
         endRefusedAttempt(action, key, attempt);
       }
-      setNotice(noticeOf(action));
-      setFailure(t(actionErrorKey(error)));
+      // A 409 conflict is told once, by its notice with the void (not by a second alert).
+      // A 409 conflict is told once, by its notice (an alert then) with the void; other unknown
+      // outcomes keep their error alert, the notice stays a status beside it.
+      setFailure(isIdempotencyConflict(error) ? null : t(actionErrorKey(error)));
+      setNoticeAlert(isIdempotencyConflict(error));
+      focusResolve.current = isActionOutcomeUnknown(error);
     } finally {
       sending.current = false;
       setBusy(false);
@@ -160,7 +198,11 @@ export function ReasonForm({
       )}
       {children}
       {notice !== null ? (
-        <div role="status" className={cn(BOX, 'flex-col bg-warning-soft text-warning-text')}>
+        <div
+          ref={noticeBox}
+          role={noticeAlert && notice === 'idempotencyConflict' ? 'alert' : 'status'}
+          className={cn(NOTICE_BOX, 'flex-col bg-warning-soft text-warning-text')}
+        >
           <span className="flex items-start gap-2">
             <Icon icon={CircleHelp} size={16} className="mt-px flex-none" />
             {t(`admin.dialogs.${notice}`)}
@@ -170,22 +212,42 @@ export function ReasonForm({
             key={pendingAttemptMark(action) ?? 'none'}
             action={action}
             busy={busy}
-            lookupOutcome={lookupOutcome}
-            onFound={(key) => {
-              settleActionIdempotencyKey(action, key);
-              onOutcomeFound?.();
+            onApplied={(applied) => {
+              onOutcomeFound?.(applied);
               onOpenChange(false);
             }}
-            onRestarted={() => {
-              setNotice(null);
+            onVoided={() => {
               setFailure(null);
+              setVoided(true);
               onRestart?.();
             }}
           />
         </div>
       ) : null}
+      {opposite !== null && notice === null ? (
+        <OppositeNotice
+          opposite={opposite}
+          busy={busy}
+          // N-2: the opposite ran; this dialog stays, the data is refreshed and the admin decides
+          // (the server refuses an action the new state does not allow).
+          onApplied={(applied) => onOutcomeFound?.(applied)}
+          onVoided={() => setOppositeVoided(opposite.side.titleKey)}
+        />
+      ) : null}
+      {oppositeVoided !== null && opposite === null && notice === null ? (
+        <div role="status" className={cn(NOTICE_BOX, 'bg-success-soft text-success-text')}>
+          <Icon icon={CircleCheck} size={16} className="mt-px flex-none" />
+          {t('admin.dialogs.oppositeVoided', { action: t(oppositeVoided) })}
+        </div>
+      ) : null}
+      {voided && notice === null && opposite === null ? (
+        <div role="status" className={cn(NOTICE_BOX, 'bg-success-soft text-success-text')}>
+          <Icon icon={CircleCheck} size={16} className="mt-px flex-none" />
+          {t('admin.dialogs.outcome.voided')}
+        </div>
+      ) : null}
       {failure === null ? null : (
-        <div role="alert" className={cn(BOX, 'bg-danger-soft text-danger-text')}>
+        <div role="alert" className={cn(NOTICE_BOX, 'bg-danger-soft text-danger-text')}>
           <Icon icon={CircleAlert} size={16} className="mt-px flex-none" />
           {failure}
         </div>
@@ -212,7 +274,7 @@ export function ReasonForm({
             variant={tone === 'danger' ? 'danger' : 'primary'}
             size="sm"
             loading={busy}
-            disabled={issue !== null || !extraValid}
+            disabled={issue !== null || !extraValid || locked}
           >
             {busy ? null : <Icon icon={icon} size={14} />}
             {submitLabel}

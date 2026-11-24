@@ -129,14 +129,31 @@ export class NotSentError extends Error {
 }
 
 /**
+ * `503 ADMIN_DEADLINE_EXCEEDED` in our own envelope (docs/04 «So‘rov deadline’i», 9-B Q3): the
+ * API refused the write after 45 s and wrote nothing, the key stays free, a resend is safe. Only
+ * the API's envelope with status 503 counts: a proxy's 503 says nothing about the write, and the
+ * code under any other status is not the deadline answer docs/04 defines (CR-5, SA I-4).
+ */
+export function isDeadlineExceeded(error: unknown): boolean {
+  return (
+    isApiError(error) &&
+    error.fromServer &&
+    error.status === 503 &&
+    error.code === 'ADMIN_DEADLINE_EXCEEDED'
+  );
+}
+
+/**
  * Whether a failed write may still have been applied by the server (SA M-1): no answer at all
- * (NETWORK, status 0), an answer not in our envelope (a proxy said it), any 5xx, or a 409
- * IDEMPOTENCY_CONFLICT (the key was already used, so an earlier attempt may have run). Only a
- * 4xx in our own envelope proves the action did not happen.
+ * (NETWORK, status 0), an answer not in our envelope (a proxy said it), any 5xx but the API's
+ * own deadline refusal, or a 409 IDEMPOTENCY_CONFLICT (the key was already used, so an earlier
+ * attempt may have run). Only a 4xx or a deadline 503 in our own envelope proves the action did
+ * not happen.
  */
 export function isOutcomeUnknown(error: unknown): boolean {
   if (error instanceof NotSentError) return false;
   if (!isApiError(error)) return true;
+  if (isDeadlineExceeded(error)) return false;
   if (!error.fromServer || error.status === 0 || error.status >= 500) return true;
   return error.code === 'IDEMPOTENCY_CONFLICT';
 }

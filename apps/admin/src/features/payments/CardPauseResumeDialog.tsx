@@ -78,7 +78,7 @@ function PauseResumeOpen({ kind, card, onOpenChange }: Props) {
         override: confirmOverride,
         security: confirmSecurityPause,
       }}
-      onOutcomeFound={() => act.found(kind)}
+      onOutcomeFound={(applied) => act.found(kind, applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         try {

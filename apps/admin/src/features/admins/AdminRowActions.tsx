@@ -48,37 +48,58 @@ export function AdminRowActions({ admin }: { admin: AdminAccount }) {
   const [open, setOpen] = useState<Open | null>(null);
   const visible = rowButtons(admin).filter((button) => act.can(button.permission));
   const cell = useRef<HTMLSpanElement>(null);
-  // Set when a dialog of this row closes, cleared once focus moves on to another element.
-  const returning = useRef(false);
+  const signature = visible.map((button) => button.id).join();
+  // The row's buttons when a dialog of this row closed; null when focus need not come back.
+  // Cleared once focus moves on to another element, and once the effect below has acted (R-1).
+  const returning = useRef<string | null>(null);
   const close = (next: boolean) => {
     if (next) return;
-    returning.current = true;
+    returning.current = signature;
     setOpen(null);
   };
-  const signature = visible.map((button) => button.id).join();
   // CR-S9b-4: the reload after an action may remove the button focus went back to (deactivate ⇄
-  // reactivate, end sessions at 0); focus then falls to <body>. Bring it back to this row.
+  // reactivate, end sessions at 0); focus then falls to <body>. Bring it back to this row, ONCE:
+  // after it did, or after the row's buttons changed with focus still in place (the reload came),
+  // the flag is off, so a later background refresh never pulls focus here (S9b CR R-1).
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const box = cell.current;
-      if (!returning.current || box === null || open !== null) return;
+      const closedWith = returning.current;
+      if (closedWith === null || box === null || open !== null) return;
       const lost = document.activeElement === null || document.activeElement === document.body;
-      if (!lost) return;
-      (box.querySelector<HTMLButtonElement>('button') ?? box).focus();
+      if (lost) {
+        returning.current = null;
+        (box.querySelector<HTMLButtonElement>('button') ?? box).focus();
+      } else if (closedWith !== signature) {
+        returning.current = null;
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [signature, open]);
+  // A click elsewhere is moving on too, though it may leave focus on <body> with no blur target.
+  useEffect(() => {
+    const away = (event: PointerEvent) => {
+      const box = cell.current;
+      if (box !== null && event.target instanceof Node && !box.contains(event.target)) {
+        returning.current = null;
+      }
+    };
+    document.addEventListener('pointerdown', away, true);
+    return () => document.removeEventListener('pointerdown', away, true);
+  }, []);
   return (
     <span
       ref={cell}
       tabIndex={-1}
       role="group"
-      aria-label={t('admin.list.actions')}
+      // R-2: whose actions, so a screen reader landing on the cell knows the row.
+      aria-label={t('admin.admins.actionsOf', { name: admin.name })}
       onBlur={(event) => {
         const next = event.relatedTarget;
-        if (next instanceof Node && !event.currentTarget.contains(next)) returning.current = false;
+        if (next instanceof Node && !event.currentTarget.contains(next)) returning.current = null;
       }}
-      className="flex items-center justify-end gap-1.5 outline-none"
+      // R-2 (WCAG 2.4.7): the cell itself may take focus (a row without buttons): show it.
+      className={cn('flex items-center justify-end gap-1.5 rounded-[7px]', FOCUS_RING)}
     >
       {admin.role === 'OWNER' ? (
         <span className="flex items-center gap-1 text-[11px] leading-[14px] font-bold whitespace-nowrap text-foreground-muted">

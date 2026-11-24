@@ -166,7 +166,7 @@ export function ProductEditForm({ product }: { product: AdminProductDetailRespon
         submitLabel={t('admin.catalog.edit.dialog.cta')}
         actor={act.actor}
         extraValid={change.body !== null}
-        onOutcomeFound={() => act.found('catalog.productUpdate')}
+        onOutcomeFound={(applied) => act.found('catalog.productUpdate', applied)}
         onSubmit={async ({ reason, idempotencyKey }) => {
           if (change.body === null) throw new NotSentError();
           const result = await updateProduct(

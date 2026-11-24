@@ -53,9 +53,10 @@ function Harness(props: { action: AdminActionId; onSubmit: Submit; children?: Re
 
 const REASON = 'Mijoz so‘rovi bilan';
 const UNKNOWN_TEXT = /Natija nomaʼlum/;
-const CONFLICT_TEXT = /boshqa maʼlumot bilan bajarilgan/;
+const CONFLICT_TEXT = /kalit avval ishlatilgan yoki bekor qilingan/;
 const reasonBox = () => screen.getByRole('textbox', { name: /Sabab/ });
-const send = (user: User) => user.click(screen.getByRole('button', { name: 'Tuzatish' }));
+const sendButton = () => screen.getByRole('button', { name: 'Tuzatish' });
+const send = (user: User) => user.click(sendButton());
 
 async function closeAndReopen(user: User) {
   await user.click(screen.getByRole('button', { name: 'Bekor' }));
@@ -96,11 +97,12 @@ describe('ReasonDialog', () => {
   });
 
   it.each(UNKNOWN_OUTCOMES)(
-    'after %s: same key, the warning and the reason come back on reopening (SA M-1)',
+    'after %s: same key, the warning and the reason come back on reopening, locked (SA M-1, 9B-3)',
     async (_name, failure) => {
       const user = userEvent.setup();
+      const action = nextAction();
       const onSubmit = vi.fn<Submit>().mockRejectedValueOnce(failure).mockResolvedValueOnce();
-      renderAdmin(<Harness action={nextAction()} onSubmit={onSubmit} />);
+      renderAdmin(<Harness action={action} onSubmit={onSubmit} />);
       await user.type(reasonBox(), `  ${REASON}  `);
       await send(user);
       expect(await screen.findByRole('alert')).toBeInTheDocument();
@@ -108,11 +110,12 @@ describe('ReasonDialog', () => {
       await closeAndReopen(user);
       expect(screen.getByRole('status')).toHaveTextContent(UNKNOWN_TEXT);
       expect(reasonBox()).toHaveValue(REASON);
-      await send(user);
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      const [first, second] = keysOf(onSubmit);
+      // Only the key void may go on now: a resend could replay the old key's action.
+      expect(sendButton()).toBeDisabled();
+      const [first] = keysOf(onSubmit);
       expect(first).toMatch(/^[0-9a-f-]{36}$/);
-      expect(second).toBe(first);
+      expect(pendingAction(action)).toMatchObject({ key: first, unknown: true });
+      expect(onSubmit).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -122,13 +125,12 @@ describe('ReasonDialog', () => {
     renderAdmin(<Harness action={nextAction()} onSubmit={onSubmit} />);
     await user.type(reasonBox(), REASON);
     await send(user);
-    expect(await screen.findByRole('status')).toHaveTextContent(CONFLICT_TEXT);
+    // R3-1: announced when it happens (an alert), a quiet status when the dialog is reopened.
+    expect(await screen.findByRole('alert')).toHaveTextContent(CONFLICT_TEXT);
     await closeAndReopen(user);
     expect(screen.getByRole('status')).toHaveTextContent(CONFLICT_TEXT);
-    await send(user);
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
-    const [first, second] = keysOf(onSubmit);
-    expect(second).toBe(first);
+    expect(sendButton()).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Natijani aniqlash' })).toBeEnabled();
   });
 
   it('a wrong code keeps the key, so the right code still matches its binding (CR)', async () => {
@@ -155,34 +157,6 @@ describe('ReasonDialog', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(keysOf(onSubmit)).toEqual([codeKey, codeKey]);
   });
-
-  it.each([
-    ['404', refusal(404, 'NOT_FOUND')],
-    ['429', refusal(429, 'RATE_LIMITED')],
-    ['400', refusal(400, 'VALIDATION_ERROR')],
-  ])(
-    'unknown, then %s, then reopening: same key and the warning stays (SA M-1R)',
-    async (_s, then) => {
-      const user = userEvent.setup();
-      const onSubmit = vi
-        .fn<Submit>()
-        .mockRejectedValueOnce(new ApiError({ status: 0, code: 'NETWORK' }))
-        .mockRejectedValueOnce(then)
-        .mockResolvedValueOnce();
-      renderAdmin(<Harness action={nextAction()} onSubmit={onSubmit} />);
-      await user.type(reasonBox(), REASON);
-      await send(user);
-      expect(await screen.findByRole('status')).toHaveTextContent(UNKNOWN_TEXT);
-      await send(user);
-      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
-      expect(await screen.findByRole('status')).toHaveTextContent(UNKNOWN_TEXT);
-      await closeAndReopen(user);
-      expect(screen.getByRole('status')).toHaveTextContent(UNKNOWN_TEXT);
-      await send(user);
-      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(3));
-      expect(new Set(keysOf(onSubmit)).size).toBe(1);
-    },
-  );
 
   it('gives the next opening a new key after a success', async () => {
     const user = userEvent.setup();

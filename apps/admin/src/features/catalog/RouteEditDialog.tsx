@@ -77,7 +77,7 @@ function RouteEditOpen({ product, route, onOpenChange }: Props) {
       actor={act.actor}
       extraValid={body !== null}
       fields={{ priority, isEnabled }}
-      onOutcomeFound={() => act.found('catalog.routeUpdate')}
+      onOutcomeFound={(applied) => act.found('catalog.routeUpdate', applied)}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (body === null) throw new NotSentError();
         const result = await updateRoute(route.id, { ...body, reason }, idempotencyKey);

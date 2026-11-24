@@ -3,7 +3,9 @@ import { useToast } from '@repo/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { useAdmin } from '../../app/admin-context';
+import { enumKey } from '../../lib/enum-text';
 import { adminActionId, type AdminActionId, type AdminActionKind } from '../../lib/idempotency';
+import type { AppliedOutcome } from '../../lib/idempotency-outcome';
 import { invalidationsFor } from '../../lib/query-keys';
 
 /** What every admin write answers with (docs/04 «Javob»). */
@@ -56,9 +58,16 @@ export function useAdminAction() {
       });
       refresh(kind);
     },
-    /** The outcome check found the action's audit row: it was applied. */
-    found: (kind: AdminActionKind) => {
-      toast.show({ tone: 'success', title: t('admin.dialogs.outcome.found') });
+    /** The key void said APPLIED: the action ran under the old key; its audit row is named. */
+    found: (kind: AdminActionKind, applied: AppliedOutcome) => {
+      toast.show({
+        tone: 'success',
+        title: t('admin.dialogs.outcome.applied'),
+        description: t('admin.dialogs.outcome.appliedAudit', {
+          action: t(enumKey('auditAction', applied.action)),
+          auditId: applied.auditId,
+        }),
+      });
       refresh(kind);
     },
   };

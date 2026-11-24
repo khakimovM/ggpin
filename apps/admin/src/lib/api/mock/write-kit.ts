@@ -11,7 +11,7 @@ import {
   type AdminOtpAnswer,
   type AdminPermission,
 } from '@repo/shared';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { expectedAuditId } from '../../idempotency-outcome';
 import { MOCK_ATTEMPTS, MOCK_WRONG_CODE, adminOf } from './fixtures';
 import { journalAudit, readJournal, updateJournal, type Journal } from './mock-journal';
@@ -83,6 +83,8 @@ export function writeRoute<S extends z.ZodType>(spec: WriteSpec<S>): MockRoute {
       const admin = adminOf(readMockState().role);
       const replayKey = `${admin.id}|${key}`;
       const hash = bodyHash(request.body);
+      // docs/04 (d): a voided key is 409 for every body, the same one included (9B-3).
+      if (readJournal().voided[replayKey] !== undefined) return fail('IDEMPOTENCY_CONFLICT');
       const replay = readJournal().replays[replayKey];
       if (replay !== undefined) {
         if (replay.hash !== hash) return fail('IDEMPOTENCY_CONFLICT');
@@ -92,6 +94,7 @@ export function writeRoute<S extends z.ZodType>(spec: WriteSpec<S>): MockRoute {
       const scenario = takeWriteScenario();
       if (scenario === 'conflict') return fail('IDEMPOTENCY_CONFLICT');
       if (scenario === 'fail500') return fail('INTERNAL_ERROR');
+      if (scenario === 'deadline503') return spendCodeThenDeadline(request.body);
       const auditId = await expectedAuditId(admin.id, key);
       const draft = structuredClone(readJournal());
       const reply = spec.run({
@@ -126,9 +129,25 @@ export function writeRoute<S extends z.ZodType>(spec: WriteSpec<S>): MockRoute {
       });
       if (scenario === 'applyThen500') return fail('INTERNAL_ERROR');
       if (scenario === 'applyThenCodeExpired') return fail('CODE_EXPIRED');
+      // Applied, then no answer at all: the attempt stays out until the panel's write timeout.
+      if (scenario === 'applyThenHang') return new Promise<MockReply>(() => undefined);
       return { status: reply.status, data };
     },
   };
+}
+
+/**
+ * docs/04 «So‘rov deadline’i»: a 503 at the transaction start or before commit writes nothing,
+ * but the code was spent before the transaction, so the resend needs a new one (the worst case).
+ */
+const SpentCodeSchema = z.object({ otp: z.object({ challengeId: z.string() }) });
+
+function spendCodeThenDeadline(body: unknown): MockReply {
+  const sent = SpentCodeSchema.safeParse(body);
+  if (sent.success) {
+    updateJournal((journal) => void delete journal.challenges[sent.data.otp.challengeId]);
+  }
+  return fail('ADMIN_DEADLINE_EXCEEDED');
 }
 
 /**

@@ -115,8 +115,11 @@
       "close": "Yopish",
       "audit": "Bu amal audit logga yoziladi · {name} ({role})",
       "failed": "Amal bajarilmadi",
-      "unknownOutcome": "Natija nomaʼlum: amal bajarilgan bo‘lishi mumkin. Avval audit logni tekshiring. Shu oynada qayta yuborsangiz, amal ikki marta bajarilmaydi.",
-      "idempotencyConflict": "Bu amal avval boshqa maʼlumot bilan bajarilgan. Audit logni tekshiring.",
+      "unknownOutcome": "Natija nomaʼlum: amal bajarilgan bo‘lishi mumkin. Qayta yuborishdan oldin «Natijani aniqlash» tugmasini bosing — amal ikki marta bajarilmaydi.",
+      "oppositeUnknown": "Shu yozuv uchun «{action}» amalining natijasi nomaʼlum. Ikki amal bir-birining ustiga yozilmasligi uchun avval uning natijasini aniqlang.",
+      "oppositeInFlight": "«{action}» so‘rovi hali yo‘lda. Javob kelguncha bu amalni yuborib bo‘lmaydi.",
+      "oppositeVoided": "Avvalgi «{action}» amali bajarilmagan. Endi bu amalni yuborishingiz mumkin.",
+      "idempotencyConflict": "Bu kalit avval ishlatilgan yoki bekor qilingan. Natijani bilish uchun «Natijani aniqlash» tugmasini bosing — amal ikki marta bajarilmaydi.",
       "note": {
         "label": "Izoh matni",
         "required": "majburiy",
@@ -126,15 +129,13 @@
         "invalid": "Izohda harf yoki raqam bo‘lsin, boshqaruv belgilarisiz"
       },
       "outcome": {
-        "check": "Bajarilganini tekshirish",
-        "checking": "Tekshirilmoqda…",
-        "found": "Amal avval bajarilgan ekan. Maʼlumot yangilandi.",
-        "notFound": "Audit logda bu amalning yozuvi yo‘q: u bajarilmagan.",
-        "wait": "Server javobi hali yo‘lda bo‘lishi mumkin. {seconds} soniyadan keyin yana tekshiring.",
-        "startNew": "Yangi amal sifatida boshlash",
-        "startNewHint": "Yangi amal yangi kalit bilan yuboriladi. Kod so‘ralgan bo‘lsa, yangi kod oling.",
         "close": "Yopish",
-        "checkFailed": "Tekshirib bo‘lmadi. Qayta urinib ko‘ring."
+        "resolve": "Natijani aniqlash",
+        "resolving": "Aniqlanmoqda…",
+        "applied": "Amal avval bajarilgan ekan. Maʼlumot yangilandi.",
+        "appliedAudit": "Audit yozuvi: {action} · {auditId}",
+        "voided": "Avvalgi so‘rov bajarilmagan va endi bajarilmaydi. Amalni qayta yuborishingiz mumkin: u yangi kalit bilan ketadi.",
+        "voidFailed": "Natijani aniqlab bo‘lmadi, kalit saqlanib qoldi. Qayta urinib ko‘ring."
       },
       "amount": {
         "label": "Summa",
@@ -171,7 +172,8 @@
       "unavailable": "Kodni Telegramʼga yuborib bo‘lmadi. Botni bloklamaganingizni tekshiring.",
       "required": "Bu amal uchun tasdiqlash kodi kerak.",
       "rateLimited": "Kodlar juda ko‘p so‘raldi. Keyinroq urinib ko‘ring.",
-      "notRequired": "Bu amal uchun hozir kod kerak emas. Kodsiz yuboring."
+      "notRequired": "Bu amal uchun hozir kod kerak emas. Kodsiz yuboring.",
+      "deadline": "Kod ishlatilgan bo‘lishi mumkin. Yangi kod oling va qayta yuboring — amal ikki marta bajarilmaydi."
     },
     "probe": {
       "title": "Mavzu tekshiruvi",
@@ -985,6 +987,7 @@
         "lastUsed": "Oxirgi faollik"
       },
       "ownerCliOnly": "Faqat CLI",
+      "actionsOf": "Amallar: {name}",
       "currentRevoked": "Joriy sessiyangiz ham yopildi — qayta kiring.",
       "replayStale": "Bu kalit bilan avvalgi so‘rov bajarilgan edi, holat o‘shandan beri o‘zgargan — amalni qayta bajaring.",
       "actions": {
@@ -1005,7 +1008,8 @@
           "nameInvalid": "Ismni kiriting: 64 belgigacha, < va > belgilarisiz",
           "role": "Rol",
           "cta": "Qo‘shish",
-          "notAllowlisted": "{name} qo‘shildi, lekin hali kira olmaydi: Telegram ID {telegramId} serverdagi ruxsat ro‘yxatida yo‘q. Devops uni shu o‘zgaruvchiga qo‘shishi kerak:"
+          "notAllowlisted": "{name} qo‘shildi, lekin hali kira olmaydi: Telegram ID {telegramId} serverdagi ruxsat ro‘yxatida yo‘q. Devops uni shu o‘zgaruvchiga qo‘shishi kerak:",
+          "lockedUnknown": "Oldingi qo‘shish so‘rovining natijasi nomaʼlum, kiritilgan maʼlumotlar sahifa yangilanganda o‘chdi. Pastdagi «Natijani aniqlash» tugmasini bosing: amal bajarilmagan bo‘lsa, maydonlar yana ochiladi."
         },
         "change": {
           "title": "Adminni o‘zgartirish",

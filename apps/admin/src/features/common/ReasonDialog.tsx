@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import type { ActionFields, AdminActionId } from '../../lib/idempotency';
+import type { AppliedOutcome } from '../../lib/idempotency-outcome';
 import { ReasonForm } from './ReasonForm';
 
 export interface ReasonSubmit {
@@ -50,13 +51,14 @@ export interface ReasonDialogProps {
    */
   textField?: 'reason' | 'note' | 'none';
   /**
-   * Where the outcome check looks for the action's row when the audit log is not readable
-   * (SUPPORT notes: the user's `notes[].id`). Resolves true when the row is there.
+   * The id the action's audit row names when the registry target is another one (the product
+   * switch's `-active`, the admin modes, a new admin's Telegram ID): the key void sends it as
+   * `targetId` (docs/04 «Kalitni bekor qilish»). Stored with the key, so a reload keeps it.
    */
-  lookupOutcome?: (auditId: string) => Promise<boolean>;
-  /** The outcome check found the action done: the dialog closes; refresh and say so. */
-  onOutcomeFound?: () => void;
-  /** "Start as a new action" gave a new key: drop what was bound to the old one (the code). */
+  voidTargetId?: string;
+  /** The void said APPLIED: the dialog closes; refresh and say so (with the audit row). */
+  onOutcomeFound?: (applied: AppliedOutcome) => void;
+  /** The void said VOIDED and a new key replaced the old one: drop what was bound to it (the code). */
   onRestart?: () => void;
   /** Rejects with the API error to keep the dialog open and show it; resolves to close it. */
   onSubmit: (input: ReasonSubmit) => Promise<void>;

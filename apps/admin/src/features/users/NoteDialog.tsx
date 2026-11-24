@@ -1,6 +1,5 @@
 import { StickyNote } from 'lucide-react';
 import { useTranslations } from 'use-intl';
-import { getUser } from '../../lib/api/people';
 import { addUserNote } from '../../lib/api/writes-users';
 import { ReasonDialog } from '../common/ReasonDialog';
 import { useAdminAction } from '../common/use-admin-action';
@@ -13,16 +12,12 @@ interface Props {
 }
 
 /**
- * A note on a user (every role, docs/04 `users/:id/notes`): one text field, no reason. The
- * note's id is its audit row's id, so a SUPPORT admin, who cannot read the audit log, checks an
- * unknown outcome in the user's newest notes instead (plan 5.1, Q1).
+ * A note on a user (every role, docs/04 `users/:id/notes`): one text field, no reason. An unknown
+ * outcome is settled by the key void like every other action (every role may void its own key).
  */
 export function NoteDialog({ userId, name, open, onOpenChange }: Props) {
   const t = useTranslations();
   const act = useAdminAction();
-  const lookupOutcome = act.can('audit.read')
-    ? undefined
-    : async (auditId: string) => (await getUser(userId)).notes.some((note) => note.id === auditId);
   return (
     <ReasonDialog
       action={act.idOf('users.note', userId)}
@@ -34,8 +29,7 @@ export function NoteDialog({ userId, name, open, onOpenChange }: Props) {
       submitLabel={t('admin.users.dialog.note.cta')}
       actor={act.actor}
       textField="note"
-      {...(lookupOutcome === undefined ? {} : { lookupOutcome })}
-      onOutcomeFound={() => act.found('users.note')}
+      onOutcomeFound={(applied) => act.found('users.note', applied)}
       onSubmit={async ({ reason, idempotencyKey }) => {
         const result = await addUserNote(userId, { text: reason }, idempotencyKey);
         act.finished('users.note', result);

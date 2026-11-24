@@ -60,7 +60,7 @@ function CardLimitOpen({ card, onOpenChange }: Props) {
       actor={act.actor}
       extraValid={input !== null && (!needsCode || code.otp !== null)}
       fields={{ receive, monthly, removeMonthly }}
-      onOutcomeFound={() => act.found('cards.limit')}
+      onOutcomeFound={(applied) => act.found('cards.limit', applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (input === null) throw new NotSentError();

@@ -88,7 +88,7 @@ export function RevokeSessionsDialog({ target, onOpenChange }: Props) {
       submitLabel={t(`admin.admins.dialog.${dialog}.cta`)}
       actor={act.actor}
       extraValid={code.otp !== null}
-      onOutcomeFound={() => act.found(kind)}
+      onOutcomeFound={(applied) => act.found(kind, applied)}
       onRestart={code.reset}
       onSubmit={async ({ reason, idempotencyKey }) => {
         if (code.otp === null) throw new NotSentError();

@@ -87,6 +87,32 @@ describe('admin http: write timeout (N-1)', () => {
     }
   });
 
+  it('the key void (no Idempotency-Key) has the write timeout too: no verdict, never an answer', async () => {
+    vi.useFakeTimers();
+    try {
+      const { http } = setup(() => new Promise<TransportResponse>(() => undefined));
+      const result = caught(
+        http.fetch(
+          { method: 'POST', path: '/admin/write-keys/void', body: {}, writeTimeout: true },
+          anything,
+        ),
+      );
+      await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS);
+      expect(await result).toMatchObject({ status: 0, code: 'NETWORK' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('the API deadline 503 proves nothing was written; a proxy 503 does not (9-B Q3)', () => {
+    const own = new ApiError({ status: 503, code: 'ADMIN_DEADLINE_EXCEEDED', fromServer: true });
+    expect(isOutcomeUnknown(own)).toBe(false);
+    const proxy = new ApiError({ status: 503, code: 'ADMIN_DEADLINE_EXCEEDED' });
+    expect(isOutcomeUnknown(proxy)).toBe(true);
+    const other = new ApiError({ status: 503, code: 'PRICE_UNAVAILABLE', fromServer: true });
+    expect(isOutcomeUnknown(other)).toBe(true);
+  });
+
   it('a read has no timeout of its own', async () => {
     vi.useFakeTimers();
     try {

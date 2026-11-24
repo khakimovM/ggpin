@@ -127,7 +127,7 @@ function AdjustWalletOpen({ user, name, onOpenChange }: Props) {
         recent: recentFor ?? false,
         openOrders: openOrdersFor ?? false,
       }}
-      onOutcomeFound={() => act.found('users.adjustWallet')}
+      onOutcomeFound={(applied) => act.found('users.adjustWallet', applied)}
       onRestart={() => {
         code.reset();
         setKey(actionIdempotencyKey(action));

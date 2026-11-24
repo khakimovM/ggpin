@@ -24,11 +24,26 @@ const stateSchema = z.object({
    * How the NEXT write answers, then back to `ok` (one-shot, for the outcome tests):
    * `applyThen500` applies it and answers 500 (outcome unknown), `fail500` answers 500 without
    * applying, `conflict` answers 409 IDEMPOTENCY_CONFLICT, `applyThenCodeExpired` applies it and
-   * answers 422 CODE_EXPIRED (a twin request committed first, SA-S6-7).
+   * answers 422 CODE_EXPIRED (a twin request committed first, SA-S6-7), `deadline503` answers
+   * 503 ADMIN_DEADLINE_EXCEEDED: nothing written but the step-up code spent (9-B Q3), and
+   * `applyThenHang` applies it and never answers (the attempt stays out, SA L-4).
    */
   writeScenario: z
-    .enum(['ok', 'applyThen500', 'fail500', 'conflict', 'applyThenCodeExpired'])
+    .enum([
+      'ok',
+      'applyThen500',
+      'fail500',
+      'conflict',
+      'applyThenCodeExpired',
+      'deadline503',
+      'applyThenHang',
+    ])
     .default('ok'),
+  /**
+   * How the NEXT key void answers, then back to `ok` (one-shot): `deadline503` — 503
+   * ADMIN_DEADLINE_EXCEEDED, nothing written; `notFound` — the API's 404 (role, session, CSRF).
+   */
+  voidScenario: z.enum(['ok', 'deadline503', 'notFound']).default('ok'),
 });
 
 export type MockState = z.infer<typeof stateSchema>;
