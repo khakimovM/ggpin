@@ -2,7 +2,7 @@ import type { PrismaService } from '../../../infra/prisma/prisma.service';
 import { TEST_HOLDER } from './payments.fixtures';
 
 // The cards this suite makes are synthetic (PAN prefix 9999 + this holder name). Suites run one
-// at a time (e2e lock + --runInBand), so a 9999 test card that is live when a file starts was
+// at a time (e2e lock + jest-e2e.json `maxWorkers: 1`), so a 9999 test card that is live when a file starts was
 // left by a crashed run: it is retired before the file runs. Any other live card on the test DB
 // belongs to someone else and would change what the allocator picks: the file stops at once.
 export async function prepareCardPool(db: PrismaService['client']): Promise<void> {

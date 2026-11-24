@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
-    "test:e2e": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest-e2e.json --runInBand"
+    "test:e2e": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest-e2e.json"
   },
   "jest": {
     "rootDir": "src",
