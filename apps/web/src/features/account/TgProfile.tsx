@@ -4,14 +4,15 @@ import { useTranslations } from 'next-intl';
 import { AccountPage } from './AccountPage';
 import { LanguagePicker } from './LanguagePicker';
 import { ProfileCard } from './ProfileCard';
+import { ProfileLegalLinks } from './ProfileLegalLinks';
 import { ReducedMotionSwitch } from './ReducedMotionSwitch';
 import { SectionHeading } from './SectionHeading';
 import { ServicesList } from './ServicesList';
 
 /**
  * The Mini App profile (Account.dc.html `profile`): identity and wallet, language, the services
- * list, and the motion setting. There is no phone line here (owner decision Q6): Telegram already
- * knows who the user is.
+ * list, the motion setting, and the legal links at the foot. There is no phone line here (owner
+ * decision Q6): Telegram already knows who the user is.
  */
 export function TgProfile() {
   const t = useTranslations('account.profile');
@@ -27,6 +28,7 @@ export function TgProfile() {
         <SectionHeading id="settings-title">{t('settings.title')}</SectionHeading>
         <ReducedMotionSwitch />
       </section>
+      <ProfileLegalLinks />
     </AccountPage>
   );
 }

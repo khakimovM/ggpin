@@ -3,6 +3,7 @@ import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
 import { expect, test, type Page } from '@playwright/test';
 import { stubTelegramSdk } from './fixtures/telegram';
+import { settle } from './support/settle';
 
 // Records console errors and uncaught exceptions while a page loads.
 function watchPage(page: Page) {
@@ -34,20 +35,23 @@ test.beforeEach(async ({ page }) => {
 });
 
 const PAGES = [
-  { path: '/', lang: 'uz', text: uz.common.comingSoon },
-  { path: '/ru', lang: 'ru', text: ru.common.comingSoon },
+  // The landing: its H1 (the sentence and its accent).
+  { path: '/', lang: 'uz', heading: true, text: uz.site.hero.title },
+  { path: '/ru', lang: 'ru', heading: true, text: ru.site.hero.title },
   // Opened outside Telegram, the Mini App shows its first gate screen.
-  { path: '/tg', lang: 'uz', text: uz.tg.gate.bot.title },
+  { path: '/tg', lang: 'uz', heading: false, text: uz.tg.gate.bot.title },
 ];
 
 test.describe('pages open without console or CSP errors', () => {
-  for (const { path, lang, text } of PAGES) {
+  for (const { path, lang, heading, text } of PAGES) {
     test(`${path} (${lang})`, async ({ page }) => {
       const problems = watchPage(page);
       const response = await page.goto(path);
       expect(response?.status()).toBe(200);
       await expect(page.locator('html')).toHaveAttribute('lang', lang);
-      await expect(page.getByText(text)).toBeVisible();
+      const target = heading ? page.getByRole('heading', { level: 1 }) : page.getByText(text);
+      await expect(target).toBeVisible();
+      await expect(target).toContainText(text);
       expect(await cspViolations(page)).toEqual([]);
       expect(problems).toEqual([]);
     });
@@ -77,6 +81,8 @@ test.describe('accessibility (axe)', () => {
   for (const { path } of PAGES) {
     test(`${path} has no automatically detectable violations`, async ({ page }) => {
       await page.goto(path);
+      // The landing's cards fade in: the contrast of a half-transparent text is not what a visitor sees.
+      await settle(page);
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations).toEqual([]);
     });

@@ -21,7 +21,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!hasLocale(routing.locales, locale)) return {};
   const t = await getTranslations({ locale, namespace: 'web.login' });
   return {
-    title: t('title', { brand: BRAND.name }),
+    // Already names the brand: not run through the layout's "<title> — ggpin" template.
+    title: { absolute: t('title', { brand: BRAND.name }) },
     description: t('subtitle'),
     // A sign-in screen is not a landing page: nothing to index, and `?next=` variants would
     // otherwise be crawled as separate pages.
