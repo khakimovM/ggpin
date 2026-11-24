@@ -78,6 +78,9 @@ describe('TgGate', () => {
   });
 
   describe('the native BackButton', () => {
+    // The button is shown and hidden by a passive effect; findBy* can resolve on the commit that
+    // shows the screen before that effect ran (a busy event loop runs it late), so the calls are
+    // awaited, not read at once.
     it('stays hidden during the splash and on every gate', async () => {
       mocks.pathname = '/tg/orders';
       let finish: (value: Awaited<ReturnType<typeof ok>>) => void = () => undefined;
@@ -87,7 +90,7 @@ describe('TgGate', () => {
       expect(app.BackButton.show).not.toHaveBeenCalled();
       await act(async () => finish(await ok()));
       await screen.findByText('app content');
-      expect(app.BackButton.show).toHaveBeenCalledOnce();
+      await waitFor(() => expect(app.BackButton.show).toHaveBeenCalledOnce());
     });
 
     it.each([
@@ -107,14 +110,14 @@ describe('TgGate', () => {
       mocks.login.mockReturnValue(ok());
       renderGate();
       await screen.findByText('app content');
-      expect(app.BackButton.show).toHaveBeenCalledOnce();
+      await waitFor(() => expect(app.BackButton.show).toHaveBeenCalledOnce());
       await act(async () => {
         await client
           .fetchQuery({ queryKey: ['wallet'], queryFn: () => fail('USER_BLOCKED', 403) })
           .catch(() => undefined);
       });
       await screen.findByRole('heading', { name: uz.tg.gate.blocked.title });
-      expect(app.BackButton.hide).toHaveBeenCalled();
+      await waitFor(() => expect(app.BackButton.hide).toHaveBeenCalled());
     });
   });
 
