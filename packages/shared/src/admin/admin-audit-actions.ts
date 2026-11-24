@@ -53,6 +53,8 @@ export const ADMIN_AUDIT_ACTIONS = [
   // infra and audit
   'QUEUE_JOB_RETRY',
   'AUDIT_EXPORT',
+  // the tombstone of a voided Idempotency-Key (9-B SA-1, `POST /admin/write-keys/void`)
+  'IDEMPOTENCY_VOID',
 ] as const;
 
 export const AdminAuditActionSchema = z.enum(ADMIN_AUDIT_ACTIONS);

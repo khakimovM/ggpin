@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@repo/db';
+import type { Db } from '../../../infra/prisma/db';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 export interface AdminAuditRow {
@@ -12,24 +13,51 @@ export interface AdminAuditRow {
   readonly createdAt: Date;
 }
 
+/** The tombstone of a voided key (docs/04 «Kalitni bekor qilish»): no key, no request hash. */
+export interface AdminTombstone {
+  readonly id: string;
+  readonly actorId: string;
+  readonly action: string;
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly after: Prisma.InputJsonValue;
+  readonly ip: string | null;
+}
+
+const AUDIT_ROW = {
+  id: true,
+  actorType: true,
+  actorId: true,
+  action: true,
+  targetId: true,
+  after: true,
+  createdAt: true,
+} as const;
+
 /** What a replay of an admin write reads back (docs/04 «Admin» — `Idempotency-Key`). */
 @Injectable()
 export class AdminWriteRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAudit(id: string): Promise<AdminAuditRow | null> {
-    return this.prisma.client.auditLog.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        actorType: true,
-        actorId: true,
-        action: true,
-        targetId: true,
-        after: true,
-        createdAt: true,
-      },
+  findAudit(id: string, db: Db = this.prisma.client): Promise<AdminAuditRow | null> {
+    return db.auditLog.findUnique({ where: { id }, select: AUDIT_ROW });
+  }
+
+  transaction<T>(fn: (tx: Db) => Promise<T>, timeoutMs: number): Promise<T> {
+    return this.prisma.client.$transaction(fn, { timeout: timeoutMs });
+  }
+
+  /**
+   * INSERT ... ON CONFLICT DO NOTHING of the tombstone: true when this call wrote it. A row with
+   * the same id that another transaction inserted and has not committed yet makes Postgres wait
+   * for that transaction: its commit is a conflict (false), its rollback lets this insert in.
+   */
+  async insertTombstone(tx: Db, row: AdminTombstone): Promise<boolean> {
+    const { count } = await tx.auditLog.createMany({
+      data: [{ ...row, actorType: 'ADMIN', reason: null }],
+      skipDuplicates: true,
     });
+    return count === 1;
   }
 
   /** The ledger entry an action wrote (refType/refId/kind is unique, docs/03). */

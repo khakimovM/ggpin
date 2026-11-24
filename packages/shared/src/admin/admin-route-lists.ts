@@ -1,7 +1,7 @@
 // The admin route and action lists that sit beside the role matrix (admin-permissions.ts). Both
 // are frozen (review N8): an untyped caller cannot add a session-less route or an OTP action.
 import type { AdminAuditAction } from './admin-audit-actions';
-import type { AdminPermission, AdminRouteRef } from './admin-permissions';
+import type { AdminPermission, AdminRouteRef } from './admin-permission-keys';
 
 export interface AdminAuthRoute extends AdminRouteRef {
   readonly session: boolean;

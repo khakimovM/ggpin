@@ -1,6 +1,7 @@
 // Admin panel contract (phase 9): roles, the permission matrix, audit actions and the Zod shapes
 // of docs/04 "Admin". Everything admin is exported from here only (one line in ../index.ts).
 export * from './admin-roles';
+export * from './admin-permission-keys';
 export * from './admin-permissions';
 export * from './admin-route-lists';
 export * from './admin-permission-checks';
@@ -26,3 +27,4 @@ export * from './admin-audit-schemas';
 export * from './admin-audit-keys';
 export * from './admin-audit-redaction';
 export * from './admin-admins-schemas';
+export * from './admin-write-key-schemas';

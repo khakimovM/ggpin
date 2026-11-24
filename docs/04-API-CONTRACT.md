@@ -39,6 +39,7 @@ implementatsiya bilan birga shu yerga yoziladi. Shakl o‘zgarishi — egadan so
 | 503  | `FULFILLMENT_UNAVAILABLE`, `RECIPIENT_CHECK_UNAVAILABLE`                       | Fragment/ta'minotchi ishlamayapti                                                                                                                                                                    |
 | 503  | `PRICE_UNAVAILABLE`                                                            | narx kursi/tannarxi yo‘q yoki 30 daqiqadan eski                                                                                                                                                      |
 | 503  | `PAYMENT_METHOD_UNAVAILABLE`                                                   | to‘ldirish usuli hozir yo‘q (sig‘imli karta yo‘q yoki bank xabarlari tinglovchisi javob bermayapti)                                                                                                  |
+| 503  | `ADMIN_DEADLINE_EXCEEDED`                                                      | faqat admin yozuvi: server so‘rovni qabul qilganidan beri 45 s o‘tdi; hech narsa yozilmaydi, kalit bo‘sh qoladi (9-B)                                                                                |
 
 Buzilgan percent-kodlashli URL (masalan `%ZZ`) marshrutlashdan oldin HTTP qatlamida standart shaklsiz xom `400` oladi (D-42 (3)); bizning havolalarimiz (id va token base64url) buni hech qachon keltirib chiqarmaydi.
 
@@ -950,8 +951,8 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
   `Sec-Fetch-Mode: navigate` va `no-cors` bilan (to‘g‘ri sessiya cookie’si bilan ham) admin GET → `404`.
 - **CSRF.** Har yozuv so‘rovida (POST/PATCH) `X-CSRF-Token` sarlavhasi va `Origin` aynan `ADMIN_URL` ga teng bo‘lishi
   shart (ochiq login yo‘llarida ham); `WEB_URL` admin yo‘lida qabul qilinmaydi. Aks holda `404`.
-- **`Idempotency-Key`** — barcha admin yozuv yo‘llarida majburiy (`/admin/auth/*` va `POST /admin/confirmations` dan
-  tashqari). Format fayldagi bilan bir xil: 8–128 belgi, `A–Z a–z 0–9 _ -`; yo‘q yoki noto‘g‘ri — `400 VALIDATION_ERROR`.
+- **`Idempotency-Key`** — barcha admin yozuv yo‘llarida majburiy (`/admin/auth/*`, `POST /admin/confirmations` va
+  `POST /admin/write-keys/void` dan tashqari). Format fayldagi bilan bir xil: 8–128 belgi, `A–Z a–z 0–9 _ -`; yo‘q yoki noto‘g‘ri — `400 VALIDATION_ERROR`.
   Kalit `(adminId, kalit)` bo‘yicha amalning audit qatoriga bog‘lanadi: takror (o‘sha body) — birinchi natija
   `applied: false` bilan, ikkinchi yozuvsiz; takror **holat tekshiruvlaridan va kod tekshiruvidan OLDIN** aniqlanadi (D-49
   naqshi; ishlatilgan kod takrorni buzmaydi). O‘sha kalit, boshqa body — `409 IDEMPOTENCY_CONFLICT`. SPA kalitni dialog
@@ -963,12 +964,20 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
   commit qilmagan, kod esa ishlatilgan): SPA submit’dan keyingi `CODE_EXPIRED` ni «natija noma’lum» deb biladi va o‘sha
   kalit bilan qayta so‘raydi (replay) yoki audit’ni ko‘rsatadi — yangi kalit bilan qayta yubormaydi (SA-S6-7).
   Audit qatorining id’si kalitdan aniqlanadi (sir emas): `a` + sha256(`<adminId>|<Idempotency-Key>`) hex’ining birinchi
-  31 belgisi. Natija noma’lum bo‘lsa SPA shu id’ni hisoblab, `GET /admin/audit-log?actorId&targetId` javobidan (`from`
-  siz, sahifalab, ko‘pi bilan 500 qator; oxirigacha o‘qib bo‘lmasa — «tekshirib bo‘lmadi», kalit qoladi) aynan shu
-  qatorni qidiradi: topilsa — amal bajarilgan; topilmasa, shu kalitning hech bir urinishi yo‘lda bo‘lmasa va oxirgi
-  urinish yuborilgan yoki tugagan paytdan (qaysi biri keyin bo‘lsa) 60 s o‘tgan bo‘lsa — «Yangi amal sifatida boshlash»
-  yangi kalit beradi (SA L-1; ega qarori 2026-11-22). Kalitli yozish so‘roviga SPA 30 s timeout qo‘yadi (timeout —
-  natija noma’lum).
+  31 belgisi. (d) Bekor qilingan kalit (`POST /admin/write-keys/void`) bilan kelgan har so‘rov — `409
+IDEMPOTENCY_CONFLICT`, hech narsa yozilmaydi. (e) Void va o‘sha kalitli eski so‘rov poygasini shu id (PK) hal qiladi:
+  natija yo `VOIDED` (eski so‘rov endi hech qachon commit qilmaydi), yo `APPLIED` (amal bajarilgan) — uchinchisi yo‘q.
+  Natija noma’lum bo‘lsa (tarmoq xatosi, timeout, `CODE_EXPIRED`) SPA «Natijani aniqlash» da o‘sha kalit bilan void’ni
+  chaqiradi: `APPLIED` — amal bajarilgan (audit qatori ko‘rsatiladi), `VOIDED` — eski kalit o‘ldi, «Yangi amal sifatida
+  boshlash» darhol yangi kalit beradi; void’ning o‘zi noma’lum bo‘lsa — kalit qoladi, qayta so‘raladi. Kutish va audit
+  qidiruvi yo‘q (SA-1; ega qarori 2026-11-23, 9-B Q2 = A; 9B-1 server + 9B-3 SPA bitta release’da). Kalitli yozish
+  so‘roviga SPA 30 s timeout qo‘yadi (timeout — natija noma’lum).
+- **So‘rov deadline’i (9-B, M-1; ega qarori 2026-11-23 Q3).** Server admin yozuvini qabul qilgan paytni monoton soat
+  bilan yozadi. Replay tekshiruvidan keyin, tranzaksiya boshida va commit oldidan qabul qilinganidan beri 45 s
+  (`ADMIN_WRITE_DEADLINE_MS`, server konstantasi) o‘tgan bo‘lsa — `503 ADMIN_DEADLINE_EXCEEDED`: audit qatori va hech
+  qanday yozuv yo‘q (tranzaksiya rollback), kalit bo‘sh qoladi (qoida (b)) — o‘sha kalit bilan qayta yuborish xavfsiz.
+  O‘sha kalitning bajarilgan amali (replay) deadline’dan qat’i nazar javob oladi. Void yo‘li ham shu qoidadan o‘tadi.
+  Ega CLI’sida deadline yo‘q.
 - **Status kodlari.** Admin amal yo‘llari (POST) muvaffaqiyatda `200`; `POST /admin/confirmations` — `201`.
 - **`reason`** (`AdminReasonSchema`): trim’dan keyin 10–500 belgi, ko‘rinmas/boshqaruv belgisiz, kamida bitta harf yoki
   raqam. Pul, holat, admin boshqaruvi va navbat retry amallarida majburiy; katalog yozuvlarida ixtiyoriy (berilsa — shu
@@ -1108,32 +1117,33 @@ tanasida:
 
 ### Xatolar (admin)
 
-| Status | Kod                                                                                    | Qachon                                                                                                          |
-| ------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 400    | `VALIDATION_ERROR` + `details.fields: [{ path, code }]`                                | Zod xatosi (`code` — Zod kodi) yoki quyidagi domen kodlari (`ADMIN_FIELD_ERROR_CODES`)                          |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_REQUIRED" }]`                    | kod kerak, lekin `otp` berilmagan yoki tasdiqlanmagan (tranzaksiya ichida ham)                                  |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "confirmAmountTiyin", code: "AMOUNT_MISMATCH" }]`  | faqat pul amallarida: kod kerak, qayta kiritilgan summa yo‘q yoki haqiqiy summaga teng emas (tranzaksiyada ham) |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "confirmRate", code: "RATE_MISMATCH" }]`           | `POST /admin/fx`: sakrash qoidasi `confirmRate` talab qiladi, u yo‘q yoki `rate` ga teng emas                   |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "action", code: "OTP_NOT_REQUIRED" }]`             | `POST /admin/confirmations`: amal hozir kod talab qilmaydi — kod chiqarilmaydi va yuborilmaydi                  |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_LOCKED" }]`                      | shu challenge’ga 5 urinish tugagan                                                                              |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_UNAVAILABLE" }]`                 | kodni yuborib bo‘lmadi (bot adminga yoza olmaydi) — `POST /admin/confirmations`                                 |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "amountTiyin", code: "MANUAL_CREDIT_DAILY_CAP" }]` | qo‘lda yaratiladigan pulning Toshkent kunlik cheki oshadi (CLI va panel uchun umumiy)                           |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "userId", code: "SELF_TARGET" }]`                  | admin o‘z mijoz akkauntiga balans tuzatish yoki review credit (kod chiqarishda ham)                             |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "userId", code: "ADMIN_ACCOUNT" }]`                | admin akkauntiga tegishli foydalanuvchini bloklash yoki muzlatish                                               |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "paymentStatus", code: "ALREADY_REVERSED" }]`      | panel: to‘lov allaqachon qaytarilgan (boshqa kalit yoki boshqa admin); o‘sha kalit — replay                     |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "user", code: "OPEN_ORDERS" }]`                    | musbat balans tuzatish: ochiq buyurtmalar to‘plami tasdiqlanmagan yoki eskirgan (I-5)                           |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "quantity", code: "DUPLICATE_PACKAGE" }]`          | erkin miqdorli mahsulotda shu miqdorli ikkinchi faol paket                                                      |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "quantity", code: "PREMIUM_MONTHS" }]`             | Telegram Premium paketida oy 3, 6 yoki 12 emas                                                                  |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "quantity", code: "QUANTITY_RANGE" }]`             | erkin miqdorli mahsulot paketi mahsulotning `minQty..maxQty` oralig‘idan tashqarida                             |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "productIds", code: "PRODUCT_SET_MISMATCH" }]`     | reorder ro‘yxati barcha mahsulotlarning to‘liq to‘plami emas (yetishmaydi, ortiqcha yoki takror)                |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "telegramId", code: "ADMIN_EXISTS" }]`             | shu Telegram id bilan admin allaqachon bor                                                                      |
-| 400    | `VALIDATION_ERROR`, `fields[{ path: "id", code: "OWNER_ROW" }]`                        | panel OWNER qatorining ismi, roli yoki faolligini o‘zgartirmoqchi (faqat CLI)                                   |
-| 404    | `NOT_FOUND`                                                                            | ruxsatsiz (yuqoridagi barcha holatlar) yoki resurs yo‘q                                                         |
-| 409    | `IDEMPOTENCY_CONFLICT`                                                                 | o‘sha `Idempotency-Key`, boshqa body                                                                            |
-| 409    | `ORDER_STATE_CONFLICT`                                                                 | buyurtma amal kutgan holatda emas (masalan cancel paytida `PROCESSING` ga o‘tib bo‘lgan); hech narsa yozilmaydi |
-| 422    | `CODE_INVALID` + `details.attemptsLeft`                                                | kod noto‘g‘ri yoki boshqa binding uchun chiqarilgan (ikkalasi bir xil javob — oracle yo‘q)                      |
-| 422    | `CODE_EXPIRED`                                                                         | challenge noma’lum, muddati o‘tgan yoki ishlatilgan; login’da — fayldagi «Auth» qoidasi                         |
-| 429    | `RATE_LIMITED` + `Retry-After`                                                         | throttler; kunlik kod limiti                                                                                    |
+| Status | Kod                                                                                    | Qachon                                                                                                                             |
+| ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR` + `details.fields: [{ path, code }]`                                | Zod xatosi (`code` — Zod kodi) yoki quyidagi domen kodlari (`ADMIN_FIELD_ERROR_CODES`)                                             |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_REQUIRED" }]`                    | kod kerak, lekin `otp` berilmagan yoki tasdiqlanmagan (tranzaksiya ichida ham)                                                     |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "confirmAmountTiyin", code: "AMOUNT_MISMATCH" }]`  | faqat pul amallarida: kod kerak, qayta kiritilgan summa yo‘q yoki haqiqiy summaga teng emas (tranzaksiyada ham)                    |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "confirmRate", code: "RATE_MISMATCH" }]`           | `POST /admin/fx`: sakrash qoidasi `confirmRate` talab qiladi, u yo‘q yoki `rate` ga teng emas                                      |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "action", code: "OTP_NOT_REQUIRED" }]`             | `POST /admin/confirmations`: amal hozir kod talab qilmaydi — kod chiqarilmaydi va yuborilmaydi                                     |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_LOCKED" }]`                      | shu challenge’ga 5 urinish tugagan                                                                                                 |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "otp", code: "OTP_UNAVAILABLE" }]`                 | kodni yuborib bo‘lmadi (bot adminga yoza olmaydi) — `POST /admin/confirmations`                                                    |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "amountTiyin", code: "MANUAL_CREDIT_DAILY_CAP" }]` | qo‘lda yaratiladigan pulning Toshkent kunlik cheki oshadi (CLI va panel uchun umumiy)                                              |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "userId", code: "SELF_TARGET" }]`                  | admin o‘z mijoz akkauntiga balans tuzatish yoki review credit (kod chiqarishda ham)                                                |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "userId", code: "ADMIN_ACCOUNT" }]`                | admin akkauntiga tegishli foydalanuvchini bloklash yoki muzlatish                                                                  |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "paymentStatus", code: "ALREADY_REVERSED" }]`      | panel: to‘lov allaqachon qaytarilgan (boshqa kalit yoki boshqa admin); o‘sha kalit — replay                                        |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "user", code: "OPEN_ORDERS" }]`                    | musbat balans tuzatish: ochiq buyurtmalar to‘plami tasdiqlanmagan yoki eskirgan (I-5)                                              |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "quantity", code: "DUPLICATE_PACKAGE" }]`          | erkin miqdorli mahsulotda shu miqdorli ikkinchi faol paket                                                                         |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "quantity", code: "PREMIUM_MONTHS" }]`             | Telegram Premium paketida oy 3, 6 yoki 12 emas                                                                                     |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "quantity", code: "QUANTITY_RANGE" }]`             | erkin miqdorli mahsulot paketi mahsulotning `minQty..maxQty` oralig‘idan tashqarida                                                |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "productIds", code: "PRODUCT_SET_MISMATCH" }]`     | reorder ro‘yxati barcha mahsulotlarning to‘liq to‘plami emas (yetishmaydi, ortiqcha yoki takror)                                   |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "telegramId", code: "ADMIN_EXISTS" }]`             | shu Telegram id bilan admin allaqachon bor                                                                                         |
+| 400    | `VALIDATION_ERROR`, `fields[{ path: "id", code: "OWNER_ROW" }]`                        | panel OWNER qatorining ismi, roli yoki faolligini o‘zgartirmoqchi (faqat CLI)                                                      |
+| 404    | `NOT_FOUND`                                                                            | ruxsatsiz (yuqoridagi barcha holatlar) yoki resurs yo‘q                                                                            |
+| 409    | `IDEMPOTENCY_CONFLICT`                                                                 | o‘sha `Idempotency-Key`, boshqa body; yoki kalit `POST /admin/write-keys/void` bilan bekor qilingan                                |
+| 409    | `ORDER_STATE_CONFLICT`                                                                 | buyurtma amal kutgan holatda emas (masalan cancel paytida `PROCESSING` ga o‘tib bo‘lgan); hech narsa yozilmaydi                    |
+| 422    | `CODE_INVALID` + `details.attemptsLeft`                                                | kod noto‘g‘ri yoki boshqa binding uchun chiqarilgan (ikkalasi bir xil javob — oracle yo‘q)                                         |
+| 422    | `CODE_EXPIRED`                                                                         | challenge noma’lum, muddati o‘tgan yoki ishlatilgan; login’da — fayldagi «Auth» qoidasi                                            |
+| 429    | `RATE_LIMITED` + `Retry-After`                                                         | throttler; kunlik kod limiti                                                                                                       |
+| 503    | `ADMIN_DEADLINE_EXCEEDED`                                                              | qabul qilinganidan beri 45 s o‘tdi (replay’dan keyin, tranzaksiya boshida yoki commit oldidan); hech narsa yozilmaydi, kalit bo‘sh |
 
 **Bitta lug‘at (D-65 D5).** OTP servisi (ega CLI’si va panel uchun umumiy) `VALIDATION_ERROR {field, reason}` bilan rad
 etadi; admin HTTP xaritalovchisi (`adminOtpHttpError`) uni shunday beradi: `OTP_REQUIRED`, `AMOUNT_MISMATCH` (umumiy
@@ -1223,6 +1233,34 @@ bilan; har maydon binding’ga kiradi:
 Javob: `{ challengeId, expiresInSec }` — `challengeId` 128 bit (32 hex) brauzerga qaytadi (D-46 dagi «faqat CLI
 xotirasida» qoidasining HTTP varianti): yolg‘iz o‘zi yetmaydi, kod, o‘sha sessiya va o‘sha binding kerak. Xatolar: `404`,
 `400` (shakl; `OTP_NOT_REQUIRED`; `OTP_UNAVAILABLE`; `RECENT_AUTO_TOPUP`, `OPEN_ORDERS`), `429` (kunlik limit).
+
+### Kalitni bekor qilish — `POST /admin/write-keys/void` (9-B, SA-1)
+
+Kim: har qanday faol admin (OWNER, OPERATOR, SUPPORT), faqat **o‘z** kalitini — audit id `adminId` dan hisoblanadi,
+boshqa adminning kalitiga ta’sir qilib bo‘lmaydi. Sessiya, CSRF yoki `Origin` xato — `404`. Body’dagi `action` adminning
+hozirgi roliga (tranzaksiya ichida qayta o‘qiladi) kirmasa ham `404`, tombstone yozilmaydi: admin faqat o‘zi bajara oladigan
+amal kalitini bekor qiladi. `Idempotency-Key` sarlavhasi kerak emas (yo‘l tabiatan idempotent). Kod (OTP) va `reason`
+so‘ralmaydi: void pul harakatlantirmaydi, faqat eski so‘rovning kelajakdagi commit’ini to‘xtatadi. Limit — admin yozuv
+yo‘llarining umumiy limiti: bitta sessiyaga 30/daqiqa (void ham shu hisobga kiradi).
+
+Body (`.strict()`): `{ idempotencyKey, action, targetId }` — `idempotencyKey` sarlavhadagi format (8–128,
+`A–Z a–z 0–9 _ -`); `action` — kalitli admin yozuv ruxsati (`ADMIN_KEYED_WRITE_PERMISSIONS`; `confirmations.create`,
+`writeKeys.void` va o‘qish ruxsatlari — `400`); `targetId` — eski so‘rov bog‘langan nishon: yo‘ldagi id, nishonsiz yo‘llarda
+esa `catalog.productReorder` → `products`, `catalog.skuCreate` → yo‘ldagi mahsulot id, `admins.create` → yangi adminning
+`telegramId`. `action` va `targetId` faqat tombstone’ning audit ko‘rinishi uchun; natijani faqat kalit hal qiladi.
+
+Javob `200`:
+
+- `{ status: "VOIDED", auditId, at }` — shu kalit bilan amal commit bo‘lmagan; tombstone hozir (yoki avvalroq) yozildi va
+  shu kalitli har keyingi so‘rov `409 IDEMPOTENCY_CONFLICT` oladi;
+- `{ status: "APPLIED", auditId, action, at }` — shu kalit bilan amal allaqachon commit bo‘lgan (`auditId` — o‘sha amal
+  qatori; `action` — o‘sha qatorning `AuditLog.action` i, masalan `WALLET_ADJUST`, body’dagi ruxsat kaliti emas: haqiqatda
+  bajarilgan amalni ko‘rsatadi, SPA uni `admin.enums.auditAction.*` bilan nomlaydi).
+
+Tombstone — `AuditLog` qatori: `id = adminAuditIdFor(adminId, key)`, `actorType = "ADMIN"`, `action =
+"IDEMPOTENCY_VOID"` (`ADMIN_AUDIT_ACTIONS` da), `targetType`/`targetId` — `action` nishoni, `after = { voidedAction,
+adminRole, sessionId }`, `reason: null`; kalitning o‘zi va body hash’i yozilmaydi. Migratsiya yo‘q. Xatolar: `400
+VALIDATION_ERROR`, `404`, `429 RATE_LIMITED`, `503 ADMIN_DEADLINE_EXCEEDED`.
 
 ### Dashboard — `GET /admin/dashboard?period=today|week|month|range&from=&to=`
 

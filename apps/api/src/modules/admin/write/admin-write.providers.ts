@@ -21,6 +21,8 @@ import { AdminPaymentActionsService } from '../payments/admin-payment-actions.se
 import { AdminUserActionsController } from '../users/admin-user-actions.controller';
 import { AdminUserActionsRepository } from '../users/admin-user-actions.repository';
 import { AdminUserActionsService } from '../users/admin-user-actions.service';
+import { AdminWriteVoidController } from './admin-write-void.controller';
+import { AdminWriteVoidService } from './admin-write-void.service';
 import { AdminWriteReplays } from './admin-write.replays';
 import { AdminWriteRepository } from './admin-write.repository';
 import { AdminWriteRunner } from './admin-write.runner';
@@ -38,6 +40,8 @@ export const ADMIN_WRITE_CONTROLLERS: Type[] = [
   AdminCatalogWriteController,
   // S9a: the admin management (docs/04 «Adminlar»).
   AdminAccountsWriteController,
+  // 9-B SA-1: voiding an Idempotency-Key (docs/04 «Kalitni bekor qilish»).
+  AdminWriteVoidController,
 ];
 
 export const ADMIN_WRITE_PROVIDERS: Provider[] = [
@@ -46,6 +50,7 @@ export const ADMIN_WRITE_PROVIDERS: Provider[] = [
   AdminConfirmService,
   AdminWriteRepository,
   AdminWriteRunner,
+  AdminWriteVoidService,
   AdminWriteReplays,
   AdminUserActionsRepository,
   AdminUserActionsService,

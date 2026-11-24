@@ -3,11 +3,11 @@
 import type { AdminRole } from './admin-roles';
 import {
   ADMIN_PERMISSION_KEYS,
-  ADMIN_PERMISSIONS,
   type AdminOrderHold,
   type AdminOtpRule,
   type AdminPermission,
-} from './admin-permissions';
+} from './admin-permission-keys';
+import { ADMIN_PERMISSIONS } from './admin-permissions';
 import type { AdminOtpPermission } from './admin-route-lists';
 
 /**

@@ -8,11 +8,8 @@ import {
   permissionsFor,
   roleHas,
 } from './admin-permission-checks';
-import {
-  ADMIN_PERMISSIONS,
-  ADMIN_PERMISSION_KEYS,
-  type AdminPermission,
-} from './admin-permissions';
+import { ADMIN_PERMISSION_KEYS, type AdminPermission } from './admin-permission-keys';
+import { ADMIN_PERMISSIONS } from './admin-permissions';
 import { ADMIN_AUTH_ROUTES, ADMIN_OTP_PERMISSIONS } from './admin-route-lists';
 import { ADMIN_ROLES, type AdminRole } from './admin-roles';
 
@@ -22,8 +19,8 @@ const readsOf = (role: AdminRole): AdminPermission[] =>
   permissionsFor(role).filter((key) => !ADMIN_PERMISSIONS[key].write);
 
 describe('admin role matrix (D-63 (3))', () => {
-  it('lets SUPPORT write nothing but notes', () => {
-    expect(writesOf('SUPPORT')).toEqual(['orders.note', 'users.note']);
+  it('lets SUPPORT write nothing but notes, and void its own keys (9-B SA-1)', () => {
+    expect(writesOf('SUPPORT')).toEqual(['orders.note', 'users.note', 'writeKeys.void']);
   });
 
   it('gives OPERATOR exactly the D-63 (3) actions, without unblock (D-65 D2)', () => {
@@ -38,6 +35,7 @@ describe('admin role matrix (D-63 (3))', () => {
         'users.freeze',
         'users.sessionsRevoke',
         'confirmations.create',
+        'writeKeys.void',
       ].sort(),
     );
   });

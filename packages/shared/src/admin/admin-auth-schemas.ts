@@ -6,7 +6,7 @@ import { LOGIN_NONCE_PATTERN } from '../auth/start-payload';
 import { ResourceIdSchema } from '../common-schemas';
 import { TiyinStringSchema } from '../money-schemas';
 import { IsoDateTimeSchema } from './admin-common-schemas';
-import { AdminPermissionSchema } from './admin-permissions';
+import { AdminPermissionSchema } from './admin-permission-keys';
 import { AdminRoleSchema } from './admin-roles';
 
 const NonceSchema = z.string().regex(LOGIN_NONCE_PATTERN);

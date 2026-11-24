@@ -2,7 +2,8 @@
 // what, when the code is asked or where OPERATOR's limit applies shows up here as a diff a human
 // must approve. O = OWNER, P = OPERATOR, S = SUPPORT. Source: D-63 (3)/(4) with D-65 D1–D4, D-66 and p5 S9a.
 import { describe, expect, it } from 'vitest';
-import { ADMIN_PERMISSIONS, ADMIN_PERMISSION_KEYS, type AdminOtpRule } from './admin-permissions';
+import { ADMIN_PERMISSION_KEYS, type AdminOtpRule } from './admin-permission-keys';
+import { ADMIN_PERMISSIONS } from './admin-permissions';
 
 // holds: owner-only holds for OPERATOR — C = ATTEMPT_CAP, N = NO_PURCHASE (M-1, D-64 (6)).
 type Row = readonly [
@@ -61,6 +62,8 @@ const EXPECTED: readonly Row[] = [
   ['sessions.revoke', 'O', 'ALWAYS', false, ''],
   ['queues.retry', 'O', 'NEVER', false, ''],
   ['confirmations.create', 'OP', 'NEVER', false, ''],
+  // 9-B SA-1 (owner Q1 2026-11-23): every active admin voids its own keys, no code.
+  ['writeKeys.void', 'OPS', 'NEVER', false, ''],
 ];
 
 const LETTER = { OWNER: 'O', OPERATOR: 'P', SUPPORT: 'S' } as const;

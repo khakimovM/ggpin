@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   AdminConfirmationBodySchema,
+  IDEMPOTENCY_VOID_ACTION,
   type AdminConfirmationBody,
   type AdminOtpAnswer,
   type AdminPermission,
@@ -89,6 +90,10 @@ export class AdminWriteRunner {
     requestHash: string,
     spec: AdminWriteSpec<T>,
   ): Promise<T> {
+    // A voided key (docs/04 «Idempotency-Key» (d)): every request with it is a 409 and writes
+    // nothing, whatever the tombstone's other fields. Said here on purpose, not left to the
+    // tombstone happening to carry no requestHash.
+    if (row.action === IDEMPOTENCY_VOID_ACTION) throw new AppError('IDEMPOTENCY_CONFLICT');
     const same =
       row.actorType === 'ADMIN' &&
       row.actorId === adminId &&

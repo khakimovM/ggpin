@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { ADMIN_ACTION_KINDS } from '../idempotency-store';
 
 describe('ADMIN_ACTION_KINDS', () => {
-  it('is exactly the write keys of the shared matrix, without confirmations.create (I-1)', () => {
+  it('is exactly the write keys of the shared matrix, without confirmations.create (I-1) and writeKeys.void (9-B: keyless)', () => {
     const writes = ADMIN_PERMISSION_KEYS.filter(
-      (key) => ADMIN_PERMISSIONS[key].write && key !== 'confirmations.create',
+      (key) =>
+        ADMIN_PERMISSIONS[key].write && key !== 'confirmations.create' && key !== 'writeKeys.void',
     );
     expect([...ADMIN_ACTION_KINDS].sort()).toEqual([...writes].sort());
   });

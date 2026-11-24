@@ -8,6 +8,7 @@ import {
   AdminPaymentReverseBodySchema,
   AdminReasonBodySchema,
   AdminReviewCreditBodySchema,
+  AdminWriteKeyVoidBodySchema,
 } from '@repo/shared';
 import { createZodDto } from 'nestjs-zod';
 
@@ -22,3 +23,4 @@ export class AdminCardPauseBodyDto extends createZodDto(AdminCardPauseBodySchema
 export class AdminCardResumeBodyDto extends createZodDto(AdminCardResumeBodySchema) {}
 export class AdminCardLimitBodyDto extends createZodDto(AdminCardLimitBodySchema) {}
 export class AdminCardRetireBodyDto extends createZodDto(AdminCardRetireBodySchema) {}
+export class AdminWriteKeyVoidBodyDto extends createZodDto(AdminWriteKeyVoidBodySchema) {}

@@ -178,6 +178,8 @@ const REAL_KEYS = [
   // Phase 9 S9a, the panel's admin management (admin-panel-accounts.service.ts).
   'currentRevoked',
   'adminId',
+  // 9-B SA-1, the tombstone of a voided key (admin-write-void.service.ts).
+  'voidedAction',
 ] as const;
 
 const VIEW: AuditRedactionView = {
