@@ -23,7 +23,7 @@ import { quoteLimitKey } from '../../../apps/api/src/modules/quotes/quotes.servi
 import { recipientCheckLimitKey } from '../../../apps/api/src/modules/recipients/recipients.service';
 import { premiumFlowCatalog, type PremiumFlowCatalog } from './premium-flow.fixtures';
 import { premiumFlowKit } from './premium-flow.kit';
-import { PremiumWorkerSide } from './premium-worker-side';
+import { FlowWorkerSide } from './flow-worker-side';
 
 // Phase 6 S6 (plan §1 criterion 1 and 2 (a)): a Telegram Premium order through the WHOLE system
 // in one process on the real `_test` Postgres and Redis DB 15. API: POST /recipients/validate ->
@@ -66,7 +66,7 @@ const userIds: string[] = [];
 const orderIds = new Set<string>();
 /** 3.75 TON x 40 000 so'm x 1.10 markup = 165 000 so'm. */
 const PRICE = 16_500_000n;
-let worker: PremiumWorkerSide | undefined;
+let worker: FlowWorkerSide | undefined;
 let catalog: PremiumFlowCatalog | undefined;
 let outbox: Queue | undefined;
 let fetchSpy: jest.SpyInstance | undefined;
@@ -80,12 +80,12 @@ beforeAll(async () => {
   });
   catalog = await premiumFlowCatalog(e2e.env.DATABASE_URL);
   checksBefore = await queueJobIds(checkQueue());
-  worker = await PremiumWorkerSide.boot();
+  worker = await FlowWorkerSide.boot();
   outbox = new Queue(QUEUES.TG_OUTBOX, { connection: { url: e2e.env.REDIS_URL } });
 });
 
 /** Set in beforeAll; a test never runs without them. */
-const w = (): PremiumWorkerSide => {
+const w = (): FlowWorkerSide => {
   if (worker === undefined) throw new Error('the worker side is not booted');
   return worker;
 };
