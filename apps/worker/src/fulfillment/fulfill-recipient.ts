@@ -15,7 +15,8 @@ import { namespacedProviderRef, parseProviderRef } from '../adapters/provider-re
 //   attempts stay on another adapter) -> the picked adapter checks the recipient again, before any
 //   value moves: FOUND with the same display name the customer confirmed -> that adapter's handle
 //   is used (and kept on the attempt as `recheckedProviderRef`); NOT_FOUND or another name ->
-//   RECIPIENT_CHANGED (FAILED + REFUND: nothing was sent, there is no attempt yet); UNAVAILABLE, a
+//   RECIPIENT_CHANGED (FAILED + REFUND: nothing was sent, there is no attempt yet); REFUSED (phase 6)
+//   -> RECIPIENT_REFUSED (FAILED + REFUND as RECIPIENT_GONE with its note); UNAVAILABLE, a
 //   throw, a timeout or an answer that does not parse -> a throw (the job retries; on the last try
 //   the order is HELD, ADAPTER_ERROR). Never a payment to an unchecked handle.
 // - the display name is a heuristic, NOT an identifier: two adapters share no id space, so the
@@ -65,6 +66,11 @@ export type RecipientDecision =
       readonly recheckedRef: string | null;
     }
   | { readonly kind: 'CHANGED' }
+  /**
+   * Found but refused by the picked adapter (phase 6: Telegram Premium appeared after the quote):
+   * FAILED + REFUND as RECIPIENT_REFUSED (fulfill-eligibility.ts), the same as a refusal at prepare.
+   */
+  | { readonly kind: 'REFUSED' }
   /** A re-check was needed but the confirmation is too old for a name-only match: HELD. */
   | { readonly kind: 'STALE' };
 
@@ -139,6 +145,9 @@ export async function recipientFor(
   const result = parsed.data;
   if (result.status === 'UNAVAILABLE') throw new RecipientRecheckError('UNAVAILABLE');
   if (result.status === 'NOT_FOUND') return { kind: 'CHANGED' };
+  // Found but refused (phase 6, e.g. Premium appeared after the quote): it cannot receive the
+  // product. Nothing is sent: FAILED + REFUND, as a RECIPIENT_REFUSED at prepare would be.
+  if (result.status === 'REFUSED') return { kind: 'REFUSED' };
   if (!sameName(stored.fields['displayName'], result.displayName)) return { kind: 'CHANGED' };
   let recheckedRef: string;
   try {

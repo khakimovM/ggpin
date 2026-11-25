@@ -3,6 +3,7 @@ import {
   RECIPIENT_CHECK_TIMEOUT_MS,
   RecipientProviderRefSchema,
   normalizeTgUsername,
+  type FragmentProductKind,
   type RecipientCheckResult,
 } from '@repo/shared';
 import { hasProviderRef, type FulfillmentRecipient } from '../fulfillment-adapter';
@@ -17,6 +18,8 @@ import { hasProviderRef, type FulfillmentRecipient } from '../fulfillment-adapte
 // NOT_SENT    prepare REFUSED (Fragment refuses)        send NOT_SENT (MANUAL proof: review)
 // UNKNOWN     prepare throws (Fragment unreachable)     send UNKNOWN
 // TIMEOUT     prepare throws (Fragment times out)       send SENT, confirm PENDING for ever
+// GOT_PREMIUM prepare RECIPIENT_REFUSED (Premium appeared  prepare RECIPIENT_REFUSED
+//             after the quote; validation still FOUND)
 //
 // The TON side of a Fragment payout (landed, lost, bounced...) is scripted on the fake chain
 // (FakeTonGateway), not here.
@@ -25,6 +28,9 @@ import { hasProviderRef, type FulfillmentRecipient } from '../fulfillment-adapte
 // always on the normalized username (normalizeTgUsername: no `@`, lower case):
 //   notfound_*   NOT_FOUND (and `prepare` of such a recipient: RECIPIENT_GONE)
 //   slowcheck_*  answers only after SIM_SLOW_CHECK_MS, longer than any caller waits: UNAVAILABLE
+//   haspremium_* Telegram Premium only (fragmentProductKind PREMIUM): REFUSED HAS_PREMIUM, and
+//                `prepare` of such a recipient RECIPIENT_REFUSED; any other product: FOUND
+//   premiumext_* Telegram Premium only: FOUND with the PREMIUM_EXTENDS notice; otherwise FOUND
 //   any other    FOUND, providerRef `sim_<username>`, displayName = the username
 
 export const SIM_SCENARIOS = [
@@ -34,6 +40,7 @@ export const SIM_SCENARIOS = [
   'NOT_SENT',
   'UNKNOWN',
   'TIMEOUT',
+  'GOT_PREMIUM',
 ] as const;
 export type SimScenario = (typeof SIM_SCENARIOS)[number];
 
@@ -80,11 +87,16 @@ export class SimulatedOutageError extends Error {
 /** Username prefixes the simulated `validateRecipient` answers by (scenario OK only). */
 export const SIM_NOT_FOUND_PREFIX = 'notfound_';
 export const SIM_SLOW_CHECK_PREFIX = 'slowcheck_';
+/** Telegram Premium only (phase 6): the account already has Premium; the gift is refused. */
+export const SIM_HAS_PREMIUM_PREFIX = 'haspremium_';
+/** Telegram Premium only (phase 6): the account already has Premium; the gift extends it. */
+export const SIM_PREMIUM_EXTENDS_PREFIX = 'premiumext_';
 /** How long a `slowcheck_*` lookup takes: longer than the API ever waits for an answer. */
 export const SIM_SLOW_CHECK_MS = RECIPIENT_CHECK_TIMEOUT_MS + 5_000;
 
 const NOT_FOUND: RecipientCheckResult = { status: 'NOT_FOUND' };
 const UNAVAILABLE: RecipientCheckResult = { status: 'UNAVAILABLE' };
+const HAS_PREMIUM: RecipientCheckResult = { status: 'REFUSED', reason: 'HAS_PREMIUM' };
 
 /** The raw `username` field (own key only); undefined when absent or blank. */
 function rawUsernameOf(fields: Readonly<Record<string, string>>): string | undefined {
@@ -122,11 +134,13 @@ function slowAnswer(signal: AbortSignal | undefined): Promise<RecipientCheckResu
  *   mismatch, our bug), so no answer about a person is given: fail-closed (CR #11).
  * - A value that cannot be a Telegram username (`x`, `1abc`): NOT_FOUND, which is what the real
  *   provider answers when searching for it — there is a question, and nobody has that name.
+ * - `kind`: the product's fragmentProductKind; the Premium prefixes answer only for PREMIUM.
  */
 export function simulatedValidation(
   scenario: SimScenario,
   input: Readonly<Record<string, string>>,
   signal?: AbortSignal,
+  kind: FragmentProductKind | null = null,
 ): Promise<RecipientCheckResult> {
   if (signal?.aborted === true || rawUsernameOf(input) === undefined) {
     return Promise.resolve(UNAVAILABLE);
@@ -138,25 +152,36 @@ export function simulatedValidation(
     return Promise.resolve(NOT_FOUND);
   }
   if (scenario === 'OK' && username.startsWith(SIM_SLOW_CHECK_PREFIX)) return slowAnswer(signal);
-  return Promise.resolve({
+  const premium = scenario === 'OK' && kind === 'PREMIUM';
+  if (premium && username.startsWith(SIM_HAS_PREMIUM_PREFIX)) return Promise.resolve(HAS_PREMIUM);
+  const found: Extract<RecipientCheckResult, { status: 'FOUND' }> = {
     status: 'FOUND',
     providerRef: simulatedProviderRef(username),
     displayName: username,
-  });
+  };
+  if (premium && username.startsWith(SIM_PREMIUM_EXTENDS_PREFIX)) {
+    return Promise.resolve({ ...found, notices: ['PREMIUM_EXTENDS'] });
+  }
+  return Promise.resolve(found);
 }
 
 /**
  * The recipient re-check of `prepare`: null when it is still the validated one. Consistent with
  * `simulatedValidation`: for every normalized username it answers FOUND for, its providerRef
- * gives null here, so a dry-run order is never refunded as RECIPIENT_CHANGED.
+ * gives null here, so a dry-run order is never refunded as RECIPIENT_CHANGED. A Premium recipient
+ * it REFUSES (`haspremium_*`) is RECIPIENT_REFUSED here too (phase 6).
  */
 export function simulatedRecipientProblem(
   scenario: SimScenario,
   recipient: FulfillmentRecipient,
-): 'RECIPIENT_GONE' | 'RECIPIENT_CHANGED' | null {
+  kind: FragmentProductKind | null = null,
+): 'RECIPIENT_GONE' | 'RECIPIENT_CHANGED' | 'RECIPIENT_REFUSED' | null {
   if (!hasProviderRef(recipient) || scenario === 'NOT_FOUND') return 'RECIPIENT_GONE';
   const username = usernameOf(recipient.fields);
   if (username === null) return 'RECIPIENT_GONE';
   if (scenario === 'OK' && username.startsWith(SIM_NOT_FOUND_PREFIX)) return 'RECIPIENT_GONE';
+  if (scenario === 'OK' && kind === 'PREMIUM' && username.startsWith(SIM_HAS_PREMIUM_PREFIX)) {
+    return 'RECIPIENT_REFUSED';
+  }
   return recipient.providerRef === simulatedProviderRef(username) ? null : 'RECIPIENT_CHANGED';
 }

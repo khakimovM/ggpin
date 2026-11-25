@@ -1,4 +1,11 @@
-import type { AdapterHealth, CostCurrency, RecipientCheckResult } from '@repo/shared';
+import {
+  fragmentProductKind,
+  isPremiumMonths,
+  type AdapterHealth,
+  type CostCurrency,
+  type FragmentProductKind,
+  type RecipientCheckResult,
+} from '@repo/shared';
 import { beginCell } from '@ton/core';
 import { FRAGMENT_ADAPTER } from '../../pricing-sync/cost-sources/cost-source';
 import type {
@@ -27,10 +34,21 @@ import {
 // `confirm` are not used for a TON-paid adapter (the TON module sends and confirms), so they
 // answer UNKNOWN: a misuse ends in NEEDS_REVIEW, never in a delivery.
 
-/** The simulated Fragment price of an order line, nanotons (simulated-fragment-prices.ts). */
-export function simulatedFragmentCost(sku: SkuRef): bigint {
-  const pack = sku.id === null ? undefined : SIMULATED_PREMIUM_NANO_TON.get(sku.quantity);
-  return pack ?? SIMULATED_STAR_NANO_TON * BigInt(sku.quantity);
+/**
+ * The simulated Fragment price of an order line, nanotons (simulated-fragment-prices.ts). The
+ * product kind comes from the slug (fragmentProductKind, owner Q4), never from the SKU size: a
+ * Telegram Premium line is a 3, 6 or 12 month pack (null for any other line: nothing is priced,
+ * nothing is paid); everything else is Stars, per unit, whatever its pack size. Dry run only: an
+ * unknown slug is priced as Stars here so test catalogs may use their own slugs; the real adapter
+ * (p5 S8 / P6-S3) refuses a product it cannot name.
+ */
+export function simulatedFragmentCost(
+  kind: FragmentProductKind | null,
+  sku: SkuRef,
+): bigint | null {
+  if (kind !== 'PREMIUM') return SIMULATED_STAR_NANO_TON * BigInt(sku.quantity);
+  if (sku.id === null || !isPremiumMonths(sku.quantity)) return null;
+  return SIMULATED_PREMIUM_NANO_TON.get(sku.quantity) ?? null;
 }
 
 export class SimulatedFragmentAdapter implements FulfillmentAdapter {
@@ -50,18 +68,21 @@ export class SimulatedFragmentAdapter implements FulfillmentAdapter {
   }
 
   validateRecipient(
-    _product: ProductRef,
+    product: ProductRef,
     input: Readonly<Record<string, string>>,
     signal?: AbortSignal,
   ): Promise<RecipientCheckResult> {
-    return simulatedValidation(this.script.scenarioFor(null), input, signal);
+    const kind = fragmentProductKind(product.slug);
+    return simulatedValidation(this.script.scenarioFor(null), input, signal, kind);
   }
 
   quote(
-    _product: ProductRef,
+    product: ProductRef,
     sku: SkuRef,
   ): Promise<{ readonly currency: CostCurrency; readonly costMinor: bigint }> {
-    return Promise.resolve({ currency: 'TON', costMinor: simulatedFragmentCost(sku) });
+    const costMinor = simulatedFragmentCost(fragmentProductKind(product.slug), sku);
+    if (costMinor === null) return Promise.reject(new Error('no simulated price for this line'));
+    return Promise.resolve({ currency: 'TON', costMinor });
   }
 
   prepare(context: PrepareContext): Promise<PrepareResult> {
@@ -69,12 +90,17 @@ export class SimulatedFragmentAdapter implements FulfillmentAdapter {
     if (scenario === 'UNKNOWN' || scenario === 'TIMEOUT') {
       return Promise.reject(new SimulatedOutageError(scenario));
     }
-    const problem = simulatedRecipientProblem(scenario, context.recipient);
+    const kind = fragmentProductKind(context.product.slug);
+    const problem = simulatedRecipientProblem(scenario, context.recipient, kind);
     if (problem !== null) return Promise.resolve({ status: problem });
+    if (scenario === 'GOT_PREMIUM') return Promise.resolve({ status: 'RECIPIENT_REFUSED' });
     if (scenario === 'NOT_SENT') {
       return Promise.resolve({ status: 'REFUSED', reason: 'simulated refusal' });
     }
-    const base = simulatedFragmentCost(context.sku);
+    const base = simulatedFragmentCost(kind, context.sku);
+    if (base === null) {
+      return Promise.resolve({ status: 'REFUSED', reason: 'simulated: not a Premium term' });
+    }
     const costMinor = scenario === 'PRICE_UP' ? base * 2n : base;
     const payload = beginCell()
       .storeUint(0, 32)

@@ -78,6 +78,14 @@ Redirect’lar avtomatik kuzatilmaydi (`redirect: manual`): API javobidagi redir
 
 ## 6. Metodlar (Premium) — P6-S0a’dan boshlab yozib olinadi
 
+**Holat (P6-S7, 2026-11-23).** Repoda Premium **fixture’i yo‘q**: yozib olish vositasi (P6-S0a, `fragment:record`, 10-bo‘lim) tayyor
+va sinovdan o‘tgan (sintetik javoblarda), lekin haqiqiy Fragment sessiyasida hali ishga tushirilmagan (ega bilan bitta sessiya, E1/E2).
+Quyidagi jadvaldagi hamma narsa — metod nomlari, maydonlar, javob shakllari, «Premium bor» javobi, uzaytirish xatti-harakati, narx
+manbai, to‘lov manzili, `show_sender` ma’nosi, KYC — **taxmin**. Haqiqiy Premium adapteri (P6-S3) shu fixture’lardan keyin yoziladi;
+hozirgi kodda Premium faqat dry-run simulyatorida bor (`docs/06-FULFILLMENT.md`, «Premium (6-bosqich)»). Nima kodda **qat’iy**
+(taxmin emas): slug bo‘yicha mahsulot turi, 3/6/12 oy, `REFUSED`/`PREMIUM_EXTENDS` shakli va ularning API/worker’dagi natijasi —
+bular ggpin ichki kontrakti, Fragment javobi emas.
+
 Sahifa: `GET /premium/gift` (API chaqiruvlarining `Referer`’i ham shu sahifa). Sahifadagi API
 `hash` alohida o‘qiladi; u Stars sahifasidagi bilan bir xilmi — `summary.json` →
 `premiumApiHash.sameAsStars`. **taxmin**
@@ -94,7 +102,8 @@ Sahifa: `GET /premium/gift` (API chaqiruvlarining `Referer`’i ham shu sahifa).
 - `updatePremiumState` faqat o‘qishi isbotlanmagan (nomi holatni o‘zgartirishni bildirishi
   mumkin), shuning uchun ruxsat ro‘yxatiga **qo‘shilmadi**. Narx manbai sifatida kerak bo‘lsa
   (P6-S4), uning xatti-harakati avval brauzer DevTools’da (pulsiz sahifa ochilganda) kuzatiladi.
-- «Premium allaqachon bor» javobi (Q1: bloklovchi xato yoki «muddat uzayadi») —
+- «Premium allaqachon bor» javobi (Q1: bloklovchi xato yoki «muddat uzayadi»; ggpin tomonda ikkalasi tayyor: bloklovchi →
+  `REFUSED HAS_PREMIUM` → `422 RECIPIENT_HAS_PREMIUM`, uzaytirish → `FOUND` + `PREMIUM_EXTENDS` → `warnings[]`) —
   `search-premium-holder.json` fixture’idan aniqlanadi (`--premium-holder`, 11-bo‘lim). Bu fayl
   har doim qat’iy matnda yoziladi (10-bo‘lim): ismsiz umumiy xato matni va kalitlar saqlanadi,
   lug‘atdan tashqari so‘zi bor satr `<REDACTED:secret>`, ≥5 xonali son `0`. Holder qiymatlari bu

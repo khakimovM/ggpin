@@ -64,8 +64,9 @@ Eslatma: `QUOTED` buyurtma holati emas — kotirovka alohida `Quote` modeli; `Or
 ### Oqim (Stars; Premium — `months` bilan xuddi shunday)
 
 1. `validate-recipient`: Fragment `searchStarsRecipient` (`searchPremiumGiftRecipient`) → ism, rasm.
-   Premium'da foydalanuvchida allaqachon Premium bo‘lsa → ogohlantirish (`RECIPIENT_HAS_PREMIUM` yoki
-   "muddat uzaytiriladi" — Fragment javobiga qarab).
+   Premium'da foydalanuvchida allaqachon Premium bo‘lsa: adapter `REFUSED` (`HAS_PREMIUM`) → API `422 RECIPIENT_HAS_PREMIUM`, token yo‘q;
+   yoki `FOUND` + `notices: ['PREMIUM_EXTENDS']` → API `warnings[]` da `PREMIUM_EXTENDS` ("muddat uzaytiriladi"), token beriladi.
+   Qaysi biri chiqishi Fragment javobiga bog‘liq; haqiqiy javob hali yozib olinmagan (pastdagi «Premium»).
 2. `quote`: Fragment narxi (TON/USDT) + joriy kurs → tannarx; ustama bilan narx.
 3. `fulfill`:
    - `lock:order:{id}`, urinishlar tekshiruvi (avvalgi `externalRef` bo‘lsa — faqat reconcile);
@@ -78,6 +79,35 @@ Eslatma: `QUOTED` buyurtma holati emas — kotirovka alohida `Quote` modeli; `Or
    - `TON_CONFIRM_TIMEOUT_MS` (standart 5 daqiqa) ichida tasdiq yo‘q → NEEDS_REVIEW (reconcile har 10 daqiqada tekshiradi).
 4. Fragment API rasmiy emas: har bir javob Zod bilan tekshiriladi; kutilmagan shakl → adapter `DOWN`,
    buyurtmalar zaxira adapterga yo‘naltiriladi (faqat hali yuborilmaganlari), egaga xabar.
+
+### Premium (6-bosqich)
+
+- **Mahsulot turi slug bo‘yicha:** `fragmentProductKind(slug)` (`packages/shared/src/fulfillment/fragment-product.ts`) faqat `telegram-stars`
+  (`STARS`) va `telegram-premium` (`PREMIUM`) ni biladi, boshqa slug uchun `null`. Slug admin panelda o‘zgarmaydi, shuning uchun sxema
+  o‘zgarmadi (ega qarori Q4).
+- **Oylar:** Premium paketi — 3, 6 yoki 12 oy (`PREMIUM_MONTHS`); `order.quantity` = oylar. Boshqa uzunlikdagi Premium SKU narxlanmaydi
+  va to‘lanmaydi (fail-closed).
+- **Qabul qiluvchi Premium’ni oldin olgan** (`validate-recipient`): `REFUSED { reason: 'HAS_PREMIUM' }` (maydon `providerRef`/ism yo‘q,
+  `strict`) → API `422 RECIPIENT_HAS_PREMIUM`; yoki `FOUND.notices = ['PREMIUM_EXTENDS']` (ko‘pi bilan 4 ta) → `warnings[]`.
+  `REFUSED` javobi ham `FOUND`/`NOT_FOUND` kabi 60 soniyalik oyna ichida qayta ishlatiladi.
+- **`RECIPIENT_REFUSED`** (`PrepareResult`): qabul qiluvchi tekshirilgan, lekin endi mahsulotni qabul qila olmaydi (kotirovkadan keyin
+  Premium paydo bo‘ldi, Fragment sovg‘ani rad etadi). Bu `prepare` da ham, boshqa adapter qayta tekshiruvida (`REFUSED` javobi) ham
+  bir xil ishlaydi: yangi urinish **SENDING dan oldin** → buyurtma `FAILED` + `REFUND`, sabab `RECIPIENT_GONE` (DB CHECK yangi sabab
+  qo‘shishga migratsiyasiz ruxsat bermaydi, ega qarori Q2 = A), voqea izohida `failed: RECIPIENT_GONE (the recipient can no longer
+receive the product, e.g. Telegram Premium appeared after the quote); nothing was sent`. Urinish yozilmaydi, zanjirga hech narsa
+  chiqmaydi, `REFUND` — yagona yo‘l orqali (`ORDER/<orderId>`), qayta ishga tushirish hech narsani o‘zgartirmaydi. Logda qayd
+  belgisi bor, qabul qiluvchi ma’lumoti yo‘q. Mijozga boshqa refundlardagidek «bajarilmadi, pul qaytarildi» xabari boradi.
+- **Ikki xil «noma’lum» — farqlang:**
+  - Fragment `prepare` da yetib bo‘lmasa (timeout, tarmoq xatosi; dry-run’da `UNKNOWN`/`TIMEOUT` ssenariysi) → job qayta uriniladi,
+    oxirgi urinishda buyurtma `HELD` `ADAPTER_ERROR`. Hech narsa yuborilmagan, shuning uchun `NEEDS_REVIEW` emas;
+  - **TON natijasi noma’lum** (to‘lov yuborilgan, tasdiq yo‘q) → `NEEDS_REVIEW` (`CONFIRM_TIMEOUT`), refund yo‘q, faqat reconcile yoki
+    admin isboti bilan chiqadi (yuqoridagi 3-band va 4-invariant).
+- **Taxminlar (fixture yo‘q, P6-S3):** `show_sender` qiymati va «Premium gift» xabarida yuboruvchi qanday ko‘rinishi; haqiqiy
+  `searchPremiumGiftRecipient` / `initGiftPremiumRequest` / `getGiftPremiumLink` maydonlari; «Premium bor» javobi (rad yoki uzaytirish);
+  Premium to‘lov manzili (reja bo‘yicha `FRAGMENT_PAY_ADDRESSES` da, Stars bilan bir ro‘yxatda). Hammasi `docs/suppliers/fragment.md` §6
+  da `taxmin`. Haqiqiy adapter `fragmentProductKind(slug) === null` va oy ∉ {3, 6, 12} holatlarida `REFUSED` (HELD) qaytarishi shart;
+  dry-run simulyatoridagi «noma’lum slug = Stars» xatti-harakati ko‘chirilmaydi.
+- **Simulyator (faqat dry-run):** qarang «Simulyator username shakllari» va «Simulyator (dry-run)» bo‘limlari.
 
 ### Fragment sessiyasi
 
@@ -422,7 +452,7 @@ Kod: `apps/worker/src/fulfillment/**`, simulyator: `apps/worker/src/adapters/sim
 
 **Replika va concurrency (5-bosqich sharti).** `fulfill-order` — **bitta worker replikasi, concurrency 1**: hamyon band bo‘lsa (`WALLET_BUSY`) `pay()` `NOT_SENT` qaytaradi va bu BullMQ urinishini sarflaydi; oxirgi urinishgacha band qolsa buyurtma HELD bo‘ladi. Bitta replika va concurrency 1 da hamyonni faqat shu jarayonning bitta run’i ushlaydi, shuning uchun bu amalda bo‘lmaydi. Replikalar qo‘shilishidan oldin WALLET_BUSY urinish sarflamasligi kerak (masalan, BullMQ `DelayedError` bilan kechiktirish yoki hamyon bo‘yicha alohida navbat) — bu shartsiz replika qo‘shilmaydi.
 
-**Simulyator (dry-run).** Adapterlar ro‘yxati bitta fabrikada (`adapter-registry.ts`): `DRY_RUN=true` va production emas → `FRAGMENT` (TON bilan to‘lanadi) va `RESELLER_STARS` (USDT); aks holda bo‘sh (har buyurtma HELD `NO_ADAPTER`; haqiqiy adapterlar S8). Simulyator konstruktorlari production’da va `DRY_RUN=false` da istisno tashlaydi. Ssenariylar: `OK`, `PRICE_UP` (narx ×2), `NOT_FOUND`, `NOT_SENT`, `UNKNOWN`, `TIMEOUT` (`simulator-script.ts`). Zanjir tomonidagi natijalar (tushdi, yo‘qoldi) `FakeTonGateway` da. Simulyator `providerRef` i `sim_<username>` — S3b `validate-recipient` simulyatori ham shuni beradi (normallashgan username bilan).
+**Simulyator (dry-run).** Adapterlar ro‘yxati bitta fabrikada (`adapter-registry.ts`): `DRY_RUN=true` va production emas → `FRAGMENT` (TON bilan to‘lanadi) va `RESELLER_STARS` (USDT); aks holda bo‘sh (har buyurtma HELD `NO_ADAPTER`; haqiqiy adapterlar S8). Simulyator konstruktorlari production’da va `DRY_RUN=false` da istisno tashlaydi. Ssenariylar: `OK`, `PRICE_UP` (narx ×2), `NOT_FOUND`, `NOT_SENT`, `UNKNOWN`, `TIMEOUT`, `GOT_PREMIUM` (`simulator-script.ts`). `GOT_PREMIUM` — faqat Premium mahsulotda: tekshiruv hali `FOUND`, lekin `prepare` `RECIPIENT_REFUSED` qaytaradi (kotirovkadan keyin Premium paydo bo‘ldi → `FAILED` + `REFUND` `RECIPIENT_GONE`). Fragment simulyatori mahsulot turini slug bo‘yicha oladi (`fragmentProductKind`): Premium faqat 3/6/12 oy, boshqa uzunlikda `prepare` `REFUSED` (HELD). Faqat dry-run’da noma’lum slug Stars deb narxlanadi (test katalogi o‘z slug’ini ishlatishi uchun); haqiqiy adapter buni qilmaydi. Zanjir tomonidagi natijalar (tushdi, yo‘qoldi) `FakeTonGateway` da. Simulyator `providerRef` i `sim_<username>` — S3b `validate-recipient` simulyatori ham shuni beradi (normallashgan username bilan).
 
 **Testlar.** `fulfill-crash.e2e-spec.ts` (to‘rt o‘lim nuqtasi, zanjirda bajarilgan ≤ 1), `fulfill-outcomes.e2e-spec.ts`, `fulfill-flow.e2e-spec.ts` (oqim, replay, parallel run’lar, DB fence, refund, run oxiri), `fulfill-retries.e2e-spec.ts` (`pay()` natijalari, chegara, ta’minotchi NOT_SENT → review), `fulfill-guards.e2e-spec.ts` (HAS_TRANSFER, PURCHASE yo‘q, yadrodagi `providerRef` tekshiruvi, allowlist’dan tashqari manzil, eng oxirgi urinish hold’i, rad etilgan SENDING → HELD), `fulfill-abandoned.e2e-spec.ts` (butunlay yiqilgan job: haqiqiy BullMQ Worker bilan ikki marta stalled va oxirgi urinishdagi istisno; `_abandoned` alerti haqiqiy review alertini yutmaydi; PAID dagi har yiqilish bir marta sanaladi), `fulfill-dry-run-net.e2e-spec.ts` (DB/Redis’dan boshqa tarmoq yo‘q).
 
@@ -463,11 +493,13 @@ Job hash’i ham, uning stream yozuvlari ham job tugaganidan keyin ko‘pi bilan
 
 **Simulyator username shakllari (dev va test, ssenariy `OK`).** Hammasi normallashgan shaklda (`@` siz, kichik harf):
 
-| Username      | Natija                                                              |
-| ------------- | ------------------------------------------------------------------- |
-| `notfound_*`  | `NOT_FOUND` (shunday qabul qiluvchiga `prepare` — `RECIPIENT_GONE`) |
-| `slowcheck_*` | 15 s kutadi (API kutishidan uzoq) → worker muddatida `UNAVAILABLE`  |
-| boshqasi      | `FOUND`, `providerRef = sim_<username>`, `displayName` = username   |
+| Username       | Natija                                                                                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notfound_*`   | `NOT_FOUND` (shunday qabul qiluvchiga `prepare` — `RECIPIENT_GONE`)                                                                                                                |
+| `slowcheck_*`  | 15 s kutadi (API kutishidan uzoq) → worker muddatida `UNAVAILABLE`                                                                                                                 |
+| `haspremium_*` | faqat Premium (`telegram-premium`): `REFUSED` `HAS_PREMIUM` (API `422 RECIPIENT_HAS_PREMIUM`), shunday qabul qiluvchiga `prepare` — `RECIPIENT_REFUSED`; boshqa mahsulotda `FOUND` |
+| `premiumext_*` | faqat Premium: `FOUND` + `PREMIUM_EXTENDS` ogohlantirishi; boshqa mahsulotda oddiy `FOUND`                                                                                         |
+| boshqasi       | `FOUND`, `providerRef = sim_<username>`, `displayName` = username                                                                                                                  |
 
 `username` maydoni yo‘q yoki bo‘sh — har ssenariyda `UNAVAILABLE` (savolning o‘zi buzilgan, fail-closed). Telegram username bo‘la olmaydigan qiymat (`x`, `1abc`) — `NOT_FOUND` (haqiqiy provider ham shunday ismli odamni topmaydi). FOUND berilgan har username uchun `prepare` qayta tekshiruvi `null`, shuning uchun dry-run buyurtma `RECIPIENT_CHANGED` bilan refund bo‘lmaydi. Ssenariylar (`NOT_FOUND`, `UNKNOWN`, `TIMEOUT`) avvalgidek.
 

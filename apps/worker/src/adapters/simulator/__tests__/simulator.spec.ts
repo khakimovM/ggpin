@@ -3,7 +3,8 @@ import { buildAdapterRegistry } from '../../../fulfillment/adapter-registry';
 import { tonInstructionOf } from '../../../fulfillment/fulfill-steps';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
 import type { PrepareContext } from '../../fulfillment-adapter';
-import { SimulatedFragmentAdapter, simulatedFragmentCost } from '../simulated-fragment.adapter';
+import { SIMULATED_STAR_NANO_TON } from '../simulated-fragment-prices';
+import { SimulatedFragmentAdapter } from '../simulated-fragment.adapter';
 import { SimulatedResellerAdapter } from '../simulated-reseller.adapter';
 import { SimulatorRefusedError, assertSimulatorAllowed } from '../simulator-guard';
 import {
@@ -57,7 +58,7 @@ describe('simulated Fragment', () => {
   it('prepares a TON instruction to the simulated payee for exactly the simulated price', async () => {
     const result = await fragment.prepare(context('o-ok'));
     if (result.status !== 'READY') throw new Error(`expected READY, got ${result.status}`);
-    const cost = simulatedFragmentCost({ id: null, quantity: 50 });
+    const cost = SIMULATED_STAR_NANO_TON * 50n;
     expect(result.prepared).toEqual(
       expect.objectContaining({ adapter: 'FRAGMENT', costCurrency: 'TON', costMinor: cost }),
     );
@@ -78,9 +79,7 @@ describe('simulated Fragment', () => {
     script.set('o-un', 'UNKNOWN');
     script.set('o-to', 'TIMEOUT');
     const up = await fragment.prepare(context('o-up'));
-    expect(up.status === 'READY' && up.prepared.costMinor).toBe(
-      2n * simulatedFragmentCost({ id: null, quantity: 50 }),
-    );
+    expect(up.status === 'READY' && up.prepared.costMinor).toBe(2n * SIMULATED_STAR_NANO_TON * 50n);
     expect(await fragment.prepare(context('o-nf'))).toEqual({ status: 'RECIPIENT_GONE' });
     expect(await fragment.prepare(context('o-ns'))).toEqual(
       expect.objectContaining({ status: 'REFUSED' }),

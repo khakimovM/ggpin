@@ -85,6 +85,14 @@ Buyurtma xabarlari (5-bosqich S6): kalitlar `bot.order.*`; tugma Mini App `/tg/o
 miqdorda `Nom × N`; `{recipient}` — `<code>Ism</code> (@username)`: ism (Telegram’dagi erkin matn) bosiladigan
 havolaga aylanmasligi uchun `<code>` ichida, `@username` oddiy matn (Telegram username naqshiga mos kelmasa,
 masalan eski yozuvdagi `t.me/x`, u ham `<code>` ichida); ism bo‘lmasa faqat `@username`.
+
+Premium misoli (6-bosqich; paket nomi oylar bilan, `bot.order.*` katalogi, `order-notify-premium.spec.ts` snapshot’i; Premium paketlari
+3, 6 va 12 oy). Qabul qilindi (uz): «🧾 #1042 buyurtma qabul qilindi: Telegram Premium (3 oylik) → <code>Test User</code>
+(@test_user)»; ru: «🧾 Заказ #1042 принят: Telegram Premium (3 месяца) → <code>Test User</code> (@test_user)». Yetkazildi (uz):
+«🎉 #1042 yetkazildi! Telegram Premium (3 oylik) → <code>Test User</code> (@test_user)»; ru: «🎉 Заказ #1042 выполнен! Telegram Premium
+(3 месяца) → <code>Test User</code> (@test_user)». 6 va 12 oyda faqat paket nomi o‘zgaradi («6 oylik», «12 oylik» / «6 месяцев»,
+«12 месяцев»). Kotirovkadan keyin qabul qiluvchida Premium paydo bo‘lib buyurtma qaytarilsa, mijozga oddiy «Muvaffaqiyatsiz»
+xabari boradi (sababi xabarda ko‘rsatilmaydi; u faqat admin voqealar tarixida).
 Botni bloklagan foydalanuvchiga yuborilmaydi. Buyurtma xabardagi holatdan o‘tib ketgan bo‘lsa (masalan,
 «qabul qilindi» kelguncha yetkazilgan), eski xabar yuborilmaydi. «Muvaffaqiyatsiz» summasi buyurtmaning
 `REFUND` yozuvidan olinadi; yetkazilgan buyurtmaning admin refundida bu xabar yuborilmaydi (o‘z xabari S10 da). Egaga

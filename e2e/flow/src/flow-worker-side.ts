@@ -33,11 +33,11 @@ import {
 import { overrideTon } from '../../../apps/worker/src/ton/__tests__/ton-overrides';
 import { dryRunTonWallet, type TonWallet } from '../../../apps/worker/src/ton/ton-wallet';
 
-// The fulfillment side of the order flow specs (phase 5 S11: Telegram Stars), in the same process
-// as the API on the shared `_test` Postgres + Redis DB 15, from the worker's OWN env object (never
-// the API's):
+// The fulfillment side of the order flow specs (phase 5 S11 Telegram Stars, phase 6 S6 Telegram
+// Premium), in the same process as the API on the shared `_test` Postgres + Redis DB 15, from the
+// worker's OWN env object (never the API's):
 // - RecipientsModule with its REAL BullMQ consumer of `validate-recipient`: the API's
-//   POST /recipients/validate is answered by the worker's lookup over the dry-run simulator;
+//   POST /recipients/validate is answered by the worker's lookup over the dry-run simulators;
 // - FulfillmentModule (with TonModule) on the in-memory chain (FakeTonGateway, a throw-away
 //   dry-run wallet, FULFILLMENT_DRY_RUN=true). Its BullMQ consumer is NOT opened: the
 //   `fulfill-order` job the API queued is read back by id and handed to a FulfillOrderProcessor

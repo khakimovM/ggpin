@@ -56,12 +56,19 @@ export type Auth = 'bearer' | 'cookie' | 'cookie+csrf' | 'none';
  * Stand-in for the worker's validate-recipient processor (S3b), answering by the username's
  * prefix like the simulator: `notfound_` NOT_FOUND, `unavail_` UNAVAILABLE, `slow_` FOUND too
  * late, `lag_` FOUND after 300 ms, `crash_` throws (a failed job), anything else FOUND with
- * `sim_<username>` as the provider handle.
+ * `sim_<username>` as the provider handle. For the Premium fixture only (phase 6, as the
+ * simulator): `haspremium_` REFUSED HAS_PREMIUM, `premiumext_` FOUND with PREMIUM_EXTENDS.
  */
-function fakeAnswer(username: string): RecipientCheckResult {
+function fakeAnswer(username: string, premium: boolean): RecipientCheckResult {
   if (username.startsWith('notfound_')) return { status: 'NOT_FOUND' };
   if (username.startsWith('unavail_')) return { status: 'UNAVAILABLE' };
-  return { status: 'FOUND', providerRef: `sim_${username}`, displayName: DISPLAY_NAME };
+  if (premium && username.startsWith('haspremium_')) {
+    return { status: 'REFUSED', reason: 'HAS_PREMIUM' };
+  }
+  const found = { providerRef: `sim_${username}`, displayName: DISPLAY_NAME };
+  return premium && username.startsWith('premiumext_')
+    ? { status: 'FOUND', ...found, notices: ['PREMIUM_EXTENDS'] }
+    : { status: 'FOUND', ...found };
 }
 
 // One app per file: the request logger is process-wide, so the log capture is fixed at boot.
@@ -107,7 +114,7 @@ export function useRecipientsE2e() {
             ? LAG_WORKER_MS
             : 0;
         if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
-        return fakeAnswer(username);
+        return fakeAnswer(username, request.productId === fixtures?.premium.id);
       },
       // No stalled-job checker: the stand-in never needs it, and a worker closed right after it
       // starts (the events-stream test restarts it just before afterAll) can lose the race in

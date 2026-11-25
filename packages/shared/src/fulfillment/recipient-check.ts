@@ -44,20 +44,43 @@ export const RecipientCheckRequestSchema = z.strictObject({
 export type RecipientCheckRequest = z.infer<typeof RecipientCheckRequestSchema>;
 
 /**
+ * Why a recipient who exists cannot receive the product (phase 6, owner Q1/Q3). `HAS_PREMIUM`:
+ * the account already has Telegram Premium and the provider refuses a gift to it. The API answers
+ * `422 RECIPIENT_HAS_PREMIUM` and issues no token.
+ */
+export const RECIPIENT_REFUSAL_REASONS = ['HAS_PREMIUM'] as const;
+export type RecipientRefusalReason = (typeof RECIPIENT_REFUSAL_REASONS)[number];
+
+/**
+ * A non-blocking remark the provider made about a recipient it found (phase 6, owner Q1/Q3).
+ * `PREMIUM_EXTENDS`: the account already has Premium and the gift extends it. The API turns each
+ * one into a `warnings[]` entry (recipient-warnings.ts); it never blocks the purchase.
+ */
+export const RECIPIENT_NOTICES = ['PREMIUM_EXTENDS'] as const;
+export type RecipientNotice = (typeof RECIPIENT_NOTICES)[number];
+
+/** At most this many notices on one answer: a provider bug cannot flood the response. */
+export const MAX_RECIPIENT_NOTICES = 4;
+
+/**
  * What the worker answers. `UNAVAILABLE` = the adapter could not tell (session dead, provider
  * down): the API answers 503, never "not found", so an outage cannot look like a missing user.
  * `FOUND.providerRef` is the provider's own handle of the recipient (Fragment's `recipient`
  * value). It is INTERNAL: it never reaches the client, it rides the recipient token and the
  * quote so fulfillment can check that the same recipient is still there (Q21).
+ * `REFUSED` = the recipient exists but cannot receive this product (a reason above); it carries
+ * no handle and no name, so nothing about the account can reach a token or the client.
  */
 export const RecipientCheckResultSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('FOUND'),
     providerRef: RecipientProviderRefSchema,
     displayName: RecipientSchema.shape.displayName,
+    notices: z.array(z.enum(RECIPIENT_NOTICES)).max(MAX_RECIPIENT_NOTICES).optional(),
   }),
   z.strictObject({ status: z.literal('NOT_FOUND') }),
   z.strictObject({ status: z.literal('UNAVAILABLE') }),
+  z.strictObject({ status: z.literal('REFUSED'), reason: z.enum(RECIPIENT_REFUSAL_REASONS) }),
 ]);
 export type RecipientCheckResult = z.infer<typeof RecipientCheckResultSchema>;
 

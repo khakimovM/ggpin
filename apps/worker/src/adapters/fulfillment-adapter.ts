@@ -102,6 +102,12 @@ export type PrepareResult =
    * providerRef to compare (`hasProviderRef` is false): never paid unchecked.
    */
   | { readonly status: 'RECIPIENT_CHANGED' | 'RECIPIENT_GONE' }
+  /**
+   * The recipient is still the validated one but can no longer receive the product (phase 6: Telegram
+   * Premium appeared after the quote, so Fragment refuses the gift). Nothing moved: FAILED + REFUND
+   * (fulfill-eligibility.ts), never HELD and never paid.
+   */
+  | { readonly status: 'RECIPIENT_REFUSED' }
   /** The provider asked for something we refuse (unknown pay address...): HELD, never paid. */
   | { readonly status: 'REFUSED'; readonly reason: string };
 

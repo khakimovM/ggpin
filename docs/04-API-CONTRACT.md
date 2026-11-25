@@ -317,7 +317,8 @@ belgi sifatida qidiriladi. Bo‘sh `q` — filtrsiz.
 shu mahsulot uchun va ishlatilganda o‘chmaydi: foydalanuvchi shu qabul qiluvchi
 uchun muddat ichida boshqa paketga ham kotirovka olishi mumkin. Token Redis'da faqat SHA-256
 xeshi bilan saqlanadi. Token faqat `/recipients/validate` qabul qiluvchini **topganda** beriladi
-(domen invarianti 8: foydalanuvchi ko‘rgan ism bilan kotirovka va buyurtma o‘rtasidagi yagona bog‘lovchi).
+(`422 RECIPIENT_NOT_FOUND` ham, `422 RECIPIENT_HAS_PREMIUM` ham token bermaydi: shu qabul qiluvchiga kotirovka olib bo‘lmaydi;
+domen invarianti 8: foydalanuvchi ko‘rgan ism bilan kotirovka va buyurtma o‘rtasidagi yagona bog‘lovchi).
 
 **`POST /recipients/validate`** — 5-bosqichda amalga oshirilgan (shakl D-56 (1) bo‘yicha yakuniy). Sessiya majburiy (cookie sessiyada `X-CSRF-Token` va `Origin`, Bearer’da kerak emas). Body `.strict()`:
 
@@ -339,8 +340,8 @@ xeshi bilan saqlanadi. Token faqat `/recipients/validate` qabul qiluvchini **top
 - Bir foydalanuvchida bir vaqtda faqat **bitta** tekshiruv ishlaydi: birinchisi tugamasdan yuborilgan ikkinchisi — `429 RATE_LIMITED`
   (`Retry-After` — birinchisi tugashi kerak bo‘lgan soniyalar, ko‘pi bilan 11).
 - Bir xil savol (shu mahsulot + shu normallashgan `input`) 60 soniyalik oyna ichida bitta ta’minotchi so‘rovi bilan javob oladi
-  (ikki foydalanuvchi bo‘lsa ham; har biri o‘z tokenini oladi). Javob 60 soniyadan eski bo‘lsa ishlatilmaydi. Faqat «topildi» va
-  «topilmadi» javoblari qayta ishlatiladi; `503` (ta’minotchi ishlamayapti, javob kelmadi) qayta ishlatilmaydi — keyingi so‘rov qaytadan
+  (ikki foydalanuvchi bo‘lsa ham; har biri o‘z tokenini oladi). Javob 60 soniyadan eski bo‘lsa ishlatilmaydi. «Topildi» (ogohlantirishlari
+  bilan), «topilmadi» va «rad etildi» (`RECIPIENT_HAS_PREMIUM`) javoblari qayta ishlatiladi; `503` (ta’minotchi ishlamayapti, javob kelmadi) qayta ishlatilmaydi — keyingi so‘rov qaytadan
   so‘raydi.
 - Javob `200` (qabul qiluvchi topildi):
 
@@ -359,9 +360,20 @@ xeshi bilan saqlanadi. Token faqat `/recipients/validate` qabul qiluvchini **top
 - `photoUrl` ixtiyoriy (rasm bo‘lmasa kalit yo‘q). **5-bosqichda qaytarilmaydi** (kalit javobda bo‘lmaydi): uchinchi tomon rasm
   hostlari va CSP xavfi tufayli; keyinroq proksi orqali qo‘shilishi mumkin. `recipientToken` — yuqoridagi qoidalar bilan (43 belgi, 10 daqiqa, shu foydalanuvchi va mahsulot).
 - `warnings[]` — qabul qiluvchi to‘g‘ri, lekin foydalanuvchi bilishi kerak bo‘lgan **bloklamaydigan** holatlar. Element: `{ "code": "…",
-"message": "warnings.…" }` (`message` — i18n kaliti). Hozircha hech qanday ogohlantirish yo‘q: doim `[]`. Qabul qiluvchi mahsulotni olmasa
-  (masalan «Premium allaqachon bor») bu bloklovchi `422 RECIPIENT_HAS_PREMIUM` bo‘lib qoladi; Fragment’ning haqiqiy xatti-harakati 5-bosqich
-  fixture’lari bilan tasdiqlanadi (`docs/06-FULFILLMENT.md`).
+"message": "warnings.…" }` (`message` — i18n kaliti; API matn yubormaydi, klient tarjima qiladi). Boshqa mahsulotlarda doim `[]`.
+  Hozir bitta kod bor va u faqat **Telegram Premium** mahsulotida (slug `telegram-premium`) chiqadi:
+
+  ```json
+  "warnings": [{ "code": "PREMIUM_EXTENDS", "message": "warnings.premiumExtends" }]
+  ```
+
+  `PREMIUM_EXTENDS` — qabul qiluvchida Premium allaqachon bor, sovg‘a muddatni **uzaytiradi**. Token beriladi, kotirovka va buyurtma
+  odatdagidek davom etadi. Bir javobda bir kod ko‘pi bilan bir marta.
+
+- Qabul qiluvchi mavjud, lekin mahsulotni qabul qila olmasa (Premium’da: ta’minotchi sovg‘ani rad etadi) — bu bloklovchi
+  `422 RECIPIENT_HAS_PREMIUM` (quyidagi jadval): **token berilmaydi**, javobda ism ham, `details` ham yo‘q. Holat bloklovchi yoki
+  ogohlantirish ekanini ta’minotchi javobi hal qiladi; Fragment’ning haqiqiy xatti-harakati hali fixture bilan tasdiqlanmagan
+  (`docs/suppliers/fragment.md` §6, `docs/06-FULFILLMENT.md`), shuning uchun kontraktda ikkala shakl ham bor.
 - Javob `Cache-Control: no-store`.
 
 | Status | Kod                            | Qachon                                                                                           |
@@ -371,6 +383,7 @@ xeshi bilan saqlanadi. Token faqat `/recipients/validate` qabul qiluvchini **top
 | 404    | `NOT_FOUND`                    | `productId` mavjud emas; cookie sessiyada CSRF/`Origin` noto‘g‘ri                                |
 | 422    | `PRODUCT_UNAVAILABLE`          | mahsulot faol emas; mahsulot formasi hozir tekshirib bo‘lmaydigan turda                          |
 | 422    | `RECIPIENT_NOT_FOUND`          | format to‘g‘ri, lekin Fragment/ta’minotchi bunday qabul qiluvchini topmadi                       |
+| 422    | `RECIPIENT_HAS_PREMIUM`        | faqat Premium: qabul qiluvchida Premium bor va ta’minotchi sovg‘ani rad etadi; token berilmaydi  |
 | 429    | `RATE_LIMITED` + `Retry-After` | 20 so‘rov / daqiqa / foydalanuvchi; yoki shu foydalanuvchining oldingi tekshiruvi hali tugamagan |
 | 503    | `RECIPIENT_CHECK_UNAVAILABLE`  | tekshiruv 10 soniyada tugamadi, worker yo‘q yoki ta’minotchi ishlamayapti                        |
 
@@ -433,6 +446,12 @@ Xatolar:
 | 503    | `PRICE_UNAVAILABLE`                          | kurs yoki tannarx yo‘q / 30 daqiqadan eski; hech narsa yozilmaydi                                                                                                     |
 
 Tekshiruv tartibi: limit → mahsulot → paket/miqdor → token → chegirma kodi → narx.
+
+**Telegram Premium.** Mahsulot turi slug bo‘yicha aniqlanadi (`telegram-premium`); paket miqdori — **oylar**, faqat 3, 6 yoki 12
+(`quantity` shu oylarni bildiradi; buyurtmada ham `order.quantity` = oylar). Kotirovka va buyurtma qabul qiluvchini qayta tekshirmaydi:
+token faqat `/recipients/validate` topgan qabul qiluvchiga beriladi (`RECIPIENT_HAS_PREMIUM` bo‘lsa token yo‘q, demak kotirovka ham
+yo‘q). Token olingandan keyin qabul qiluvchida Premium paydo bo‘lsa, buni yetkazish paytida worker aniqlaydi: buyurtma `FAILED` +
+`REFUND` (sabab `RECIPIENT_GONE`, izohda sababi), hech narsa yuborilmaydi (`docs/06-FULFILLMENT.md`). Kontrakt shakli o‘zgarmaydi.
 
 ## Buyurtmalar
 
@@ -574,15 +593,15 @@ vergul bilan ajratilgan bir nechtasi (`status=PAID,QUEUED`, klient yorliq guruhi
 
 **5-bosqich shakllari: tavsiyalar** (hujjatlar hal qilmagan savollar; ega tasdig‘i 5-bosqich rejasida):
 
-| #   | Savol                                    | Tavsiya                                                                                                                                       |
-| --- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q-A | «Premium allaqachon bor»                 | mavjud bloklovchi `422 RECIPIENT_HAS_PREMIUM` qoladi; `warnings[]` faqat bloklamaydigan holatlar uchun; haqiqiy Fragment javobi fixture bilan |
-| Q-B | buyurtma javobida `productName` tili     | katalogdagidek `?locale=` (`uz` yoki `ru`) (standart `uz`)                                                                                    |
-| Q-C | `GET /orders?status=`                    | vergul bilan ajratilgan bir nechta holat                                                                                                      |
-| Q-D | boshqa kalit bilan ishlatilgan kotirovka | `409 QUOTE_ALREADY_USED` + `details.orderId` (faqat o‘zining buyurtmasi)                                                                      |
-| Q-E | `/recipients/validate` limiti            | 20 so‘rov / daqiqa / foydalanuvchi                                                                                                            |
-| Q-F | `POST /orders` javobi                    | hujjatdagi `{ order }` o‘rami saqlanadi                                                                                                       |
-| —   | `Idempotency-Key` formati                | 8–128 belgi, `[A-Za-z0-9_-]`                                                                                                                  |
+| #   | Savol                                    | Tavsiya                                                                                                                                                                                                                            |
+| --- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q-A | «Premium allaqachon bor»                 | 6-bosqichda amalga oshirildi: ikkala shakl bor — bloklovchi `422 RECIPIENT_HAS_PREMIUM` (token yo‘q) va `warnings[]` da `PREMIUM_EXTENDS`; qaysi biri chiqishi ta’minotchi javobiga bog‘liq, haqiqiy Fragment javobi fixture bilan |
+| Q-B | buyurtma javobida `productName` tili     | katalogdagidek `?locale=` (`uz` yoki `ru`) (standart `uz`)                                                                                                                                                                         |
+| Q-C | `GET /orders?status=`                    | vergul bilan ajratilgan bir nechta holat                                                                                                                                                                                           |
+| Q-D | boshqa kalit bilan ishlatilgan kotirovka | `409 QUOTE_ALREADY_USED` + `details.orderId` (faqat o‘zining buyurtmasi)                                                                                                                                                           |
+| Q-E | `/recipients/validate` limiti            | 20 so‘rov / daqiqa / foydalanuvchi                                                                                                                                                                                                 |
+| Q-F | `POST /orders` javobi                    | hujjatdagi `{ order }` o‘rami saqlanadi                                                                                                                                                                                            |
+| —   | `Idempotency-Key` formati                | 8–128 belgi, `[A-Za-z0-9_-]`                                                                                                                                                                                                       |
 
 ## To‘lovlar (P2P karta, D-31, D-37)
 

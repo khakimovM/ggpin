@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import {
   ProductInputSchema,
   normalizeRecipientInput,
+  recipientWarningsOf,
   type ProductInput,
   type RecipientCheckResult,
+  type RecipientRefusalReason,
   type ValidateRecipientBody,
   type ValidateRecipientResponse,
 } from '@repo/shared';
@@ -24,7 +26,9 @@ export const recipientCheckLimitKey = (userId: string): string => `rl:rcpt:${use
  * confirms and a recipient token bound to (user, product) for 10 minutes. Domain invariant 8:
  * the token is the only link between the name the user saw and the quote and order that follow,
  * so it is issued ONLY for a recipient the provider found, carrying the provider's handle that
- * fulfillment re-checks before paying (Q21).
+ * fulfillment re-checks before paying (Q21). A recipient who exists but cannot receive the
+ * product (REFUSED, e.g. already has Premium) is a blocking 422 with no token; the provider's
+ * non-blocking notices (FOUND.notices) become `warnings[]` (phase 6, owner Q1/Q3).
  *
  * Order: limit, product, input, one-at-a-time slot, provider lookup, token. Nothing is written
  * before the lookup answers FOUND (an allow-list: any other answer, including one added to the
@@ -75,8 +79,9 @@ export class RecipientsService {
         { username, displayName: found.displayName },
         found.providerRef,
       );
-      // No photoUrl in phase 5 (plan Q12): third-party image hosts and CSP. No warning exists yet.
-      return { recipientToken, displayName: found.displayName, warnings: [] };
+      // No photoUrl in phase 5 (plan Q12): third-party image hosts and CSP.
+      const warnings = recipientWarningsOf(found.notices);
+      return { recipientToken, displayName: found.displayName, warnings };
     } finally {
       await slot.release();
     }
@@ -104,7 +109,7 @@ function parseInputSchema(product: RecipientProduct): ProductInput {
 type FoundRecipient = Extract<RecipientCheckResult, { readonly status: 'FOUND' }>;
 
 // Allow-list (audit L-3): only FOUND goes on to a token. A status added to the job contract later
-// (e.g. HAS_PREMIUM) breaks this switch at compile time instead of slipping through.
+// breaks this switch at compile time instead of slipping through (REFUSED was added this way).
 function foundOrThrow(result: RecipientCheckResult): FoundRecipient {
   switch (result.status) {
     case 'FOUND':
@@ -113,8 +118,20 @@ function foundOrThrow(result: RecipientCheckResult): FoundRecipient {
       throw new AppError('RECIPIENT_NOT_FOUND');
     case 'UNAVAILABLE':
       throw new AppError('RECIPIENT_CHECK_UNAVAILABLE');
+    case 'REFUSED':
+      return refused(result.reason);
     default:
       return unexpectedStatus(result);
+  }
+}
+
+// One error per refusal reason; a reason added later breaks this switch at compile time.
+function refused(reason: RecipientRefusalReason): never {
+  switch (reason) {
+    case 'HAS_PREMIUM':
+      throw new AppError('RECIPIENT_HAS_PREMIUM');
+    default:
+      return unexpectedStatus(reason);
   }
 }
 

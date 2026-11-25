@@ -79,7 +79,8 @@ function describeError(error: Error): string {
  * that does not parse) is `503 RECIPIENT_CHECK_UNAVAILABLE`: never "not found", so an outage can
  * never look like a missing user, and never a token for an unchecked recipient.
  *
- * Reuse: FOUND and NOT_FOUND stay on the job for the rest of its 60 s bucket. A job without such
+ * Reuse: FOUND, NOT_FOUND and REFUSED (a definite "cannot receive it", phase 6) stay on the job
+ * for the rest of its 60 s bucket. A job without such
  * an answer (no answer, failed, malformed, or UNAVAILABLE) is removed when no worker holds it, so
  * the next request asks again instead of reusing an outage (the worker's limiter protects the
  * provider) and jobs do not pile up while no worker runs.

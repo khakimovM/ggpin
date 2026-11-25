@@ -1274,6 +1274,9 @@
     "TOPUP_ALREADY_PENDING": "Sizda tugallanmagan to‘ldirish so‘rovi bor. Uni yakunlang yoki bekor qiling.",
     "PAYMENT_METHOD_UNAVAILABLE": "To‘ldirish usuli hozircha mavjud emas. Keyinroq qayta urinib ko‘ring."
   },
+  "warnings": {
+    "premiumExtends": "Bu foydalanuvchida Premium allaqachon bor. Sovg‘a muddatni uzaytiradi."
+  },
   "alerts": {
     "bankFeed": {
       "unrecognized": "⚠️ Bank xabari tanilmadi. Ko‘rib chiqish: {reviewId}",
