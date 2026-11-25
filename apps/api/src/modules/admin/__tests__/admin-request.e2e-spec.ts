@@ -58,10 +58,19 @@ describe('admin request shape (real app)', () => {
       const write = await t.request('POST', LOGOUT, headers, undefined, {});
       expect([name, write.statusCode]).toEqual([name, 404]);
     }
-    // S2-5: a browser request (Sec-Fetch-Site present) must carry Origin = ADMIN_URL.
+    // S2-5: a browser request (Sec-Fetch-Site present) must carry Origin = ADMIN_URL; the one
+    // exception, a same-origin read on ADMIN_URL's Host, is admin-same-origin.e2e-spec.ts.
     expect((await t.request('GET', ME, without(spa, 'origin'))).statusCode).toBe(404);
-    const sameOrigin = { ...without(spa, 'origin'), 'sec-fetch-site': 'same-origin' };
-    expect((await t.request('GET', ME, sameOrigin)).statusCode).toBe(404);
+    const sameOrigin = {
+      ...without(spa, 'origin'),
+      'sec-fetch-site': 'same-origin',
+      'sec-fetch-dest': 'empty',
+    };
+    const apiHost = { ...sameOrigin, host: 'api.ggpin.uz' };
+    expect((await t.request('GET', ME, apiHost)).statusCode).toBe(404);
+    expect((await t.request('HEAD', ME, apiHost)).statusCode).toBe(404);
+    const wrongPort = { ...sameOrigin, host: 'localhost:80' };
+    expect((await t.request('GET', ME, wrongPort)).statusCode).toBe(404);
     // Neither header (curl, a script): only the Origin rule applies, as before.
     const bare = without(without(without(spa, 'origin'), 'sec-fetch-site'), 'sec-fetch-mode');
     expect((await t.request('GET', ME, bare)).statusCode).toBe(200);

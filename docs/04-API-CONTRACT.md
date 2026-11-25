@@ -944,8 +944,21 @@ qo‘shiladi va to‘lov tasdiqlanganda shu tranzaksiyada TOPUP yoziladi, kotiro
   `Sec-Fetch-Mode: no-cors` yoki `navigate` — `404` (N5: boshqa sayt `<img>`/`<script>`/havola bilan Origin’siz GET yubora
   olmaydi; SPA har doim `fetch` — `cors` rejimi). So‘rovda `Sec-Fetch-Site` bo‘lsa (ya’ni brauzer), `Origin` ham majburiy
   va `ADMIN_URL` ga teng bo‘lishi shart — aks holda `404` (S2-5); ikkala sarlavha ham yo‘q bo‘lsa (CLI, curl) bu qoida
-  qo‘llanmaydi. Production’da `ADMIN_URL` origin’i `WEB_URL`, `MINI_APP_URL` va API’ning ommaviy origin’idan
-  (`TELEGRAM_WEBHOOK_URL` origin’i) farq qilishi va host
+  qo‘llanmaydi. **Bir origin (P11-S3, D-73 (10)).** Production’da admin API ochiq `api.ggpin.uz` da yo‘q (proxy `404`
+  beradi), u faqat SPA’ning o‘z origin’ida — `https://admin.ggpin.uz/api/v1/admin/*` (faqat WireGuard) — beriladi; SPA
+  `VITE_API_URL=https://admin.ggpin.uz/api/v1` bilan yig‘iladi. Brauzer bir origin’dagi `GET`/`HEAD` da `Origin`
+  yubormaydi, shuning uchun S2-5 dan bitta istisno bor: `Origin`’siz o‘qish faqat quyidagilarning **hammasi** bajarilsa
+  o‘tadi — metod `GET` yoki `HEAD`; `Sec-Fetch-Site` aynan `same-origin`; `Sec-Fetch-Mode` aynan `cors` yoki
+  `same-origin`; `Sec-Fetch-Dest` aynan `empty`; haqiqiy `Host` sarlavhasi (kichik harfga keltirilgan, faqat `https`
+  `ADMIN_URL` da ochiq yozilgan `:443` olib tashlanadi) aynan `ADMIN_URL` host’iga teng. `X-Forwarded-Host` o‘qilmaydi.
+  Takrorlangan sarlavha: Node birinchi `Host` ni oladi, qolganini tashlaydi (Caddy ikki `Host` ga o‘zi `400` beradi);
+  takrorlangan `Origin` yoki `Sec-Fetch-*` bitta `"a, b"` qiymatiga birlashadi va aniq solishtiruvdan o‘tmaydi — `404`.
+  `Sec-Fetch-Site: same-site` (masalan `ggpin.uz` dagi sahifa — u admin bilan bir saytda) yoki `none` (URL qo‘lda
+  yozilgan) va `Origin` yo‘q — `404`. Yozuvlarda istisno yo‘q: brauzer bir origin’dagi POST/PATCH da ham `Origin`
+  yuboradi, u `ADMIN_URL` ga teng bo‘lishi shart. Barcha admin `GET` yo‘llari
+  yon ta’sirsiz (OTP yubormaydi, holat o‘zgartirmaydi); yagona istisno — audit CSV eksporti (o‘zi audit qatori yozadi
+  va eksport hisoblagichini oshiradi, `HEAD` da `404`). Javob shakli o‘zgarmaydi. Production’da `ADMIN_URL` origin’i
+  `WEB_URL`, `MINI_APP_URL` va API’ning ommaviy origin’idan (`TELEGRAM_WEBHOOK_URL` origin’i) farq qilishi va host
   `BRAND.domain` ning subdomeni bo‘lishi shart, aks holda API ishga tushmaydi (S2-2). Audit CSV ham SPA’dan `fetch` + `Blob` bilan yuklanadi, to‘g‘ridan-to‘g‘ri
   havola emas. S2 e2e talablari: `Origin: WEB_URL` bilan admin GET → javobda `Access-Control-Allow-Origin` yo‘q va `404`;
   `Sec-Fetch-Mode: navigate` va `no-cors` bilan (to‘g‘ri sessiya cookie’si bilan ham) admin GET → `404`.

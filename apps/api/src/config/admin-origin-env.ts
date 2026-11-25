@@ -15,7 +15,10 @@ function urlOf(value: string | undefined): URL | null {
  *   - different from the store's origin (WEB_URL) and the Mini App's (MINI_APP_URL), or a store
  *     page could call admin routes with the admin Origin;
  *   - different from the API's own public origin (TELEGRAM_WEBHOOK_URL): the panel is a separate
- *     site that calls the API cross-origin (docs/02: admin.ggpin.uz -> api.ggpin.uz);
+ *     site; the P11-S3 proxy (`deploy/proxy/Caddyfile` on `feat/p11-launch`) serves the admin API
+ *     on the panel's own origin (admin.ggpin.uz/api/v1/admin/*, WireGuard only) and never on
+ *     api.ggpin.uz, so a page on the public API name is never ADMIN_URL's origin
+ *     (AdminCsrfGuard's same-origin read also checks Host);
  *   - a subdomain of the brand's domain (admin.ggpin.uz), the host the bot's code message names.
  * The messages name the rule, never the URL.
  */
