@@ -65,6 +65,12 @@ export interface RunOptions {
   readonly idArgs?: string[];
   /** Node command-line options the run pretends to have (I-4); none by default. */
   readonly execArgv?: string[];
+  /** Replaces the default `--cookies cookies.txt` value. */
+  readonly cookies?: string;
+  /** Replaces the home folder (the temp folder by default). */
+  readonly home?: string;
+  /** Replaces the working folder (the temp folder by default). */
+  readonly cwd?: string;
 }
 
 export async function runRecorder(
@@ -80,7 +86,7 @@ export async function runRecorder(
   const code = await fragmentRecordMain(
     [
       '--cookies',
-      'cookies.txt',
+      options.cookies ?? 'cookies.txt',
       '--username',
       `@${FAKE.username}`,
       ...(options.idArgs ?? ['--telegram-id', FAKE.telegramId]),
@@ -94,8 +100,8 @@ export async function runRecorder(
         return Promise.resolve();
       },
       now: () => new Date('2030-01-02T03:04:05.000Z'),
-      home: h.base(),
-      cwd: h.base(),
+      home: options.home ?? h.base(),
+      cwd: options.cwd ?? h.base(),
       stdout: (line) => stdout.push(line),
       stderr: (line) => stderr.push(line),
       env: options.env ?? { NODE_ENV: 'development' },

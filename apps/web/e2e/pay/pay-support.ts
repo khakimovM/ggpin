@@ -1,6 +1,6 @@
 import ru from '@repo/i18n/ru.json';
 import uz from '@repo/i18n/uz.json';
-import type { Page, TestInfo } from '@playwright/test';
+import { expect, type Page, type TestInfo } from '@playwright/test';
 import {
   INTENT_ID,
   PAY_TOKEN,
@@ -26,7 +26,20 @@ export interface OpenPay {
   payments?: PaymentsApiOptions;
 }
 
-/** Opens `/pay/<id>?locale=<lang>#t=<token>` the way the Mini App's `openLink` does. */
+/**
+ * How long the first screen may take after `goto` (the `load` event): hydration, then the first
+ * `GET /payments/pay/:id`, then the answer's screen. Measured on WebKit (webkit-390) with another
+ * heavy run going on the machine: median 0.7 s, but 13 of 80 loads over 5 s (max 6.5 s), all of it
+ * spent BEFORE hydration (Next's first `replaceState` came ~5 s after the scripts had loaded; the
+ * first request followed it within 0.3 s). The page does nothing slow of its own; the default 5 s
+ * expect budget is simply too short for a starved WebKit. Same 15 s as the state-change waits.
+ */
+export const PAY_FIRST_SCREEN_MS = 15_000;
+
+/**
+ * Opens `/pay/<id>?locale=<lang>#t=<token>` the way the Mini App's `openLink` does, and returns
+ * once the page has left its loading skeleton (whatever screen comes next is the test's to check).
+ */
 export async function openPay(page: Page, opts: OpenPay = {}): Promise<PaymentsApi> {
   const { lang = 'uz', scheme = 'light' } = opts;
   await page.addInitScript((stored) => window.localStorage.setItem('ggpin-theme', stored), scheme);
@@ -36,6 +49,10 @@ export async function openPay(page: Page, opts: OpenPay = {}): Promise<PaymentsA
   await page.goto(
     `/pay/${opts.payments?.intentId ?? INTENT_ID}${locale === null ? '' : `?locale=${locale}`}${hash === null ? '' : `#${hash}`}`,
   );
+  // The server-rendered skeleton is in the first HTML; it goes when the first answer has arrived.
+  await expect(page.locator('main [role="status"][aria-busy="true"]')).toHaveCount(0, {
+    timeout: PAY_FIRST_SCREEN_MS,
+  });
   return api;
 }
 

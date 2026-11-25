@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { parseTonAddress } from '../adapters/fragment/ton-address-forms';
+import { assertLocalForm } from './fragment-record-paths';
 
 // Arguments of `fragment:record` (plan S0b + fix rounds). Error messages name options, never
 // values: the inputs are a live session and personal data. The tool never writes into a repo:
@@ -171,20 +172,38 @@ export function parseFragmentRecordArgs(
     values['premium-holder-name'],
     username,
   );
-  const resolve = (value: string | undefined): string | null =>
-    value === undefined ? null : path.resolve(ctx.cwd, value);
-  const desktop = path.join(ctx.home, 'Desktop');
+  // Every string a path is built from is checked BEFORE it is joined or resolved: off Windows,
+  // `path.resolve`/`path.join` erase a UNC/device form (`//h/s` becomes `/h/s`). That covers the
+  // value, the cwd it is resolved against and the home the defaults live in (a UNC cwd or home
+  // makes a plain value or a default a network path), and the result once more. All are string
+  // checks, so a refusal here touches no file system (fragment-record-paths.ts, assertLocalForm).
+  const checked = (option: string, value: string): string => {
+    assertLocalForm(value, option);
+    return value;
+  };
+  const local = (option: string, value: string): string => {
+    checked(option, value);
+    if (!path.isAbsolute(value)) checked(option, ctx.cwd);
+    return checked(option, path.resolve(ctx.cwd, value));
+  };
+  const resolve = (option: string, value: string | undefined): string | null =>
+    value === undefined ? null : local(option, value);
+  const byDefault = (option: string, ...parts: string[]): string =>
+    checked(option, path.join(checked(option, ctx.home), 'Desktop', ...parts));
   return {
     ...holder,
-    cookiesFile: path.resolve(ctx.cwd, values.cookies),
+    cookiesFile: local('--cookies', values.cookies),
     username,
-    outDir: resolve(values.out) ?? path.join(desktop, 'ggpin-secrets', 'fragment-raw', stamp(ctx)),
+    outDir:
+      resolve('--out', values.out) ??
+      byDefault('--out', 'ggpin-secrets', 'fragment-raw', stamp(ctx)),
     fixturesDir:
-      resolve(values.fixtures) ?? path.join(desktop, 'ggpin-fixtures-staging', stamp(ctx)),
+      resolve('--fixtures', values.fixtures) ??
+      byDefault('--fixtures', 'ggpin-fixtures-staging', stamp(ctx)),
     confirmNoPayment,
     recipientAgeCheck,
-    tonConnectFile: resolve(values['ton-connect']),
-    redactFile: resolve(values.redact),
+    tonConnectFile: resolve('--ton-connect', values['ton-connect']),
+    redactFile: resolve('--redact', values.redact),
     telegramId,
     wallet,
     names,
