@@ -14,6 +14,16 @@ async function openProfile(page: Page, path = '/store/profile', theme: 'light' |
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme, { timeout: 15_000 });
 }
 
+// The rows of the sessions card only: since phase 8 S4 the store footer is a list too (the offer,
+// the privacy policy and the contacts), so a page-wide listitem count would include its links.
+const sessionRows = (page: Page) =>
+  page
+    .getByRole('heading', { level: 2, name: uz.web.sessions.title, exact: true })
+    .or(page.getByRole('heading', { level: 2, name: ru.web.sessions.title, exact: true }))
+    // The card is the heading's own parent (SessionsList.tsx); outer sections hold the footer too.
+    .locator('xpath=..')
+    .getByRole('listitem');
+
 test.describe('sessions list', () => {
   test('uz: devices, the current one marked, no end button on it', async ({ page }) => {
     const problems = watchPage(page);
@@ -23,7 +33,7 @@ test.describe('sessions list', () => {
     await expect(
       page.getByRole('heading', { level: 2, name: uz.web.sessions.title }),
     ).toBeVisible();
-    const rows = page.getByRole('listitem');
+    const rows = sessionRows(page);
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText('Chrome · Windows');
     await expect(rows.nth(0)).toContainText(uz.web.sessions.current);
@@ -57,11 +67,11 @@ test.describe('sessions list', () => {
   test('ending another device removes it from the list', async ({ page }) => {
     const api = await installFakeApi(page, { signedIn: true });
     await openProfile(page);
-    await expect(page.getByRole('listitem')).toHaveCount(3);
+    await expect(sessionRows(page)).toHaveCount(3);
 
     await page.getByRole('button', { name: /Safari · iOS/ }).click();
 
-    await expect(page.getByRole('listitem')).toHaveCount(2);
+    await expect(sessionRows(page)).toHaveCount(2);
     await expect(page.getByText('Safari · iOS')).toHaveCount(0);
     expect(api.count('DELETE /auth/sessions/:id')).toBe(1);
     expect(api.sessions.map((session) => session.id)).toEqual(['sess-current', 'sess-mac']);
@@ -72,11 +82,11 @@ test.describe('sessions list', () => {
   }) => {
     const api = await installFakeApi(page, { signedIn: true });
     await openProfile(page);
-    await expect(page.getByRole('listitem')).toHaveCount(3);
+    await expect(sessionRows(page)).toHaveCount(3);
 
     await page.getByRole('button', { name: uz.web.sessions.endAll }).click();
 
-    await expect(page.getByRole('listitem')).toHaveCount(1);
+    await expect(sessionRows(page)).toHaveCount(1);
     await expect(page.getByRole('button', { name: uz.web.sessions.endAll })).toHaveCount(0);
     expect(api.count('DELETE /auth/sessions/:id')).toBe(2);
     expect(api.sessions.map((session) => session.id)).toEqual(['sess-current']);
@@ -92,12 +102,12 @@ test.describe('sessions list', () => {
     await page.getByRole('button', { name: uz.web.sessions.endAll }).click();
 
     await expect(page.getByText(uz.web.sessions.endAllError)).toBeVisible();
-    await expect(page.getByRole('listitem')).toHaveCount(2); // the iPhone is gone, the Mac stays
+    await expect(sessionRows(page)).toHaveCount(2); // the iPhone is gone, the Mac stays
     expect(api.count('DELETE /auth/sessions/:id')).toBe(2);
 
     api.revokeFails.clear();
     await page.getByRole('button', { name: uz.common.retry }).click();
-    await expect(page.getByRole('listitem')).toHaveCount(1);
+    await expect(sessionRows(page)).toHaveCount(1);
     await expect(page.getByText(uz.web.sessions.endAllError)).toHaveCount(0);
     expect(api.count('DELETE /auth/sessions/:id')).toBe(3);
   });
@@ -121,7 +131,7 @@ test.describe('sessions list', () => {
     await end.focus();
     await expect(end).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('listitem')).toHaveCount(2);
+    await expect(sessionRows(page)).toHaveCount(2);
     expect(api.count('DELETE /auth/sessions/:id')).toBe(1);
   });
 });
@@ -179,7 +189,7 @@ test.describe('two tabs of one browser', () => {
     const tabB = await context.newPage();
     await openProfile(tabA);
     await openProfile(tabB);
-    await expect(tabB.getByRole('listitem')).toHaveCount(3);
+    await expect(sessionRows(tabB)).toHaveCount(3);
     const refreshesBefore = api.count('POST /auth/refresh');
 
     await tabA.getByRole('button', { name: uz.web.logout.action }).click();

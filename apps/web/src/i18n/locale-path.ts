@@ -1,4 +1,5 @@
-import { DEFAULT_LOCALE, LOCALES, type Locale } from '@repo/shared';
+import type { Locale } from '@repo/shared';
+import { DEFAULT_LOCALE_CLIENT, LOCALES_CLIENT } from './client-locales';
 import { localizedPath } from './paths';
 
 /**
@@ -7,7 +8,9 @@ import { localizedPath } from './paths';
  */
 export function stripLocale(pathname: string): `/${string}` {
   const first = pathname.split('/')[1];
-  const prefixed = LOCALES.find((locale) => locale !== DEFAULT_LOCALE && locale === first);
+  const prefixed = LOCALES_CLIENT.find(
+    (locale) => locale !== DEFAULT_LOCALE_CLIENT && locale === first,
+  );
   if (prefixed === undefined) return pathname === '' ? '/' : (pathname as `/${string}`);
   const rest = pathname.slice(prefixed.length + 1);
   return rest === '' ? '/' : (rest as `/${string}`);

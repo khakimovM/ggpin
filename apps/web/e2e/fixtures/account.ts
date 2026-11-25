@@ -19,6 +19,12 @@ export interface AccountApiOptions {
   orderCount?: number;
   /** `PATCH /me` answers an error. */
   patchFails?: boolean;
+  /**
+   * The moment the rows are dated from (epoch ms; default: the real time). The account openers pass
+   * `noonInTashkent()` and set the page clock to it, so the day headings never depend on the hour
+   * the suite runs.
+   */
+  now?: number;
 }
 
 export interface AccountApi {
@@ -40,6 +46,20 @@ const PRODUCTS = [
   { slug: 'pubg-mobile', name: 'PUBG Mobile', quantity: 660, total: '12075000' },
 ];
 const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+// Uzbekistan keeps UTC+5 all year (no daylight saving time since 1992).
+const TASHKENT_OFFSET = 5 * HOUR;
+
+/**
+ * 12:00 in Tashkent on the Tashkent day of `real`. The history groups rows by Tashkent day
+ * ("Bugun", "Kecha") and its newest row is dated an hour before "now": a run just after midnight in
+ * Tashkent (CI at 00:41) put that row on the day before. With the page clock and the rows both set
+ * from this moment the headings are the same at any hour; it is the same Tashkent day as the real
+ * time, so the year and any date the server renders still agree with the page.
+ */
+export function noonInTashkent(real = Date.now()): number {
+  return Math.floor((real + TASHKENT_OFFSET) / DAY) * DAY - TASHKENT_OFFSET + 12 * HOUR;
+}
 
 export function fakeOrder(index: number, now = Date.now()) {
   const product = PRODUCTS[index % PRODUCTS.length] ?? PRODUCTS[0];
@@ -95,6 +115,7 @@ export async function installAccountApi(
   let ordersMode = options.orders ?? 'ok';
   let ledgerMode = options.ledger ?? 'ok';
   const orderCount = options.orderCount ?? 25;
+  const now = options.now ?? Date.now();
   let gate: Promise<void> | null = null;
   let open: () => void = () => undefined;
   const hold = () => {
@@ -164,7 +185,7 @@ export async function installAccountApi(
     const all =
       ordersMode === 'empty'
         ? []
-        : Array.from({ length: orderCount }, (_, index) => fakeOrder(index)).filter(
+        : Array.from({ length: orderCount }, (_, index) => fakeOrder(index, now)).filter(
             (order) => wanted === undefined || wanted.includes(order.status),
           );
     return answerPage(route, all, url);
@@ -178,7 +199,9 @@ export async function installAccountApi(
     if (ledgerMode === 'slow' && gate) await gate;
     if (ledgerMode === 'error') return reply(route, 500, failure('INTERNAL_ERROR'));
     const all =
-      ledgerMode === 'empty' ? [] : Array.from({ length: 23 }, (_, index) => fakeLedger(index));
+      ledgerMode === 'empty'
+        ? []
+        : Array.from({ length: 23 }, (_, index) => fakeLedger(index, now));
     return answerPage(route, all, url);
   });
 

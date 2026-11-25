@@ -79,9 +79,12 @@ describe('parseClientEnv', () => {
         { production: true },
       ),
     ).toThrow(/NEXT_PUBLIC_SITE_URL must use https/);
-    expect(() =>
-      parseClientEnv({ ...valid, NEXT_PUBLIC_SUPPORT_URL: 'http://t.me/op' }, { production: true }),
-    ).toThrow(/NEXT_PUBLIC_SUPPORT_URL must use https/);
+    // The support link is https by its own t.me rule, in every mode (env-channel.test.ts).
+    for (const production of [true, false]) {
+      expect(() =>
+        parseClientEnv({ ...valid, NEXT_PUBLIC_SUPPORT_URL: 'http://t.me/op' }, { production }),
+      ).toThrow('must look like https://t.me/<handle>');
+    }
   });
 
   it('allows plain http in production only for a local host (e2e on localhost)', () => {

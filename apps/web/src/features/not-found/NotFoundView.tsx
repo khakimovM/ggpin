@@ -1,5 +1,5 @@
 import { Button } from '@repo/ui';
-import Link from 'next/link';
+import { PrivateLink } from '../../lib/PrivateLink';
 
 interface NotFoundViewProps {
   title: string;
@@ -11,7 +11,9 @@ interface NotFoundViewProps {
 /**
  * Site.dc.html `page: 404`: the big "404" in Unbounded (primary, the zero in the accent colour),
  * a heading, a sentence, and one way home. Shared by the website and the Mini App; the texts come
- * in as props (they are translated by whoever knows the language).
+ * in as props (they are translated by whoever knows the language). The way home is a PrivateLink:
+ * the Mini App's `/tg` stays a client-side move, the website's home page (a marketing page, with
+ * its analytics) is a full page load.
  */
 export function NotFoundView({ title, body, ctaLabel, href }: NotFoundViewProps) {
   return (
@@ -30,7 +32,7 @@ export function NotFoundView({ title, body, ctaLabel, href }: NotFoundViewProps)
           {body}
         </p>
         <Button asChild size="lg" className="mt-2">
-          <Link href={href}>{ctaLabel}</Link>
+          <PrivateLink href={href}>{ctaLabel}</PrivateLink>
         </Button>
       </div>
     </main>

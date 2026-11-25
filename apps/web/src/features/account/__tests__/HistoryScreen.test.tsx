@@ -1,7 +1,7 @@
 import type { LedgerItem, OrderDto, OrderStatus } from '@repo/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../lib/api/errors';
 import { getLedger } from '../../../lib/api/me';
 import { listOrders } from '../../../lib/api/orders';
@@ -15,7 +15,10 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/tg/history' }));
 const orders = vi.mocked(listOrders);
 const ledger = vi.mocked(getLedger);
 
-const NOW = Date.now();
+// The rows are grouped by Tashkent day: "now" is a fixed noon in Tashkent (07:00 UTC), so a row a
+// few minutes old is "Bugun" at any hour the suite runs (with the real time, not just after
+// midnight). Only Date is faked: the timers of findBy / waitFor run as usual.
+const NOW = Date.parse('2026-11-08T07:00:00.000Z');
 const minutesAgo = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
 
 function order(n: number, status: OrderStatus = 'DELIVERED', overrides: Partial<OrderDto> = {}) {
@@ -61,9 +64,12 @@ const findRows = () => waitFor(() => expect(rows().length).toBeGreaterThan(0)).t
 const findRow = async () => (await findRows())[0] as HTMLElement;
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
   orders.mockReset();
   ledger.mockReset();
 });
+afterEach(() => vi.useRealTimers());
 
 describe('HistoryScreen (Mini App)', () => {
   it('skeleton: a busy placeholder with a status text, while the first page loads', () => {
