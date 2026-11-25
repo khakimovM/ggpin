@@ -182,6 +182,11 @@ sudo wg show
 Mijoz (har qurilmada): `Address = 10.66.0.2/32`, `[Peer] PublicKey = <server public key>`, `Endpoint = <VPS_IP>:51820`,
 `AllowedIPs = 10.66.0.1/32` (faqat server trafigi VPN’dan o‘tadi), `PersistentKeepalive = 25`.
 
+**Yangi peer (qurilma) qo‘shish:** keyingi bo‘sh manzil (`10.66.0.4`, ...), `wg0.conf` ga `[Peer]` + `AllowedIPs = 10.66.0.N/32`,
+`sudo systemctl restart wg-quick@wg0`. **Caddyfile’ga ham qo‘shing:** `deploy/proxy/Caddyfile` dagi `@not_vpn not remote_ip` qatoriga
+`10.66.0.N/32`, keyin proxy qayta yaratiladi (`../proxy/README.md` §6) — aks holda admin panel yangi qurilmaga 404 beradi. Serverning o‘z
+manzili `10.66.0.1` u yerga hech qachon yozilmaydi.
+
 Panel firewall’iga **51820/udp ACCEPT** qo‘shing. **Tekshiruv:** VPN yoqilgan holda `ssh <owner>@10.66.0.1` ishlaydi. Shu ishlamaguncha
 5–6-qadamlarga o‘tmang.
 
@@ -237,7 +242,8 @@ va `ssh root@10.66.0.1` rad etiladi. Host kaliti fingerprint’ini panel konsoli
 
 ## 6. Firewall: ufw **va** Hostinger panel firewall’i (bir xil qoida, IPv4 va IPv6)
 
-Qoida: tashqaridan faqat **80/tcp, 443/tcp, 443/udp** (HTTP/3) va **WireGuard 51820/udp**. SSH (22) faqat `wg0` ichidan.
+Qoida: tashqaridan faqat **80/tcp, 443/tcp** va **WireGuard 51820/udp**. SSH (22) faqat `wg0` ichidan. HTTP/3 (443/udp) o‘chiq —
+sababi: [../proxy/README.md](../proxy/README.md) «HTTP/3».
 
 ```bash
 grep '^IPV6=' /etc/default/ufw           # IPV6=yes bo‘lishi shart (aks holda IPv6 umuman filtrlanmaydi)
@@ -246,14 +252,13 @@ sudo ufw default allow outgoing
 sudo ufw default deny routed
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-sudo ufw allow 443/udp
 sudo ufw allow 51820/udp
 sudo ufw allow in on wg0 to any port 22 proto tcp
 sudo ufw enable
 sudo ufw status verbose
 ```
 
-Hostinger panelida firewall’ni yakuniy holatga keltiring: **ACCEPT** 80/tcp, 443/tcp, 443/udp, 51820/udp; qolgan hammasi **DROP**;
+Hostinger panelida firewall’ni yakuniy holatga keltiring: **ACCEPT** 80/tcp, 443/tcp, 51820/udp; qolgan hammasi **DROP**;
 1-qadamdagi «22 — egasining IP’sidan» qoidasi **o‘chiriladi** (SSH endi WireGuard tunneli ichida keladi). IPv6 manzil bo‘lsa — u uchun ham.
 
 **Muhim — Docker ufw’ni chetlab o‘tadi.** `ports:` bilan publish qilingan har konteyner porti Docker’ning iptables zanjirlari orqali ochiladi,
@@ -269,6 +274,6 @@ sudo nmap -sU -Pn -p 51820 <VPS_IPv4>   # open|filtered (WireGuard notanish pake
 ssh <owner>@<VPS_IPv4>                  # ulanmaydi (timeout)
 ```
 
-S3 (Caddy) dan keyin 80/443 — `open`. VPN yoqilganda `ssh <owner>@10.66.0.1` ishlaydi. Shundan keyin root sessiyasini yopsa bo‘ladi.
+S3 (Caddy) dan keyin 80/443 — `open` (tcp; 443/udp yopiq qoladi). Proxy tekshiruvlari: [../proxy/README.md](../proxy/README.md). VPN yoqilganda `ssh <owner>@10.66.0.1` ishlaydi. Shundan keyin root sessiyasini yopsa bo‘ladi.
 
 Davomi: [README-2.md](README-2.md) — Docker, vaqt, swap/core dump, yangilanishlar, preflight, konteyner uid’lari, qurilma yo‘qolsa, E8.

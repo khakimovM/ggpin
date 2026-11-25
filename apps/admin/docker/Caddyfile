@@ -1,6 +1,6 @@
 # Static file server of the admin SPA image (apps/admin/Dockerfile). Internal only: TLS, the
 # public hostname, access logs and the VPN-only rule (D-73 (10)) belong to the reverse proxy.
-# {$ADMIN_API_ORIGIN} (e.g. https://api.ggpin.uz) is checked by docker/entrypoint.sh before Caddy
+# {$ADMIN_API_ORIGIN} (e.g. https://admin.ggpin.uz, the origin of VITE_API_URL) is checked by docker/entrypoint.sh before Caddy
 # starts: the CSP must never be built with an empty connect-src origin.
 {
 	admin off

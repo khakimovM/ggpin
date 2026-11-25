@@ -4,11 +4,13 @@
 # Proves the bootstrap of deploy/vps/README.md + README-2.md: Ubuntu 24.04, UTC + chrony, accounts
 # and sudo, SSH ed25519 keys only and only through WireGuard (D-73 (10)), ufw (IPv4 + IPv6),
 # listeners; then (preflight-runtime.sh) Docker, container uids, secret files, compose.env image
-# digests, runtime DB users, swap, core dumps, sysctl and unattended-upgrades.
+# digests, the proxy's ACME settings, runtime DB users, swap, core dumps, sysctl and unattended-upgrades.
 #
 # Usage:  sudo bash preflight.sh [--wg-if wg0] [--wg-port 51820] [--wg-addr 10.66.0.1]
 #                               [--secrets-dir /etc/ggpin/secrets] [--env-dir /etc/ggpin]
-#                               [--compose /opt/ggpin/compose.prod.yml] [--help]
+#                               [--compose /opt/ggpin/compose.prod.yml] [--allow-staging] [--help]
+# --allow-staging: only during the first-start staging ACME step (deploy/proxy/README.md §5); without
+#                  it a staging PROXY_ACME_CA in compose.env is a FAIL.
 # Exit:   0 = no FAIL (WARN lines still deserve a look), 1 = at least one FAIL, 2 = bad usage.
 # Root is needed for `sshd -T`, `ufw status`, `wg show` and reading other users' authorized_keys;
 # all of them only read. The output contains no secret (no key material, only key TYPES).
@@ -23,6 +25,7 @@ WG_ADDR="10.66.0.1"
 SECRETS_DIR="/etc/ggpin/secrets"
 ENV_DIR="/etc/ggpin"
 COMPOSE_FILE="/opt/ggpin/compose.prod.yml"
+ALLOW_STAGING=0
 # Container uids (H-1): never a host account. api, web, worker, bank-feed; admin runs as 65532.
 CONTAINER_UIDS="10001 10002 10003 10004"
 
@@ -36,6 +39,7 @@ while [ $# -gt 0 ]; do
     --secrets-dir) SECRETS_DIR="${2:-}"; shift 2 || { usage >&2; exit 2; } ;;
     --env-dir) ENV_DIR="${2:-}"; shift 2 || { usage >&2; exit 2; } ;;
     --compose) COMPOSE_FILE="${2:-}"; shift 2 || { usage >&2; exit 2; } ;;
+    --allow-staging) ALLOW_STAGING=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -191,7 +195,7 @@ if have ufw; then
   printf '%s\n' "$rules" | sed 's/^/      /'
   # Each ALLOW/LIMIT rule's "To" part, with "(v6)" removed: allowed are exactly the public ports
   # below, or anything restricted to "on <wg>". Ranges, "Anywhere" and other ports fail.
-  ok_public="^(80/tcp|443/tcp|443/udp|$WG_PORT/udp)$"
+  ok_public="^(80/tcp|443/tcp|$WG_PORT/udp)$"
   seen=""
   while IFS= read -r line; do
     to=$(printf '%s' "$line" | sed -E 's/[[:space:]]+(ALLOW|LIMIT)( IN| OUT)?[[:space:]].*$//' | sed -E 's/ \(v6\)//')

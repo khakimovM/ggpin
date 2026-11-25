@@ -140,11 +140,11 @@ sudo bash /root/preflight.sh | tee preflight-$(date -u +%F).txt      # preflight
 
 - Faqat o‘qiydi; kalit **turlari**ni chiqaradi, kalitlarning o‘zini emas. Kutilgan: `SUMMARY fail=0`; har `WARN` ni ko‘rib chiqing.
 - Parametrlar: `--wg-if wg0 --wg-port 51820 --wg-addr 10.66.0.1 --secrets-dir /etc/ggpin/secrets --env-dir /etc/ggpin
---compose /opt/ggpin/compose.prod.yml`.
+--compose /opt/ggpin/compose.prod.yml`; `--allow-staging` faqat proxy’ning staging ACME bosqichida (`../proxy/README.md` §5).
 - Tekshiradi: OS; UTC/chrony; uid 0 faqat root, NOPASSWD yo‘q, konteyner uid’lari va uid 1000 login akkaunt emas; `sshd -T` va har `AuthorizedKeysFile` (faqat
   ed25519); WireGuard va `/etc/wireguard` ruxsatlari; ufw (IPv6 ham; 80/443/51820 dan boshqa umumiy ALLOW, diapazon → FAIL); tinglayotgan
   manzillar (IPv6 link-local hisobga olinmaydi); Docker; ggpin konteynerlari uid’i; secret fayllar; `compose.env` dagi har `*_IMAGE` da
-  `@sha256:` bor; api/worker/bankfeed `DATABASE_URL` foydalanuvchisi superuser emas (faqat nom solishtiriladi); swap; core dump; sysctl;
+  `@sha256:` bor; `PROXY_TLS` e-mail (`internal` emas) va `PROXY_ACME_CA` da staging yo‘q; api/worker/bankfeed `DATABASE_URL` foydalanuvchisi superuser emas (faqat nom solishtiriladi); swap; core dump; sysctl;
   unattended-upgrades.
 
 Natija fayli va 6-qadamdagi `nmap` chiqishlari — S4 dalili. Shundan keyin (hali sir va ma’lumot yo‘q) panelda **snapshot**.
@@ -227,10 +227,11 @@ preflight tekshiradi); VPS’da `build` yo‘q. Har buyruq bir xil prefiks bilan
 C="sudo docker compose -p ggpin --env-file /etc/ggpin/compose.env -f /opt/ggpin/compose.prod.yml"
 $C pull                                   # registry’dan
 $C --profile migrate run --rm migrate     # migratsiya: alohida, aniq qadam (prisma migrate deploy), up’dan oldin
-$C up -d                                  # proxy’siz: S3 gacha hech qanday port ochilmaydi
+$C up -d                                  # proxy ham: 80/443 (tcp) ochiladi
 ```
 
-- `proxy` servisi `--profile proxy` ortida: S3 Caddyfile’ni qo‘shganda profil olib tashlanadi va oddiy `up -d` uni ham ko‘taradi.
+- `proxy` (Caddy) profilsiz: oddiy `up -d` uni ham ko‘taradi va 80/443 ni ochadi. Birinchi `up` dan oldin DNS, staging ACME va
+  tekshiruvlar: `deploy/proxy/README.md`.
 - `bankfeed` WORKER_ROLE kodi kelguncha **o‘chirilgan**: `up -d bankfeed` qilinsa ham konteyner xabar bilan darhol to‘xtaydi
   (`deploy/COMPOSE.md`).
 - `migrate reset` bu stack’da hech qachon ishlatilmaydi.
@@ -252,7 +253,8 @@ Ikkalasi ham rad etilishi shart. `preflight.sh` uid to‘qnashuvini va secret fa
 
 Darhol, shu tartibda (boshqa sherik bajaradi):
 
-1. **WireGuard:** `/etc/wireguard/wg0.conf` dan uning `[Peer]` bo‘limini o‘chirish, `sudo systemctl restart wg-quick@wg0`, `sudo wg show` — peer yo‘q.
+1. **WireGuard:** `/etc/wireguard/wg0.conf` dan uning `[Peer]` bo‘limini o‘chirish, `sudo systemctl restart wg-quick@wg0`, `sudo wg show` — peer yo‘q. Uning `/32` manzili `deploy/proxy/Caddyfile` dagi
+   `@not_vpn` dan ham olib tashlanadi va proxy qayta yaratiladi (`../proxy/README.md` §6).
 2. **SSH:** `/home/<u>/.ssh/authorized_keys` ni bo‘shatish; chiqib ketgan bo‘lsa `AllowUsers` dan olib tashlash va `sudo usermod -L -e 1 <u>`.
 3. **sudo paroli:** qurilma yo‘qolgan bo‘lsa — yangi parol (`passwd <u>` + `passwd -e <u>`).
 4. **Hostinger:** uning panel kirishini o‘chirish, 2FA va parolni almashtirish (0b-qadam).
@@ -288,8 +290,7 @@ S2, S5 va shu runbook tugagach. Batafsil: docs/05 runbook 1, 1a, 3a; D-73 (18).
 
 1. Worker image → uid 10003, bankfeed → 10004 (p5 merge’idan keyin); shundan keyingina haqiqiy worker/bankfeed kalitlari (12-qadam). O‘sha
    o‘zgarish bilan **docs/05 runbook 7** dagi `-o 1000 -g 1000` → 10003/10004 ga yangilanadi.
-2. S3 — Caddy: `ggpin.uz`, `api.ggpin.uz` ochiq; `admin.ggpin.uz` faqat WireGuard manzilidan; admin CSP p9 bundle bilan qayta
-   sinaladi; `proxy` profili olib tashlanadi.
+2. S3 (Caddy) bajarildi: `deploy/proxy/README.md`. Qolgani: admin CSP p9 bundle bilan qayta sinaladi (M-1/F18).
 3. S5 — sirlar (12-qadamdagidek; env fayllari `/etc/ggpin/` da 0600 root). S6 — runtime DB rollari, birinchi `up` dan oldin.
-4. Launch darvozasi (`p11-plan.md`), bu raundda emas: SA N-4 — Redis ACL kalit naqshlari; SA N-6 / N-10 — S3 da; N-8 — `*_FILE`
+4. Launch darvozasi (`p11-plan.md`), bu raundda emas: SA N-4 — Redis ACL kalit naqshlari; SA N-6 / N-10 — S3 da bajarildi; N-8 — `*_FILE`
    orqali sirlar (S5); N-11 — WORKER_ROLE kodi (bankfeed to‘xtatuvchisi shu bilan olinadi); N-13 — yopiq registry; N-14.

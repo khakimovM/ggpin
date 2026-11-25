@@ -6,11 +6,11 @@ set -eu
 
 origin="${ADMIN_API_ORIGIN:-}"
 if [ -z "$origin" ]; then
-  echo "admin: ADMIN_API_ORIGIN is required (e.g. https://api.ggpin.uz); not starting" >&2
+  echo "admin: ADMIN_API_ORIGIN is required (e.g. https://admin.ggpin.uz); not starting" >&2
   exit 1
 fi
 if ! printf '%s' "$origin" | grep -Eq '^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$'; then
-  echo "admin: ADMIN_API_ORIGIN must be an https origin like https://api.ggpin.uz (no path, no wildcard); not starting" >&2
+  echo "admin: ADMIN_API_ORIGIN must be an https origin like https://admin.ggpin.uz (no path, no wildcard); not starting" >&2
   exit 1
 fi
 

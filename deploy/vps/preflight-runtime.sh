@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # Sourced by preflight.sh (not run on its own): Docker, ggpin container users and secret files,
 # swap, core dumps, sysctl, automatic updates. READ-ONLY, like preflight.sh. Uses its helpers
-# (pass/warn/fail/section/have) and variables (CONTAINER_UIDS, SECRETS_DIR, ENV_DIR).
+# (pass/warn/fail/section/have) and variables (CONTAINER_UIDS, SECRETS_DIR, ENV_DIR, ALLOW_STAGING).
 
 # Login account = an /etc/passwd entry whose shell is not nologin/false. Defined here, where it is
 # used (container users, secret owners).
@@ -119,6 +119,35 @@ EOF
   [ "$nimg" -gt 0 ] || fail "$ENV_DIR/compose.env sets no *_IMAGE"
 else
   warn "$ENV_DIR/compose.env missing (S2): image digests not checked"
+fi
+
+# ---------------------------------------------------------------------------------------------
+section "Proxy ACME settings in $ENV_DIR/compose.env (a real account e-mail, production CA: K3)"
+# The last uncommented assignment wins, as in compose. Quotes are stripped. The e-mail itself is not
+# printed (it is personal data, not a secret, but has no place in a report).
+env_value() {
+  grep -E "^[[:space:]]*$1=" "$ENV_DIR/compose.env" | tail -n 1 | sed -E "s/^[[:space:]]*$1=//; s/^[\"']//; s/[\"'][[:space:]]*$//; s/[[:space:]]+$//"
+}
+if [ -r "$ENV_DIR/compose.env" ]; then
+  tls=$(env_value PROXY_TLS)
+  case "$tls" in
+    '') fail "PROXY_TLS is not set (the ACME account e-mail)" ;;
+    internal) fail "PROXY_TLS=internal: a self-signed local-test CA, never in production" ;;
+    *'<'*|*'>'*) fail "PROXY_TLS is still the example placeholder" ;;
+    ?*@?*.?*) pass "PROXY_TLS is an e-mail address" ;;
+    *) fail "PROXY_TLS is not an e-mail address (expected the owner's ACME account e-mail)" ;;
+  esac
+  ca=$(env_value PROXY_ACME_CA)
+  case "$ca" in
+    '') pass "PROXY_ACME_CA not set: compose default = Let's Encrypt production" ;;
+    *[Ss][Tt][Aa][Gg][Ii][Nn][Gg]*)
+      if [ "$ALLOW_STAGING" -eq 1 ]; then warn "PROXY_ACME_CA is a STAGING directory (--allow-staging: first-start step only)"
+      else fail "PROXY_ACME_CA is a STAGING directory: browsers do not trust its certificates (deploy/proxy/README.md §5)"; fi ;;
+    https://acme-v02.api.letsencrypt.org/directory) pass "PROXY_ACME_CA = Let's Encrypt production" ;;
+    *) warn "PROXY_ACME_CA is '$ca' (not Let's Encrypt production; CAA allows only letsencrypt.org)" ;;
+  esac
+else
+  warn "$ENV_DIR/compose.env missing (S2): proxy ACME settings not checked"
 fi
 
 # ---------------------------------------------------------------------------------------------

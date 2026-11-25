@@ -1,9 +1,10 @@
 #
 # ggpin admin image (apps/admin: React + Vite SPA) — static files behind a minimal Caddy server.
 # Build context = repo root. VITE_* values are inlined into the bundle at BUILD time, so staging and
-# production are separate builds:
+# production are separate builds. The SPA calls the admin API on its OWN origin: the reverse proxy
+# sends /api/v1/admin/* of the admin name to the API, behind WireGuard (deploy/proxy/Caddyfile, S3-1):
 #   docker build -f apps/admin/Dockerfile -t ggpin-admin \
-#     --build-arg VITE_API_URL=https://api.ggpin.uz/api/v1 --build-arg VITE_ENV_LABEL=PRODUCTION .
+#     --build-arg VITE_API_URL=https://admin.ggpin.uz/api/v1 --build-arg VITE_ENV_LABEL=PRODUCTION .
 # No VITE_* value is a secret (every value reaches the browser).
 #
 # Build stage: pinned Node digest + `npm ci --ignore-scripts` (worker Dockerfile pattern).
@@ -83,5 +84,6 @@ USER 65532:65532
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
-# Run time: ADMIN_API_ORIGIN=https://api.ggpin.uz (CSP connect-src); missing or invalid = no start.
+# Run time: ADMIN_API_ORIGIN=https://admin.ggpin.uz (CSP connect-src, = the origin of VITE_API_URL);
+# missing or invalid = no start.
 ENTRYPOINT ["/usr/local/bin/admin-entrypoint"]

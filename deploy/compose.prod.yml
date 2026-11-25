@@ -1,11 +1,6 @@
-# ggpin production stack (P11-S2). Design notes (networks, secrets and their uids, memory budget,
-# single replica, why bankfeed is disabled): deploy/COMPOSE.md. Owner runbook: deploy/vps/README-2.md
-# step 12. Explicit migration step BEFORE up; images by digest only, no build on the VPS:
-#
-#   C="sudo docker compose -p ggpin --env-file /etc/ggpin/compose.env -f /opt/ggpin/compose.prod.yml"
-#   $C pull && $C --profile migrate run --rm migrate && $C up -d
-#
-# Never `migrate reset` on this stack.
+# ggpin production stack (P11-S2/S3). Commands (explicit `migrate` BEFORE `up`, images by digest, no
+# build on the VPS) and every design note behind the short comments below: deploy/COMPOSE.md. Owner
+# runbook: deploy/vps/README-2.md step 12. Never `migrate reset` on this stack.
 
 name: ggpin
 
@@ -26,17 +21,15 @@ x-hardened: &hardened
 
 services:
   # ---------------------------------------------------------------------------------------------
-  # Reverse proxy (Caddy). Behind the `proxy` profile until P11-S3 adds deploy/proxy/Caddyfile (S3
-  # removes the profile): until then a plain `up -d` publishes nothing at all.
-  # Root inside the container with ONLY cap NET_BIND_SERVICE (ports 80/443 in the container, so
-  # Caddy's own HTTP->HTTPS redirects carry no port). Non-root + setcap -r is an S3 option.
-  # HTTP/3 (443/udp) is not published: ufw does not see Docker ports, decide it in S3.
+  # Reverse proxy (Caddy, deploy/proxy/). The only public service: 80/443 tcp. uid 65532, no
+  # capability (deploy/COMPOSE.md "Proxy").
   # ---------------------------------------------------------------------------------------------
   proxy:
     <<: *hardened
-    image: ${PROXY_IMAGE:-caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d}
-    profiles: [proxy]
-    cap_add: [NET_BIND_SERVICE]
+    image: ${PROXY_IMAGE:?set PROXY_IMAGE (registry digest of deploy/proxy/Dockerfile) in compose.env}
+    user: '65532:65532'
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
     ports:
       - '${PROXY_BIND_ADDR:-0.0.0.0}:${PROXY_HTTP_PORT:-80}:80'
       - '${PROXY_BIND_ADDR:-0.0.0.0}:${PROXY_HTTPS_PORT:-443}:443'
@@ -45,10 +38,15 @@ services:
       - caddy_data:/data
     tmpfs:
       - /tmp:size=64m,mode=1777
-      - /config:size=8m,mode=0700
+      - /config:size=8m,uid=65532,gid=65532,mode=0700
     environment:
       XDG_CONFIG_HOME: /config
       XDG_DATA_HOME: /data
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in compose.env}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in compose.env}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN in compose.env}
+      PROXY_TLS: ${PROXY_TLS:?set PROXY_TLS (the ACME account e-mail) in compose.env}
+      PROXY_ACME_CA: ${PROXY_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
     networks:
       ingress: {}
       edge:
@@ -57,7 +55,8 @@ services:
     depends_on:
       api: { condition: service_healthy }
       web: { condition: service_healthy }
-      admin: { condition: service_healthy }
+      # A broken admin must not keep the store and the API offline: the admin name answers 502.
+      admin: { condition: service_started, required: false }
     mem_limit: 256m
     pids_limit: 128
 
@@ -103,25 +102,22 @@ services:
     pids_limit: 256
 
   # ---------------------------------------------------------------------------------------------
-  # Admin SPA (static Caddy, uid 65532, :8080). ADMIN_API_ORIGIN goes into its CSP connect-src;
-  # the image refuses to start without a valid https origin. VPN-only access is the proxy's job (S3).
+  # Admin SPA (static Caddy, uid 65532, :8080). ADMIN_API_ORIGIN = the admin name itself (CSP
+  # connect-src; the SPA calls /api on its own origin). VPN-only: deploy/proxy/Caddyfile.
   # ---------------------------------------------------------------------------------------------
   admin:
     <<: *hardened
     image: ${ADMIN_IMAGE:?set ADMIN_IMAGE (registry digest) in compose.env}
     environment:
-      ADMIN_API_ORIGIN: ${ADMIN_API_ORIGIN:?set ADMIN_API_ORIGIN (e.g. https://api.ggpin.uz) in compose.env}
+      ADMIN_API_ORIGIN: ${ADMIN_API_ORIGIN:?set ADMIN_API_ORIGIN (e.g. https://admin.ggpin.uz) in compose.env}
     networks: [edge]
     stop_grace_period: 10s
     mem_limit: 64m
     pids_limit: 64
 
   # ---------------------------------------------------------------------------------------------
-  # Worker: fulfillment (Fragment/TON, suppliers), price sync, reconcilers, top-up matcher.
-  # The ONLY holder of the wallet keys. No published port, no HTTP surface. Health = its Redis
-  # heartbeat (image HEALTHCHECK). No `user:` here: the image decides. Its real keys go onto the VPS
-  # only once the image runs as uid 10003 (owner 10003 only; deploy/COMPOSE.md "Secrets").
-  # BANK_FEED_MODE is pinned off: the bank-feed listener belongs to the bankfeed container only.
+  # Worker: fulfillment, price sync, reconcilers, top-up matcher. The ONLY holder of the wallet keys;
+  # no port, no HTTP surface, BANK_FEED_MODE pinned off (deploy/COMPOSE.md "Worker").
   # ---------------------------------------------------------------------------------------------
   worker:
     <<: *hardened
@@ -149,11 +145,8 @@ services:
     pids_limit: 256
 
   # ---------------------------------------------------------------------------------------------
-  # Bank-feed listener (D-73 (6)): the worker image with WORKER_ROLE=bankfeed, only its own secrets
-  # (MTProto session + its key, owner uid 10004), egress to Telegram MTProto. One replica (D-52 (8)).
-  # DISABLED until the WORKER_ROLE code change: the profile alone does not stop `up -d bankfeed`, and
-  # today this container would be a second full worker (deploy/COMPOSE.md). The hard-stop command and
-  # restart "no" go away only together with that change and the uid-10004 image.
+  # Bank-feed listener (D-73 (6)), one replica. DISABLED until the WORKER_ROLE code change: hard-stop
+  # command + restart "no" (deploy/COMPOSE.md "bankfeed is disabled").
   # ---------------------------------------------------------------------------------------------
   bankfeed:
     <<: *hardened
@@ -183,9 +176,8 @@ services:
     pids_limit: 128
 
   # ---------------------------------------------------------------------------------------------
-  # One-shot `prisma migrate deploy` (apps/worker/Dockerfile target `migrate`). Explicit deploy
-  # step: `--profile migrate run --rm migrate`. data-workers network only; DATABASE_URL = the migration
-  # (DDL owner) role, separate from the runtime role (P11-S6).
+  # One-shot `prisma migrate deploy`, explicit step: `--profile migrate run --rm migrate`
+  # (deploy/COMPOSE.md "Migrate").
   # ---------------------------------------------------------------------------------------------
   migrate:
     <<: *hardened
