@@ -1,4 +1,10 @@
-import { ALERT_KINDS, BANK_FEED_ALERT_PARAMS, TOPUP_LIMIT_REASONS } from '@repo/shared';
+import {
+  ALERT_KINDS,
+  BANK_FEED_ALERT_PARAMS,
+  FULFILLMENT_ALERT_KINDS,
+  FULFILLMENT_ALERT_PARAMS,
+  TOPUP_LIMIT_REASONS,
+} from '@repo/shared';
 import { describe, expect, it } from 'vitest';
 import ru from '../ru.json';
 import uz from '../uz.json';
@@ -44,6 +50,39 @@ describe('owner alert texts (alerts.bankFeed.*)', () => {
   it.each(CATALOGS)('%s never prints a whole card number or message text', (_l, catalog) => {
     for (const text of Object.values(catalog.alerts.bankFeed)) {
       expect(text).not.toMatch(/\{(pan|number|cardNumber|text|balance|phone)\}/);
+    }
+  });
+});
+
+// An ICU argument with a type (`{count, plural, ...}`, `{x, select, ...}`): the bot renders
+// {name} only.
+const ICU_ARGUMENT = /\{\s*\w+\s*,/;
+
+describe('owner alert texts (alerts.fulfillment.*)', () => {
+  it('the ICU check catches an ICU text and lets a plain one through (m1)', () => {
+    expect('{count, plural, one {# item} other {# items}}').toMatch(ICU_ARGUMENT);
+    expect('{ status , select, a {x} other {y}}').toMatch(ICU_ARGUMENT);
+    expect('#{number} buyurtma, {amount}. Buyurtma: {ref}').not.toMatch(ICU_ARGUMENT);
+  });
+
+  it.each(CATALOGS)('%s texts take exactly the declared placeholders', (locale, catalog) => {
+    const texts: Record<string, unknown> = catalog.alerts.fulfillment;
+    for (const kind of FULFILLMENT_ALERT_KINDS) {
+      const text = texts[kind];
+      expect(typeof text, `${locale}:${kind}`).toBe('string');
+      expect(placeholders(String(text)), `${locale}:${kind}`).toEqual(
+        [...FULFILLMENT_ALERT_PARAMS[kind]].sort(),
+      );
+      expect(String(text), `${locale}:${kind}`).not.toMatch(ICU_ARGUMENT);
+    }
+  });
+
+  // Phase 5 S9 (D-64 (6), (7)): critical texts say so, and name the row the owner looks up.
+  it.each(CATALOGS)('%s phase 5 S9 alerts are marked critical', (_l, catalog) => {
+    const f = catalog.alerts.fulfillment;
+    for (const text of [f.orderNoPurchase, f.reconcileGuardRefused, f.tonLateConfirmed]) {
+      expect(text.startsWith('🚨 ')).toBe(true);
+      expect(text).toMatch(/\{ref\}$/);
     }
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { expectCheck } from './check-helpers';
 import { db } from './client';
 import { createOrder, createUser } from './factories';
+import { walkTo } from './order-fixtures';
 
 const createAdmin = () =>
   db.adminUser.create({ data: { telegramId: 42n, name: 'a', role: 'OWNER' } });
@@ -204,6 +205,7 @@ describe('catalog, promo and misc families', () => {
 
   it('FulfillmentAttempt: attemptNo >= 1 and non-negative cost', async () => {
     const order = await createOrder(await createUser());
+    await walkTo(order.id, 'PROCESSING'); // a payout starts for a PROCESSING order only
     const base = {
       orderId: order.id,
       adapter: 'FRAGMENT',

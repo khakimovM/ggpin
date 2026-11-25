@@ -1,4 +1,4 @@
-import { TG_USERNAME_PATTERN, type ValidateRecipientResponse } from '@repo/shared';
+import { normalizeTgUsername, type ValidateRecipientResponse } from '@repo/shared';
 import type { ApiErrorCode } from '../../lib/api/errors';
 import { retryDelaySec } from './retry-delay';
 
@@ -9,13 +9,16 @@ import { retryDelaySec } from './retry-delay';
 //   idle -> checking -> found -> confirmed
 //             |  |  |      |        `- (the server says the token is dead) -> expired
 //             |  |  |      `- (change) -> idle
-//             |  |  `- down / blocked (premium)
+//             |  |  `- down / busy (429) / blocked (premium)
 //             |  `- notfound / invalid
 //             `- (an edit at any point) -> idle
 //
 // `expired` is `idle` with a note: the token lives 10 minutes (docs/04) and a quote asked for with
 // a dead one answers RECIPIENT_INVALID. The username stays; the visitor looks it up and confirms
 // again (the person is shown again, it is never confirmed on the visitor's behalf).
+//
+// "An edit" means another person: `Aziz_K` and `aziz_k` are one Telegram user (the shared
+// canonical form), so changing one into the other keeps the check, the token and the confirmation.
 
 export type RecipientPhase =
   | 'idle'
@@ -25,6 +28,7 @@ export type RecipientPhase =
   | 'notfound'
   | 'invalid'
   | 'down'
+  | 'busy'
   | 'blocked'
   | 'expired';
 
@@ -37,12 +41,16 @@ export interface FoundRecipient {
 
 export interface RecipientState {
   phase: RecipientPhase;
-  /** As typed, without the leading "@". */
+  /**
+   * Exactly as typed, so the field never changes under the visitor's cursor. What is sent, shown
+   * on the cards and ordered is `canonicalUsername` of it, derived (never stored twice, so the
+   * two can never drift apart).
+   */
   username: string;
   /** Only in `found` and `confirmed`; it lives in memory and never in storage. */
   token: string | null;
   found: FoundRecipient | null;
-  /** Epoch ms before which a new check is refused (a 429 with Retry-After), else null. */
+  /** Epoch ms before which a new check is refused (`busy`: a 429 with Retry-After), else null. */
   retryAt: number | null;
 }
 
@@ -58,26 +66,33 @@ export type RecipientAction =
   | { type: 'edit'; username: string }
   | { type: 'invalid' }
   | { type: 'checking' }
-  | { type: 'found'; response: ValidateRecipientResponse }
+  /** `username`: the canonical name the answer is about; an answer about anyone else is ignored. */
+  | { type: 'found'; username: string; response: ValidateRecipientResponse }
   /** `at` is the time of the answer (epoch ms), so the reducer itself stays pure. */
-  | { type: 'failed'; code: ApiErrorCode; at: number; retryAfterSec?: number }
+  | { type: 'failed'; username: string; code: ApiErrorCode; at: number; retryAfterSec?: number }
   | { type: 'confirm' }
   | { type: 'expire' }
   | { type: 'reset' };
 
-/** "@aziz_k " -> "aziz_k". The field also strips what it cannot hold; this covers a paste. */
-export function normalizeUsername(raw: string): string {
-  return raw.trim().replace(/^@+/, '');
+/**
+ * The one canonical form, the server's own (shared `normalizeTgUsername`: spaces and one leading
+ * "@" dropped, lower-cased), or null when it is not a username. The page keeps no rule of its own.
+ */
+export function canonicalUsername(typed: string): string | null {
+  return normalizeTgUsername(typed);
 }
 
-export function isValidUsername(username: string): boolean {
-  return TG_USERNAME_PATTERN.test(username);
+/** Both name the same Telegram user (`Aziz_K`, ` @aziz_k`): going from one to the other is no edit. */
+export function sameRecipient(a: string, b: string): boolean {
+  const canonical = canonicalUsername(a);
+  return canonical !== null && canonical === canonicalUsername(b);
 }
 
 /**
  * The phase an error of `/recipients/validate` leads to. Codes that say something about the
- * person map to their own phase; everything else (the check is down, rate limited, offline, an
- * inactive product) is "could not check", which the visitor can simply retry.
+ * person map to their own phase. A 429 is `busy`: this visitor's previous check is still running
+ * on the server, or too many were asked; the visitor waits for Retry-After and retries. Everything
+ * else (the check is down, offline, an inactive product) is "could not check", retried at once.
  */
 export function phaseForFailure(code: ApiErrorCode): RecipientPhase {
   switch (code) {
@@ -89,26 +104,37 @@ export function phaseForFailure(code: ApiErrorCode): RecipientPhase {
     case 'RECIPIENT_HAS_PREMIUM':
       // A blocking 422 (docs/04 Q-A): no token was issued, so there is nothing to confirm.
       return 'blocked';
+    case 'RATE_LIMITED':
+      return 'busy';
     default:
       return 'down';
   }
 }
 
+// Depth behind the hook's generation guard: even an answer that slipped through cannot land on a
+// different person than the one in the field.
+function answersCurrent(state: RecipientState, username: string): boolean {
+  return state.phase === 'checking' && canonicalUsername(state.username) === username;
+}
+
 export function recipientReducer(state: RecipientState, action: RecipientAction): RecipientState {
   switch (action.type) {
     case 'edit': {
-      const username = normalizeUsername(action.username);
-      // Typing the same text again keeps what was learned about it.
-      if (username === state.username) return state;
-      return { ...INITIAL_RECIPIENT, username };
+      if (action.username === state.username) return state;
+      // The same person in another spelling keeps what was learned about them; the field still
+      // shows exactly what was typed.
+      if (sameRecipient(action.username, state.username)) {
+        return { ...state, username: action.username };
+      }
+      return { ...INITIAL_RECIPIENT, username: action.username };
     }
     case 'invalid':
       return { ...state, phase: 'invalid', token: null, found: null };
     case 'checking':
       return { ...state, phase: 'checking', token: null, found: null, retryAt: null };
     case 'found': {
-      // An answer only matters to the check that is waiting for it.
-      if (state.phase !== 'checking') return state;
+      // An answer only matters to the check that is waiting for it, about the person typed now.
+      if (!answersCurrent(state, action.username)) return state;
       const { recipientToken, displayName, photoUrl, warnings } = action.response;
       return {
         ...state,
@@ -118,14 +144,14 @@ export function recipientReducer(state: RecipientState, action: RecipientAction)
       };
     }
     case 'failed': {
-      if (state.phase !== 'checking') return state;
+      if (!answersCurrent(state, action.username)) return state;
+      const phase = phaseForFailure(action.code);
+      // Only `busy` waits: the server named when it will take a check again.
       const retryAt =
-        action.code === 'RATE_LIMITED'
-          ? action.at + retryDelaySec(action.retryAfterSec) * 1000
-          : null;
+        phase === 'busy' ? action.at + retryDelaySec(action.retryAfterSec) * 1000 : null;
       return {
         ...state,
-        phase: phaseForFailure(action.code),
+        phase,
         token: null,
         found: null,
         retryAt,

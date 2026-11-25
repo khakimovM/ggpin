@@ -450,6 +450,7 @@
         "invalid": "Username 5–32 ta lotin harf, raqam yoki _ dan iborat bo‘ladi",
         "notFound": "Bunday foydalanuvchi topilmadi. Usernameni tekshiring.",
         "down": "Tekshirib bo‘lmadi. Birozdan so‘ng qayta urinib ko‘ring.",
+        "busy": "Tekshiruv hozir band. Bir oz kutib, qayta urinib ko‘ring.",
         "prompt": "To‘g‘ri odammi? Tasdiqlang",
         "confirm": "Ha, shu",
         "change": "O‘zgartirish",
@@ -1222,6 +1223,20 @@
       "topupLateCredited": "✅ Kechikkan to‘lovingiz hisobga tushdi: {amount}\nBalans: {balance}",
       "topupButton": "➕ Hisobni to‘ldirish",
       "openTopup": "💳 Hisobni to‘ldirish uchun quyidagi tugmani bosing."
+    },
+    "order": {
+      "accepted": "🧾 #{number} buyurtma qabul qilindi: {product} → {recipient}",
+      "delivered": "🎉 #{number} yetkazildi! {product} → {recipient}",
+      "reviewing": "⏳ #{number} tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz.",
+      "failedRefunded": "⚠️ #{number} bajarilmadi. {amount} balansingizga qaytarildi.",
+      "viewButton": "Buyurtmani ko‘rish",
+      "recipient": {
+        "nameAndUsername": "<code>{name}</code> (@{username})",
+        "name": "<code>{name}</code>",
+        "username": "@{username}",
+        "nameAndOddUsername": "<code>{name}</code> (<code>@{username}</code>)",
+        "oddUsername": "<code>@{username}</code>"
+      }
     }
   },
   "fields": {
@@ -1318,16 +1333,50 @@
       "setupFailed": "🟠 Bot sozlamalari (buyruqlar, menyu) o‘rnatilmadi (urinish: {attempt}). Webhook o‘rnatilgan, sozlash fonda qayta uriniladi."
     },
     "ownerConfirm": {
-      "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
+      "code": "🔐 Ega amalini tasdiqlash kodi: {code}\nAmal: {action}, summa: {amount}, obyekt: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring.",
+      "fxCode": "🔐 Kurs tasdiqlash kodi: {code}\nKurs: {target}, tasdiqlanadigan belgilar: {flags}.\nKod 3 daqiqa amal qiladi va bir marta ishlatiladi. Bu amalni siz boshlamagan bo‘lsangiz, kodni hech kimga bermang va serverga kirishlarni tekshiring."
     },
     "reconcileHistory": {
       "ok": "bajarildi",
       "unavailable": "bajarilmadi, bank xabarlari mijozi yoki bot id sozlanmagan yoki bu worker hozir lider emas",
       "failed": "bajarilmadi, xato bilan tugadi"
     },
+    "adminActionDetail": {
+      "FX_SET": "FX_SET {pair}: {from} → {to} ({bps} bps)"
+    },
     "limitReason": {
       "DAILY_LIMIT": "barcha akkaunt: kuniga {cap}",
       "NEW_ACCOUNT_DAILY_LIMIT": "yangi akkaunt: kuniga {cap}"
+    },
+    "fulfillment": {
+      "needsReview": "🟠 #{number} buyurtma tekshiruvga tushdi (NEEDS_REVIEW): {product}. Sabab: {reason}. Pul chiqqan yoki chiqmagani nomaʼlum, runbook bo‘yicha tekshiring. Buyurtma: {ref}",
+      "held": "🟡 #{number} buyurtma to‘xtatildi (HELD): {product}. Sabab: {reason}. Buyurtma: {ref}",
+      "heldReason": {
+        "priceAboveMax": "tannarx ruxsat etilgan chegaradan oshdi",
+        "limitPerOrder": "bitta buyurtma uchun TON limiti",
+        "limitDaily": "kunlik TON limiti",
+        "lowBalance": "hamyonda TON yetarli emas",
+        "noAdapter": "ishlaydigan yetkazish kanali yo‘q",
+        "adapterError": "yetkazish kanali xatosi"
+      },
+      "heldExpiredRefunded": "↩️ #{number} buyurtma juda uzoq to‘xtab qoldi va bekor qilindi: {product}. Mijozga {amount} qaytarildi. Buyurtma: {ref}",
+      "reviewResolved": "✅ #{number} buyurtma tekshiruvi yopildi. Yangi holat: {status}. Buyurtma: {ref}",
+      "fragmentSessionDead": "🔴 Fragment sessiyasi ishlamay qoldi. Stars va Premium buyurtmalari to‘xtatiladi. Sessiyani yangilang (runbook).",
+      "fragmentSessionRestored": "🟢 Fragment sessiyasi tiklandi. Buyurtmalar yana bajariladi.",
+      "fragmentAdapterDown": "🔴 Fragment nomaʼlum javob qaytardi, adapter o‘chirildi. Yangi buyurtmalar to‘xtatildi, tuzatish kerak.",
+      "tonLowBalance": "🟠 TON hamyonda mablag‘ kam: {balance} ({address}). Hamyonni to‘ldiring.",
+      "tonDailyLimit": "🟡 Kunlik TON limiti #{number} buyurtmani to‘xtatdi. Limitni tekshiring. Buyurtma: {ref}",
+      "tonSeqnoUnmatched": "🚨 KRITIK: TON hamyonning seqno {seqno} raqami bizga nomaʼlum xabar bilan ishlatildi (#{number} buyurtma, {amount}). Kalitni boshqa kimdir ishlatgan bo‘lishi mumkin. Yuborishlarni to‘xtating. Transfer: {ref}",
+      "tonConsumedUnmatched": "🚨 KRITIK: #{number} buyurtma transferi (seqno {seqno}, {amount} → {to}) aniqlanmadi, pul chiqib ketgan bo‘lishi mumkin. Avtomatik refund yo‘q, qo‘lda tekshiring (runbook). Transfer: {ref}",
+      "tonBounced": "🚨 KRITIK: #{number} buyurtma uchun TON to‘lovi ({amount} → {to}) qaytib keldi (bounce). Buyurtma tekshiruvda. Transfer: {ref}",
+      "tonWalletBlocked": "🚨 KRITIK: TON hamyon bloklandi. #{number} buyurtma transferi (seqno {seqno}, {amount}) hal bo‘lmadi, keyingi TON to‘lovlari kutib turibdi. Transfer: {ref}",
+      "tonWalletCompromised": "🚨 XAVFSIZLIK: TON hamyondan pul begona manzilga ketgan. Hamyonni buzilgan deb hisoblang: yuborishlarni to‘xtating (TON limitlarini 0 qiling) va kalitlarni almashtiring. Transfer: {ref}",
+      "tonWitnessConflict": "🚨 KRITIK: asosiy manba #{number} buyurtma transferi (seqno {seqno}) yuborilmagan dedi, ikkinchi zanjir manbai esa uni ko‘rdi. Buyurtma tekshiruvda: manbalardan biri noto‘g‘ri yoki orqada qolgan. Transfer: {ref}",
+      "queueStuck": "🟠 Yetkazish navbati {minutes} daqiqadan ko‘p turib qoldi: #{number} buyurtma hali ishga olinmagan. Worker ishlayotganini tekshiring. Buyurtma: {ref}",
+      "workerDown": "🔴 Worker {minutes} daqiqadan beri javob bermayapti (heartbeat yo‘q). Buyurtmalar va to‘ldirishlar bajarilmaydi.",
+      "orderNoPurchase": "🚨 KRITIK: #{number} buyurtmaning to‘lov (PURCHASE) yozuvi topilmadi yoki summasi mos emas: {product}. Hech narsa yuborilmadi, buyurtma to‘xtatildi. Bu pul anomaliyasi — ledgerʼni tekshiring. Buyurtma: {ref}",
+      "reconcileGuardRefused": "🚨 KRITIK: reconcile #{number} buyurtmani yozolmadi — baza qo‘riqchisi rad etdi (holat: {status}). Avtomatik qayta urinilmaydi, qo‘lda tekshiring. Buyurtma: {ref}",
+      "tonLateConfirmed": "🚨 KRITIK: #{number} buyurtmaning «yuborilmagan» deb hisoblangan TON transferi (seqno {seqno}, {amount} → {to}) zanjirda keyin topildi. Buyurtma holati: {status}. Pul ikki marta chiqqan bo‘lishi mumkin. Transfer: {ref}"
     }
   }
 }

@@ -1,5 +1,10 @@
 import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import { assertProductionDatabase, createPrismaClient, type PrismaClient } from '@repo/db';
+import {
+  assertProductionDatabase,
+  assertUtcTimeZone,
+  createPrismaClient,
+  type PrismaClient,
+} from '@repo/db';
 import { WORKER_CONFIG, type WorkerConfig } from '../../config/config.module';
 
 // Repositories are the only consumers (rules/20-database-prisma.md): they use `prisma.client`.
@@ -19,9 +24,13 @@ export class PrismaService implements OnModuleInit, OnApplicationShutdown {
   // D-52 r2 (symmetric to the dev-tool guard): a production process refuses to boot on a database
   // named *_dev / *_test or carrying the dev marker ggpin.env = dev, so a production container
   // pointed at a dev/test database (or the reverse mix-up) fails loudly at boot. Only production
-  // connects here; dev and test keep the lazy connection.
+  // connects here; dev and test keep the lazy connection. The same boot also checks the session's
+  // TimeZone is UTC (audit L1, phase 5 S4 / R4-9): the payout path reads clocks as values, and
+  // `createPrismaClient` pins UTC; this catches a URL option or a proxy that overrode the pin.
   async onModuleInit(): Promise<void> {
-    if (this.production) await assertProductionDatabase(this.client);
+    if (!this.production) return;
+    await assertProductionDatabase(this.client);
+    await assertUtcTimeZone(this.client);
   }
 
   // onApplicationShutdown, not onModuleDestroy: Nest calls onModuleDestroy FIRST, while the HTTP

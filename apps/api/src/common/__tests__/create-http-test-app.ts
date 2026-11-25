@@ -24,10 +24,16 @@ export async function createHttpTestApp(
 ): Promise<NestFastifyApplication> {
   // Silent unless a test captures logs: keeps the test output readable.
   const env = buildTestEnv({ LOG_LEVEL: 'silent', ...options.env });
-  const healthRepository = {
+  // Every method of the real repository (a missing one reads as a failed check: 'down').
+  const healthRepository: Pick<
+    HealthRepository,
+    'pingDatabase' | 'pingRedis' | 'workerHeartbeatPresent' | 'fragmentHealth'
+  > = {
     pingDatabase: () => Promise.resolve(),
     pingRedis: () => Promise.resolve(),
     workerHeartbeatPresent: () => Promise.resolve(true),
+    // No keep-alive value in Redis: 'disabled' (phase 5 S7).
+    fragmentHealth: () => Promise.resolve(null),
   };
   const moduleRef = await withFakeInfra(
     Test.createTestingModule({

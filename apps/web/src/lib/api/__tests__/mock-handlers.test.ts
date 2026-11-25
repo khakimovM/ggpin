@@ -11,6 +11,7 @@ import type { z } from 'zod';
 import { parseResponse } from '../envelope';
 import { TEST_IDEMPOTENCY_KEY } from './helpers';
 import { MOCK_RECIPIENT } from '../mock/fixtures/orders';
+import { RECIPIENT_BUSY_RETRY_SEC } from '../mock/handlers/recipients';
 import type { MockScenario } from '../mock/router';
 import { createMockTransport } from '../mock/transport';
 import type { HttpMethod } from '../transport';
@@ -113,6 +114,19 @@ describe('mock handlers answer in the real contract shape', () => {
     expect(extends_.data.warnings).toEqual([
       { code: 'PREMIUM_EXTENDS', message: 'warnings.premiumExtends' },
     ]);
+    // docs/04: the previous check of this user is still running -> 429 + Retry-After.
+    const busy = await call({
+      method: 'POST',
+      path: '/recipients/validate',
+      body: recipientBody,
+      scenario: 'recipientBusy',
+    });
+    expect(busy.status).toBe(429);
+    expect(busy.retryAfter).toBe(String(RECIPIENT_BUSY_RETRY_SEC));
+    expect(busy.body).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    expect(() => parseResponse(busy, ValidateRecipientResponseSchema, NOW.getTime())).toThrow(
+      expect.objectContaining({ code: 'RATE_LIMITED', retryAfterSec: RECIPIENT_BUSY_RETRY_SEC }),
+    );
 
     const quoteBody = {
       productId: 'prod_stars',

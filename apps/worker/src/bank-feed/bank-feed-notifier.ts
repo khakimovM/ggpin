@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import {
+  NOTIFY_JOB_NAME,
   QUEUES,
   notifyJobId,
   notifyJobSchema,
@@ -8,9 +9,6 @@ import {
   type NotifyJob,
 } from '@repo/shared';
 import type { Queue } from 'bullmq';
-
-/** Same job name as the API's producers (payments-alerts.ts); the API consumer ignores it. */
-export const NOTIFY_JOB_NAME = 'notify';
 
 /**
  * Worker -> API notifications (`notify` queue, notify.ts in shared). Jobs carry ids only: the

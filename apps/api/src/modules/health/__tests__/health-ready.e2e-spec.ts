@@ -1,6 +1,6 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { WORKER_HEARTBEAT_KEY } from '@repo/shared';
+import { FRAGMENT_HEALTH_KEY, WORKER_HEARTBEAT_KEY } from '@repo/shared';
 import { Redis } from 'ioredis';
 import request from 'supertest';
 import { AppModule } from '../../../app.module';
@@ -63,11 +63,11 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
   });
 
   beforeEach(async () => {
-    await redis.del(WORKER_HEARTBEAT_KEY);
+    await redis.del(WORKER_HEARTBEAT_KEY, FRAGMENT_HEALTH_KEY);
   });
 
   afterAll(async () => {
-    await redis.del(WORKER_HEARTBEAT_KEY);
+    await redis.del(WORKER_HEARTBEAT_KEY, FRAGMENT_HEALTH_KEY);
     await redis.quit();
     await app.close();
   });
@@ -107,6 +107,21 @@ describe('GET /api/v1/health/ready (real Postgres + Redis)', () => {
     expect(down.status).toBe(200);
     await workerBeats();
     await pollBody({ status: 'ok', worker: 'ok' });
+  });
+
+  it('fragment shows the worker keep-alive value: ok, down, and disabled when absent (S7)', async () => {
+    await workerBeats();
+    // Written as the worker's keep-alive writes it (FragmentHealth.publish): a TTL of periods.
+    await redis.set(FRAGMENT_HEALTH_KEY, 'ok', 'PX', 60_000);
+    const ok = await pollBody({ status: 'ok', fragment: 'ok' });
+    expect(ok.body).toEqual({ status: 'ok', db: 'ok', redis: 'ok', worker: 'ok', fragment: 'ok' });
+    await redis.set(FRAGMENT_HEALTH_KEY, 'down', 'PX', 60_000);
+    // A dead session does not make the API unready: the backup route serves Stars.
+    const down = await pollBody({ fragment: 'down' });
+    expect(down.status).toBe(200);
+    expect(down.body).toMatchObject({ status: 'ok', fragment: 'down' });
+    await redis.del(FRAGMENT_HEALTH_KEY);
+    await pollBody({ status: 'ok', fragment: 'disabled' });
   });
 
   it('/health/live stays 200', async () => {

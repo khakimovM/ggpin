@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { scrubSecretsInText } from '@repo/shared';
 import { WORKER_CONFIG, type WorkerConfig } from '../config/config.module';
 import {
@@ -28,10 +28,15 @@ export interface CostSyncResult {
 
 const COST_CURRENCIES: ReadonlySet<string> = new Set(['TON', 'USDT']);
 
-/** The adapter that serves a product: its enabled route with the lowest priority, if any. */
-function firstEnabledAdapter(candidate: CostCandidate): string | null {
-  return candidate.routes.find((route) => route.isEnabled)?.adapter ?? null;
+/**
+ * Which adapters are healthy now: the AdapterRouter's cached health (HEALTH_CACHE_MS), the same
+ * answer an order or a recipient check would get. Not bound -> no adapter is known healthy.
+ */
+export interface RouteHealth {
+  isHealthy(adapter: string): Promise<boolean>;
 }
+
+export const ROUTE_HEALTH = Symbol('ROUTE_HEALTH');
 
 /**
  * Mirrors the CostSnapshot CHECKs and adds what the database cannot know: a SKU row must be for
@@ -58,9 +63,21 @@ function lineProblem(product: CostProduct, line: CostLine): string | null {
 }
 
 /**
- * One cost sync run (docs/06 "Narx sinxronlash"): for every ACTIVE product whose first enabled
- * route has a cost source, store what that adapter charges now as immutable CostSnapshot rows.
- * Phase 3 registers only the Fragment simulator, so only FRAGMENT-first products get rows.
+ * One cost sync run (docs/06 "Narx sinxronlash"): for every ACTIVE product, store what the adapter
+ * that would serve it now charges, as immutable CostSnapshot rows. That adapter is the product's
+ * first enabled route whose adapter is HEALTHY (S7 review M2): while the Fragment session is DEAD
+ * a Stars product is priced by its backup (RESELLER_STARS, USDT), so new quotes and orders are in
+ * the backup's currency and the router can fulfil them (it offers an order only to adapters of
+ * its cost currency, M1). No healthy route -> the first enabled route, as before S7; that is
+ * always the case in production until the real adapters exist (no registry, no backup, Q20), so
+ * nothing changes there. A product whose chosen adapter has no cost source gets no row (its
+ * quotes stop after COST_MAX_AGE_MS: fail closed, never priced by an adapter that cannot serve).
+ *
+ * Health can flap (a keep-alive blip, a provider timeout), and with it the currency of new
+ * quotes from one run to the next. Accepted: each quote keeps the snapshot it was priced from,
+ * an order is only ever offered to its own currency, and the router's health cache smooths
+ * single blips. Orders priced in TON before a death are HELD (NO_ADAPTER) until Fragment is back
+ * and the S9 reconciler releases them (docs/06).
  */
 @Injectable()
 export class CostSyncService {
@@ -70,6 +87,7 @@ export class CostSyncService {
     @Inject(WORKER_CONFIG) private readonly config: WorkerConfig,
     @Inject(COST_SOURCES) private readonly sources: readonly CostSource[],
     @Inject(PricingSyncRepository) private readonly repository: CostSnapshotStore,
+    @Optional() @Inject(ROUTE_HEALTH) private readonly health: RouteHealth | null = null,
   ) {}
 
   async run(): Promise<CostSyncResult> {
@@ -80,7 +98,7 @@ export class CostSyncService {
     let products = 0;
     for (const candidate of await this.repository.listCostCandidates()) {
       if (!candidate.isActive) continue;
-      const adapter = firstEnabledAdapter(candidate);
+      const adapter = await this.servingAdapter(candidate);
       const match = usable.find((u) => u.source.adapter === adapter);
       if (match === undefined) continue;
       const { source, label } = match;
@@ -107,6 +125,25 @@ export class CostSyncService {
     const snapshots = await this.repository.insertCostSnapshots(rows);
     this.logger.log(`cost sync: wrote ${snapshots} snapshot(s) for ${products} product(s)`);
     return { products, snapshots };
+  }
+
+  /** The first enabled route whose adapter is healthy, else the first enabled route (see above). */
+  private async servingAdapter(candidate: CostCandidate): Promise<string | null> {
+    const enabled = candidate.routes.filter((route) => route.isEnabled).map((r) => r.adapter);
+    if (this.health !== null) {
+      for (const adapter of enabled) {
+        if (await this.healthyNow(this.health, adapter)) return adapter;
+      }
+    }
+    return enabled[0] ?? null;
+  }
+
+  private async healthyNow(health: RouteHealth, adapter: string): Promise<boolean> {
+    try {
+      return await health.isHealthy(adapter);
+    } catch {
+      return false;
+    }
   }
 
   /**

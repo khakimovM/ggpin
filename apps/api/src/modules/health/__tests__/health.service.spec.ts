@@ -8,7 +8,7 @@ import {
 } from '../health.service';
 
 type Repo = jest.Mocked<
-  Pick<HealthRepository, 'pingDatabase' | 'pingRedis' | 'workerHeartbeatPresent'>
+  Pick<HealthRepository, 'pingDatabase' | 'pingRedis' | 'workerHeartbeatPresent' | 'fragmentHealth'>
 >;
 
 function healthyRepo(): Repo {
@@ -16,11 +16,12 @@ function healthyRepo(): Repo {
     pingDatabase: jest.fn().mockResolvedValue(undefined),
     pingRedis: jest.fn().mockResolvedValue(undefined),
     workerHeartbeatPresent: jest.fn().mockResolvedValue(true),
+    fragmentHealth: jest.fn().mockResolvedValue(null),
   };
 }
 
 function build(repo: Repo): HealthService {
-  // HealthService uses only these three methods.
+  // HealthService uses only these four methods.
   return new HealthService(repo as unknown as HealthRepository);
 }
 
@@ -70,6 +71,7 @@ describe('HealthService.readiness', () => {
         .fn()
         .mockRejectedValue(Object.assign(new Error('x'), { code: 'ECONNREFUSED' })),
       workerHeartbeatPresent: jest.fn().mockRejectedValue(new Error('down')),
+      fragmentHealth: jest.fn().mockRejectedValue(new Error('down')),
     };
     const report = await build(repo).readiness();
     expect(report).toEqual({
@@ -77,7 +79,7 @@ describe('HealthService.readiness', () => {
       db: 'down',
       redis: 'down',
       worker: 'down',
-      fragment: 'disabled',
+      fragment: 'down',
     });
   });
 
@@ -107,10 +109,41 @@ describe('HealthService.readiness', () => {
       pingDatabase: jest.fn().mockImplementation(never),
       pingRedis: jest.fn().mockImplementation(never),
       workerHeartbeatPresent: jest.fn().mockImplementation(never),
+      fragmentHealth: jest.fn().mockImplementation(never),
     };
     const pending = build(repo).readiness();
     await jest.advanceTimersByTimeAsync(READINESS_CHECK_TIMEOUT_MS);
     await expect(pending).resolves.toMatchObject({ status: 'degraded', db: 'down' });
+  });
+
+  it.each([
+    [null, 'disabled'],
+    ['ok', 'ok'],
+    ['down', 'down'],
+  ] as const)(
+    'reports the keep-alive value %s as fragment %s, without touching status (S7)',
+    async (value, shown) => {
+      const repo = healthyRepo();
+      repo.fragmentHealth.mockResolvedValue(value);
+      const report = await build(repo).readiness();
+      expect(report).toMatchObject({ status: 'ok', fragment: shown });
+      expect(ReadinessSchema.parse(report)).toEqual(report);
+    },
+  );
+
+  it('an unreadable or hung fragment value is down, and the API stays ok (S7)', async () => {
+    const failing = healthyRepo();
+    failing.fragmentHealth.mockRejectedValue(new Error('ECONNRESET'));
+    await expect(build(failing).readiness()).resolves.toMatchObject({
+      status: 'ok',
+      fragment: 'down',
+    });
+    jest.useFakeTimers();
+    const hung = healthyRepo();
+    hung.fragmentHealth.mockImplementation(never);
+    const pending = build(hung).readiness();
+    await jest.advanceTimersByTimeAsync(READINESS_CHECK_TIMEOUT_MS);
+    await expect(pending).resolves.toMatchObject({ status: 'ok', fragment: 'down' });
   });
 
   it('clears its timers when checks answer quickly', async () => {

@@ -8,6 +8,7 @@ export const MOCK_SCENARIOS = [
   'insufficient',
   'recipientNotFound',
   'hasPremiumExtends',
+  'recipientBusy',
   'priceUnavailable',
   'orderFailed',
 ] as const;
@@ -36,6 +37,8 @@ export interface MockReply {
   data?: unknown;
   meta?: unknown;
   error?: { code: ErrorCode; details?: unknown };
+  /** Raw `Retry-After` header (delta-seconds), as the real API sends it with a 429. */
+  retryAfter?: string;
 }
 
 export type MockHandler = (request: MockRequest) => MockReply;

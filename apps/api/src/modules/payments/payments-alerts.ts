@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  NOTIFY_JOB_NAME,
   QUEUES,
   notifyJobId,
   notifyJobSchema,
@@ -8,8 +9,6 @@ import {
   type BankFeedAlertKind,
 } from '@repo/shared';
 import type { Queue } from 'bullmq';
-
-export const NOTIFY_JOB_NAME = 'notify';
 
 /**
  * Owner alerts raised by the card services (`adminAction` for every CLI card operation,
