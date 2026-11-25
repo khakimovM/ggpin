@@ -1,0 +1,307 @@
+# ggpin production stack (P11-S2). Design notes (networks, secrets and their uids, memory budget,
+# single replica, why bankfeed is disabled): deploy/COMPOSE.md. Owner runbook: deploy/vps/README-2.md
+# step 12. Explicit migration step BEFORE up; images by digest only, no build on the VPS:
+#
+#   C="sudo docker compose -p ggpin --env-file /etc/ggpin/compose.env -f /opt/ggpin/compose.prod.yml"
+#   $C pull && $C --profile migrate run --rm migrate && $C up -d
+#
+# Never `migrate reset` on this stack.
+
+name: ggpin
+
+x-hardened: &hardened
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  ulimits:
+    core: 0
+  restart: unless-stopped
+  logging:
+    driver: local
+    options:
+      max-size: 20m
+      max-file: '5'
+
+services:
+  # ---------------------------------------------------------------------------------------------
+  # Reverse proxy (Caddy). Behind the `proxy` profile until P11-S3 adds deploy/proxy/Caddyfile (S3
+  # removes the profile): until then a plain `up -d` publishes nothing at all.
+  # Root inside the container with ONLY cap NET_BIND_SERVICE (ports 80/443 in the container, so
+  # Caddy's own HTTP->HTTPS redirects carry no port). Non-root + setcap -r is an S3 option.
+  # HTTP/3 (443/udp) is not published: ufw does not see Docker ports, decide it in S3.
+  # ---------------------------------------------------------------------------------------------
+  proxy:
+    <<: *hardened
+    image: ${PROXY_IMAGE:-caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d}
+    profiles: [proxy]
+    cap_add: [NET_BIND_SERVICE]
+    ports:
+      - '${PROXY_BIND_ADDR:-0.0.0.0}:${PROXY_HTTP_PORT:-80}:80'
+      - '${PROXY_BIND_ADDR:-0.0.0.0}:${PROXY_HTTPS_PORT:-443}:443'
+    volumes:
+      - ${PROXY_CADDYFILE:-./proxy/Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /config:size=8m,mode=0700
+    environment:
+      XDG_CONFIG_HOME: /config
+      XDG_DATA_HOME: /data
+    networks:
+      ingress: {}
+      edge:
+        # Fixed: the API trusts X-Forwarded-For only from this address (TRUST_PROXY below).
+        ipv4_address: ${PROXY_EDGE_IP:-172.30.10.2}
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+      admin: { condition: service_healthy }
+    mem_limit: 256m
+    pids_limit: 128
+
+  # ---------------------------------------------------------------------------------------------
+  # API (uid 10001 from the image). Egress: Telegram Bot API (bot.init, setWebhook, outbox).
+  # Owner CLI: deploy/vps/README-2.md (`exec -e SSH_CONNECTION -e SUDO_USER api node dist/cli/ops-cli.js`).
+  # ---------------------------------------------------------------------------------------------
+  api:
+    <<: *hardened
+    image: ${API_IMAGE:?set API_IMAGE (registry digest) in compose.env}
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/api.env
+    environment:
+      NODE_ENV: production
+      API_PORT: '5000'
+      # Only the proxy's edge address may speak for a client (apps/api/src/config/trust-proxy.ts).
+      TRUST_PROXY: ${PROXY_EDGE_IP:-172.30.10.2}
+    networks: [edge, data-api, egress]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    mem_limit: 768m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Web (Next standalone, uid 10002). .next/cache -> /tmp (apps/web/Dockerfile), hence the larger
+  # tmpfs. Talks to the API over edge only; no egress, no data network.
+  # ---------------------------------------------------------------------------------------------
+  web:
+    <<: *hardened
+    image: ${WEB_IMAGE:?set WEB_IMAGE (registry digest) in compose.env}
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:5000/api/v1
+    networks: [edge]
+    depends_on:
+      api: { condition: service_healthy }
+    stop_grace_period: 20s
+    mem_limit: 768m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Admin SPA (static Caddy, uid 65532, :8080). ADMIN_API_ORIGIN goes into its CSP connect-src;
+  # the image refuses to start without a valid https origin. VPN-only access is the proxy's job (S3).
+  # ---------------------------------------------------------------------------------------------
+  admin:
+    <<: *hardened
+    image: ${ADMIN_IMAGE:?set ADMIN_IMAGE (registry digest) in compose.env}
+    environment:
+      ADMIN_API_ORIGIN: ${ADMIN_API_ORIGIN:?set ADMIN_API_ORIGIN (e.g. https://api.ggpin.uz) in compose.env}
+    networks: [edge]
+    stop_grace_period: 10s
+    mem_limit: 64m
+    pids_limit: 64
+
+  # ---------------------------------------------------------------------------------------------
+  # Worker: fulfillment (Fragment/TON, suppliers), price sync, reconcilers, top-up matcher.
+  # The ONLY holder of the wallet keys. No published port, no HTTP surface. Health = its Redis
+  # heartbeat (image HEALTHCHECK). No `user:` here: the image decides. Its real keys go onto the VPS
+  # only once the image runs as uid 10003 (owner 10003 only; deploy/COMPOSE.md "Secrets").
+  # BANK_FEED_MODE is pinned off: the bank-feed listener belongs to the bankfeed container only.
+  # ---------------------------------------------------------------------------------------------
+  worker:
+    <<: *hardened
+    image: ${WORKER_IMAGE:?set WORKER_IMAGE (registry digest) in compose.env}
+    container_name: ${COMPOSE_PROJECT_NAME}-worker
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/worker.env
+    environment:
+      NODE_ENV: production
+      WORKER_ROLE: fulfillment
+      BANK_FEED_MODE: 'off'
+      # Read by the worker from the p5 merge on (D-56 (8)); until then unused.
+      WALLET_ENC_KEY_FILE: /run/secrets/wallet_enc_key
+      FRAGMENT_SESSION_ENC_KEY_FILE: /run/secrets/fragment_session_enc_key
+    secrets: [wallet_enc_key, fragment_session_enc_key]
+    networks: [data-workers, egress]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      replicas: 1
+    # In-flight fulfillment gets time to reach a safe state before SIGKILL.
+    stop_grace_period: 60s
+    mem_limit: 768m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Bank-feed listener (D-73 (6)): the worker image with WORKER_ROLE=bankfeed, only its own secrets
+  # (MTProto session + its key, owner uid 10004), egress to Telegram MTProto. One replica (D-52 (8)).
+  # DISABLED until the WORKER_ROLE code change: the profile alone does not stop `up -d bankfeed`, and
+  # today this container would be a second full worker (deploy/COMPOSE.md). The hard-stop command and
+  # restart "no" go away only together with that change and the uid-10004 image.
+  # ---------------------------------------------------------------------------------------------
+  bankfeed:
+    <<: *hardened
+    image: ${WORKER_IMAGE:?set WORKER_IMAGE (registry digest) in compose.env}
+    profiles: [bankfeed]
+    container_name: ${COMPOSE_PROJECT_NAME}-bankfeed
+    restart: 'no'
+    command:
+      - node
+      - -e
+      - 'console.error("bankfeed: disabled until the WORKER_ROLE split (deploy/COMPOSE.md); not starting"); process.exit(1)'
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/bankfeed.env
+    environment:
+      NODE_ENV: production
+      WORKER_ROLE: bankfeed
+      BANK_FEED_ENC_KEY_FILE: /run/secrets/bank_feed_enc_key
+    secrets: [bank_feed_enc_key]
+    networks: [data-workers, egress]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      replicas: 1
+    stop_grace_period: 30s
+    mem_limit: 512m
+    pids_limit: 128
+
+  # ---------------------------------------------------------------------------------------------
+  # One-shot `prisma migrate deploy` (apps/worker/Dockerfile target `migrate`). Explicit deploy
+  # step: `--profile migrate run --rm migrate`. data-workers network only; DATABASE_URL = the migration
+  # (DDL owner) role, separate from the runtime role (P11-S6).
+  # ---------------------------------------------------------------------------------------------
+  migrate:
+    <<: *hardened
+    image: ${MIGRATE_IMAGE:?set MIGRATE_IMAGE (registry digest) in compose.env}
+    profiles: [migrate]
+    restart: 'no'
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/migrate.env
+    environment:
+      NODE_ENV: production
+    networks: [data-workers]
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 512m
+    pids_limit: 128
+
+  # ---------------------------------------------------------------------------------------------
+  # PostgreSQL 16 (official alpine image, uid 70). Runs as 70 from the start: the entrypoint's
+  # chown/gosu needs capabilities that are dropped here. No port. Settings: deploy/postgres/.
+  # ---------------------------------------------------------------------------------------------
+  postgres:
+    <<: *hardened
+    image: ${POSTGRES_IMAGE:-postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685}
+    user: '70:70'
+    command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf']
+    environment:
+      POSTGRES_USER: ggpin
+      POSTGRES_DB: ggpin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --data-checksums
+    secrets: [postgres_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=1m,uid=70,gid=70,mode=0775
+    shm_size: 256m
+    networks: [data-api, data-workers]
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-q', '-h', '127.0.0.1', '-U', 'ggpin', '-d', 'ggpin']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 60s
+    mem_limit: 1536m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Redis 7 (official alpine image, uid 999). AOF + noeviction (BullMQ must never lose a job),
+  # users and password hashes from the ACL secret file. No port. Settings: deploy/redis/redis.conf.
+  # The healthcheck logs in as `healthcheck`, a user that may run PING and nothing else.
+  # ---------------------------------------------------------------------------------------------
+  redis:
+    <<: *hardened
+    image: ${REDIS_IMAGE:-redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99}
+    user: '999:999'
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    secrets: [redis_users_acl]
+    volumes:
+      - redisdata:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks: [data-api, data-workers]
+    healthcheck:
+      # A plain string = CMD-SHELL.
+      test: redis-cli --no-auth-warning --user healthcheck --pass x ping | grep -qx PONG
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    stop_grace_period: 30s
+    mem_limit: 512m
+    pids_limit: 64
+
+  # Reserved, not defined yet: backup (P11-S9), umami (P11-S15) — deploy/COMPOSE.md.
+
+networks:
+  ingress:
+    driver: bridge
+  edge:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:-172.30.10.0/24}
+          # Dynamic addresses come only from the upper half, so the proxy's fixed low address
+          # (PROXY_EDGE_IP) is never taken by a container that started first.
+          ip_range: ${EDGE_IP_RANGE:-172.30.10.128/25}
+  # Split so the worker side cannot reach api:5000 (deploy/COMPOSE.md "Networks").
+  data-api:
+    driver: bridge
+    internal: true
+  data-workers:
+    driver: bridge
+    internal: true
+  egress:
+    driver: bridge
+    # The local prod-like test sets EGRESS_INTERNAL=true: no traffic leaves the dev machine.
+    internal: ${EGRESS_INTERNAL:-false}
+    driver_opts:
+      com.docker.network.bridge.enable_icc: 'false'
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+
+secrets:
+  postgres_password:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/postgres_password
+  redis_users_acl:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/redis_users.acl
+  wallet_enc_key:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/wallet_enc_key
+  fragment_session_enc_key:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/fragment_session_enc_key
+  bank_feed_enc_key:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/bank_feed_enc_key
