@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { routeUntilClosed } from '../support/route-until-closed';
 import {
   MONTHS,
   PREMIUM_PRICE,
@@ -136,7 +137,7 @@ export async function installProductApi(
     });
   };
 
-  await page.route(PRODUCT, async (route) => {
+  await routeUntilClosed(page, PRODUCT, async (route) => {
     const request = route.request();
     if (request.method() === 'OPTIONS') return route.fallback();
     const url = new URL(request.url());
@@ -153,7 +154,7 @@ export async function installProductApi(
     return reply(route, 200, envelope(detail(slug, lang, mode, options)));
   });
 
-  await page.route(RECIPIENTS, async (route) => {
+  await routeUntilClosed(page, RECIPIENTS, async (route) => {
     const request = route.request();
     if (request.method() === 'OPTIONS') return route.fallback();
     const body = request.postDataJSON() as { input: { username: string } };
@@ -193,7 +194,7 @@ export async function installProductApi(
     }
   });
 
-  await page.route(QUOTES, async (route) => {
+  await routeUntilClosed(page, QUOTES, async (route) => {
     const request = route.request();
     if (request.method() === 'OPTIONS') return route.fallback();
     const body = request.postDataJSON() as {

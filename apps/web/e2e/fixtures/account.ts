@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { routeUntilClosed } from '../support/route-until-closed';
 
 // A fake of `GET /orders` (the list), `GET /me/ledger` and `PATCH /me`, shaped like docs/04. It
 // filters and pages the way the server will (`status` is a comma-separated list of raw statuses,
@@ -174,7 +175,7 @@ export async function installAccountApi(
     });
   };
 
-  await page.route(ORDER_LIST, async (route) => {
+  await routeUntilClosed(page, ORDER_LIST, async (route) => {
     const request = route.request();
     if (request.method() !== 'GET') return route.fallback();
     const url = new URL(request.url());
@@ -191,7 +192,7 @@ export async function installAccountApi(
     return answerPage(route, all, url);
   });
 
-  await page.route(LEDGER, async (route) => {
+  await routeUntilClosed(page, LEDGER, async (route) => {
     const request = route.request();
     if (request.method() !== 'GET') return route.fallback();
     const url = new URL(request.url());
@@ -206,7 +207,7 @@ export async function installAccountApi(
   });
 
   // The profile language: recorded here (and refused on request), saved by the sign-in fakes.
-  await page.route(ME, async (route) => {
+  await routeUntilClosed(page, ME, async (route) => {
     const request = route.request();
     if (request.method() !== 'PATCH') return route.fallback();
     const body: unknown = request.postDataJSON();

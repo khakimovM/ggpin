@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { routeUntilClosed } from '../support/route-until-closed';
 
 // A fake of the P2P top-up endpoints, shaped like docs/04 "To'lovlar (P2P)": methods, intents,
 // cancel, pay-link and the public pay view with its capability token. One request ("intent") at a
@@ -138,7 +139,7 @@ export async function installPaymentsApi(
   const link = (locale: string) =>
     `${options.redirect === 'foreign' ? 'https://evil.example' : 'http://localhost:3100'}/pay/${id}?locale=${locale}#t=${token}`;
 
-  await page.route(PAYMENTS, async (route) => {
+  await routeUntilClosed(page, PAYMENTS, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace('/api/v1/payments/', '');
@@ -288,7 +289,7 @@ export async function installPaymentsApi(
   });
 
   // A page that asks for anything outside this site and the fake API leaks (CDN, analytics).
-  await page.route('**/*', async (route) => {
+  await routeUntilClosed(page, '**/*', async (route) => {
     const url = route.request().url();
     if (!/^(http:\/\/localhost:(3100|5000)\/|data:|blob:)/.test(url)) api.requested.push(url);
     return route.fallback();

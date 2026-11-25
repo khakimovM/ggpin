@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import type { Page } from '@playwright/test';
+import { routeUntilClosed } from '../support/route-until-closed';
 
 // Test doubles for the Telegram Mini App: signed initData and a fake `Telegram.WebApp`. The real
 // SDK script (https://telegram.org/js/telegram-web-app.js) is replaced by an empty one, so no
@@ -74,7 +75,7 @@ export type TgCall = [name: string, ...args: unknown[]];
 
 /** Routes the real SDK script to an empty one (no network, and the fake stays in charge). */
 export async function stubTelegramSdk(page: Page): Promise<void> {
-  await page.route('https://telegram.org/js/telegram-web-app.js', (route) =>
+  await routeUntilClosed(page, 'https://telegram.org/js/telegram-web-app.js', (route) =>
     route.fulfill({ contentType: 'text/javascript', body: '' }),
   );
 }

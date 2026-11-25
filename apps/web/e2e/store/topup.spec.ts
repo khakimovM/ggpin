@@ -160,7 +160,9 @@ test.describe('the payment step', () => {
     await modal(page)
       .getByRole('button', { name: /Davom etish/ })
       .click();
-    await expect(modal(page)).toContainText(/karrali/);
+    // "...karrali bo‘lishi kerak" is the server's refusal (errors.range); the help line under the
+    // field already says "karrali" before any request, so it alone does not wait for the 422.
+    await expect(modal(page)).toContainText(/karrali bo‘lishi kerak/);
     await expect(field(page)).toBeVisible();
   });
 

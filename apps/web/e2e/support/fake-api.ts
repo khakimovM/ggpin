@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { routeUntilClosed } from './route-until-closed';
 import { installCatalogApi } from '../fixtures/catalog';
 
 // A fake API for the sign-in and session journeys. The browser never reaches a real API: every
@@ -135,7 +136,7 @@ export async function installFakeApi(
     });
   };
 
-  await page.route(API_PATTERN, async (route) => {
+  await routeUntilClosed(page, API_PATTERN, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace('/api/v1', '');
     const method = request.method();
