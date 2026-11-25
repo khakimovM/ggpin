@@ -1,4 +1,5 @@
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { buildReadWorld, RAW_PAN, TOPUP_TIYIN, type ReadWorld } from './admin-read.fixtures';
 import { leaks } from './admin-read.scan';
 import { checkRead } from './admin-read.schemas';
@@ -11,6 +12,7 @@ type Body = { data: Row | Row[]; meta?: Record<string, number> };
 // only; no route ever returns a full card number, a provider reference or a raw payload.
 describe('admin read: payments (real app)', () => {
   const t = useAdminE2e();
+  purgeFixtureCatalogAround(t, 'ar-');
   let w: ReadWorld;
   let owner = '';
   let operator = '';

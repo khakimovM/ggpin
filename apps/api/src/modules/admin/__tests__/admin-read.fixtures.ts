@@ -4,8 +4,10 @@ import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
 
 // Rows for the admin read e2e on the shared *_test database, all SYNTHETIC: PAN prefix 9995 with
 // this holder (payments 9999, worker 9998, notify 9996), bank sender ids 930…, and every card
-// RETIRED from the start, so the payments suites never see a foreign live card. Everything is
-// append-only or harmless; nothing here is cleaned (like the other suites' bank rows).
+// RETIRED from the start, so the payments suites never see a foreign live card. The catalog and the
+// order sit under the `ar-` prefix and are purged before and after each suite
+// (purgeFixtureCatalogAround, admin-fixture-purge.ts). The rest is append-only or harmless and is
+// kept (like the other suites' bank rows); the PURCHASE entry then names a removed order by refId.
 
 export const READ_HOLDER = 'ADMIN READ E2E HOLDER';
 /** A full 16-digit number in the raw bank text: it must never reach a non-OWNER, nor any card field. */

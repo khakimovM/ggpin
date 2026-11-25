@@ -1,5 +1,6 @@
 import { AdminPricePreviewResponseSchema } from '@repo/shared';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { buildReadWorld, type ReadWorld } from './admin-read.fixtures';
 
 const A = '/api/v1/admin';
@@ -15,6 +16,7 @@ type Body = { data: unknown; error?: { code: string; details?: unknown } };
 // The clock is the harness's: set to now, then moved past the FX age for the 503 case.
 describe('admin read: price preview with real pricing inputs (real app)', () => {
   const t = useAdminE2e();
+  purgeFixtureCatalogAround(t, 'ar-');
   let w: ReadWorld;
   let operator = '';
   let base = new Date();

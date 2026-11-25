@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AdminAdjustPreviewResponseSchema, type AdminAdjustPreview } from '@repo/shared';
 import { createP2pPayment, retireCards } from '../../wallet/__tests__/wallet-p2p-fixture';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { orderOf } from './admin-open-orders.fixtures';
 import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-kit';
 
@@ -9,6 +10,7 @@ import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-
 // the action's own reads in the contract shape, and its set ids carry the action past
 // RECENT_AUTO_TOPUP and OPEN_ORDERS.
 const t = useAdminE2e();
+purgeFixtureCatalogAround(t, 'oo-');
 const kit = adminWriteKit(t);
 const API = '/api/v1/admin';
 const REASON = 'compensation after a held order check';

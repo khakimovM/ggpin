@@ -28,6 +28,8 @@ type CatalogKit = ReturnType<typeof catalogKit>;
 
 const REASON = 'checked by the void table';
 const tag = () => randomBytes(4).toString('hex');
+/** The reorder body is at most 500 ids (AdminProductReorderBodySchema). */
+const REORDER_MAX = 500;
 
 /** Call once per suite file, after the kits (it registers a clean-up for the products' order). */
 export function voidLiveCalls(
@@ -151,6 +153,12 @@ export function voidLiveCalls(
           orderBy: [{ sort: 'desc' }, { id: 'desc' }],
         })
       ).map((row) => row.id);
+      // A fuller test database would make this a 400 that has nothing to do with the voided key.
+      if (ids.length > REORDER_MAX) {
+        throw new Error(
+          `reorder e2e: ${String(ids.length)} products on the test database, the case needs at most ${String(REORDER_MAX)} (clean the *_test database)`,
+        );
+      }
       const extra = () =>
         db().product.findMany({ select: { id: true, sort: true }, orderBy: { id: 'asc' } });
       return { targets: rows, body: { productIds: ids }, extra };

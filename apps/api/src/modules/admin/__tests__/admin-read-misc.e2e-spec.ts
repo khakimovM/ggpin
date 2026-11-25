@@ -2,6 +2,7 @@ import { ADMIN_RETRYABLE_QUEUES, QUEUE_NAMES } from '@repo/shared';
 import { RedisService } from '../../../infra/redis/redis.service';
 import { DASHBOARD_CACHE_PREFIX } from '../dashboard/admin-dashboard.cache';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import {
   buildReadWorld,
   isolatedInstant,
@@ -20,6 +21,7 @@ type Body = { data: Row | Row[]; meta?: Record<string, number> };
 // settings, FX history, queues and the OWNER's admin list.
 describe('admin read: dashboard, catalog, settings, infra, admins (real app)', () => {
   const t = useAdminE2e();
+  purgeFixtureCatalogAround(t, 'ar-');
   let w: ReadWorld;
   let at: Date;
   let ownerId = '';

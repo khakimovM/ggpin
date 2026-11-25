@@ -2,7 +2,8 @@ import { randomBytes } from 'node:crypto';
 import type { OrderStatus, PrismaClient } from '@repo/db';
 
 // Synthetic orders for the I-5 suites (phase 9 S7a): one small catalog per call and an order of
-// the user in `status`. Rows are kept (orders restrict their user, quote and product), like the
+// the user in `status`, all under the `oo-` prefix. A suite that calls it purges every `oo-` row
+// before and after it (purgeFixtureCatalogAround, admin-fixture-purge.ts); the users stay, like the
 // other suites' ledger users. No ledger entry is written: the open-orders check reads statuses only.
 
 const hex = (n: number): string => randomBytes(n).toString('hex');

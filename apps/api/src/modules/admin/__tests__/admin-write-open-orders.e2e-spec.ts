@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AdminAdjustPreviewResponseSchema } from '@repo/shared';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { orderOf, setOrderStatus } from './admin-open-orders.fixtures';
 import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-kit';
 
@@ -8,6 +9,7 @@ import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-
 // open orders needs `confirmOpenOrdersSet`, bound into the code and checked under the wallet
 // lock; with the rules/70 money set (happy path, replay, concurrency, roles).
 const t = useAdminE2e();
+purgeFixtureCatalogAround(t, 'oo-');
 const kit = adminWriteKit(t);
 const API = '/api/v1/admin';
 const REASON = 'compensation for a held order';

@@ -1,5 +1,6 @@
 import { sumBalance } from '@repo/db';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { extraOrder } from './admin-read.extra-order';
 import { buildReadWorld, PHONE, type ReadWorld } from './admin-read.fixtures';
 import { leaks } from './admin-read.scan';
@@ -16,6 +17,7 @@ type Row = Record<string, unknown>;
 // SUM(ledger), the phone by role, and no secrets in any body.
 describe('admin read: users (real app)', () => {
   const t = useAdminE2e();
+  purgeFixtureCatalogAround(t, 'ar-');
   let w: ReadWorld;
   let owner = '';
   let operator = '';

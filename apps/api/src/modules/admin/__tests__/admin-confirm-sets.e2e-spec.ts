@@ -11,6 +11,7 @@ import { RedisService } from '../../../infra/redis/redis.service';
 import { createP2pPayment, retireCards } from '../../wallet/__tests__/wallet-p2p-fixture';
 import { adminOtpJobId, adminOtpQuotaKey } from '../confirm/admin-otp.keys';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { orderOf, setOrderStatus } from './admin-open-orders.fixtures';
 import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-kit';
 
@@ -19,6 +20,7 @@ import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-
 // is not confirmed or already stale. It answers the action's own `400 fields[{ path: "user" }]`
 // at once: no code made, the daily code count not spent, nothing queued for Telegram, no money.
 const t = useAdminE2e();
+purgeFixtureCatalogAround(t, 'oo-');
 const kit = adminWriteKit(t);
 const API = '/api/v1/admin';
 

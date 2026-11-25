@@ -2,6 +2,7 @@ import type { AdminRole } from '@repo/db';
 import { AdminPricePreviewResponseSchema, CSRF_HEADER } from '@repo/shared';
 import type { Res } from './admin-e2e.api';
 import { useAdminE2e } from './admin-e2e.harness';
+import { purgeFixtureCatalogAround } from './admin-fixture-purge';
 import { buildReadWorld, type ReadWorld } from './admin-read.fixtures';
 import { checkRead } from './admin-read.schemas';
 
@@ -52,6 +53,7 @@ function routes(w: ReadWorld, ownerId: string): [string, readonly AdminRole[]][]
 // needs no CSRF header (only writes do).
 describe('admin read routes: role matrix (real app)', () => {
   const t = useAdminE2e();
+  purgeFixtureCatalogAround(t, 'ar-');
   let world: ReadWorld;
   const cookies = new Map<AdminRole, string>();
   let ownerId = '';
