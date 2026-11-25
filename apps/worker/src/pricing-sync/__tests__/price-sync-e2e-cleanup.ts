@@ -18,12 +18,17 @@ export function cleanupSince(): Date {
 
 /**
  * Removes every queue a WorkerModule boot schedules (jobs AND schedulers) from the e2e Redis DB
- * (15): price-sync, and since phase 4 S9 topup-expire and payment-reconcile, so a later suite
- * that boots WorkerModule does not inherit scheduled runs. These queues hold nothing but their
- * cron jobs. Never touches DB 0.
+ * (15): price-sync, since phase 4 S9 topup-expire and payment-reconcile, and since phase 5 S9 the
+ * order reconciler's `reconcile`, so a later suite that boots WorkerModule does not inherit
+ * scheduled runs. These queues hold nothing but their cron jobs. Never touches DB 0.
  */
 export async function resetPriceSyncQueue(env: Env): Promise<void> {
-  for (const name of [QUEUES.PRICE_SYNC, QUEUES.TOPUP_EXPIRE, QUEUES.PAYMENT_RECONCILE]) {
+  for (const name of [
+    QUEUES.PRICE_SYNC,
+    QUEUES.TOPUP_EXPIRE,
+    QUEUES.PAYMENT_RECONCILE,
+    QUEUES.RECONCILE,
+  ]) {
     const queue = new Queue(name, { connection: { url: env.REDIS_URL } });
     try {
       await queue.obliterate({ force: true });

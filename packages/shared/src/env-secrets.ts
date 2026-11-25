@@ -22,6 +22,12 @@ export const WORKER_ONLY_SECRETS = [
   // D-52 D3: the Docker-secret file holding BANK_FEED_ENC_KEY in production (a path, but where
   // the key lives is the worker's business only).
   'BANK_FEED_ENC_KEY_FILE',
+  // The Docker-secret file holding WALLET_ENC_KEY (the key of the TON mnemonic blob, D-56 (8)):
+  // where the wallet key lives is the worker's business only (named explicitly, phase 5 S4).
+  'WALLET_ENC_KEY_FILE',
+  // The Docker-secret file holding FRAGMENT_SESSION_ENC_KEY (the key of the Fragment cookie jar,
+  // phase 5 S7): named explicitly like the wallet key file (S7 audit I-7).
+  'FRAGMENT_SESSION_ENC_KEY_FILE',
 ] as const;
 
 // Secrets that only apps/api may hold. The worker refuses to boot with one: a worker that

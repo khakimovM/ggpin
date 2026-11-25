@@ -175,6 +175,26 @@ describe('workerSecretProblems / apiSecretProblems', () => {
   });
 });
 
+describe('TON wallet key file (phase 5 S4)', () => {
+  it('WALLET_ENC_KEY_FILE is named in the worker-only list and the API refuses to boot with it', () => {
+    expect(WORKER_ONLY_SECRETS).toContain('WALLET_ENC_KEY_FILE');
+    const problems = workerSecretProblems({ WALLET_ENC_KEY_FILE: VALUE });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('WALLET_ENC_KEY_FILE');
+    expect(problems[0]).not.toContain(VALUE);
+  });
+});
+
+describe('Fragment session key file (phase 5 S7, audit I-7)', () => {
+  it('FRAGMENT_SESSION_ENC_KEY_FILE is named in the worker-only list and the API refuses it', () => {
+    expect(WORKER_ONLY_SECRETS).toContain('FRAGMENT_SESSION_ENC_KEY_FILE');
+    const problems = workerSecretProblems({ FRAGMENT_SESSION_ENC_KEY_FILE: VALUE });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('FRAGMENT_SESSION_ENC_KEY_FILE');
+    expect(problems[0]).not.toContain(VALUE);
+  });
+});
+
 describe('bank-feed secrets (phase 4)', () => {
   const SESSION = [
     'BANK_FEED_API_HASH',

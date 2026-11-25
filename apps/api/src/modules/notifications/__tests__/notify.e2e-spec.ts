@@ -9,6 +9,7 @@ import {
   type TgOutboxJob,
 } from '@repo/shared';
 import { Queue, UnrecoverableError } from 'bullmq';
+import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { ClockModule } from '../../../common/clock/clock.module';
 import { APP_CONFIG, AppConfigModule, type AppConfig } from '../../../config/config.module';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
@@ -19,6 +20,8 @@ import { RedisModule } from '../../../infra/redis/redis.module';
 import { NotificationsModule } from '../notifications.module';
 import { NotifySourcesRepository } from '../notify-sources.repository';
 import { NotifyConsumer, OwnerChatMissingError } from '../notify.consumer';
+import { FulfillmentAlertRenderer } from '../fulfillment-alert.renderer';
+import { OrderNotifyRenderer } from '../order-notify.renderer';
 import { OwnerAlertRenderer } from '../owner-alert.renderer';
 import { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
 import {
@@ -278,6 +281,9 @@ describe('notify consumer (real Postgres + Redis, private outbox queue)', () => 
       moduleRef.get(OwnerAlertRenderer),
       moduleRef.get(TgOutboxEnqueuer),
       { ...config, OWNER_ALERT_CHAT_ID: undefined },
+      moduleRef.get(OrderNotifyRenderer),
+      moduleRef.get(FulfillmentAlertRenderer),
+      moduleRef.get<Clock>(CLOCK),
     );
     const data = { kind: 'OWNER_ALERT', alert: 'sessionRevoked', refId: 'x1' } as const;
     const result = bare.handle({ id: 'n-bare', data });

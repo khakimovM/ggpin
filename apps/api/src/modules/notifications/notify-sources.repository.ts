@@ -73,10 +73,11 @@ export class NotifySourcesRepository {
     return totals ?? null;
   }
 
+  /** `before`/`after` feed only the FX_SET detail of adminAction (admin-action-text.ts). */
   auditLog(id: string) {
     return this.prisma.client.auditLog.findUnique({
       where: { id },
-      select: { id: true, action: true },
+      select: { id: true, action: true, before: true, after: true },
     });
   }
 
@@ -85,6 +86,60 @@ export class NotifySourcesRepository {
       where: { ...RECONCILE_AUDIT, targetId: day },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: { after: true },
+    });
+  }
+
+  /**
+   * The order of an ORDER_* notification or a fulfillment alert, and its owner (from the Order row,
+   * never the job). Only what the texts print: no price, cost, FX, provider handle or idempotency
+   * key (an amount in a text comes from the REFUND entry, orderRefund).
+   */
+  order(id: string) {
+    return this.prisma.client.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        statusReason: true,
+        deliveredAt: true,
+        quantity: true,
+        // The whole stored recipient JSON is selected (Prisma cannot pick keys inside a Json
+        // column), but only its storedRecipientView (name, @username) is ever printed.
+        recipient: true,
+        product: { select: { nameUz: true, nameRu: true } },
+        sku: { select: { labelUz: true, labelRu: true } },
+        user: { select: { telegramId: true, locale: true, botBlockedAt: true } },
+      },
+    });
+  }
+
+  /** The automatic (or full admin) refund of an order: `ORDER/<orderId>` REFUND, rules/40. */
+  orderRefund(orderId: string) {
+    return this.prisma.client.ledgerEntry.findUnique({
+      where: { refType_refId_kind: { refType: 'ORDER', refId: orderId, kind: 'REFUND' } },
+      select: { amountTiyin: true },
+    });
+  }
+
+  /** A TON transfer of a wallet alert: seqno, amount, destination, its order's # and status. */
+  tonTransfer(id: string) {
+    return this.prisma.client.tonTransfer.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        seqno: true,
+        amountNanoTon: true,
+        toAddress: true,
+        attempt: { select: { order: { select: { id: true, number: true, status: true } } } },
+      },
+    });
+  }
+
+  walletSnapshot(id: string) {
+    return this.prisma.client.walletSnapshot.findUnique({
+      where: { id },
+      select: { id: true, address: true, nanoTon: true },
     });
   }
 

@@ -79,7 +79,7 @@ function toResponse(reply: MockReply): TransportResponse {
         data: reply.data,
         ...(reply.meta === undefined ? {} : { meta: reply.meta }),
       };
-  return { status: reply.status, retryAfter: null, body };
+  return { status: reply.status, retryAfter: reply.retryAfter ?? null, body };
 }
 
 export function createMockTransport(options: MockTransportOptions): Transport {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { FULFILLMENT_ALERT_KINDS } from './fulfillment/fulfillment-alerts';
+import { ALERT_KINDS } from './payments/bank-feed';
 import {
   LISTENER_STOP_REASONS,
+  NOTIFY_JOB_NAME,
+  NOTIFY_KINDS,
+  ORDER_NOTIFY_KINDS,
+  OwnerAlertKindSchema,
   alertRef,
   notifyJobId,
   notifyJobSchema,
@@ -161,5 +167,77 @@ describe('ownerAlertOutboxJobId (D-53)', () => {
   it('fits the longest ref and the longest chat id', () => {
     const long = { ...job, refId: 'a'.repeat(64) };
     expect(() => ownerAlertOutboxJobId(long, '9'.repeat(20))).not.toThrow();
+  });
+});
+
+describe('order notifications (phase 5)', () => {
+  it('the four kinds are part of NOTIFY_KINDS and each takes an order id and nothing else', () => {
+    expect([...ORDER_NOTIFY_KINDS]).toEqual([
+      'ORDER_ACCEPTED',
+      'ORDER_DELIVERED',
+      'ORDER_REVIEW',
+      'ORDER_REFUNDED',
+    ]);
+    for (const kind of ORDER_NOTIFY_KINDS) {
+      expect(NOTIFY_KINDS).toContain(kind);
+      expect(notifyJobSchema.safeParse({ kind, refId: 'cm0order1' }).success).toBe(true);
+      // The API reads the owner and the language from the order: no user, no amount, no text.
+      for (const extra of [{ userId: 'u1' }, { amountTiyin: '1' }, { text: 'x' }]) {
+        expect(notifyJobSchema.safeParse({ kind, refId: 'cm0order1', ...extra }).success).toBe(
+          false,
+        );
+      }
+      expect(notifyJobSchema.safeParse({ kind }).success).toBe(false);
+      expect(notifyJobSchema.safeParse({ kind, refId: 'a-b' }).success).toBe(false);
+    }
+  });
+
+  it('every NOTIFY_KINDS entry is accepted by the schema (no kind without a shape)', () => {
+    for (const kind of NOTIFY_KINDS) {
+      const job =
+        kind === 'OWNER_ALERT' ? { kind, alert: 'chainBreak', refId: 'r1' } : { kind, refId: 'r1' };
+      expect(notifyJobSchema.safeParse(job).success, kind).toBe(true);
+    }
+  });
+
+  it('one message per order and event: the job id is order-<id>-<event>', () => {
+    const id = 'cm0order1';
+    expect(notifyJobId({ kind: 'ORDER_ACCEPTED', refId: id })).toBe('order-cm0order1-accepted');
+    expect(notifyJobId({ kind: 'ORDER_DELIVERED', refId: id })).toBe('order-cm0order1-delivered');
+    expect(notifyJobId({ kind: 'ORDER_REVIEW', refId: id })).toBe('order-cm0order1-review');
+    expect(notifyJobId({ kind: 'ORDER_REFUNDED', refId: id })).toBe('order-cm0order1-refunded');
+    const ids = new Set(ORDER_NOTIFY_KINDS.map((kind) => notifyJobId({ kind, refId: id })));
+    expect(ids.size).toBe(ORDER_NOTIFY_KINDS.length);
+  });
+
+  it('an order id and a payment id never share a job id', () => {
+    expect(notifyJobId({ kind: 'TOPUP_CREDITED', refId: 'x1' })).not.toBe(
+      notifyJobId({ kind: 'ORDER_ACCEPTED', refId: 'x1' }),
+    );
+  });
+});
+
+describe('OwnerAlertKind', () => {
+  it('is the bank-feed alerts plus the fulfillment alerts', () => {
+    for (const alert of [...ALERT_KINDS, ...FULFILLMENT_ALERT_KINDS]) {
+      expect(OwnerAlertKindSchema.safeParse(alert).success, alert).toBe(true);
+      expect(
+        notifyJobSchema.safeParse({ kind: 'OWNER_ALERT', alert, refId: 'r1' }).success,
+        alert,
+      ).toBe(true);
+    }
+    expect(OwnerAlertKindSchema.safeParse('boom').success).toBe(false);
+  });
+
+  it('a fulfillment alert has an owner-alert job id like any other', () => {
+    const job = { kind: 'OWNER_ALERT', alert: 'needsReview', refId: 'cm0order1' } as const;
+    expect(notifyJobId(job)).toBe('alert-needsReview-cm0order1');
+    expect(ownerAlertOutboxJobId(job, '111')).toBe('alert-needsReview-cm0order1-111');
+  });
+});
+
+describe('NOTIFY_JOB_NAME', () => {
+  it('is the one job name the API consumer and every producer share', () => {
+    expect(NOTIFY_JOB_NAME).toBe('notify');
   });
 });

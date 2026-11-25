@@ -64,6 +64,28 @@ paths = ['''\.(test|spec|e2e-spec)\.[cm]?[jt]sx?$''']
 regexTarget = "match"
 regexes = ['''(?i)=["']?[a-z0-9]+(?:-[a-z0-9]+)*-secret-[0-9]+$''', '''(?i)=["']?fake[a-z0-9_-]*$''']
 
+# A bare Fragment session cookie as a browser Cookie header or a pasted cookies file carries it
+# (`stel_ssid=...`, `stel_token=...`, `stel_ton_token=...`, `stel_dt=...`; spaces around `=` too),
+# from 8 characters on (S7 audit I-3, N-4: the rule above wants 16+).
+# Two-sided allowlist like the rule above: test source files AND the fake values the tests use.
+[[rules]]
+id = "fragment-cookie-bare"
+description = "Fragment stel_* session cookie as name=value (Cookie header or cookies file)"
+regex = '''(?i)\bstel_(?:ssid|token|ton_token|dt)\s*=\s*([A-Za-z0-9%._~+/-]{8,})'''
+secretGroup = 1
+[[rules.allowlists]]
+description = "fake low-entropy cookie values in test source files"
+condition = "AND"
+paths = ['''\.(test|spec|e2e-spec)\.[cm]?[jt]sx?$''']
+regexTarget = "secret"
+regexes = [
+  '''^(?:sess|token|evil|other)-[a-z]+$''',
+  '''^abcdef123456$''',
+  '''^Zq3xV9mK2pL8$''',
+  '''(?i)^[a-z0-9]+(?:-[a-z0-9]+)*-secret-[0-9]+$''',
+  '''(?i)^fake[a-z0-9_-]*$''',
+]
+
 # scheme://user:password@host in code, docs or config: a credential inside a connection string.
 # The user part may be empty (redis://:password@host). Only the documented local dev value is
 # allowed; staging/production credentials must come from env, never from git.

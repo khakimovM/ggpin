@@ -5,10 +5,15 @@ import { QUEUE_NAMES } from '@repo/shared';
 import { RedisService } from '../infra/redis/redis.service';
 import { BankMessageProcessor } from '../bank-feed/bank-message.processor';
 import { CardLimitProcessor } from '../bank-feed/card-limit.processor';
+import { FulfillOrderProcessor } from '../fulfillment/fulfill-order.processor';
 import { TopupExpireProcessor } from '../bank-feed/topup-expire.processor';
 import type { ScheduleRule } from '../infra/queue/boot-scheduler';
 import { PriceSyncProcessor } from '../pricing-sync/price-sync.processor';
+import { OrderReconcileProcessor } from '../reconcile/orders/order-reconcile.processor';
 import { PaymentReconcileProcessor } from '../reconcile/payment-reconcile.processor';
+import { RecipientJobSweeper } from '../recipients/recipient-job-sweeper';
+import { ValidateRecipientProcessor } from '../recipients/validate-recipient.processor';
+import { FragmentKeepaliveProcessor } from '../adapters/fragment/fragment-keepalive.processor';
 
 export interface FakeRedisClient {
   set: jest.Mock<Promise<string>, [string, string, string, number]>;
@@ -46,15 +51,28 @@ export function withFakeInfra(
     queues.set(name, queue);
     result = result.overrideProvider(getQueueToken(name)).useValue(queue);
   }
-  return result
-    .overrideProvider(PriceSyncProcessor)
-    .useValue({})
-    .overrideProvider(BankMessageProcessor)
-    .useValue({})
-    .overrideProvider(CardLimitProcessor)
-    .useValue({})
-    .overrideProvider(TopupExpireProcessor)
-    .useValue({})
-    .overrideProvider(PaymentReconcileProcessor)
-    .useValue({});
+  return (
+    result
+      .overrideProvider(PriceSyncProcessor)
+      .useValue({})
+      .overrideProvider(BankMessageProcessor)
+      .useValue({})
+      .overrideProvider(CardLimitProcessor)
+      .useValue({})
+      .overrideProvider(TopupExpireProcessor)
+      .useValue({})
+      .overrideProvider(PaymentReconcileProcessor)
+      .useValue({})
+      .overrideProvider(OrderReconcileProcessor)
+      .useValue({})
+      .overrideProvider(FulfillOrderProcessor)
+      .useValue({})
+      .overrideProvider(ValidateRecipientProcessor)
+      .useValue({})
+      .overrideProvider(FragmentKeepaliveProcessor)
+      .useValue({})
+      // A timer that sweeps the validate-recipient queue (a FakeQueue here: it has no clean()).
+      .overrideProvider(RecipientJobSweeper)
+      .useValue({})
+  );
 }

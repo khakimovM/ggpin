@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { CostSnapshot, FxRate } from '@repo/db';
+import { freshCostSnapshotWindow, type CostSnapshot, type FxRate } from '@repo/db';
 import {
   COST_CURRENCIES,
   COST_FX_PAIR,
@@ -123,11 +123,12 @@ export class PriceBookService {
   ): Promise<ReadonlyMap<string, ProductDisplayPrices>> {
     const result = new Map<string, ProductDisplayPrices>();
     if (products.length === 0) return result;
-    const since = new Date(now.getTime() - COST_MAX_AGE_MS);
+    // The fresh window (@repo/db): the same rows the worker's recipient check selects from.
+    const { since, until } = freshCostSnapshotWindow(now);
     const snapshots = await this.repository.latestCostSnapshotsBetween(
       products.map((product) => product.id),
       since,
-      latestAcceptedAt(now),
+      until,
     );
     const fxByCurrency = new Map<CostCurrency, FxRate | null>();
     const fxFor = async (currency: CostCurrency): Promise<FxRate | null> => {

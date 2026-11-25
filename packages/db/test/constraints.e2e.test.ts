@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '../src/index';
+import { expectGuard } from './check-helpers';
 import { db } from './client';
 import { createIntent, createOrder, createUser } from './factories';
+import { walkTo } from './order-fixtures';
 
 // Prisma maps Postgres 23505 -> P2002 and 23503 -> P2003, whichever driver adapter is in use.
 async function expectPrismaError(promise: Promise<unknown>, code: string): Promise<void> {
@@ -48,20 +50,25 @@ describe('idempotency uniques', () => {
 
   it('Order(userId, idempotencyKey): the same key cannot create a second order', async () => {
     const user = await createUser();
-    const first = await createOrder(user, 'same-key');
+    await createOrder(user, 'same-key');
+    // A second order of the quote of another order: every column equals that quote's (the order
+    // guard refuses anything else before the unique is reached), only the key repeats.
+    const quote = await db.quote.findUniqueOrThrow({
+      where: { id: (await createOrder(user, 'other-key')).quoteId },
+    });
     await expectPrismaError(
       db.order.create({
         data: {
           userId: user.id,
-          quoteId: (await createOrder(user, 'other-key')).quoteId,
-          productId: first.productId,
-          quantity: 1,
-          recipient: {},
-          priceTiyin: 1n,
-          costCurrency: 'TON',
-          fxRateId: first.fxRateId,
-          costMinor: 1n,
-          maxCostMinor: 1n,
+          quoteId: quote.id,
+          productId: quote.productId,
+          quantity: quote.quantity,
+          recipient: { username: 'someone' },
+          priceTiyin: quote.priceTiyin,
+          costCurrency: quote.costCurrency,
+          fxRateId: quote.fxRateId,
+          costMinor: quote.costMinor,
+          maxCostMinor: quote.maxCostMinor,
           status: 'PAID',
           idempotencyKey: 'same-key',
           requestHash: 'hash-a',
@@ -83,19 +90,20 @@ describe('idempotency uniques', () => {
   it('Order.quoteId: one quote can back only one order', async () => {
     const user = await createUser();
     const order = await createOrder(user);
+    const quote = await db.quote.findUniqueOrThrow({ where: { id: order.quoteId } });
     await expectPrismaError(
       db.order.create({
         data: {
           userId: user.id,
-          quoteId: order.quoteId,
-          productId: order.productId,
-          quantity: 1,
-          recipient: {},
-          priceTiyin: 1n,
-          costCurrency: 'TON',
-          fxRateId: order.fxRateId,
-          costMinor: 1n,
-          maxCostMinor: 1n,
+          quoteId: quote.id,
+          productId: quote.productId,
+          quantity: quote.quantity,
+          recipient: { username: 'someone' },
+          priceTiyin: quote.priceTiyin,
+          costCurrency: quote.costCurrency,
+          fxRateId: quote.fxRateId,
+          costMinor: quote.costMinor,
+          maxCostMinor: quote.maxCostMinor,
           status: 'PAID',
           idempotencyKey: 'another-key',
           requestHash: 'hash-a',
@@ -113,6 +121,7 @@ describe('idempotency uniques', () => {
 
   it('FulfillmentAttempt(orderId, attemptNo): an attempt number is used once', async () => {
     const order = await createOrder(await createUser());
+    await walkTo(order.id, 'PROCESSING'); // a payout starts for a PROCESSING order only
     const attempt = {
       orderId: order.id,
       attemptNo: 1,
@@ -174,10 +183,17 @@ describe('foreign keys', () => {
     expect(await db.ledgerEntry.count({ where: { userId: user.id } })).toBe(1);
   });
 
-  it('Restrict: an order with events cannot be deleted', async () => {
+  // Order_no_delete (BEFORE DELETE, review N6) refuses every order DELETE before the foreign key
+  // is checked, so the Restrict of OrderEvent -> Order is proven from the catalog instead.
+  it('an order with events cannot be deleted; OrderEvent restricts the delete of its order', async () => {
     const order = await createOrder(await createUser());
     await db.orderEvent.create({ data: { orderId: order.id, to: 'PAID', actor: 'SYSTEM' } });
-    await expectPrismaError(db.order.delete({ where: { id: order.id } }), 'P2003');
+    await expectGuard(db.order.delete({ where: { id: order.id } }), 'is never deleted');
+    const rules = await db.$queryRaw<{ rule: string }[]>`
+      SELECT confdeltype::text AS rule FROM pg_constraint
+      WHERE contype = 'f' AND conrelid = '"OrderEvent"'::regclass
+        AND confrelid = '"Order"'::regclass`;
+    expect(rules).toEqual([{ rule: 'r' }]);
   });
 
   it('Cascade is limited to credentials: deleting a user drops its web sessions', async () => {
@@ -227,7 +243,14 @@ describe('BigInt money', () => {
           refId: 'a',
         },
         { userId: user.id, kind: 'TOPUP', amountTiyin: 2n, refType: 'PAYMENT', refId: 'b' },
-        { userId: user.id, kind: 'PURCHASE', amountTiyin: -1n, refType: 'ORDER', refId: 'c' },
+        // A debit (not a PURCHASE: that needs its order since D-60).
+        {
+          userId: user.id,
+          kind: 'TOPUP_REVERSAL',
+          amountTiyin: -1n,
+          refType: 'PAYMENT',
+          refId: 'c',
+        },
       ],
     });
     const sum = await db.ledgerEntry.aggregate({

@@ -7,10 +7,12 @@ import {
   SIMULATED_PREMIUM_NANO_TON,
   SIMULATED_STAR_NANO_TON,
 } from '../../adapters/simulator/simulated-fragment-prices';
+import { SIMULATED_STAR_MICRO_USDT } from '../../adapters/simulator/simulated-reseller.adapter';
 import { WorkerConfigModule } from '../../config/config.module';
 import { buildE2eEnv } from '../../config/__tests__/e2e-env';
 import type { Env } from '../../config/env';
 import { PrismaModule } from '../../infra/prisma/prisma.module';
+import { RedisModule } from '../../infra/redis/redis.module';
 import { withoutPaymentCrons } from '../../__tests__/payment-cron-isolation';
 import { WorkerModule } from '../../worker.module';
 import { CostSyncService } from '../cost-sync.service';
@@ -32,7 +34,9 @@ import { createFixtures, deleteFixtures, type Fixtures } from './price-sync-e2e-
 /** The sync services on the real database, without the scheduler/processor (no background runs). */
 async function syncModule(env: Env): Promise<TestingModule> {
   const moduleRef = await Test.createTestingModule({
-    imports: [WorkerConfigModule.forRoot(env), PrismaModule, PricingSyncModule],
+    // RedisModule: the cost sync asks the adapter router which route is healthy (S7 M2), and the
+    // Fragment health behind it is built with the Redis client.
+    imports: [WorkerConfigModule.forRoot(env), PrismaModule, RedisModule, PricingSyncModule],
   })
     .overrideProvider(PriceSyncProcessor)
     .useValue({})
@@ -92,7 +96,10 @@ describe('price sync on the real database (dry-run simulator)', () => {
     });
   });
 
-  it('one cost run writes snapshots only for active FRAGMENT-first products', async () => {
+  // S7 M2: each active product is priced from its first HEALTHY enabled route. In a dry run both
+  // simulators are healthy, so that is the first enabled route: FRAGMENT for stars and premium
+  // (premium's disabled RESELLER route is skipped), the dry-run backup for `other` (USDT).
+  it('one cost run prices each active product from its first healthy enabled route', async () => {
     const result = await moduleRef.get(CostSyncService).run();
     expect(result.snapshots).toBeGreaterThanOrEqual(3);
 
@@ -102,7 +109,7 @@ describe('price sync on the real database (dry-run simulator)', () => {
           in: [fixtures.starsId, fixtures.premiumId, fixtures.inactiveId, fixtures.otherRouteId],
         },
       },
-      orderBy: { basisQuantity: 'asc' },
+      orderBy: [{ basisQuantity: 'asc' }, { adapter: 'asc' }],
     });
     const common = { adapter: 'FRAGMENT', currency: 'TON', source: 'simulator' };
     expect(rows).toEqual([
@@ -112,6 +119,15 @@ describe('price sync on the real database (dry-run simulator)', () => {
         skuId: null,
         basisQuantity: 1,
         costMinor: SIMULATED_STAR_NANO_TON,
+      }),
+      expect.objectContaining({
+        adapter: 'RESELLER_STARS',
+        currency: 'USDT',
+        source: 'simulator',
+        productId: fixtures.otherRouteId,
+        skuId: null,
+        basisQuantity: 1,
+        costMinor: SIMULATED_STAR_MICRO_USDT,
       }),
       expect.objectContaining({
         ...common,
