@@ -97,6 +97,9 @@ export const alertRef = {
   // One per worker outage (D-34 (12), phase 5 S6): the last time the API's watchdog saw the worker
   // heartbeat, epoch ms. Every API instance reads it from Redis, so they all build the same id.
   workerDown: (lastSeen: Date): string => String(lastSeen.getTime()),
+  // The same per outage of the bankfeed container (D-76 (4)): the last sighting of
+  // `bankfeed:process-heartbeat`. Its own alert kind keeps the notify job ids apart.
+  bankfeedDown: (lastSeen: Date): string => String(lastSeen.getTime()),
   // One per stuck episode (S6 review M2, re-review): the job id (= the order id) and when the
   // API watchdog first saw it waiting (Redis clock), so the same order waiting again later (a
   // retry, a re-enqueue) is a new alert. A job id that is not a plain id is never copied into the

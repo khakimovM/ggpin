@@ -1,11 +1,13 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
-import { QUEUES, WORKER_HEARTBEAT_KEY } from '@repo/shared';
+import { BANKFEED_PROCESS_HEARTBEAT_KEY, QUEUES, WORKER_HEARTBEAT_KEY } from '@repo/shared';
 import type { Queue } from 'bullmq';
 import { RedisService } from '../../infra/redis/redis.service';
 
 /** When the API last saw the worker heartbeat (epoch ms, Redis clock). Shared by every API. */
 export const WORKER_LAST_SEEN_KEY = 'worker:watchdog:last-seen';
+/** The same for the bankfeed container's process heartbeat (D-76 (4)): its own outage, own key. */
+export const BANKFEED_LAST_SEEN_KEY = 'worker:watchdog:bankfeed-last-seen';
 /** The fulfill-order job the queueStuck check follows, and since when (JSON, Redis clock). */
 export const QUEUE_WATCH_KEY = 'worker:watchdog:queue-watch';
 // Long enough to outlive any outage the owner would still want one alert for.
@@ -90,6 +92,28 @@ export class WatchdogRepository {
   /** Stores the sighting only if none exists (another instance may have just stored one). */
   async storeLastSeenIfAbsent(epochMs: number): Promise<void> {
     await this.redis.client.set(WORKER_LAST_SEEN_KEY, String(epochMs), 'PX', WATCH_TTL_MS, 'NX');
+  }
+
+  /**
+   * The bankfeed container writes `bankfeed:process-heartbeat` (TTL) in every BANK_FEED_MODE, and
+   * a WORKER_ROLE=all worker writes it too (D-76 (4)); present = that process is alive. Not
+   * `bankfeed:heartbeat`, which is the listener's last healthy round and absent while the feed is
+   * off (the API's top-up gate reads that one, BankFeedHealth).
+   */
+  async bankfeedHeartbeatPresent(): Promise<boolean> {
+    return (await this.redis.client.exists(BANKFEED_PROCESS_HEARTBEAT_KEY)) === 1;
+  }
+
+  bankfeedLastSeen(): Promise<string | null> {
+    return this.redis.client.get(BANKFEED_LAST_SEEN_KEY);
+  }
+
+  async storeBankfeedLastSeen(epochMs: number): Promise<void> {
+    await this.redis.client.set(BANKFEED_LAST_SEEN_KEY, String(epochMs), 'PX', WATCH_TTL_MS);
+  }
+
+  async storeBankfeedLastSeenIfAbsent(epochMs: number): Promise<void> {
+    await this.redis.client.set(BANKFEED_LAST_SEEN_KEY, String(epochMs), 'PX', WATCH_TTL_MS, 'NX');
   }
 
   /**

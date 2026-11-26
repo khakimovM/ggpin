@@ -5,6 +5,7 @@ import {
   FULFILLMENT_ALERT_PARAMS,
   type FulfillmentAlertKind,
 } from '@repo/shared';
+import { translate } from '../../../common/i18n/translate';
 import { FulfillmentAlertRenderer } from '../fulfillment-alert.renderer';
 import { fakeSources, orderRow, type FakeSources } from './order-notify.test-fixtures';
 
@@ -39,6 +40,7 @@ const REF: Readonly<Record<FulfillmentAlertKind, string>> = {
   tonWitnessConflict: 'cmtransfer1',
   queueStuck: `cmorder1_${String(NOW.getTime() - 6 * 60_000)}`,
   workerDown: String(NOW.getTime() - 7 * 60_000),
+  bankfeedDown: String(NOW.getTime() - 3 * 60_000),
   orderNoPurchase: 'cmorder1',
   reconcileGuardRefused: 'cmorder1_review',
   tonLateConfirmed: 'cmtransfer1',
@@ -144,6 +146,19 @@ describe('fulfillment alert texts (alerts.fulfillment.*)', () => {
   it('workerDown counts the minutes since the last sighting; a bad ref prints ?', async () => {
     expect(await full.render('workerDown', REF.workerDown)).toContain(' 7 daqiqadan');
     expect(await full.render('workerDown', 'bad')).toContain(' ? daqiqadan');
+  });
+
+  // D-76 (4): the owner-approved text, word for word (o‘ with U+2018), in both catalogs.
+  it('bankfeedDown: the approved uz text with the minutes since the last sighting', async () => {
+    expect(await full.render('bankfeedDown', REF.bankfeedDown)).toBe(
+      '🔴 Bank xabarlari konteyneri 3 daqiqadan beri javob bermayapti (heartbeat yo‘q). ' +
+        'P2P to‘ldirishlar avtomatik tasdiqlanmaydi, yangi so‘rovlar to‘xtatildi.',
+    );
+    expect(await full.render('bankfeedDown', 'bad')).toContain(' ? daqiqadan');
+    expect(translate('ru', 'alerts.fulfillment.bankfeedDown', { minutes: 3 })).toBe(
+      '🔴 Контейнер банковских уведомлений не отвечает 3 мин. (нет heartbeat). ' +
+        'P2P-пополнения не подтверждаются автоматически, новые заявки остановлены.',
+    );
   });
 
   describe('phase 5 S9 alerts (D-64 (6), (7))', () => {

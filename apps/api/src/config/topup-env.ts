@@ -29,7 +29,9 @@ export const topupTuningShape = {
   // grace; only the capacity is released early, so create-and-cancel cannot block cards for a day.
   TOPUP_CAPACITY_HOLD_SEC: seconds(TOPUP_DEFAULTS.CAPACITY_HOLD_SEC, 1, 7 * DAY_SEC),
   // Not a secret (no secret-shaped suffix), so the BANK_FEED_ prefix rule lets the API read it.
-  BANK_FEED_HEARTBEAT_MAX_AGE_SEC: seconds(BANK_FEED_DEFAULTS.HEARTBEAT_MAX_AGE_SEC, 10, 3_600),
+  // At most 120 s: it bounds how long new top-up requests are still taken after the listener
+  // stops, and so how long a `bankfeedDown` alert waits for the gate (docs/07, release SA B-7).
+  BANK_FEED_HEARTBEAT_MAX_AGE_SEC: seconds(BANK_FEED_DEFAULTS.HEARTBEAT_MAX_AGE_SEC, 10, 120),
 } as const;
 
 // The cross-field rules of these knobs are shared with the worker (@repo/shared).

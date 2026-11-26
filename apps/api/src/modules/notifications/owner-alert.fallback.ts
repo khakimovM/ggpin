@@ -110,7 +110,7 @@ function fulfillmentParams(alert: FulfillmentAlertKind, refId: string, now: Date
   // The order or transfer id (the order id of a composite `<orderId>_<suffix>` ref).
   const params: Params = { ref: refIdSubject(refId) ?? refId };
   if (alert === 'queueStuck') params['minutes'] = QUEUE_STUCK_AFTER_MS / 60_000;
-  if (alert === 'workerDown') {
+  if (alert === 'workerDown' || alert === 'bankfeedDown') {
     const since = parseWorkerDownRef(refId);
     if (since !== null) params['minutes'] = minutesBetween(since, now);
   }

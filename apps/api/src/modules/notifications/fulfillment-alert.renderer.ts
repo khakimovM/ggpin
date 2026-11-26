@@ -36,7 +36,7 @@ const UNKNOWN = '?';
  * `<orderId>_abandoned`, so the plain id stays free for a later real review); held / tonDailyLimit
  * = `<orderId>_<attemptId>` (a core hold: `<orderId>_<HELD OrderEvent id>`);
  * reconcileGuardRefused = `<orderId>_<step or transferId>` (phase 5 S9); tonLowBalance = the
- * WalletSnapshot; ton* transfer alerts (tonLateConfirmed too) = the TonTransfer; workerDown = the outage start; queueStuck =
+ * WalletSnapshot; ton* transfer alerts (tonLateConfirmed too) = the TonTransfer; workerDown and bankfeedDown = the outage start; queueStuck =
  * `<jobId>_<first seen ms>` (the job id is the order id, alertRef.queueStuck). Composite refIds are
  * resolved to the order through refIdSubject.
  */
@@ -85,7 +85,8 @@ export class FulfillmentAlertRenderer {
         if (snapshot === null) return {};
         return { balance: tonText(snapshot.nanoTon), address: shortTonAddress(snapshot.address) };
       }
-      case 'workerDown': {
+      case 'workerDown':
+      case 'bankfeedDown': {
         const since = parseWorkerDownRef(refId);
         if (since === null) return {};
         const minutes = Math.floor((this.clock.now().getTime() - since.getTime()) / 60_000);

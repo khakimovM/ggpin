@@ -1,7 +1,9 @@
 import { notifyJobSchema, type NotifyJob } from '@repo/shared';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
+import { BankfeedDownWatchdog } from '../bankfeed-down.watchdog';
 import type { WatchdogRepository } from '../watchdog.repository';
-import { WorkerDownWatchdog, type WatchdogQueue } from '../worker-down.watchdog';
+import type { WatchdogQueue } from '../heartbeat-outage';
+import { WorkerDownWatchdog } from '../worker-down.watchdog';
 
 /**
  * The watchdog over an in-memory repository and a notify queue that drops a repeated job id like
@@ -24,6 +26,12 @@ export interface WatchdogWorld {
   jobs: FakeFulfillJob[];
   /** The queue-watch key (raw, as Redis holds it). */
   queueWatch: string | null;
+  /** `bankfeed:process-heartbeat` present (D-76 (4)). */
+  bankfeedHeartbeat: boolean;
+  /** The bankfeed sighting key (raw, as Redis holds it). */
+  bankfeedLastSeen: string | null;
+  /** BankFeedHealth.isAlive(): true = new top-up requests are still accepted. */
+  topupGateOpen: boolean;
 }
 
 export function watchdogSetup(world: WatchdogWorld = newWorld(), added: NotifyJob[] = []) {
@@ -58,6 +66,16 @@ export function watchdogSetup(world: WatchdogWorld = newWorld(), added: NotifyJo
       world.queueWatch = next;
       return Promise.resolve(true);
     }),
+    bankfeedHeartbeatPresent: jest.fn(() => Promise.resolve(world.bankfeedHeartbeat)),
+    bankfeedLastSeen: jest.fn(() => Promise.resolve(world.bankfeedLastSeen)),
+    storeBankfeedLastSeen: jest.fn((ms: number) => {
+      world.bankfeedLastSeen = String(ms);
+      return Promise.resolve();
+    }),
+    storeBankfeedLastSeenIfAbsent: jest.fn((ms: number) => {
+      world.bankfeedLastSeen ??= String(ms);
+      return Promise.resolve();
+    }),
   };
   const add = jest.fn((_name: string, data: unknown, opts: { jobId: string }) => {
     if (!ids.has(opts.jobId)) {
@@ -66,6 +84,8 @@ export function watchdogSetup(world: WatchdogWorld = newWorld(), added: NotifyJo
     }
     return Promise.resolve({});
   });
+  // The top-up gate (BankFeedHealth.isAlive): closed unless a spec opens it.
+  const gate = { isAlive: jest.fn(() => Promise.resolve(world.topupGateOpen)) };
   const env = buildTestEnv({ WORKER_DOWN_ALERT_AFTER_MS: '120000' });
   const build = () =>
     new WorkerDownWatchdog(
@@ -73,14 +93,26 @@ export function watchdogSetup(world: WatchdogWorld = newWorld(), added: NotifyJo
       { add } as unknown as WatchdogQueue,
       env,
     );
+  const buildBankfeed = () =>
+    new BankfeedDownWatchdog(
+      repo as unknown as WatchdogRepository,
+      { add } as unknown as WatchdogQueue,
+      env,
+      gate,
+    );
   return {
     world,
     added,
     add,
     repo,
+    gate,
     watchdog: build(),
+    /** The bankfeed watchdog of the same API: the same Redis and notify queue (D-76 (4)). */
+    bankfeed: buildBankfeed(),
     /** Another API instance: the same Redis, the same notify queue, its own process. */
     otherInstance: build,
+    /** The bankfeed watchdog of another API instance (same Redis, queue and gate). */
+    otherBankfeed: buildBankfeed,
     now: () => now,
     advance: (ms: number) => {
       now += ms;
@@ -95,5 +127,13 @@ export function watchdogSetup(world: WatchdogWorld = newWorld(), added: NotifyJo
 }
 
 export function newWorld(): WatchdogWorld {
-  return { lastSeen: null, heartbeat: false, jobs: [], queueWatch: null };
+  return {
+    lastSeen: null,
+    heartbeat: false,
+    jobs: [],
+    queueWatch: null,
+    bankfeedHeartbeat: false,
+    bankfeedLastSeen: null,
+    topupGateOpen: false,
+  };
 }

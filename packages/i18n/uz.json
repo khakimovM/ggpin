@@ -1372,6 +1372,7 @@
       "tonWitnessConflict": "🚨 KRITIK: asosiy manba #{number} buyurtma transferi (seqno {seqno}) yuborilmagan dedi, ikkinchi zanjir manbai esa uni ko‘rdi. Buyurtma tekshiruvda: manbalardan biri noto‘g‘ri yoki orqada qolgan. Transfer: {ref}",
       "queueStuck": "🟠 Yetkazish navbati {minutes} daqiqadan ko‘p turib qoldi: #{number} buyurtma hali ishga olinmagan. Worker ishlayotganini tekshiring. Buyurtma: {ref}",
       "workerDown": "🔴 Worker {minutes} daqiqadan beri javob bermayapti (heartbeat yo‘q). Buyurtmalar va to‘ldirishlar bajarilmaydi.",
+      "bankfeedDown": "🔴 Bank xabarlari konteyneri {minutes} daqiqadan beri javob bermayapti (heartbeat yo‘q). P2P to‘ldirishlar avtomatik tasdiqlanmaydi, yangi so‘rovlar to‘xtatildi.",
       "orderNoPurchase": "🚨 KRITIK: #{number} buyurtmaning to‘lov (PURCHASE) yozuvi topilmadi yoki summasi mos emas: {product}. Hech narsa yuborilmadi, buyurtma to‘xtatildi. Bu pul anomaliyasi — ledgerʼni tekshiring. Buyurtma: {ref}",
       "reconcileGuardRefused": "🚨 KRITIK: reconcile #{number} buyurtmani yozolmadi — baza qo‘riqchisi rad etdi (holat: {status}). Avtomatik qayta urinilmaydi, qo‘lda tekshiring. Buyurtma: {ref}",
       "tonLateConfirmed": "🚨 KRITIK: #{number} buyurtmaning «yuborilmagan» deb hisoblangan TON transferi (seqno {seqno}, {amount} → {to}) zanjirda keyin topildi. Buyurtma holati: {status}. Pul ikki marta chiqqan bo‘lishi mumkin. Transfer: {ref}"

@@ -2,6 +2,7 @@
 
 exports[`fulfillment alert texts (alerts.fulfillment.*) renders every kind (uz, synthetic rows) 1`] = `
 {
+  "bankfeedDown": "🔴 Bank xabarlari konteyneri 3 daqiqadan beri javob bermayapti (heartbeat yo‘q). P2P to‘ldirishlar avtomatik tasdiqlanmaydi, yangi so‘rovlar to‘xtatildi.",
   "fragmentAdapterDown": "🔴 Fragment nomaʼlum javob qaytardi, adapter o‘chirildi. Yangi buyurtmalar to‘xtatildi, tuzatish kerak.",
   "fragmentSessionDead": "🔴 Fragment sessiyasi ishlamay qoldi. Stars va Premium buyurtmalari to‘xtatiladi. Sessiyani yangilang (runbook).",
   "fragmentSessionRestored": "🟢 Fragment sessiyasi tiklandi. Buyurtmalar yana bajariladi.",

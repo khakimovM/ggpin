@@ -51,6 +51,8 @@ describe('owner alert fallback text', () => {
     );
     const down = alertRef.workerDown(minutesAgo(7));
     expect(ownerAlertFallbackText('workerDown', down, NOW)).toContain(' 7 daqiqadan');
+    const feed = ownerAlertFallbackText('bankfeedDown', alertRef.bankfeedDown(minutesAgo(4)), NOW);
+    expect(feed).toContain('Bank xabarlari konteyneri 4 daqiqadan');
     const stuck = ownerAlertFallbackText('queueStuck', `cmorder1_${String(NOW.getTime())}`, NOW);
     expect(stuck).toContain('5 daqiqadan');
     expect(stuck).toContain('#?');
