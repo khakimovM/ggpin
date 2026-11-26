@@ -20,7 +20,7 @@
     "@tanstack/react-query": "5.105.3",
     "lucide-react": "1.68.0",
     "motion": "14.9.1",
-    "next": "^15.5.28",
+    "next": "^15.5.29",
     "next-intl": "4.14.9",
     "react": "^19.2.9",
     "react-dom": "^19.2.9",

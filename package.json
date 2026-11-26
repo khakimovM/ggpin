@@ -15,10 +15,12 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "lint:scripts": "eslint scripts && prettier --check scripts .github/audit-allowlist.json",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e --concurrency=1",
-    "verify": "npm run lint && npm run typecheck && npm run test",
+    "verify": "npm run lint && npm run lint:scripts && npm run typecheck && npm run test && npm run test:scripts",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "db:up": "docker compose up -d postgres redis",
     "db:down": "docker compose down",
     "db:migrate": "npm run db:migrate --workspace=@repo/db --if-present",
@@ -27,7 +29,8 @@
     "db:studio": "npm run db:studio --workspace=@repo/db --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",
     "secrets:scan": "gitleaks detect --no-banner",
-    "prepare": "husky || exit 0"
+    "prepare": "husky || exit 0",
+    "audit:gate": "node scripts/audit/audit-gate.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs}": [
@@ -38,7 +41,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "^15.5.28",
+    "@next/eslint-plugin-next": "^15.5.29",
     "@types/node": "^22.20.5",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
@@ -52,6 +55,7 @@
     "typescript-eslint": "^8.72.1"
   },
   "overrides": {
+    "effect": "3.22.1",
     "fastify": "5.12.7",
     "next": {
       "postcss": "8.5.29"
