@@ -6,7 +6,7 @@ import { HEARTBEAT_INTERVAL_MS, HEARTBEAT_TTL_MS, HeartbeatService } from '../he
 
 function build(client: FakeRedisClient): HeartbeatService {
   // Only `client.set` / `client.eval` are used; the fake is shaped for exactly that.
-  return new HeartbeatService({ client } as unknown as RedisService);
+  return new HeartbeatService({ client } as unknown as RedisService, [WORKER_HEARTBEAT_KEY]);
 }
 
 describe('HeartbeatService', () => {

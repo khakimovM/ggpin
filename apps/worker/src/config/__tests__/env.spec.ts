@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   API_ONLY_SECRETS,
+  BANK_FEED_ROLE_SECRETS,
   WORKER_PRODUCTION_GENERATED_SECRETS as PRODUCTION_GENERATED_SECRETS,
   WORKER_PRODUCTION_ISSUED_CREDENTIALS as PRODUCTION_ISSUED_CREDENTIALS,
 } from '@repo/shared';
@@ -110,8 +111,8 @@ describe('worker loadEnv', () => {
       );
     });
 
-    it('requires both bot ids in production', () => {
-      const prod = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', FULFILLMENT_DRY_RUN: 'true' };
+    it('requires both bot ids in production (bankfeed role: the matcher lives there, D-76)', () => {
+      const prod = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', WORKER_ROLE: 'bankfeed' };
       const message = messageOf(prod);
       expect(message).toContain('BANK_FEED_HUMO_BOT_ID: is required in production');
       expect(message).toContain('BANK_FEED_UZCARD_BOT_ID: is required in production');
@@ -147,6 +148,7 @@ describe('worker loadEnv', () => {
       const message = messageOf({
         ...TEST_ENV_SOURCE,
         NODE_ENV: 'production',
+        WORKER_ROLE: 'fulfillment',
         FULFILLMENT_DRY_RUN: 'true',
         JWT_ACCESS_SECRET: SECRET_VALUE,
         PAYME_KEY: SECRET_VALUE,
@@ -168,19 +170,29 @@ describe('worker loadEnv', () => {
   });
 
   describe('secrets', () => {
+    // D-76: production needs a role, and each role holds only its own secrets.
     const prod = {
       ...TEST_ENV_SOURCE,
       NODE_ENV: 'production',
+      WORKER_ROLE: 'fulfillment',
       FULFILLMENT_DRY_RUN: 'true',
+    };
+    const bankfeedProd = {
+      ...TEST_ENV_SOURCE,
+      NODE_ENV: 'production',
+      WORKER_ROLE: 'bankfeed',
       BANK_FEED_HUMO_BOT_ID: '111000111',
       BANK_FEED_UZCARD_BOT_ID: '222000222',
     };
+    const prodFor = (name: string) =>
+      (BANK_FEED_ROLE_SECRETS as readonly string[]).includes(name) ? bankfeedProd : prod;
 
     it('are optional, and empty values are treated as unset', () => {
       const source = Object.fromEntries(
         [...PRODUCTION_GENERATED_SECRETS, ...PRODUCTION_ISSUED_CREDENTIALS].map((n) => [n, '']),
       );
       expect(() => loadEnv({ ...prod, ...source })).not.toThrow();
+      expect(() => loadEnv({ ...bankfeedProd, ...source })).not.toThrow();
     });
 
     it('requires FULFILLMENT_DRY_RUN to be explicit in production', () => {
@@ -191,8 +203,12 @@ describe('worker loadEnv', () => {
     it.each([...PRODUCTION_GENERATED_SECRETS, ...PRODUCTION_ISSUED_CREDENTIALS])(
       'rejects a %s placeholder in production',
       (name) => {
-        expect(messageOf({ ...prod, [name]: 'change-me-please' })).toContain(name);
-        expect(messageOf({ ...prod, [name]: '<paste-here>' })).toContain(name);
+        expect(messageOf({ ...prodFor(name), [name]: 'change-me-please' })).toContain(
+          `${name}: is a placeholder`,
+        );
+        expect(messageOf({ ...prodFor(name), [name]: '<paste-here>' })).toContain(
+          `${name}: is a placeholder`,
+        );
       },
     );
 

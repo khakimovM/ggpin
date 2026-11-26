@@ -5,6 +5,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { QUEUE_NAMES, scrubSecretsInText } from '@repo/shared';
 import { EnvValidationError, loadProcessEnv, type Env } from './config/env';
 import { WorkerModule } from './worker.module';
+import { workerStartedLine } from './worker-role-modules';
 
 // Misconfiguration must stop the process with a readable reason, not a stack trace.
 function loadEnvOrExit(): Env {
@@ -32,9 +33,7 @@ async function bootstrap(): Promise<void> {
   // No keep-alive timer: the BullMQ Redis connections and the heartbeat interval keep the
   // event loop busy; enableShutdownHooks closes them (and so lets the process exit) on
   // SIGINT/SIGTERM.
-  new Logger('Worker').log(
-    `worker started (${QUEUE_NAMES.length} queues registered, price-sync processor active, dryRun=${String(env.FULFILLMENT_DRY_RUN)}, ton=${env.TON_NETWORK}, bankFeed=${env.BANK_FEED_MODE})`,
-  );
+  new Logger('Worker').log(workerStartedLine(env, QUEUE_NAMES.length));
 }
 
 // Node prints an unhandled rejection with util.inspect, nested properties included (a client

@@ -5,17 +5,19 @@ import { workerIsHealthy } from '../healthcheck';
 describe('workerIsHealthy', () => {
   it('is healthy while the worker heartbeat key exists', async () => {
     const get = jest.fn().mockResolvedValue('{"at":"2026-11-10T00:00:00.000Z","pid":1}');
-    await expect(workerIsHealthy({ get })).resolves.toBe(true);
+    await expect(workerIsHealthy({ get }, 'fulfillment')).resolves.toBe(true);
     expect(get).toHaveBeenCalledWith(WORKER_HEARTBEAT_KEY);
   });
 
   it('is unhealthy once the key has expired', async () => {
-    await expect(workerIsHealthy({ get: jest.fn().mockResolvedValue(null) })).resolves.toBe(false);
+    await expect(
+      workerIsHealthy({ get: jest.fn().mockResolvedValue(null) }, 'fulfillment'),
+    ).resolves.toBe(false);
   });
 
   it('propagates a Redis failure so the probe reports unreachable', async () => {
     await expect(
-      workerIsHealthy({ get: jest.fn().mockRejectedValue(new Error('down')) }),
+      workerIsHealthy({ get: jest.fn().mockRejectedValue(new Error('down')) }, 'fulfillment'),
     ).rejects.toThrow('down');
   });
 });

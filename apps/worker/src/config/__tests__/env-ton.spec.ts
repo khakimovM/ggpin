@@ -11,7 +11,8 @@ import { TEST_TON_API_KEY, tonLiveSource } from './ton-live-env';
 // never holds the pair as strings: a one-shot handle gives it to the wallet factory once (L2).
 
 const PATH = '/run/secrets/wallet_enc_key';
-const PROD = { ...TEST_ENV_SOURCE, NODE_ENV: 'production' };
+// D-76: the wallet key belongs to the fulfillment container.
+const PROD = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', WORKER_ROLE: 'fulfillment' };
 
 function reader(content: string) {
   const asked: string[] = [];

@@ -1,10 +1,10 @@
 import {
+  Inject,
   Injectable,
   Logger,
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from '@nestjs/common';
-import { WORKER_HEARTBEAT_KEY } from '@repo/shared';
 import { RedisService } from '../infra/redis/redis.service';
 
 export const HEARTBEAT_INTERVAL_MS = 10_000;
@@ -13,14 +13,19 @@ export const HEARTBEAT_INTERVAL_MS = 10_000;
 export const HEARTBEAT_TTL_MS = 30_000;
 const SHUTDOWN_CLEAR_TIMEOUT_MS = 1_000;
 
-// Deletes the key only while it still holds our value, so a stopping worker never removes a
-// newer worker's beat.
-const DELETE_IF_OURS = `if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0`;
+/** The process key(s) this worker beats on, by role (HeartbeatModule.forRole, D-76). */
+export const HEARTBEAT_KEYS = Symbol('HEARTBEAT_KEYS');
+
+// Deletes each key only while it still holds our value, so a stopping worker never removes a
+// newer worker's beat. One script for all keys: one round trip under the shutdown timeout.
+const DELETE_IF_OURS = `local n = 0 for _, key in ipairs(KEYS) do if redis.call('GET', key) == ARGV[1] then n = n + redis.call('DEL', key) end end return n`;
 
 /**
- * Writes `worker:heartbeat` (ISO time + pid) with a TTL; the API readiness probe reports the
- * worker as up while the key exists. The interval timer is intentionally ref'd: together with
- * the BullMQ connections it is what keeps the worker process alive.
+ * Writes the role's process key(s) (ISO time + pid) with a TTL: `worker:heartbeat` for
+ * fulfillment (the API readiness probe reports the worker as up while it exists),
+ * `bankfeed:process-heartbeat` for bankfeed (in every BANK_FEED_MODE), both for all. The interval
+ * timer is intentionally ref'd: together with the BullMQ connections it is what keeps the worker
+ * process alive.
  */
 @Injectable()
 export class HeartbeatService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -30,7 +35,10 @@ export class HeartbeatService implements OnApplicationBootstrap, OnModuleDestroy
   private lastValue: string | undefined;
   private failing = false;
 
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    @Inject(HEARTBEAT_KEYS) private readonly keys: readonly string[],
+  ) {}
 
   onApplicationBootstrap(): void {
     void this.beat();
@@ -57,7 +65,7 @@ export class HeartbeatService implements OnApplicationBootstrap, OnModuleDestroy
       let timeout: NodeJS.Timeout | undefined;
       try {
         await Promise.race([
-          this.redis.client.eval(DELETE_IF_OURS, 1, WORKER_HEARTBEAT_KEY, value),
+          this.redis.client.eval(DELETE_IF_OURS, this.keys.length, ...this.keys, value),
           new Promise((_, reject) => {
             timeout = setTimeout(() => reject(new Error('timeout')), SHUTDOWN_CLEAR_TIMEOUT_MS);
           }),
@@ -74,7 +82,9 @@ export class HeartbeatService implements OnApplicationBootstrap, OnModuleDestroy
   private async write(): Promise<void> {
     const value = JSON.stringify({ at: new Date().toISOString(), pid: process.pid });
     try {
-      await this.redis.client.set(WORKER_HEARTBEAT_KEY, value, 'PX', HEARTBEAT_TTL_MS);
+      await Promise.all(
+        this.keys.map((key) => this.redis.client.set(key, value, 'PX', HEARTBEAT_TTL_MS)),
+      );
       this.lastValue = value;
       if (this.failing) this.logger.log('heartbeat restored');
       this.failing = false;

@@ -106,6 +106,10 @@ export const ALL_SECRET_ENV_NAMES: readonly string[] = [
  * session, the Stars reseller, and every supplier / game adapter (ProductRoute.adapter in
  * packages/db/prisma/schema.prisma and the supplier table in docs/06-FULFILLMENT.md). Add the
  * prefix of every new adapter here in the same change that adds its secrets.
+ *
+ * MUST for every new supplier adapter (SA F-4 (a)): the bankfeed worker refuses fulfillment
+ * secrets by these prefixes too (worker-roles.ts). A supplier key under a prefix missing here and
+ * missing from FULFILLMENT_ROLE_SECRETS is NOT refused by the bankfeed container.
  */
 export const WORKER_ENV_PREFIXES = [
   'TON_',
@@ -145,6 +149,11 @@ const SECRET_SHAPED =
 const WALLET_MATERIAL = /MNEMONIC|SEED_?PHRASE|^STEL_|^FRAGMENT_.*COOKIE/;
 
 const WORKER_ONLY_SET: ReadonlySet<string> = new Set(WORKER_ONLY_SECRETS);
+
+/** True for wallet material (mnemonic / seed phrase, Fragment cookies) under any name. */
+export function isWalletMaterialName(name: string): boolean {
+  return WALLET_MATERIAL.test(name.toUpperCase());
+}
 
 /** True when an env variable of this name must never exist in the API process. */
 export function isWorkerOnlySecretName(name: string): boolean {
