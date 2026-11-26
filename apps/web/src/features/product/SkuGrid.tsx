@@ -14,11 +14,14 @@ export interface SkuGridProps {
   onSelect: (skuId: string) => void;
   /** Accessible name of the group. */
   ariaLabel: string;
-  /**
-   * `grid`: two tiles per row (packages). `list`: one wide row each (Premium terms, whose
-   * quantity is months), with the price per month and the "Eng foydali" ribbon.
-   */
+  /** `grid`: two tiles per row (packages). `list`: one wide row each (Telegram products). */
   layout: 'grid' | 'list';
+  /**
+   * The SKUs are Premium terms whose `quantity` is months: each row gets its price per month and
+   * the best one the "Eng foydali" ribbon. A signal of its own, not `layout`: a list of Stars
+   * packages is not a list of months.
+   */
+  perMonth: boolean;
 }
 
 const NO_PLANS: PlanValues = { perMonth: new Map(), best: null };
@@ -29,10 +32,17 @@ const NO_PLANS: PlanValues = { perMonth: new Map(), best: null };
  * laid out as the server sent it; the price the visitor pays comes only from the quote. A term's
  * per-month figure is derived from that display price, for display only (`plan-value.ts`).
  */
-export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGridProps) {
+export function SkuGrid({
+  skus,
+  selected,
+  onSelect,
+  ariaLabel,
+  layout,
+  perMonth: months,
+}: SkuGridProps) {
   const formatMoney = useFormatMoney();
   const t = useTranslations('store.product.sku');
-  const plans = useMemo(() => (layout === 'list' ? planValues(skus) : NO_PLANS), [layout, skus]);
+  const plans = useMemo(() => (months ? planValues(skus) : NO_PLANS), [months, skus]);
   const refs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const focusable = skus.some((sku) => sku.id === selected) ? selected : (skus[0]?.id ?? null);
 

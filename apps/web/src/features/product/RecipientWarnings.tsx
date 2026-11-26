@@ -46,23 +46,25 @@ export interface RecipientWarningsProps {
  * `POST /recipients/validate`), under the found and the confirmed person. Product.dc.html
  * `premHas`: a yellow status note with a crown, "the gift extends the term". It never disables
  * buying; a recipient who cannot get the product is a 422 and the `blocked` phase instead.
+ *
+ * The live region is always mounted and only its content changes: NVDA and JAWS do not read a
+ * `role="status"` that enters the DOM together with its text. Empty, it draws nothing and
+ * `empty:-mt-3` takes back the parent's `gap-3`, so the form looks exactly as without it.
  */
 export function RecipientWarnings({ warnings }: RecipientWarningsProps) {
   const t = useTranslations('warnings');
   const keys = knownWarningKeys(warnings);
-  if (keys.length === 0) return null;
   return (
-    <>
+    <div role="status" className="flex flex-col gap-3 empty:-mt-3">
       {keys.map((key) => (
         <div
           key={key}
-          role="status"
           className="flex items-start gap-2.5 rounded-[14px] bg-warning-soft p-3 text-[13px] leading-[19px] font-bold text-warning-text"
         >
           <Icon icon={ICONS[key]} size={17} className="mt-px shrink-0" />
           <span className="min-w-0 flex-1">{t(key)}</span>
         </div>
       ))}
-    </>
+    </div>
   );
 }

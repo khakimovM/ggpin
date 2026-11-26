@@ -1,6 +1,6 @@
 'use client';
 
-import type { InputField } from '@repo/shared';
+import type { InputField, RecipientWarning } from '@repo/shared';
 import { Button, Icon } from '@repo/ui';
 import { Ban, CircleHelp, Info } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -13,6 +13,8 @@ import { RecipientWarnings } from './RecipientWarnings';
 import { RecipientInput } from './input-fields';
 import { sameRecipient } from './recipient-machine';
 import type { RecipientControls } from './use-validate-recipient';
+
+const NO_WARNINGS: readonly RecipientWarning[] = [];
 
 export interface RecipientFormProps {
   field: InputField;
@@ -100,7 +102,6 @@ export function RecipientForm({
               </Button>
             ) : null}
           </div>
-          {checking ? <RecipientChecking /> : null}
           {phase === 'down' || phase === 'busy' ? (
             <RecipientDown reason={phase} onRetry={check} retryAt={state.retryAt} />
           ) : null}
@@ -115,6 +116,9 @@ export function RecipientForm({
           ) : null}
         </>
       ) : null}
+      {/* Mounted in every phase (its live region must exist before "checking" starts); the
+          skeleton only shows while checking, which is an editing phase, under the field. */}
+      <RecipientChecking active={checking} />
 
       {phase === 'found' && found && canonical !== null ? (
         <RecipientFound
@@ -127,7 +131,8 @@ export function RecipientForm({
       {phase === 'confirmed' && found && canonical !== null ? (
         <RecipientConfirmed recipient={found} username={canonical} onChange={reset} />
       ) : null}
-      {!editing && found ? <RecipientWarnings warnings={found.warnings} /> : null}
+      {/* Mounted in every phase, so the live region exists before a warning's text arrives. */}
+      <RecipientWarnings warnings={!editing && found ? found.warnings : NO_WARNINGS} />
 
       {phase === 'blocked' ? (
         <div
