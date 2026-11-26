@@ -6,9 +6,12 @@ import { apiFetchText } from '../../lib/api/client';
 import type { Query } from '../../lib/api/reads';
 
 /**
- * CSV export of the audit log (OWNER, `audit.export`). The API needs the Origin header on every
- * admin GET, so a plain download link would get a 404: the file is fetched with credentials and
- * saved from a Blob. The export itself is audited by the API (AUDIT_EXPORT).
+ * CSV export of the audit log (OWNER, `audit.export`). A plain download link would get a 404: the
+ * admin guard accepts an Origin-less GET only as the SPA's own same-origin fetch
+ * (`Sec-Fetch-Site: same-origin`, mode `cors`/`same-origin`, dest `empty`, Host = ADMIN_URL host;
+ * admin-csrf.guard.ts `sameOriginRead`), and a link click is a navigation (mode `navigate`, dest
+ * `document`). So the file is fetched with credentials and saved from a Blob. The export itself
+ * is audited by the API (AUDIT_EXPORT).
  */
 export function AuditExportButton({ filters }: { filters: Query }) {
   const t = useTranslations();
