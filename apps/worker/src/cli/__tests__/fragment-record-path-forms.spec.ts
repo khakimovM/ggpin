@@ -1,4 +1,4 @@
-import fs, { existsSync, promises as fsp } from 'node:fs';
+import fs, { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import {
   OutputRefusal,
@@ -6,6 +6,7 @@ import {
   assertNotInSecrets,
   realPathOf,
 } from '../fragment-record-paths';
+import { fsSpies } from './fs-spies';
 import { CONFIRM, runRecorder, useTempFolder } from './record-harness';
 
 // Fix round 3 (audit L-1, L-2, L-4; review on NTFS streams): network and device forms are refused
@@ -15,18 +16,6 @@ import { CONFIRM, runRecorder, useTempFolder } from './record-harness';
 const h = useTempFolder();
 const BS = String.fromCharCode(92);
 const NETWORK = ['//h/s', '/' + BS + 'h/s'];
-
-/** Spies on every file-system call the checks and the recorder could make before a refusal. */
-function fsSpies(): { readonly calls: () => number } {
-  const spies = [
-    jest.spyOn(fs, 'existsSync'),
-    jest.spyOn(fs.realpathSync, 'native'),
-    jest.spyOn(fsp, 'readFile'),
-    jest.spyOn(fsp, 'readdir'),
-    jest.spyOn(fsp, 'mkdir'),
-  ];
-  return { calls: () => spies.reduce((sum, spy) => sum + spy.mock.calls.length, 0) };
-}
 
 afterEach(() => jest.restoreAllMocks());
 
@@ -53,10 +42,13 @@ describe('fragment-record: network forms in every path option (L-4)', () => {
     NETWORK.map((value) => [flag, value] as const),
   );
 
-  it('control: the spies do see the calls of a run that is not refused', async () => {
+  it('control: each spy sees calls of a run that is not refused', async () => {
+    // Empty folders that already exist, so the emptiness check reads them (readdir fires too).
+    mkdirSync(h.rawDir());
+    mkdirSync(h.stagingDir());
     const spies = fsSpies();
     await runRecorder(h, []);
-    expect(spies.calls()).toBeGreaterThan(0);
+    spies.expectEach();
   });
 
   it.each(cases)('%s %s is refused before any file-system call', async (flag, value) => {
@@ -72,7 +64,7 @@ describe('fragment-record: network forms in every path option (L-4)', () => {
     expect(run.code).toBe(2);
     expect(run.fake.calls).toEqual([]);
     expect(run.stderr[0]).toContain(`${flag} is a network or device path`);
-    expect(spies.calls()).toBe(0);
+    spies.expectNone();
   });
 
   it.each([`${BS}${BS}h${BS}s`, '//h/s'])(
@@ -83,7 +75,7 @@ describe('fragment-record: network forms in every path option (L-4)', () => {
       expect(run.code).toBe(2);
       expect(run.fake.calls).toEqual([]);
       expect(run.stderr[0]).toContain('--out is a network or device path');
-      expect(spies.calls()).toBe(0);
+      spies.expectNone();
     },
   );
 
@@ -95,7 +87,7 @@ describe('fragment-record: network forms in every path option (L-4)', () => {
       expect(run.code).toBe(2);
       expect(run.fake.calls).toEqual([]);
       expect(run.stderr[0]).toContain('--cookies is a network or device path');
-      expect(spies.calls()).toBe(0);
+      spies.expectNone();
     },
   );
 });
