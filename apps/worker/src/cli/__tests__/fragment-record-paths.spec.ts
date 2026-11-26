@@ -66,6 +66,9 @@ describe('fragment-record: real paths (R-5, audit P1–P7)', () => {
     await refused(['--out', h.rawDir(), '--fixtures', device], 'network or device path');
     const unc = `${BS}${BS}localhost${BS}c$${BS}st`;
     await refused(['--out', unc, '--fixtures', h.stagingDir()], 'network or device path');
+    // Forward slashes: off Windows, resolving turns `//host/share` into `/host/share`.
+    const slashed = '//localhost/c$/st';
+    await refused(['--out', h.rawDir(), '--fixtures', slashed], 'network or device path');
   });
 
   it('P7: a name ending in a dot or a space is refused', async () => {
@@ -94,6 +97,10 @@ describe('fragment-record: OneDrive, ggpin-secrets and input files (R-3, R-10)',
     const staging = path.join(h.base(), 'ggpin-secrets', 'staging');
     await refused(['--out', h.rawDir(), '--fixtures', staging], 'inside ggpin-secrets');
     expect(existsSync(staging)).toBe(false);
+    // Another letter case is refused on every OS, case-sensitive file systems included.
+    const upper = path.join(h.base(), 'GGPIN-Secrets', 'staging');
+    await refused(['--out', h.rawDir(), '--fixtures', upper], 'inside ggpin-secrets');
+    expect(existsSync(upper)).toBe(false);
   });
 
   it.each(['--redact', '--ton-connect'])('R-10: refuses a %s file inside a repo', async (flag) => {
