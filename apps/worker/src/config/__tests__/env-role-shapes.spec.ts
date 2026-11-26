@@ -10,6 +10,8 @@ import {
 import { loadHealthcheckRole } from '../healthcheck-env';
 import { EnvValidationError, loadEnv } from '../env';
 import type { SecretFileReader } from '../secret-file';
+import { roleFlagProblems } from '../worker-role';
+import { encryptSession } from '../../bank-feed/client/session-crypto';
 
 // SA F-3: `all` is the default only when NODE_ENV is exactly development or test; a missing or
 // misspelt NODE_ENV gets the production rule and no key file is opened.
@@ -118,4 +120,107 @@ describe('role rules against the worker template (SA F-4)', () => {
       ).toContain(`${name}: belongs to the bankfeed container`);
     },
   );
+});
+
+/** The variables a deploy env template (deploy/env/<file>) SETS, with their values. */
+function deployTemplate(file: string): Record<string, string> {
+  const text = readFileSync(join(__dirname, '../../../../../deploy/env', file), 'utf8');
+  return Object.fromEntries(
+    [...text.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map((m) => [m[1] ?? '', m[2] ?? '']),
+  );
+}
+
+// The other side's settings, as in worker-role-settings-static.spec.ts: a template that carries
+// them was copied from the wrong container (D-76: one side never reads the other's values).
+const BANKFEED_SETTING = /^(TOPUP_[A-Z_]+|BANK_TIME_SKEW_SEC|BANK_FEED_[A-Z_]+)$/;
+const FULFILLMENT_SETTING =
+  /^(TON_[A-Z_]+|FRAGMENT_[A-Z_]+|SUPPLIER_MAX_PER_ORDER_MICRO_USDT|PRICE_TOLERANCE_BPS|FULFILLMENT_DRY_RUN|ORDER_RECONCILE_EVERY_MS|HELD_MAX_AGE_MS|RESELLER_[A-Z_]+)$/;
+
+describe('deploy env templates against their container role (CR #3, SA D-1)', () => {
+  const cases = [
+    ['worker.env.example', 'fulfillment', BANKFEED_SETTING],
+    ['bankfeed.env.example', 'bankfeed', FULFILLMENT_SETTING],
+  ] as const;
+
+  it.each(cases)('%s is read in full', (file) => {
+    expect(Object.keys(deployTemplate(file)).length).toBeGreaterThan(10);
+  });
+
+  it.each(cases)('%s: the %s boot refuses none of its names or flags', (file, role) => {
+    const env = deployTemplate(file);
+    expect(refusedIn(role, Object.keys(env))).toEqual([]);
+    expect(roleFlagProblems(role, env)).toEqual([]);
+  });
+
+  it.each(cases)('%s: no setting of the other side (%s)', (file, _role, other) => {
+    expect(Object.keys(deployTemplate(file)).filter((name) => other.test(name))).toEqual([]);
+  });
+
+  it('the rules do refuse a wrong template (the check is not vacuous)', () => {
+    expect(refusedIn('fulfillment', Object.keys(deployTemplate('bankfeed.env.example')))).toContain(
+      'BANK_FEED_API_HASH',
+    );
+    expect(refusedIn('bankfeed', Object.keys(deployTemplate('worker.env.example')))).toContain(
+      'TON_MNEMONIC_ENC',
+    );
+  });
+});
+
+// CR #8: the deploy templates, their placeholders filled with synthetic values of the right shape
+// (low-entropy fakes from the .gitleaks.toml test allowlist, never realistic-looking keys),
+// plus what compose sets (NODE_ENV, WORKER_ROLE, the *_FILE paths), boot in production. A template
+// that misses a required name, or carries one the boot refuses, fails here before it reaches a VPS.
+const SYNTHETIC: Record<string, string> = {
+  DATABASE_URL: 'postgresql://ggpin_runtime:secret@postgres:5432/ggpin',
+  TON_API_ENDPOINT: 'https://toncenter.example.org/api/v2/jsonRPC',
+  TON_API_KEY: 'ab'.repeat(32),
+  TON_MNEMONIC_ENC: `v1.${randomBytes(12).toString('base64url')}.${randomBytes(160).toString('base64url')}`,
+  BANK_FEED_API_ID: '27182818',
+  BANK_FEED_API_HASH: 'ab'.repeat(16),
+  BANK_FEED_HUMO_BOT_ID: '856254490',
+  BANK_FEED_UZCARD_BOT_ID: '915326936',
+};
+
+function filledTemplate(file: string): Record<string, string> {
+  const env = deployTemplate(file);
+  for (const [name, value] of Object.entries(env)) {
+    if (name === 'REDIS_URL') env[name] = value.replace(/<[^>]+>/, 'secret');
+    else if (/[<>]/.test(value) || name in SYNTHETIC) {
+      const synthetic = SYNTHETIC[name];
+      if (synthetic === undefined) throw new Error(`no synthetic value for ${name} in ${file}`);
+      env[name] = synthetic;
+    }
+  }
+  return env;
+}
+
+/** One synthetic key file for every *_FILE, and the session sealed with it as the login CLI does. */
+const SYNTHETIC_KEY = randomBytes(32);
+const keyReader: SecretFileReader = () => SYNTHETIC_KEY.toString('base64');
+SYNTHETIC.BANK_FEED_SESSION_ENC = encryptSession('synthetic-mtproto-session', SYNTHETIC_KEY);
+
+describe('deploy env templates boot in production with synthetic values (CR #8)', () => {
+  it('worker.env.example + compose -> WORKER_ROLE=fulfillment boots', () => {
+    const env = {
+      ...filledTemplate('worker.env.example'),
+      NODE_ENV: 'production',
+      WORKER_ROLE: 'fulfillment',
+      BANK_FEED_MODE: 'off',
+      WALLET_ENC_KEY_FILE: '/run/secrets/wallet_enc_key',
+      FRAGMENT_SESSION_ENC_KEY_FILE: '/run/secrets/fragment_session_enc_key',
+    };
+    const loaded = loadEnv(env, keyReader);
+    expect(loaded.WORKER_ROLE).toBe('fulfillment');
+  });
+
+  it('bankfeed.env.example + compose -> WORKER_ROLE=bankfeed boots', () => {
+    const env = {
+      ...filledTemplate('bankfeed.env.example'),
+      NODE_ENV: 'production',
+      WORKER_ROLE: 'bankfeed',
+      BANK_FEED_ENC_KEY_FILE: '/run/secrets/bank_feed_enc_key',
+    };
+    const loaded = loadEnv(env, keyReader);
+    expect(loaded.WORKER_ROLE).toBe('bankfeed');
+  });
 });

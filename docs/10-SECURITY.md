@@ -23,7 +23,7 @@
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Soxta to‘lov callback'i (provayderlar ulanganda, D-04)                           | provayder imzosi/Basic auth, aniq summa, intent holati, IP allowlist, idempotentlik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Soxta bank xabari ("to‘lov tushdi")                                              | faqat qotirilgan raqamli bot id, bot bilan shaxsiy chat, forward/tahrir/`viaBot` rad, balans zanjiri tekshiruvi (buzilsa avtomatik yozish to‘xtaydi), tanilmagan format hech qachon avtomatik yozilmaydi (review), ishchi akkauntda 2FA                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Ishchi akkaunt egallanishi (sessiya o‘g‘irlanishi)                               | sessiya shifrlangan va faqat worker xotirasida; API muhitida bo‘lsa boot rad; `getAuthorizations` har poll’da: noma’lum yangi qurilma = BARCHA kartalarda avtomatik yozish to‘xtaydi (fail-closed) va alert; chiquvchi xabar rad; sessiyani Telegram Devices’dan yopish runbook’i (`docs/05`); faqat o‘qiydi, botlarga yozmaydi                                                                                                                                                                                                                                                                                                                                 |
+| Ishchi akkaunt egallanishi (sessiya o‘g‘irlanishi)                               | sessiya shifrlangan va faqat `bankfeed` konteyneri (worker image’ining `bankfeed` roli, D-76) xotirasida; API muhitida bo‘lsa boot rad; `getAuthorizations` har poll’da: noma’lum yangi qurilma = BARCHA kartalarda avtomatik yozish to‘xtaydi (fail-closed) va alert; chiquvchi xabar rad; sessiyani Telegram Devices’dan yopish runbook’i (`docs/05`); faqat o‘qiydi, botlarga yozmaydi                                                                                                                                                                                                                                                                       |
 | Bitta bank xabarining ikki marta yozilishi                                       | `(senderId, tgMessageId)` unique, `Payment.bankMessageId` va `BankMessageOutcome.bankMessageId` unique, ledger `(refType, refId, kind)` unique, intent `FOR UPDATE`, concurrency 1, lider lock (`lock:bank-feed`)                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Noto‘g‘ri foydalanuvchiga yozish (summa to‘qnashuvi)                             | kartada noyob summa, `reservedUntil` gacha band (DB exclusion constraint), bitta kartada bitta advisory lock; 2+ nomzod = review; summa farqi = review; bekor qilingan so‘rovga kelgan pul avtomatik yozilmaydi (`CANCELLED_LATE`); qoldiq xavf: grace (24 soat) dan keyingi kech to‘lov o‘sha summani ushlab turgan boshqa so‘rovga tushishi mumkin — uzun grace, ishlatilmagan qo‘shimchalarni afzal ko‘rish, kunlik solishtirish                                                                                                                                                                                                                             |
 | Havola tokeni sizishi                                                            | 256 bit, DB'da faqat HMAC xeshi, faqat o‘qish, bitta so‘rovga bog‘langan, `expiresAt` gacha, rotatsiya, URL fragmentida (`#t=`, serverga va Referer’ga tushmaydi) va `X-Pay-Token` sarlavhasida, har qanday xato bir xil 404 (noto‘g‘ri `intentId` ham), `no-referrer`, URL'dan tozalash, `credentials: omit`, uchinchi tomon resursi yo‘q, limitlar; sizsa ham faqat bitta so‘rovning karta va summasi ko‘rinadi (D-39); tabda `sessionStorage`, yakunda o‘chadi; qoldiq: tarix/sinxron, iOS reload (D-50)                                                                                                                                                     |
@@ -86,6 +86,32 @@
   `review:credit` va `card:resume` dagi `--confirm-override` — qiymatsiz flag. Ledger’dan tashqari (naqd) berilgan pulni tizim ko‘rmaydi:
   runbook bo‘yicha avval `wallet:adjust` bilan yoziladi (docs/05 §4, §7).
 
+## Worker rollari: kiruvchi va chiquvchi qiymat ajratilgan (D-76)
+
+Bitta worker image’i ikki konteynerda ishlaydi; rolni compose `environment:` dagi `WORKER_ROLE` belgilaydi (env fayli uni o‘zgartira olmaydi;
+production’da rol majburiy, `all` rad etiladi).
+
+| Konteyner  | Rol           | uid   | Sirlari (`/run/secrets`)                                                           | Rad etadi (boot)                                                                         |
+| ---------- | ------------- | ----- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `worker`   | `fulfillment` | 10003 | `wallet_enc_key`, `fragment_session_enc_key` (+ env: `TON_MNEMONIC_ENC`, Fragment) | `BANK_FEED_*` sirlari, MTProto shaklidagi qiymatlar, `BANK_FEED_MODE` ≠ `off`            |
+| `bankfeed` | `bankfeed`    | 10004 | `bank_feed_enc_key` (+ env: `BANK_FEED_SESSION_ENC`, `BANK_FEED_API_*`)            | hamyon, TON, Fragment, ta’minotchi sirlari; `FULFILLMENT_DRY_RUN` faqat `true` yoki yo‘q |
+
+- Ikki devor: env yuklovchi boshqa rolning kalit faylini hech qachon o‘qimaydi va uning nomlari bo‘lsa boot’ni to‘xtatadi; Nest grafida
+  boshqa rolning modullari umuman yo‘q (fulfillment jarayoni `@mtcute/*` va better-sqlite3 ni yuklamaydi, bankfeed TON hamyonini qurmaydi).
+- Ajratish faqat **sirlar** bo‘yicha: bank-feed sessiyasini o‘g‘irlagan buzg‘unchi shu konteyner ichidan hamyon **kalitini**, hamyon
+  kalitini olgan esa bank-feed **sessiyasini** o‘qiy olmaydi (uid’lar har xil — 10003/10004, secret fayl egasi faqat o‘qiydigan uid).
+  Bu ikkinchi konteyner orqali pul harakatini to‘xtatmaydi — quyidagi F-6 ga qarang.
+- `preflight.sh` (`preflight-roles.sh`): compose’da ikkala rol, bankfeed’da profil/hard-stop yo‘q, `WORKER_IMAGE` da
+  `uz.ggpin.worker-roles` label’i, har konteynerning `/run/secrets` nomlari (faqat nomlar, mazmuni o‘qilmaydi) — farq bo‘lsa FAIL.
+- **Qoldiq xavf (F-6) — launch blocker, P11-S6 da yopiladi:** ikkala konteynerning Redis ACL foydalanuvchilari **alohida, lekin bir
+  xil keng** (`~* &* +@all -@dangerous`) va ikkalasi **bitta Postgres runtime roli** bilan ishlaydi. Ta’siri: hozircha `bankfeed`
+  buzilsa, u kalitsiz ham DB’ga `PAID` buyurtma va `PURCHASE` ledger yozuvini, Redis’ga esa `fulfill-order` job’ini yozib, `worker`
+  orqali hamyondan **limitlar doirasida** (`TON_MAX_PER_ORDER_NANO`, `TON_MAX_DAILY_NANO`) pul chiqartirishi mumkin; `TOPUP` yozib
+  istalgan foydalanuvchiga balans ham yaratishi mumkin. Teskarisi ham: buzilgan `worker` bankfeed navbatlariga va lock/heartbeat
+  kalitlariga yoza oladi. P11-S6 gacha heartbeat kalitlari (`bankfeed:process-heartbeat`, `bankfeed:heartbeat`)
+  orqali `bankfeedDown` alertini o‘chirish va top-up gate’ini ochiq ushlab turish ham mumkin. Yopilishi (**P11-S6, launch’dan oldin, shartsiz**): har rol uchun tor Redis ACL (faqat o‘z navbatlari va
+  kalitlari) va alohida DB roli (faqat o‘z jadvallari/ustunlari; bankfeed — `Order`/`PURCHASE` ga yozmaydi, worker — `TOPUP` ga).
+
 ## Claude Code darajasidagi himoya (ishlab chiqish paytida)
 
 - `.claude/hooks/guard-bash.mjs` — xavfli buyruqlar, sirlarni chiqarish, dry-run'ni o‘chirish,
@@ -106,6 +132,7 @@
 - [ ] Hot wallet limitlari production qiymatlarida, sovuq hamyon alohida
 - [ ] Barcha provayder sandbox testlari o‘tgan, production kalitlari faqat VPS'dagi env fayllarida (repoda emas)
 - [ ] Admin: faqat kerakli ID'lar, OWNER bitta
+- [ ] **Launch blocker F-6 (P11-S6):** worker rollari uchun tor Redis ACL va alohida DB rollari; `preflight.sh --expect-running` da `fail=0`
 - [ ] Backup va restore sinab ko‘rilgan
 - [ ] Ogohlantirishlar egaga yetib kelishi sinalgan
 - [ ] Ommaviy oferta, maxfiylik siyosati, qaytarish qoidalari sahifalari bor (yurist bilan)

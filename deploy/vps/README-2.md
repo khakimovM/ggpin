@@ -135,16 +135,19 @@ Avtomatik reboot **yoqilmaydi**: kernel yangilansa `preflight.sh` `reboot requir
 ## 11. Yakuniy tekshiruv va snapshot
 
 ```bash
-sudo bash /root/preflight.sh | tee preflight-$(date -u +%F).txt      # preflight-runtime.sh yonida bo‘lishi shart
+sudo bash /root/preflight.sh --before-pull | tee preflight-$(date -u +%F).txt   # yonida: preflight-{select,runtime,roles}.sh
 ```
 
 - Faqat o‘qiydi; kalit **turlari**ni chiqaradi, kalitlarning o‘zini emas. Kutilgan: `SUMMARY fail=0`; har `WARN` ni ko‘rib chiqing.
 - Parametrlar: `--wg-if wg0 --wg-port 51820 --wg-addr 10.66.0.1 --secrets-dir /etc/ggpin/secrets --env-dir /etc/ggpin
---compose /opt/ggpin/compose.prod.yml`; `--allow-staging` faqat proxy’ning staging ACME bosqichida (`../proxy/README.md` §5).
-- Tekshiradi: OS; UTC/chrony; uid 0 faqat root, NOPASSWD yo‘q, konteyner uid’lari va uid 1000 login akkaunt emas; `sshd -T` va har `AuthorizedKeysFile` (faqat
+--compose /opt/ggpin/compose.prod.yml`; `--allow-staging` faqat proxy’ning staging ACME bosqichida (`../proxy/README.md` §5); `--before-pull` faqat birinchi
+  `pull` dan oldin (xostda yo‘q `WORKER_IMAGE` — WARN, aks holda FAIL); `--expect-running` — `up -d` dan keyin (sakkizta servisning hammasi
+  ishlab turishi shart; `--before-pull` bilan birga — exit 2). Qaysi konteyner ggpin’niki — loyiha nomidan qat’i nazar (`preflight-select.sh`).
+- Tekshiradi: OS; UTC/chrony; uid 0 faqat root, NOPASSWD yo‘q, konteyner uid’lari (10001–10005) xost akkaunti emas; `sshd -T` va har `AuthorizedKeysFile` (faqat
   ed25519); WireGuard va `/etc/wireguard` ruxsatlari; ufw (IPv6 ham; 80/443/51820 dan boshqa umumiy ALLOW, diapazon → FAIL); tinglayotgan
   manzillar (IPv6 link-local hisobga olinmaydi); Docker; ggpin konteynerlari uid’i; secret fayllar; `compose.env` dagi har `*_IMAGE` da
-  `@sha256:` bor; `PROXY_TLS` e-mail (`internal` emas) va `PROXY_ACME_CA` da staging yo‘q; api/worker/bankfeed `DATABASE_URL` foydalanuvchisi superuser emas (faqat nom solishtiriladi); swap; core dump; sysctl;
+  `@sha256:` bor; `PROXY_TLS` e-mail (`internal` emas) va `PROXY_ACME_CA` da staging yo‘q; api/worker/bankfeed `DATABASE_URL` foydalanuvchisi superuser emas (faqat nom solishtiriladi); worker rollari va har konteynerning secret nomlari
+  (`preflight-roles.sh`, D-76/F-5); swap; core dump; sysctl;
   unattended-upgrades.
 
 Natija fayli va 6-qadamdagi `nmap` chiqishlari — S4 dalili. Shundan keyin (hali sir va ma’lumot yo‘q) panelda **snapshot**.
@@ -156,13 +159,14 @@ Natija fayli va 6-qadamdagi `nmap` chiqishlari — S4 dalili. Shundan keyin (hal
 Konteynerlar xostdagi hech bir login akkaunt bilan bir xil uid’da ishlamaydi. Aks holda shu uid’dagi odam `sudo`’siz
 `/proc/<pid>/environ` va `/proc/<pid>/root/run/secrets` ni (hamyon, bank-feed kalitlari) o‘qiy oladi.
 
-| Konteyner      | uid:gid       | Holat                                         |
-| -------------- | ------------- | --------------------------------------------- |
-| api            | `10001:10001` | image’da (`apps/api/Dockerfile`)              |
-| web            | `10002:10002` | image’da (`apps/web/Dockerfile`)              |
-| worker         | `10003:10003` | **keyin**: p5 merge’idan keyin worker image’i |
-| bankfeed       | `10004:10004` | **keyin**: D-73 (6) bilan                     |
-| admin (statik) | `65532:65532` | image’da (`apps/admin/Dockerfile`)            |
+| Konteyner      | uid:gid       | Holat                                                 |
+| -------------- | ------------- | ----------------------------------------------------- |
+| api            | `10001:10001` | image’da (`apps/api/Dockerfile`)                      |
+| web            | `10002:10002` | image’da (`apps/web/Dockerfile`)                      |
+| worker         | `10003:10003` | image’da (`apps/worker/Dockerfile`) + compose `user:` |
+| bankfeed       | `10004:10004` | o‘sha worker image’i, compose `user:` (H-1)           |
+| migrate        | `10005:10005` | image’da (`migrate` target) + compose `user:`         |
+| admin (statik) | `65532:65532` | image’da (`apps/admin/Dockerfile`)                    |
 
 Secret fayllar (S5) — har biri **o‘zini o‘qiydigan konteyner uid’iga**, `0400`; xostdagi papka root’niki. Nomlar S2 compose’dagi
 `secrets:` bilan bir xil (`deploy/compose.prod.yml`):
@@ -184,15 +188,14 @@ sudo install -m 0400 -o 10003 -g 10003 <manba> /etc/ggpin/secrets/fragment_sessi
 sudo install -m 0400 -o 10004 -g 10004 <manba> /etc/ggpin/secrets/bank_feed_enc_key
 ```
 
-**Worker va bankfeed kalitlari uchun qoida (SA N-2):** haqiqiy `wallet_enc_key`, `fragment_session_enc_key` va
-`bank_feed_enc_key` VPS’ga **faqat** worker image uid 10003 ga, bankfeed esa 10004 ga o‘tgandan keyin qo‘yiladi; egasi **faqat**
-10003/10004. Hozir worker image uid 1000 da ishlaydi: 1000 ga tegishli kalit faylni o‘sha uid’dagi har jarayon o‘qiy oladi, shuning uchun
-bu oraliqda haqiqiy kalit umuman qo‘yilmaydi (login akkauntlar 2001+ da: README 3-qadam). docs/05 runbook 7 dagi `-o 1000` uid
-o‘tishida yangilanadi («Keyingi qadamlar»).
+**Worker va bankfeed kalitlari uchun qoida (SA N-2):** egasi **faqat** o‘qiydigan konteynerning uid’i: `wallet_enc_key` va
+`fragment_session_enc_key` — **10003** (worker), `bank_feed_enc_key` — **10004** (bankfeed). Worker image endi uid 10003 da, bankfeed
+10004 da ishlaydi (H-1), shuning uchun haqiqiy kalitlar S5 da shu egalar bilan qo‘yiladi. Worker kodi ham buni tekshiradi: fayl egasi
+jarayon uid’idan boshqa bo‘lsa yoki ruxsat 0600 dan keng bo‘lsa, kalitni rad etadi. Fayl allaqachon bor bo‘lsa (masalan placeholder):
+`cd /etc/ggpin/secrets && sudo chown 10003:10003 wallet_enc_key fragment_session_enc_key && sudo chown 10004:10004 bank_feed_enc_key && sudo chmod 0400 *`.
 
-Shu oraliqda compose bu uchta secret faylni baribir mount qiladi, fayl bo‘lmasa `up` yiqiladi. Shuning uchun ularning o‘rniga
-**tasodifiy placeholder** qo‘yiladi. Bu hech narsani shifrlamaydi, hozirgi worker uni o‘qimaydi. Haqiqiy kalit uid o‘tishida
-placeholder’ning ustidan yoziladi:
+S5 gacha compose bu uchta secret faylni baribir mount qiladi, fayl bo‘lmasa `up` yiqiladi. Shuning uchun ularning o‘rniga
+**tasodifiy placeholder** qo‘yiladi (o‘sha egalar bilan). Haqiqiy kalit S5 da placeholder’ning ustidan yoziladi:
 
 ```bash
 for f in wallet_enc_key fragment_session_enc_key; do
@@ -225,15 +228,16 @@ preflight tekshiradi); VPS’da `build` yo‘q. Har buyruq bir xil prefiks bilan
 
 ```bash
 C="sudo docker compose -p ggpin --env-file /etc/ggpin/compose.env -f /opt/ggpin/compose.prod.yml"
-$C pull                                   # registry’dan
+$C pull                                   # registry’dan; keyin: sudo bash preflight.sh (fail=0)
 $C --profile migrate run --rm migrate     # migratsiya: alohida, aniq qadam (prisma migrate deploy), up’dan oldin
-$C up -d                                  # proxy ham: 80/443 (tcp) ochiladi
+$C up -d                                  # proxy ham: 80/443 (tcp) ochiladi; keyin preflight.sh --expect-running
 ```
 
 - `proxy` (Caddy) profilsiz: oddiy `up -d` uni ham ko‘taradi va 80/443 ni ochadi. Birinchi `up` dan oldin DNS, staging ACME va
   tekshiruvlar: `deploy/proxy/README.md`.
-- `bankfeed` WORKER_ROLE kodi kelguncha **o‘chirilgan**: `up -d bankfeed` qilinsa ham konteyner xabar bilan darhol to‘xtaydi
-  (`deploy/COMPOSE.md`).
+- Bitta worker image’i — ikki konteyner (D-76): `worker` (`WORKER_ROLE=fulfillment`, chiquvchi qiymat) va `bankfeed` (`WORKER_ROLE=bankfeed`,
+  P2P tomoni). Ikkalasi ham profilsiz, `up -d` ikkalasini ko‘taradi; sessiya bo‘lmaguncha bankfeed.env da `BANK_FEED_MODE=off`.
+  Deploy tartibi va `role=` tekshiruvi: `deploy/COMPOSE.md` «Roles».
 - `migrate reset` bu stack’da hech qachon ishlatilmaydi.
 
 **VPS’dagi tasdiq (S2 dan keyin):** oddiy foydalanuvchi sifatida, `sudo`’siz:
@@ -244,8 +248,10 @@ ls /proc/$pid/root/run/secrets      # kutilgan: Permission denied
 cat /proc/$pid/environ              # kutilgan: Permission denied
 ```
 
-Ikkalasi ham rad etilishi shart. `preflight.sh` uid to‘qnashuvini va secret fayllar egasini tekshiradi: `0400`, login akkaunt emas,
-`postgres_password` faqat 70, `redis_users.acl` faqat 999, qolganlari 10001–10004.
+Ikkalasi ham rad etilishi shart. `preflight.sh` tekshiradi: uid to‘qnashuvi; compose faylidagi har servisning `user:` qiymati (worker
+`10003:10003`, bankfeed `10004:10004`, migrate `10005:10005`, proxy 65532, postgres 70, redis 999); ishlayotgan har ggpin konteyneri jarayonining haqiqiy
+uid/gid’i (`/proc/<pid>/status`); secret fayllar: `0400`, login akkaunt emas, `postgres_password` faqat 70, `redis_users.acl` faqat 999,
+`wallet_enc_key` va `fragment_session_enc_key` faqat 10003, `bank_feed_*` faqat 10004, boshqalari 10001–10005.
 
 ---
 
@@ -288,9 +294,7 @@ S2, S5 va shu runbook tugagach. Batafsil: docs/05 runbook 1, 1a, 3a; D-73 (18).
 
 ## Keyingi qadamlar
 
-1. Worker image → uid 10003, bankfeed → 10004 (p5 merge’idan keyin); shundan keyingina haqiqiy worker/bankfeed kalitlari (12-qadam). O‘sha
-   o‘zgarish bilan **docs/05 runbook 7** dagi `-o 1000 -g 1000` → 10003/10004 ga yangilanadi.
-2. S3 (Caddy) bajarildi: `deploy/proxy/README.md`. Qolgani: admin CSP p9 bundle bilan qayta sinaladi (M-1/F18).
-3. S5 — sirlar (12-qadamdagidek; env fayllari `/etc/ggpin/` da 0600 root). S6 — runtime DB rollari, birinchi `up` dan oldin.
-4. Launch darvozasi (`p11-plan.md`), bu raundda emas: SA N-4 — Redis ACL kalit naqshlari; SA N-6 / N-10 — S3 da bajarildi; N-8 — `*_FILE`
-   orqali sirlar (S5); N-11 — WORKER_ROLE kodi (bankfeed to‘xtatuvchisi shu bilan olinadi); N-13 — yopiq registry; N-14.
+1. Bajarildi: H-1 (uid 10003/10004/10005, 12-qadam) va S3 (Caddy, `deploy/proxy/README.md`; qolgani: admin CSP p9 bundle bilan, M-1/F18).
+2. S5 — sirlar (12-qadamdagidek; env fayllari `/etc/ggpin/` da 0600 root). S6 — runtime DB rollari, birinchi `up` dan oldin.
+3. Launch darvozasi (`p11-plan.md`), bu raundda emas: SA N-4 — Redis ACL kalit naqshlari; SA N-6 / N-10 — S3 da bajarildi; N-8 — `*_FILE`
+   orqali sirlar (S5); N-11 — bajarildi (WORKER_ROLE, D-76: bankfeed to‘xtatuvchisi olindi); N-13 — yopiq registry; N-14.

@@ -58,7 +58,8 @@ kirish internetga ochiq bo‘ladi — shuning uchun bu birinchi qadam.
 Kompyuteringizdan skriptlarni nusxalang (VPS’ga manba kodi kerak emas, faqat `deploy/vps/` fayllari):
 
 ```bash
-scp deploy/vps/reachability.sh deploy/vps/preflight.sh deploy/vps/preflight-runtime.sh root@<VPS_IP>:/root/
+scp deploy/vps/reachability.sh deploy/vps/preflight.sh deploy/vps/preflight-runtime.sh \
+  deploy/vps/preflight-select.sh deploy/vps/preflight-roles.sh root@<VPS_IP>:/root/
 ssh root@<VPS_IP> 'bash /root/reachability.sh | tee /root/reachability-$(date -u +%F).txt'
 ```
 
@@ -107,8 +108,8 @@ ssh-keygen -t ed25519 -a 100 -C "<ism>@ggpin" -f ~/.ssh/ggpin_ed25519           
 ```
 
 VPS’da (root; `<owner>`, `<partner>` — haqiqiy nomlar). Login akkauntlar uid’i **aniq beriladi: ega 2001, sherik 2002**
-(keyingi odamlar 2003… 9999 gacha). **1000 ishlatilmaydi** — worker image hozircha uid 1000 da ishlaydi, shu uid’dagi odam uning
-jarayonini va kalitlarini ko‘ra olardi; **10001–10004 konteynerlarga ajratilgan** (README-2, 12-qadam) — bu uid’lar ham xostda yaratilmaydi.
+(keyingi odamlar 2003… 9999 gacha). **10001–10005 konteynerlarga ajratilgan** (api, web, worker, bankfeed, migrate; README-2, 12-qadam) — bu uid’lar xostda
+yaratilmaydi: shu uid’dagi odam konteyner jarayonining sirlarini ko‘ra olardi. 1000 ni hech bir konteyner ishlatmaydi.
 
 ```bash
 uid=2001

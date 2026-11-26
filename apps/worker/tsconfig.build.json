@@ -1,4 +1,7 @@
 {
   "extends": "./tsconfig.json",
+  // No comments in the compiled output (SA B-8): the image build greps dist for the removed
+  // CLIs without exceptions, and a doc comment naming one must not need a heuristic.
+  "compilerOptions": { "removeComments": true },
   "exclude": ["src/**/*.spec.ts", "src/**/__tests__/**"]
 }

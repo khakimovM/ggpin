@@ -4,13 +4,21 @@
 # Proves the bootstrap of deploy/vps/README.md + README-2.md: Ubuntu 24.04, UTC + chrony, accounts
 # and sudo, SSH ed25519 keys only and only through WireGuard (D-73 (10)), ufw (IPv4 + IPv6),
 # listeners; then (preflight-runtime.sh) Docker, container uids, secret files, compose.env image
-# digests, the proxy's ACME settings, runtime DB users, swap, core dumps, sysctl and unattended-upgrades.
+# digests, the proxy's ACME settings, runtime DB users, swap, core dumps, sysctl and unattended-upgrades;
+# then (preflight-roles.sh) the worker roles (D-76) and each container's secret names (F-5). The
+# running containers checked are chosen in preflight-select.sh (any project name or compose file).
 #
 # Usage:  sudo bash preflight.sh [--wg-if wg0] [--wg-port 51820] [--wg-addr 10.66.0.1]
 #                               [--secrets-dir /etc/ggpin/secrets] [--env-dir /etc/ggpin]
-#                               [--compose /opt/ggpin/compose.prod.yml] [--allow-staging] [--help]
+#                               [--compose /opt/ggpin/compose.prod.yml] [--allow-staging]
+#                               [--before-pull] [--expect-running] [--help]
 # --allow-staging: only during the first-start staging ACME step (deploy/proxy/README.md §5); without
 #                  it a staging PROXY_ACME_CA in compose.env is a FAIL.
+# --before-pull:   only before the first `pull` on a fresh host: a WORKER_IMAGE that is not on the
+#                  host yet is a WARN. Without it (the deploy order is pull, then preflight) a FAIL.
+#                  Refused (FAIL) when a ggpin container runs or a ggpin*_pgdata volume exists.
+# --expect-running: after `up -d`: all eight services (proxy api web admin worker bankfeed postgres
+#                  redis) must be running ggpin containers. Not together with --before-pull (exit 2).
 # Exit:   0 = no FAIL (WARN lines still deserve a look), 1 = at least one FAIL, 2 = bad usage.
 # Root is needed for `sshd -T`, `ufw status`, `wg show` and reading other users' authorized_keys;
 # all of them only read. The output contains no secret (no key material, only key TYPES).
@@ -26,8 +34,11 @@ SECRETS_DIR="/etc/ggpin/secrets"
 ENV_DIR="/etc/ggpin"
 COMPOSE_FILE="/opt/ggpin/compose.prod.yml"
 ALLOW_STAGING=0
-# Container uids (H-1): never a host account. api, web, worker, bank-feed; admin runs as 65532.
-CONTAINER_UIDS="10001 10002 10003 10004"
+BEFORE_PULL=0
+EXPECT_RUNNING=0
+# Container uids (H-1): never a host account. api, web, worker, bankfeed, migrate; admin and proxy
+# run as 65532. The exact uid of each compose service: expected_user() in preflight-runtime.sh.
+CONTAINER_UIDS="10001 10002 10003 10004 10005"
 
 usage() { sed -n '2,/(end of usage text)/p' "$0" | sed -e '/(end of usage text)/d' -e 's/^# \{0,1\}//'; }
 
@@ -40,6 +51,8 @@ while [ $# -gt 0 ]; do
     --env-dir) ENV_DIR="${2:-}"; shift 2 || { usage >&2; exit 2; } ;;
     --compose) COMPOSE_FILE="${2:-}"; shift 2 || { usage >&2; exit 2; } ;;
     --allow-staging) ALLOW_STAGING=1; shift ;;
+    --before-pull) BEFORE_PULL=1; shift ;;
+    --expect-running) EXPECT_RUNNING=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -50,6 +63,9 @@ case "$WG_ADDR" in ''|*[!0-9.]*) echo "--wg-addr must be an IPv4 address" >&2; e
 case "$SECRETS_DIR" in /*) ;; *) echo "--secrets-dir must be absolute" >&2; exit 2 ;; esac
 case "$ENV_DIR" in /*) ;; *) echo "--env-dir must be absolute" >&2; exit 2 ;; esac
 case "$COMPOSE_FILE" in /*) ;; *) echo "--compose must be absolute" >&2; exit 2 ;; esac
+if [ "$BEFORE_PULL" -eq 1 ] && [ "$EXPECT_RUNNING" -eq 1 ]; then
+  echo "--before-pull (fresh host) and --expect-running (after a deploy) exclude each other" >&2; exit 2
+fi
 
 FAILS=0
 WARNS=0
@@ -64,7 +80,9 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 2
 fi
 HERE=$(cd "$(dirname "$0")" && pwd)
-if [ ! -r "$HERE/preflight-runtime.sh" ]; then echo "preflight-runtime.sh missing next to $0" >&2; exit 2; fi
+for part in preflight-select.sh preflight-runtime.sh preflight-roles.sh; do
+  [ -r "$HERE/$part" ] || { echo "$part missing next to $0" >&2; exit 2; }
+done
 
 printf 'ggpin preflight  host=%s  utc=%s\n' "$(hostname)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -109,9 +127,6 @@ for u in $CONTAINER_UIDS; do
   getent passwd "$u" >/dev/null && clash="$clash $u($(getent passwd "$u" | cut -d: -f1))"
 done
 if [ -z "$clash" ]; then pass "container uids $CONTAINER_UIDS are not host accounts"; else fail "container uid(s) exist on the host:$clash"; fi
-# The worker image still runs as uid 1000 (node) until its switch to 10003: no person may own uid 1000.
-u1000=$(getent passwd 1000 | awk -F: '$7 !~ /(nologin|false)$/ {print $1}')
-if [ -z "$u1000" ]; then pass "uid 1000 is not a login account"; else fail "uid 1000 is the login account '$u1000' (README step 3: people use 2001+)"; fi
 pass "sudo group: $(getent group sudo | cut -d: -f4)"
 nopw=$(grep -rhs -E '^[^#]*NOPASSWD' /etc/sudoers /etc/sudoers.d/ | tr '\n' ';')
 if [ -z "$nopw" ]; then pass "no NOPASSWD sudo rule"; else fail "NOPASSWD sudo rule(s): $nopw"; fi
@@ -233,8 +248,14 @@ fi
 
 # ---------------------------------------------------------------------------------------------
 # Docker, containers and secrets, swap, core dumps, sysctl, updates.
+# Which running containers are ggpin's (GGPIN_CONTAINERS), then their checks.
+# shellcheck source-path=SCRIPTDIR source=preflight-select.sh
+. "$HERE/preflight-select.sh"
 # shellcheck source-path=SCRIPTDIR source=preflight-runtime.sh
 . "$HERE/preflight-runtime.sh"
+# Worker roles (D-76) and each container's secret names (F-5).
+# shellcheck source-path=SCRIPTDIR source=preflight-roles.sh
+. "$HERE/preflight-roles.sh"
 
 printf '\nSUMMARY  fail=%d  warn=%d\n' "$FAILS" "$WARNS"
 [ "$FAILS" -eq 0 ] || exit 1

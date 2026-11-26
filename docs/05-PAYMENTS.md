@@ -20,7 +20,10 @@ Payment(CONFIRMED) + Intent(PAID) + LedgerEntry(TOPUP) + BankMessageOutcome(CRED
 wallet:{userId} keshi o‘chadi → notify job → bot xabari «Hisobingiz to‘ldirildi»
 ```
 
-- **Worker** — yagona jarayon, bank-feed sessiyasini ushlaydi; xabarni o‘qiydi, parse qiladi, moslashtiradi va TOPUP yozadi.
+- **Worker, `bankfeed` roli** (D-76) — butun P2P tomoni alohida `bankfeed` konteynerida (`WORKER_ROLE=bankfeed`, uid 10004): bank-feed
+  sessiyasini yagona o‘zi ushlaydi; xabarni o‘qiydi, parse qiladi, moslashtiradi va TOPUP yozadi; karta limitlari, `topup-expire` va kunlik
+  `payment-reconcile` ham shu yerda. `worker` konteyneri (`fulfillment`) bularning hech birini ishga tushirmaydi va bank-feed sirlarini olsa
+  boot’da rad etadi; bankfeed esa hamyon/TON/Fragment sirlarini rad etadi. Sessiya bo‘lmaguncha `BANK_FEED_MODE=off` (D-76 (5)).
   **API** — karta tanlaydi, noyob summa beradi, intentlarni va hamyonni ko‘rsatadi, `notify` navbatini render qiladi.
 - Hisobga yoziladigan summa — xabardagi **to‘liq tushgan summa** (asos + qo‘shimcha), asos summa emas (D-37 (4)).
 - Hech narsa «tasdiqlangan»ni mijozdan olmaydi: web sahifadagi «To‘ladim» tugmasi yo‘q, havola/redirect holatni faqat ko‘rsatadi.
@@ -258,10 +261,10 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
    ham uni bilmaydi. Shunday pul berilsa, avval `wallet:adjust` bilan (sabab bilan) ledger’ga yozing, aks holda kech kelgan o‘tkazma avtomatik yoziladi.
 7. _Kalit saqlash:_ productionda kalit faqat `BANK_FEED_ENC_KEY_FILE` dagi Docker secret faylida (0400 yoki 0600), inline `BANK_FEED_ENC_KEY` rad
    etiladi. Compose `file:` secret’lari `mode`/`uid`/`gid` ni **e’tiborsiz qoldiradi** (r2 L-D): xost faylining o‘z ruxsati va egasi ko‘rinadi.
-   Shuning uchun xostda `install -m 0400 -o 1000 -g 1000 <manba> <secret fayl>` (1000 = worker uid/gid); secret manbasi sifatida `environment:`
+   Shuning uchun xostda `install -m 0400 -o 10004 -g 10004 <manba> <secret fayl>` (10004 = bankfeed uid/gid; worker kalitlari 10003, SA H-1); secret manbasi sifatida `environment:`
    hech qachon ishlatilmaydi. S11 da boot testi: 0400 egasi worker — ishlaydi; 0444 — rad («wider than 0600»); boshqa egasi — rad («owner differs»);
-   `environment:` manbasi — ishlatilmaydi; worker konteynerida core dump
-   o‘chiriladi (`ulimit -c 0`, `/proc/sys/kernel/core_pattern`), chunki xotirada ochiq sessiya bor.
+   `environment:` manbasi — ishlatilmaydi; sessiya faqat `bankfeed` konteynerida (D-76), hamyon kalitlari faqat `worker` (fulfillment) da; ikkala
+   konteynerda core dump o‘chiriladi (compose `ulimits: core: 0`, xostda `/proc/sys/kernel/core_pattern`), chunki xotirada ochiq sessiya yoki kalit bor.
 8. _Pepper almashtirish:_ `PAY_TOKEN_PEPPER` almashsa barcha havola tokenlari o‘ladi (xesh mos kelmaydi); kutilayotgan foydalanuvchilar yangi havola oladi
    (`POST /payments/intents/:id/pay-link`). Rejali almashtirish — kam yuklangan vaqtda.
 9. _Reverse proxy:_ access log formatida `t` query parametri va `X-Pay-Token` sarlavhasi yashiriladi (devops, 11-bosqich).
@@ -279,11 +282,11 @@ holat, `receiveLimitTiyin`, ixtiyoriy `monthlyLimitTiyin`, `autoCreditPaused`.
 13. _Worker image va deploy (S7d):_ tartib — `docker compose build worker migrate`, `docker compose run --rm migrate`, keyin `up`. `migrate`
     image’i (`apps/worker/Dockerfile`, target `migrate`) faqat `@repo/db` + prisma’dan iborat, faqat `DATABASE_URL` oladi va faqat ichki tarmoqda
     yuradi. Migratsiya roli (DDL, jadvallar egasi) runtime rolidan alohida bo‘lsin; runtime roli superuser ham, ega ham bo‘lmasin — aks holda
-    buzilgan api/worker `ALTER DATABASE … SET ggpin.env` yoki AuditLog o‘chirishi mumkin (r3 I-C, I-3). Worker konteyneri `read_only: true` va
+    buzilgan api/worker `ALTER DATABASE … SET ggpin.env` yoki AuditLog o‘chirishi mumkin (r3 I-C, I-3). `worker` va `bankfeed` konteynerlari (bitta image, D-76) `read_only: true` va
     `tmpfs: ["/tmp"]` bilan ishlaydi (`off` rejimda sinalgan; `live` sessiyasi doim `MemoryStorage` da — `mtcute-loader.ts` — faylga
-    yozilmaydi, S11 da `live` + `read_only` bilan bir marta tasdiqlanadi). Secret fayllar — 7-banddagidek `install -m 0400 -o 1000 -g 1000`.
-    Sog‘liq: Dockerfile’dagi `HEALTHCHECK` Redis’dagi `worker:heartbeat` kalitini tekshiradi (10 s da yoziladi, TTL 30 s); compose’da alohida
-    healthcheck kerak emas. `docker stop` da worker shutdown hook’laridan keyin 143 (SIGTERM) kodi bilan chiqadi — bu normal to‘xtash.
+    yozilmaydi, S11 da `live` + `read_only` bilan bir marta tasdiqlanadi). Secret fayllar — 7-banddagidek `install -m 0400`, egasi o‘qiydigan konteyner (worker 10003, bankfeed 10004).
+    Sog‘liq: Dockerfile’dagi `HEALTHCHECK` rolning o‘z kalitini tekshiradi — fulfillment `worker:heartbeat`, bankfeed `bankfeed:process-heartbeat`
+    (10 s da yoziladi, TTL 30 s; bankfeed’ning lider kaliti `bankfeed:heartbeat` emas); compose’da alohida healthcheck kerak emas. `docker stop` da worker shutdown hook’laridan keyin 143 (SIGTERM) kodi bilan chiqadi — bu normal to‘xtash.
     Windows Git Bash’dan `docker run`/`exec` ga `/app/...` kabi absolyut yo‘l berilsa, `MSYS_NO_PATHCONV=1` kerak (aks holda yo‘l buziladi).
 
 ## 5. Parser
@@ -553,9 +556,9 @@ Faqat ega CLI’si, `--reason` majburiy (1–500 belgi), `AuditLog` bilan bir tr
 - **`wallet:adjust`** (`±`, ≠ 0): `LedgerEntry(ADJUSTMENT, ADMIN_ACTION/<AuditLog.id>)`; manfiy natija ham `purchaseFrozen` + alert. Bir audit id ikki marta yozilmaydi.
 - Ikkalasi ham balans keshini commit’dan keyin o‘chiradi. Tushmagan yoki noto‘g‘ri pul uchun **qaytarish** bot tashqarisida bajariladi (`RETURNED_OFFLINE`).
 
-## 10. Solishtirish (`payment-reconcile`, worker)
+## 10. Solishtirish (`payment-reconcile`, worker `bankfeed` roli)
 
-Har kuni 03:00 (Asia/Tashkent) — tarixni qayta skan qilish MTProto talab qilgani uchun u **worker**da ishlaydi (BullMQ job scheduler
+Har kuni 03:00 (Asia/Tashkent) — tarixni qayta skan qilish MTProto talab qilgani uchun u **worker**ning `bankfeed` rolida (tinglovchi bilan bitta konteynerda, D-76) ishlaydi (BullMQ job scheduler
 `payment-reconcile:daily`, `pattern '0 3 * * *'`, `tz 'Asia/Tashkent'` = 22:00 UTC; attempts 3, eksponensial 60 s; oxirgi urinish ham xato bo‘lsa
 egaga `reconcileFailed` (`refId = <yyyymmdd>`, render bazani o‘qimaydi) ketadi, job xato bilan tugaydi; keyingi kun yana shu 48 soatni qamraydi).
 

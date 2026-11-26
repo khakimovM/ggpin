@@ -116,20 +116,20 @@ services:
     pids_limit: 64
 
   # ---------------------------------------------------------------------------------------------
-  # Worker: fulfillment, price sync, reconcilers, top-up matcher. The ONLY holder of the wallet keys;
-  # no port, no HTTP surface, BANK_FEED_MODE pinned off (deploy/COMPOSE.md "Worker").
+  # Worker = WORKER_ROLE fulfillment (D-76), uid 10003: value out (TON, Fragment, fulfill-order, price
+  # sync). The ONLY holder of the wallet keys; no port, no HTTP surface (deploy/COMPOSE.md "Roles").
   # ---------------------------------------------------------------------------------------------
   worker:
     <<: *hardened
     image: ${WORKER_IMAGE:?set WORKER_IMAGE (registry digest) in compose.env}
     container_name: ${COMPOSE_PROJECT_NAME}-worker
+    user: '10003:10003'
     env_file:
       - ${GGPIN_ENV_DIR:-/etc/ggpin}/worker.env
     environment:
       NODE_ENV: production
       WORKER_ROLE: fulfillment
       BANK_FEED_MODE: 'off'
-      # Read by the worker from the p5 merge on (D-56 (8)); until then unused.
       WALLET_ENC_KEY_FILE: /run/secrets/wallet_enc_key
       FRAGMENT_SESSION_ENC_KEY_FILE: /run/secrets/fragment_session_enc_key
     secrets: [wallet_enc_key, fragment_session_enc_key]
@@ -145,19 +145,15 @@ services:
     pids_limit: 256
 
   # ---------------------------------------------------------------------------------------------
-  # Bank-feed listener (D-73 (6)), one replica. DISABLED until the WORKER_ROLE code change: hard-stop
-  # command + restart "no" (deploy/COMPOSE.md "bankfeed is disabled").
+  # Bankfeed = WORKER_ROLE bankfeed (D-76), the same image as uid 10004: value in (bank-feed listener,
+  # P2P matcher, top-up expiry, payment reconcile). No profile: a plain `up -d` starts it; until the
+  # Telegram session exists, BANK_FEED_MODE=off in bankfeed.env keeps the listener off (D-76 (5)).
   # ---------------------------------------------------------------------------------------------
   bankfeed:
     <<: *hardened
     image: ${WORKER_IMAGE:?set WORKER_IMAGE (registry digest) in compose.env}
-    profiles: [bankfeed]
     container_name: ${COMPOSE_PROJECT_NAME}-bankfeed
-    restart: 'no'
-    command:
-      - node
-      - -e
-      - 'console.error("bankfeed: disabled until the WORKER_ROLE split (deploy/COMPOSE.md); not starting"); process.exit(1)'
+    user: '10004:10004'
     env_file:
       - ${GGPIN_ENV_DIR:-/etc/ggpin}/bankfeed.env
     environment:
@@ -183,6 +179,7 @@ services:
     <<: *hardened
     image: ${MIGRATE_IMAGE:?set MIGRATE_IMAGE (registry digest) in compose.env}
     profiles: [migrate]
+    user: '10005:10005'
     restart: 'no'
     env_file:
       - ${GGPIN_ENV_DIR:-/etc/ggpin}/migrate.env
@@ -230,7 +227,6 @@ services:
   # ---------------------------------------------------------------------------------------------
   # Redis 7 (official alpine image, uid 999). AOF + noeviction (BullMQ must never lose a job),
   # users and password hashes from the ACL secret file. No port. Settings: deploy/redis/redis.conf.
-  # The healthcheck logs in as `healthcheck`, a user that may run PING and nothing else.
   # ---------------------------------------------------------------------------------------------
   redis:
     <<: *hardened
@@ -243,7 +239,7 @@ services:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks: [data-api, data-workers]
     healthcheck:
-      # A plain string = CMD-SHELL.
+      # A plain string = CMD-SHELL. User `healthcheck` may run PING and nothing else.
       test: redis-cli --no-auth-warning --user healthcheck --pass x ping | grep -qx PONG
       interval: 10s
       timeout: 5s
@@ -291,6 +287,7 @@ secrets:
     file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/postgres_password
   redis_users_acl:
     file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/redis_users.acl
+  # Host files 0400, owned by their one reader (COMPOSE.md "Secrets"): worker 10003, bankfeed 10004.
   wallet_enc_key:
     file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/wallet_enc_key
   fragment_session_enc_key:

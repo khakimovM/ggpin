@@ -43,43 +43,98 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------------
-section "ggpin containers run as their own uid (never a host login account: H-1)"
-if have docker; then
-  found=0
-  while read -r cname image user; do
-    case "$image" in *ggpin-api*|*ggpin-web*|*ggpin-worker*|*ggpin-admin*|*ggpin-bankfeed*) ;; *) continue ;; esac
-    found=1
-    uid=${user%%:*}
-    case "$uid" in
-      ''|0|root|node|*[!0-9]*) fail "$cname ($image) runs as '${user:-root}', expected a numeric uid from $CONTAINER_UIDS or 65532" ;;
-      *)
-        if is_login_uid "$uid"; then fail "$cname runs as uid $uid = a host login account ($(getent passwd "$uid" | cut -d: -f1))"
-        elif printf ' %s 65532 ' "$CONTAINER_UIDS" | grep -q " $uid "; then pass "$cname runs as uid $uid"
-        else warn "$cname runs as uid $uid (not in the planned set $CONTAINER_UIDS 65532)"; fi
-        ;;
-    esac
-  done <<EOF
-$(docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | while read -r n i; do printf '%s %s %s\n' "$n" "$i" "$(docker inspect -f '{{.Config.User}}' "$n" 2>/dev/null)"; done)
-EOF
-  [ "$found" -eq 1 ] || warn "no ggpin container running yet (S2): container uids not checked"
+# The uid:gid each compose service must run as (H-1). proxy, worker, bankfeed, migrate, postgres and
+# redis state it in the compose file; api, web and admin take it from their image's USER.
+expected_user() {
+  case "$1" in
+    proxy|admin) echo 65532:65532 ;;
+    api) echo 10001:10001 ;;
+    web) echo 10002:10002 ;;
+    worker) echo 10003:10003 ;;
+    bankfeed) echo 10004:10004 ;;
+    migrate) echo 10005:10005 ;;
+    postgres) echo 70:70 ;;
+    redis) echo 999:999 ;;
+  esac
+}
+COMPOSE_USER_REQUIRED="proxy worker bankfeed migrate postgres redis"
+
+section "Compose file: every service's user: (H-1: worker 10003, bankfeed 10004, migrate 10005)"
+# Read from the file itself, not from `docker compose config`: that output inlines the env files.
+# Two-space service keys under `services:`, four-space `user:` lines, as in deploy/compose.prod.yml.
+if [ -r "$COMPOSE_FILE" ]; then
+  cusers=$(awk '
+    /^[^ #]/ { in_s = ($0 ~ /^services:/) }
+    in_s && /^  [a-z][a-z0-9_-]*:[[:space:]]*$/ { svc = $1; sub(/:$/, "", svc); print svc " -" }
+    in_s && svc != "" && /^    user:/ { u = $2; gsub(/["\047]/, "", u); print svc " " u }
+  ' "$COMPOSE_FILE")
+  for svc in $(printf '%s\n' "$cusers" | awk '{print $1}' | sort -u); do
+    got=$(printf '%s\n' "$cusers" | awk -v s="$svc" '$1 == s && $2 != "-" {print $2}' | tail -n 1)
+    want=$(expected_user "$svc")
+    required=0
+    case " $COMPOSE_USER_REQUIRED " in *" $svc "*) required=1 ;; esac
+    if [ -n "$got" ] && [ -n "$want" ] && [ "$got" = "$want" ]; then pass "$svc user: $got"
+    elif [ -n "$got" ] && [ -n "$want" ]; then fail "$svc user: '$got', expected $want"
+    elif [ -n "$got" ]; then warn "$svc user: '$got' (no expected uid for this service)"
+    elif [ "$required" -eq 1 ]; then fail "$svc has no user: in $COMPOSE_FILE (expected $want)"
+    elif [ -n "$want" ]; then pass "$svc: no user:, the image's USER applies (expected $want, checked below when running)"
+    fi
+  done
+  for svc in $COMPOSE_USER_REQUIRED; do
+    printf '%s\n' "$cusers" | awk -v s="$svc" '$1 == s {f = 1} END {exit !f}' || fail "service $svc not found in $COMPOSE_FILE"
+  done
+else
+  warn "$COMPOSE_FILE not readable (S2): compose users not checked"
 fi
 
-# Who may own a secret file. The images of postgres (uid 70) and redis (uid 999) read their own
-# secret as their fixed uid, so those two files are an exact name -> uid pair (S2 compose); every
-# other secret belongs to one of our container uids. A login account is refused before this.
+# ---------------------------------------------------------------------------------------------
+section "ggpin containers run as their own uid (never a host login account: H-1)"
+# Every running ggpin container (GGPIN_CONTAINERS, preflight-select.sh): the configured user AND
+# the real/effective/saved/fs uid and gid of its main process (/proc/<pid>/status).
+PROC_DIR=${PROC_DIR:-/proc}
+if have docker; then
+  while read -r cname svc; do
+    [ -n "$cname" ] || continue
+    want=$(expected_user "$svc")
+    if [ -z "$want" ]; then fail "$cname (service $svc): a ggpin container with no known uid (not a compose.prod.yml service)"; continue; fi
+    cfg=$(docker inspect -f '{{.Config.User}}' "$cname" 2>/dev/null)
+    pid=$(docker inspect -f '{{.State.Pid}}' "$cname" 2>/dev/null)
+    case "$pid" in ''|0) fail "$cname ($svc): container not running (restarting?), its process uid cannot be checked"; continue ;; esac
+    uids=$(awk '/^Uid:/ {print $2, $3, $4, $5}' "$PROC_DIR/$pid/status" 2>/dev/null)
+    gids=$(awk '/^Gid:/ {print $2, $3, $4, $5}' "$PROC_DIR/$pid/status" 2>/dev/null)
+    wu=${want%%:*}; wg=${want#*:}
+    if [ "$cfg" != "$want" ]; then fail "$cname ($svc) is configured as user '${cfg:-root}', expected $want"
+    elif [ "$uids" != "$wu $wu $wu $wu" ] || [ "$gids" != "$wg $wg $wg $wg" ]; then fail "$cname ($svc) process runs as uid '$uids' gid '$gids', expected $want"
+    elif is_login_uid "$wu"; then fail "$cname runs as uid $wu = a host login account ($(getent passwd "$wu" | cut -d: -f1))"
+    else pass "$cname ($svc) runs as $want (process uid/gid checked)"; fi
+  done <<EOF2
+$GGPIN_CONTAINERS
+EOF2
+fi
+
+# Who may own a secret file: exactly the uid of the ONE container that reads it (compose ignores
+# uid/mode for file secrets, so the host file's owner is what the container sees). A login account is
+# refused before this. An unknown file must still belong to one of our container uids.
+secret_owner_uid() {
+  case "${1##*/}" in
+    postgres_password) echo 70 ;;
+    redis_users.acl) echo 999 ;;
+    wallet_enc_key|fragment_session_enc_key) echo 10003 ;;
+    bank_feed_*) echo 10004 ;;
+  esac
+}
 secret_owner_hint() {
   case "${1##*/}" in
     postgres_password) echo "uid 70 (postgres image)" ;;
     redis_users.acl) echo "uid 999 (redis image)" ;;
+    wallet_enc_key|fragment_session_enc_key) echo "uid 10003 (worker)" ;;
+    bank_feed_*) echo "uid 10004 (bankfeed)" ;;
     *) echo "one of $CONTAINER_UIDS" ;;
   esac
 }
 uid_allowed_for_secret() {
-  case "${1##*/}" in
-    postgres_password) [ "$2" = 70 ] ;;
-    redis_users.acl) [ "$2" = 999 ] ;;
-    *) printf ' %s ' "$CONTAINER_UIDS" | grep -q " $2 " ;;
-  esac
+  swant=$(secret_owner_uid "$1")
+  if [ -n "$swant" ]; then [ "$2" = "$swant" ]; else printf ' %s ' "$CONTAINER_UIDS" | grep -q " $2 "; fi
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -89,6 +144,7 @@ if [ -d "$SECRETS_DIR" ]; then
   case "$dmode" in '700 root'|'711 root'|'755 root') pass "$SECRETS_DIR $dmode" ;; *) warn "$SECRETS_DIR is '$dmode' (expected root-owned, 0700/0711/0755)" ;; esac
   nfiles=0
   while IFS= read -r f; do
+    [ -n "$f" ] || continue
     nfiles=$((nfiles + 1))
     read -r mode fuid <<<"$(stat -c '%a %u' "$f")"
     if is_login_uid "$fuid"; then fail "$f owned by login account uid $fuid ($(getent passwd "$fuid" | cut -d: -f1))"
@@ -99,6 +155,10 @@ if [ -d "$SECRETS_DIR" ]; then
 $(find "$SECRETS_DIR" -type f 2>/dev/null)
 EOF
   [ "$nfiles" -gt 0 ] || warn "$SECRETS_DIR has no files yet (S5)"
+  # The compose secrets: compose refuses to start a service whose secret file is missing.
+  for n in postgres_password redis_users.acl wallet_enc_key fragment_session_enc_key bank_feed_enc_key; do
+    [ -f "$SECRETS_DIR/$n" ] || warn "$SECRETS_DIR/$n missing (expected owner $(secret_owner_hint "$n"), 0400)"
+  done
 else
   warn "$SECRETS_DIR does not exist yet (S5 creates it)"
 fi
@@ -123,11 +183,8 @@ fi
 
 # ---------------------------------------------------------------------------------------------
 section "Proxy ACME settings in $ENV_DIR/compose.env (a real account e-mail, production CA: K3)"
-# The last uncommented assignment wins, as in compose. Quotes are stripped. The e-mail itself is not
+# env_value(): preflight-select.sh (the last assignment wins). The e-mail itself is not
 # printed (it is personal data, not a secret, but has no place in a report).
-env_value() {
-  grep -E "^[[:space:]]*$1=" "$ENV_DIR/compose.env" | tail -n 1 | sed -E "s/^[[:space:]]*$1=//; s/^[\"']//; s/[\"'][[:space:]]*$//; s/[[:space:]]+$//"
-}
 if [ -r "$ENV_DIR/compose.env" ]; then
   tls=$(env_value PROXY_TLS)
   case "$tls" in

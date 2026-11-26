@@ -151,12 +151,30 @@ www.{$SITE_DOMAIN} {
 		respond 404
 	}
 
-	# The admin API is served only on the admin name, behind WireGuard (D-73 (10), S3-1). Any path
-	# with a segment starting `admin` is closed here, wherever it stands: case-insensitive, on the
-	# unescaped path, so /API/V1/ADMIN, /api/v1/%61dmin, //api//v1/admin and /api/v1/x/../admin are
-	# refused before they can reach the API (deploy/proxy/README.md §1, S3 test 3).
-	@admin_api path_regexp admin_api (?i)/admin
+	# Dot segments (`.` or `..`, also as %2e) have no place in an API path, and the API would route
+	# them literally while the proxy's matchers see them resolved: refused outright (proxy SA F-4), in
+	# addition to the admin checks below, not instead of them.
+	@dot_seg vars_regexp dot_seg {http.request.uri.path} (^|/)\.{1,2}(/|$)
+	handle @dot_seg {
+		respond 404
+	}
+
+	# The admin API is served only on the admin name, behind WireGuard (D-73 (10), S3-1). Closed here:
+	# every path whose segment after /api[/vN] STARTS with "admin" (no terminator, so nothing depends
+	# on what the API decodes after it: %3F, %23, %00). No public route has such a first segment; a
+	# public id that starts with "admin" (/api/v1/orders/adminq3...) still passes. Case-insensitive,
+	# and checked twice:
+	# - path_regexp sees the fully decoded, CLEANED path (// merged, dot segments resolved):
+	#   /API/V1/ADMIN, /api/v1/%61dmin, //api//v1/admin, /api/v1/x/../admin, /api/v1/admin%2Fx;
+	# - admin_api_raw sees the fully decoded path BEFORE cleaning; Fastify decodes a subset of it and
+	#   routes on that (the proxy forwards the raw path): /api/v1/admin/../catalog cleans to a public
+	#   path, yet Fastify serves it from the admin route. deploy/proxy/README.md §1, S3 test 3.
+	@admin_api path_regexp admin_api (?i)^/api(/v[0-9]+)?/admin
 	handle @admin_api {
+		respond 404
+	}
+	@admin_api_raw vars_regexp admin_api_raw {http.request.uri.path} (?i)^/+api(/+v[0-9]+)?/+admin
+	handle @admin_api_raw {
 		respond 404
 	}
 

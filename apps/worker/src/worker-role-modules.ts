@@ -15,7 +15,7 @@ import { TonModule } from './ton/ton.module';
 // session key, no bank-feed client (and so no @mtcute/node, no native better-sqlite3). The env
 // loader is the first wall (it never reads the other side's key files); this is the second.
 
-/** Value out: price/FX sync, the hot wallet, fulfill-order, recipients, Fragment, order reconcile. */
+/** Value out: price/FX sync, hot wallet, fulfill-order, recipients, Fragment, order reconcile. */
 export const FULFILLMENT_ROLE_MODULES: readonly Type[] = [
   PricingSyncModule,
   // Phase 5 S5: the hot wallet (dry run: a throw-away key on a fake chain, plan §8).
