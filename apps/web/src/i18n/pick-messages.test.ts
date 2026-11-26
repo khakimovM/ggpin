@@ -39,7 +39,7 @@ describe('namespace sets of the website', () => {
 
   it('the store sends the namespaces its screens read', () => {
     expect([...STORE_NAMESPACES].sort()).toEqual(
-      ['account', 'common', 'errors', 'fields', 'pay', 'store', 'wallet', 'web'].sort(),
+      ['account', 'common', 'errors', 'fields', 'pay', 'store', 'wallet', 'warnings', 'web'].sort(),
     );
   });
 

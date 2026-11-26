@@ -1,4 +1,6 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+// With the extension: plain Node also loads this file (support/catalog-server-data.ts).
+import { routeUntilClosed } from '../support/route-until-closed.ts';
 
 // A fake of the catalog and wallet endpoints, shaped like docs/04 (envelope, `meta`, tiyin
 // strings, product images as paths of the site). It is layered on top of another fake API
@@ -163,7 +165,7 @@ export async function installCatalogApi(
     return reply(route, 200, envelope(ok(), meta));
   }
 
-  await page.route(CATALOG_PATTERN, async (route) => {
+  await routeUntilClosed(page, CATALOG_PATTERN, async (route) => {
     const request = route.request();
     if (request.method() === 'OPTIONS') return route.fallback();
     const url = new URL(request.url());
@@ -213,7 +215,7 @@ export async function installCatalogApi(
   });
 
   // Product pictures: every slug but `missing` is a small SVG of the site.
-  await page.route(/\/assets\/products\/[^/]+\.svg(\?.*)?$/, async (route) => {
+  await routeUntilClosed(page, /\/assets\/products\/[^/]+\.svg(\?.*)?$/, async (route) => {
     const slug = /products\/([^/.]+)\.svg/.exec(route.request().url())?.[1] ?? '';
     if (slug === 'missing') return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ contentType: 'image/svg+xml', body: SVG(slug) });

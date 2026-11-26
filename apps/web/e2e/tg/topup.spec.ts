@@ -171,7 +171,9 @@ test.describe('creating the request', () => {
     await page.getByRole('button', { name: '50 000' }).click();
     await tgPressMain(page);
     await expect(main(page)).toContainText(/5\s000/);
-    await expect(main(page)).toContainText(/karrali/);
+    // "...karrali bo‘lishi kerak" is the server's refusal (errors.range); the help line under the
+    // field already says "karrali" before any request, so it alone does not wait for the 422.
+    await expect(main(page)).toContainText(/karrali bo‘lishi kerak/);
     expect(await openLinks(page)).toEqual([]);
     expect(api.creates).toHaveLength(1);
     expect(page.url()).toMatch(/\/tg\/topup$/);
@@ -233,7 +235,11 @@ test.describe('creating the request', () => {
 
   test('the methods fail to load: an error with a retry', async ({ page }) => {
     await openTopup(page, { payments: { methods: 'error' } });
-    await expect(page.getByRole('button', { name: TEXT.uz.common.retry })).toBeVisible();
+    // A 500 is retried twice first (shouldRetry, 1 s + 2 s backoff), as in the web store's modal
+    // (store/topup-reopen.spec.ts): the default 5 s left too little room under load.
+    await expect(page.getByRole('button', { name: TEXT.uz.common.retry })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(field(page, 'uz')).toHaveCount(0);
   });
 });

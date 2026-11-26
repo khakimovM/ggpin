@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../lib/api/errors';
 import {
+  FOUND,
   PREMIUM,
   STARS,
   TOKEN,
@@ -106,6 +107,27 @@ describe('buying Premium', () => {
       recipientToken: TOKEN,
     });
     await waitFor(() => expectBuy(true));
+  });
+
+  it('"already has Premium, the gift extends it": a note in found and confirmed, buying stays on', async () => {
+    api.validateRecipient.mockResolvedValue({
+      ...FOUND,
+      warnings: [{ code: 'PREMIUM_EXTENDS', message: 'warnings.premiumExtends' }],
+    });
+    const user = userEvent.setup();
+    open('telegram-premium');
+    const group = await screen.findByRole('radiogroup', { name: 'Muddat' });
+    await user.type(await screen.findByRole('textbox', { name: /username/i }), 'aziz_k');
+    await user.click(screen.getByRole('button', { name: 'Tekshirish' }));
+    const note = /Premium allaqachon bor/;
+    expect((await screen.findByText(note)).closest('[role="status"]')).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Ha, shu' }));
+    expect(screen.getByText(note).closest('[role="status"]')).not.toBeNull();
+    await user.click(within(group).getByRole('radio', { name: /6 oylik/ }));
+    await waitFor(() => expectBuy(true));
+    // Changing the recipient takes the note away with the person.
+    await user.click(screen.getByRole('button', { name: 'O‘zgartirish' }));
+    expect(screen.queryByText(note)).toBeNull();
   });
 
   it('arrow keys move the choice', async () => {

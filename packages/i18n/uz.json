@@ -480,7 +480,9 @@
       "sku": {
         "title": "Paketni tanlang",
         "plans": "Muddat",
-        "tabs": "Paket guruhlari"
+        "tabs": "Paket guruhlari",
+        "perMonth": "{price}/oy",
+        "best": "Eng foydali"
       },
       "summary": {
         "label": "Buyurtma xulosasi",
