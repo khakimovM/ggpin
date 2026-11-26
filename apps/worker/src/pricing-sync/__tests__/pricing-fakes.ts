@@ -1,5 +1,6 @@
 import type { FxPair } from '@repo/shared';
 import { buildTestEnv } from '../../config/__tests__/test-env';
+import { tonLiveSource } from '../../config/__tests__/ton-live-env';
 import type { WorkerConfig } from '../../config/config.module';
 import type { FxSource } from '../fx-sources/fx-source';
 import {
@@ -12,8 +13,11 @@ import {
   type StoredFxRate,
 } from '../pricing-sync.repository';
 
+// A live config needs the TON settings DRY_RUN=false requires (plan §5); they are per-run fakes.
 export const dryRunConfig = (dryRun: boolean): WorkerConfig =>
-  buildTestEnv({ FULFILLMENT_DRY_RUN: String(dryRun) });
+  buildTestEnv(
+    dryRun ? { FULFILLMENT_DRY_RUN: 'true' } : { ...tonLiveSource(), FULFILLMENT_DRY_RUN: 'false' },
+  );
 
 /** In-memory FxRate table: ids are sequential, writes commit only when the callback resolves. */
 export class FakeFxStore implements FxRateStore {

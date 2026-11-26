@@ -6,11 +6,33 @@
 // deduplication. The rendered text (with the amount and balance) exists only in the tg-outbox
 // job, which is kept one day.
 import { z } from 'zod';
+import { FulfillmentAlertKindSchema } from './fulfillment/fulfillment-alerts';
 import { BankFeedAlertKindSchema, type BankFeedSource } from './payments/bank-feed';
 import { tgOutboxJobId } from './tg-outbox';
 
-export const NOTIFY_KINDS = ['TOPUP_CREDITED', 'TOPUP_LATE_CREDITED', 'OWNER_ALERT'] as const;
+/** The BullMQ job name of every `notify` job: one copy, so a producer cannot misspell it (N5). */
+export const NOTIFY_JOB_NAME = 'notify';
+
+/** Order events the customer hears about (phase 5): `refId` is the order id. */
+export const ORDER_NOTIFY_KINDS = [
+  'ORDER_ACCEPTED',
+  'ORDER_DELIVERED',
+  'ORDER_REVIEW',
+  'ORDER_REFUNDED',
+] as const;
+export type OrderNotifyKind = (typeof ORDER_NOTIFY_KINDS)[number];
+
+export const NOTIFY_KINDS = [
+  'TOPUP_CREDITED',
+  'TOPUP_LATE_CREDITED',
+  ...ORDER_NOTIFY_KINDS,
+  'OWNER_ALERT',
+] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
+
+/** Every alert the owner can receive: the bank-feed ones and the fulfillment ones. */
+export const OwnerAlertKindSchema = z.union([BankFeedAlertKindSchema, FulfillmentAlertKindSchema]);
+export type OwnerAlertKind = z.infer<typeof OwnerAlertKindSchema>;
 
 // Ids end up in BullMQ job ids, which cannot take ':' or '-' segments (see tgOutboxJobId), so the
 // schema rejects what the id builder would reject. Prisma cuid ids always fit.
@@ -23,15 +45,30 @@ const topupNotifySchema = z.strictObject({
   refId: IdSegmentSchema,
 });
 
+// No userId either: the API reads the order's owner and language from the Order row, so a job can
+// never address another user. No amount: the API reads it from the database (ids only, above).
+const orderNotifySchema = z.strictObject({
+  kind: z.enum(ORDER_NOTIFY_KINDS),
+  /** The Order the customer is told about. */
+  refId: IdSegmentSchema,
+});
+
 const ownerAlertSchema = z.strictObject({
   kind: z.literal('OWNER_ALERT'),
-  alert: BankFeedAlertKindSchema,
+  alert: OwnerAlertKindSchema,
   /** The row the alert is about (review, card, message...). Part of the job id. */
   refId: IdSegmentSchema,
 });
 
-export const notifyJobSchema = z.discriminatedUnion('kind', [topupNotifySchema, ownerAlertSchema]);
+export const notifyJobSchema = z.discriminatedUnion('kind', [
+  topupNotifySchema,
+  orderNotifySchema,
+  ownerAlertSchema,
+]);
 export type NotifyJob = z.infer<typeof notifyJobSchema>;
+
+// A cuid order id; no `_`, so refIdSubject reads it back from a queueStuck ref.
+const PLAIN_JOB_ID = /^[A-Za-z0-9]{1,40}$/;
 
 /**
  * `refId` of the alerts whose subject is not a single row (docs/05 "Ogohlantirishlar jadvali"):
@@ -57,6 +94,15 @@ export const alertRef = {
     `${source}_${reason}_${String(Math.floor(at.getTime() / 3_600_000))}`,
   // The listener bound a working account for the first time (D-52 r2, review L-B): the hour.
   accountBound: (at: Date): string => String(Math.floor(at.getTime() / 3_600_000)),
+  // One per worker outage (D-34 (12), phase 5 S6): the last time the API's watchdog saw the worker
+  // heartbeat, epoch ms. Every API instance reads it from Redis, so they all build the same id.
+  workerDown: (lastSeen: Date): string => String(lastSeen.getTime()),
+  // One per stuck episode (S6 review M2, re-review): the job id (= the order id) and when the
+  // API watchdog first saw it waiting (Redis clock), so the same order waiting again later (a
+  // retry, a re-enqueue) is a new alert. A job id that is not a plain id is never copied into the
+  // ref (`job` instead; the time still tells episodes apart).
+  queueStuck: (jobId: string | undefined, firstSeen: Date): string =>
+    `${jobId !== undefined && PLAIN_JOB_ID.test(jobId) ? jobId : 'job'}_${String(firstSeen.getTime())}`,
 } as const;
 
 /** Why the bank-feed listener stopped for good (alert `listenerStopped`, D-52). */
@@ -124,15 +170,34 @@ export function refIdSubject(refId: string): string | null {
   return match?.[1] ?? null;
 }
 
+/** The id suffix of each order notification: one message per order and event. */
+const ORDER_NOTIFY_SUFFIX: Readonly<Record<OrderNotifyKind, string>> = Object.freeze({
+  ORDER_ACCEPTED: 'accepted',
+  ORDER_DELIVERED: 'delivered',
+  ORDER_REVIEW: 'review',
+  ORDER_REFUNDED: 'refunded',
+});
+
 /**
- * Stable per logical notification: `topup-<paymentId>` and `alert-<alert>-<refId>`. BullMQ
- * drops an `add()` whose id still exists, so a retried producer notifies once. An alert that
- * must repeat for the same row (listener still down an hour later) puts a time bucket in `refId`.
+ * Stable per logical notification: `topup-<paymentId>`, `order-<orderId>-<event>` and
+ * `alert-<alert>-<refId>`. BullMQ drops an `add()` whose id still exists, so a retried producer
+ * notifies once. An alert that must repeat for the same row (listener still down an hour later)
+ * puts a time bucket in `refId`. An order is told about each event once: a second HELD of the
+ * same order does not send a second "being checked" message.
  */
 export function notifyJobId(job: NotifyJob): string {
-  return job.kind === 'OWNER_ALERT'
-    ? tgOutboxJobId('alert', job.alert, job.refId)
-    : tgOutboxJobId('topup', job.refId);
+  switch (job.kind) {
+    case 'OWNER_ALERT':
+      return tgOutboxJobId('alert', job.alert, job.refId);
+    case 'TOPUP_CREDITED':
+    case 'TOPUP_LATE_CREDITED':
+      return tgOutboxJobId('topup', job.refId);
+    case 'ORDER_ACCEPTED':
+    case 'ORDER_DELIVERED':
+    case 'ORDER_REVIEW':
+    case 'ORDER_REFUNDED':
+      return tgOutboxJobId('order', job.refId, ORDER_NOTIFY_SUFFIX[job.kind]);
+  }
 }
 
 /**

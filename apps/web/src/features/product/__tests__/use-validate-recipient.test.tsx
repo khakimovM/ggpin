@@ -33,18 +33,22 @@ beforeEach(() => {
 });
 
 describe('checking a recipient', () => {
-  it('a malformed username is invalid and never leaves the browser', () => {
+  it.each(['dk', '@@aziz'])('%s is invalid (shared rule) and never leaves the browser', (typed) => {
     const { result } = setup();
-    act(() => result.current.setUsername('dk'));
+    act(() => result.current.setUsername(typed));
     act(() => result.current.check());
     expect(result.current.state.phase).toBe('invalid');
+    expect(result.current.canonical).toBeNull();
     expect(validateRecipient).not.toHaveBeenCalled();
   });
 
-  it('sends the product id and the field under the inputSchema key, without the @', async () => {
+  it('sends the product id and the canonical username under the inputSchema key', async () => {
     validateRecipient.mockResolvedValue(FOUND);
     const { result } = setup();
-    act(() => result.current.setUsername('@aziz_k'));
+    act(() => result.current.setUsername(' @Aziz_K '));
+    // The field keeps the typing; the canonical form is what goes out.
+    expect(result.current.state.username).toBe(' @Aziz_K ');
+    expect(result.current.canonical).toBe('aziz_k');
     act(() => result.current.check());
     expect(result.current.state.phase).toBe('checking');
     await waitFor(() => expect(result.current.state.phase).toBe('found'));
@@ -81,7 +85,7 @@ describe('checking a recipient', () => {
     expect(result.current.confirmedToken).toBeNull();
   });
 
-  it('an edit while checking cancels the check, and its late answer confirms nobody', async () => {
+  it('an edit while checking ignores the check (not aborted: the server finishes it anyway), and its late answer confirms nobody', async () => {
     let signal: AbortSignal | undefined;
     let answer: (value: ValidateRecipientResponse) => void = () => undefined;
     validateRecipient.mockImplementation(
@@ -96,7 +100,7 @@ describe('checking a recipient', () => {
     act(() => result.current.check());
     await waitFor(() => expect(signal).toBeDefined());
     act(() => result.current.setUsername('someone_else'));
-    expect(signal?.aborted).toBe(true);
+    expect(signal?.aborted).toBe(false);
 
     await act(async () => {
       answer(FOUND);
@@ -144,20 +148,20 @@ describe('checking a recipient', () => {
     expect(onProductChanged).toHaveBeenCalledTimes(1);
   });
 
-  it('429: no new check until Retry-After has passed', async () => {
+  it('429: busy, and no new check until Retry-After has passed', async () => {
     validateRecipient.mockRejectedValue(
       new ApiError({ status: 429, code: 'RATE_LIMITED', retryAfterSec: 30 }),
     );
     const { result } = setup();
     act(() => result.current.setUsername('aziz_k'));
     act(() => result.current.check());
-    await waitFor(() => expect(result.current.state.phase).toBe('down'));
+    await waitFor(() => expect(result.current.state.phase).toBe('busy'));
     const retryAt = result.current.state.retryAt;
     expect(retryAt).toBeGreaterThan(Date.now() + 25_000);
 
     act(() => result.current.check());
     expect(validateRecipient).toHaveBeenCalledTimes(1);
-    expect(result.current.state.phase).toBe('down');
+    expect(result.current.state.phase).toBe('busy');
   });
 
   it('expire() after a confirmation asks for the recipient again, keeping the username', async () => {

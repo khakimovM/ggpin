@@ -22,6 +22,7 @@ export default defineConfig({
         'src/payments/*.ts',
         'src/wallet/*.ts',
         'src/orders/*.ts',
+        'src/fulfillment/*.ts',
         'src/log-redaction/**/*.ts',
       ],
       thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },

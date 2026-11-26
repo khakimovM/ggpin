@@ -1,15 +1,14 @@
-// LOYIHA (DRAFT) — phase 5 shapes of docs/04 ("Qabul qiluvchi va kotirovka", "Buyurtmalar"),
-// written ahead of the implementation so the frontend can build mocks against them
-// (contract-first, D-37 (17)). They are confirmed (or changed) in the phase 5 plan; until then
-// nothing here is a final contract. These describe the `data` payload; the envelope is in the
-// API. Every field is derived from the Order/Quote models and the sentences already in docs/04
-// and docs/06; the owner decisions the docs do not settle carry the recommendation made in
-// docs/04 ("5-bosqich shakllari: tavsiyalar").
+// Wire shapes of docs/04 ("Qabul qiluvchi va kotirovka", "Buyurtmalar"). Final since the owner
+// accepted the phase 5 plan without changes (D-56 (1)): the frontend builds against them and the
+// orders API (phase 5 S2) answers with exactly these. They describe the `data` payload; the
+// envelope is added by the API. Every field is derived from the Order/Quote models and the
+// sentences already in docs/04 and docs/06; `Order.statusReason`, cost, margin, fx and attempts
+// are internal and have no field here.
 import { z } from 'zod';
 import { DEFAULT_LOCALE, LOCALES } from '../auth/locale';
 import { SlugSchema } from '../catalog/catalog-schemas';
 import { NO_CONTROL_CHARS, ResourceIdSchema, pageQueryShape } from '../common-schemas';
-import { TiyinStringSchema } from '../money-schemas';
+import { SignedTiyinStringSchema, TiyinStringSchema } from '../money-schemas';
 import { ORDER_STATUSES, orderStatusSchema } from '../order-state';
 import { RECIPIENT_TOKEN_PATTERN, RecipientSchema } from '../pricing/quote-schemas';
 
@@ -38,8 +37,9 @@ export type ValidateRecipientBody = z.infer<typeof ValidateRecipientBodySchema>;
 /**
  * A non-blocking remark about a valid recipient (recommendation Q-A: a recipient who cannot
  * receive the product stays a blocking 422 such as `RECIPIENT_HAS_PREMIUM`; `warnings` is for
- * cases that do not block). No warning exists yet, so the array is `[]` for Telegram Stars and
- * the code list is open: `message` is an i18n key in a future `warnings.*` namespace.
+ * cases that do not block). Phase 6: `PREMIUM_EXTENDS` for a Premium recipient whose gift
+ * extends the term (fulfillment/recipient-warnings.ts); `[]` otherwise, always for Telegram
+ * Stars. The code list stays open: `message` is an i18n key in the `warnings.*` namespace.
  */
 export const RecipientWarningSchema = z.strictObject({
   code: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/),
@@ -68,6 +68,7 @@ export const OrderRecipientSchema = z.strictObject({
   displayName: z.string().min(1).max(128),
   fields: z.record(z.string().regex(INPUT_KEY_PATTERN), z.string().min(1).max(128)),
 });
+export type OrderRecipient = z.infer<typeof OrderRecipientSchema>;
 
 /**
  * Order as the owner sees it. `status` is the raw state; the client maps it to a label
@@ -134,11 +135,20 @@ export const OrderDetailSchema = OrderSchema.extend({
 export type OrderDetail = z.infer<typeof OrderDetailSchema>;
 
 // ---- POST /orders: the answers that carry `details` ------------------------------------------
-/** `422 INSUFFICIENT_BALANCE`: the SERVER's numbers; the client never works out a shortfall. */
+// Positive: a tiyin string other than "0" (TiyinStringSchema allows no leading zeros), review N7.
+const PositiveTiyinStringSchema = TiyinStringSchema.refine((value) => value !== '0', {
+  message: 'a positive amount',
+});
+
+/**
+ * `422 INSUFFICIENT_BALANCE`: the SERVER's numbers; the client never works out a shortfall.
+ * `balance` is signed (owner decision D-60): a reversed top-up can leave the wallet below zero,
+ * and then the shortfall covers the debt too. `required` and `shortfall` are positive.
+ */
 export const InsufficientBalanceDetailsSchema = z.strictObject({
-  balance: TiyinStringSchema,
-  required: TiyinStringSchema,
-  shortfall: TiyinStringSchema,
+  balance: SignedTiyinStringSchema,
+  required: PositiveTiyinStringSchema,
+  shortfall: PositiveTiyinStringSchema,
 });
 export type InsufficientBalanceDetails = z.infer<typeof InsufficientBalanceDetailsSchema>;
 

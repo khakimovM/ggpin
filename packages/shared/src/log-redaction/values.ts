@@ -6,6 +6,7 @@
 // logged under an unknown key would slip through. Matching key NAMES at any depth is the
 // stronger guarantee. The copy never mutates the caller's object (it may be a live request,
 // config or domain object), handles cycles and Errors, and is bounded in depth.
+import { isDatabaseError, redactDatabaseError } from './db-errors';
 import { REDACTED, isSensitiveField } from './keys';
 import { TRUNCATED, scrubSecretsInText } from './text';
 
@@ -17,7 +18,27 @@ export const MAX_REDACTION_DEPTH = 8;
 
 // ---- Values -----------------------------------------------------------------------------
 
-type Ancestors = Set<object>;
+export interface RedactionOptions {
+  /**
+   * Rebuild Prisma and Postgres errors from an allowlist (db-errors.ts) instead of copying them:
+   * their message, stack and `detail` carry the data of the failed call. Off by default; a
+   * logger turns it on for its `err` serializer and record formatter.
+   */
+  readonly databaseErrors?: boolean;
+}
+
+interface Walk {
+  /** The objects on the path from the root: the same object twice on one path is a cycle. */
+  readonly ancestors: Set<object>;
+  readonly databaseErrors: boolean;
+}
+
+function walkFrom(options: RedactionOptions | undefined, root?: object): Walk {
+  return {
+    ancestors: new Set(root === undefined ? [] : [root]),
+    databaseErrors: options?.databaseErrors === true,
+  };
+}
 
 // `__proto__` can arrive as an own key of a parsed JSON body; a plain assignment would swap
 // the copy's prototype instead of adding a property.
@@ -38,7 +59,7 @@ function assign(target: Record<string, unknown>, key: string, value: unknown): v
 function copyProperties(
   source: Readonly<Record<string, unknown>>,
   depth: number,
-  ancestors: Ancestors,
+  walk: Walk,
   passthrough?: ReadonlySet<string>,
 ): Record<string, unknown> {
   const copy: Record<string, unknown> = {};
@@ -49,72 +70,75 @@ function copyProperties(
     } else if (isSensitiveField(key, value) && value !== null && value !== undefined) {
       assign(copy, key, REDACTED);
     } else {
-      assign(copy, key, redactValue(value, depth + 1, ancestors));
+      assign(copy, key, redactValue(value, depth + 1, walk));
     }
   }
   return copy;
 }
 
 // Error fields (message, stack, cause) are non-enumerable, so a plain copy would log `{}`.
-function copyError(error: Error, depth: number, ancestors: Ancestors): Record<string, unknown> {
+function copyError(error: Error, depth: number, walk: Walk): Record<string, unknown> {
   const copy: Record<string, unknown> = {
     type: error.constructor.name,
     message: scrubSecretsInText(error.message),
   };
   if (error.stack !== undefined) copy.stack = scrubSecretsInText(error.stack);
   // Own enumerable extras (`code`, `statusCode`, `response`, ...) go through the key policy.
-  const extras = copyProperties(error as unknown as Record<string, unknown>, depth, ancestors);
+  const extras = copyProperties(error as unknown as Record<string, unknown>, depth, walk);
   for (const key of Object.keys(extras)) assign(copy, key, extras[key]);
-  if (error.cause !== undefined) copy.cause = redactValue(error.cause, depth + 1, ancestors);
+  if (error.cause !== undefined) copy.cause = redactValue(error.cause, depth + 1, walk);
   if (error instanceof AggregateError) {
-    copy.errors = redactValue(error.errors, depth + 1, ancestors);
+    copy.errors = redactValue(error.errors, depth + 1, walk);
   }
   return copy;
 }
 
-function copyObject(value: object, depth: number, ancestors: Ancestors): unknown {
-  if (value instanceof Error) return copyError(value, depth, ancestors);
+function copyObject(value: object, depth: number, walk: Walk): unknown {
+  if (value instanceof Error) {
+    if (walk.databaseErrors && isDatabaseError(value)) return redactDatabaseError(value);
+    return copyError(value, depth, walk);
+  }
   if (Array.isArray(value)) {
-    return value.map((item: unknown) => redactValue(item, depth + 1, ancestors));
+    return value.map((item: unknown) => redactValue(item, depth + 1, walk));
   }
   if (value instanceof Date) return value;
   // Binary data is never worth logging and could be key material.
   if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) {
     return `[Binary ${String(value.byteLength)} bytes]`;
   }
-  if (value instanceof Set) return redactValue([...value], depth, ancestors);
+  if (value instanceof Set) return redactValue([...value], depth, walk);
   if (value instanceof Map) {
     const entries: Record<string, unknown> = {};
     for (const [key, entry] of value) entries[String(key)] = entry;
-    return copyProperties(entries, depth, ancestors);
+    return copyProperties(entries, depth, walk);
   }
   if ('toJSON' in value && typeof value.toJSON === 'function') {
     const json: unknown = Reflect.apply(value.toJSON, value, []);
-    return redactValue(json, depth + 1, ancestors);
+    return redactValue(json, depth + 1, walk);
   }
-  return copyProperties(value as Record<string, unknown>, depth, ancestors);
+  return copyProperties(value as Record<string, unknown>, depth, walk);
 }
 
-function redactValue(value: unknown, depth: number, ancestors: Ancestors): unknown {
+function redactValue(value: unknown, depth: number, walk: Walk): unknown {
   if (typeof value === 'string') return scrubSecretsInText(value);
   if (typeof value === 'function' || typeof value === 'symbol') return undefined; // JSON drops them
   if (typeof value !== 'object' || value === null) return value;
   if (depth >= MAX_REDACTION_DEPTH) return TRUNCATED;
   // Ancestors, not "everything seen": the same object referenced twice is not a cycle.
-  if (ancestors.has(value)) return CIRCULAR;
-  ancestors.add(value);
+  if (walk.ancestors.has(value)) return CIRCULAR;
+  walk.ancestors.add(value);
   try {
-    return copyObject(value, depth, ancestors);
+    return copyObject(value, depth, walk);
   } catch {
     return UNSERIALIZABLE; // a throwing getter or toJSON must not break logging
   } finally {
-    ancestors.delete(value);
+    walk.ancestors.delete(value);
   }
 }
 
 /** Deep copy of `value` with secret-bearing keys replaced and secrets in text scrubbed. */
-export function redactSecrets(value: unknown): unknown {
-  return redactValue(value, 0, new Set());
+export function redactSecrets(value: unknown, options?: RedactionOptions): unknown {
+  return redactValue(value, 0, walkFrom(options));
 }
 
 /**
@@ -125,8 +149,9 @@ export function redactSecrets(value: unknown): unknown {
 export function redactLogRecord(
   record: Readonly<Record<string, unknown>>,
   passthroughKeys?: ReadonlySet<string>,
+  options?: RedactionOptions,
 ): Record<string, unknown> {
-  return copyProperties(record, 0, new Set([record]), passthroughKeys);
+  return copyProperties(record, 0, walkFrom(options, record), passthroughKeys);
 }
 
 // JSON.parse turns 12345678901234567891 into a double and loses digits. Pino prints a bigint

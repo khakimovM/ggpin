@@ -138,9 +138,12 @@ simulyator, NEEDS_REVIEW/HELD, reconcile, bot xabarlari, Fragment sessiyasi (kee
 
 **Qabul mezonlari**
 
-- [ ] Dry-run: Premium buyurtmasi DELIVERED
-- [ ] "Premium allaqachon bor" holati to‘g‘ri ko‘rsatiladi
+- [x] Dry-run: Premium buyurtmasi DELIVERED
+- [ ] "Premium allaqachon bor" holati to‘g‘ri ko‘rsatiladi — (a) API va bot: bajarildi (D-68 (1), (2)); (b) web
+      (Mini App va do‘kon): `feat/p6-premium-web`, alohida PR
 - [ ] Ega ruxsati bilan: real 3 oylik Premium sovg‘a qilindi
+
+Keyingi bo‘laklarga majburiy bandlar (P6-S3, P6-S4, P6-S8, p5 S8/S12): D-68 (9).
 
 ---
 

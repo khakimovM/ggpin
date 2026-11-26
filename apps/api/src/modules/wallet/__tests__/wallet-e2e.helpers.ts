@@ -18,6 +18,12 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { RedisService } from '../../../infra/redis/redis.service';
 import { TokenCodec } from '../../auth/token-codec';
 import { UsersService } from '../../users/users.service';
+import {
+  buildOrdersCatalog,
+  insertPaidOrder,
+  insertQuote,
+  type OrdersCatalog,
+} from '../../orders/__tests__/orders-e2e.fixtures';
 import { WalletAdminService } from '../wallet-admin.service';
 import {
   createP2pPayment,
@@ -56,7 +62,11 @@ export interface WalletE2e {
     path: string,
     user: TestUser | null,
   ) => Promise<{ status: number; headers: Record<string, unknown>; body: Envelope }>;
-  /** A direct ledger insert (the test is the "other code path" that writes the ledger). */
+  /**
+   * A direct ledger insert (the test is the "other code path" that writes the ledger). A PURCHASE
+   * (refType ORDER) comes with its order, id = refId, in the same transaction: the database refuses
+   * a debit without its order of that user and amount (D-60).
+   */
   readonly seedEntry: (
     userId: string,
     kind: LedgerKind,
@@ -93,6 +103,7 @@ export function useWalletE2e(): WalletE2e {
   const jobIds = new Set<string>();
   let notifyBefore = new Set<string>(); // B5: every notify job a file adds is removed after it
   const cardIds: string[] = [];
+  let ordersCatalog: OrdersCatalog | undefined;
 
   const db = (): PrismaService['client'] => app.get(PrismaService).client;
   const nextIp = (): string => {
@@ -137,6 +148,15 @@ export function useWalletE2e(): WalletE2e {
   };
 
   const seedEntry: WalletE2e['seedEntry'] = async (userId, kind, amountTiyin, ref, createdAt) => {
+    if (kind === 'PURCHASE' && ref.refType === 'ORDER') {
+      ordersCatalog ??= await buildOrdersCatalog(db(), runTag);
+      const quote = await insertQuote(db(), ordersCatalog, userId, { priceTiyin: -amountTiyin });
+      const { entryId } = await insertPaidOrder(db(), quote, {
+        id: ref.refId,
+        ...(createdAt === undefined ? {} : { entryCreatedAt: createdAt }),
+      });
+      return entryId;
+    }
     const row = await db().ledgerEntry.create({
       data: {
         userId,

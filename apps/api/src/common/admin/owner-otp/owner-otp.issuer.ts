@@ -1,5 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { formatMoney, OTP_CODE_TTL_SEC, ownerAlertChatIds, scrubSecretsInText } from '@repo/shared';
+import {
+  describeErrorForLog,
+  formatMoney,
+  OTP_CODE_TTL_SEC,
+  ownerAlertChatIds,
+} from '@repo/shared';
 import { randomBytes } from 'node:crypto';
 import { APP_CONFIG, type AppConfig } from '../../../config/config.module';
 import { RedisService } from '../../../infra/redis/redis.service';
@@ -54,7 +59,10 @@ export class OwnerOtpIssuer {
         .hset(key, { hash, binding, attempts: '0' })
         .expire(key, OTP_CODE_TTL_SEC)
         .exec();
-      const text = translate(OWNER_LOCALE, 'alerts.ownerConfirm.code', {
+      // fx:set confirms a rate, not an amount: its own text names the pair, the rate and the jump.
+      const textKey =
+        scope.action === 'fx:set' ? 'alerts.ownerConfirm.fxCode' : 'alerts.ownerConfirm.code';
+      const text = translate(OWNER_LOCALE, textKey, {
         code,
         action: scope.action,
         amount: translate(OWNER_LOCALE, 'common.money.uzs', {
@@ -88,8 +96,8 @@ export class OwnerOtpIssuer {
 }
 
 // An error message never holds the code (it is not part of any Redis or queue error), but it may
-// quote the Redis URL: scrubbed and cut like every other Redis error in the API.
+// quote the Redis URL: scrubbed and cut like every other Redis error in the API (and a database
+// error is described from names only, review M1).
 function describe(error: unknown): string {
-  const raw = error instanceof Error ? `${error.name}: ${error.message}` : 'non-error thrown';
-  return scrubSecretsInText(raw).slice(0, 200);
+  return describeErrorForLog(error, 200);
 }

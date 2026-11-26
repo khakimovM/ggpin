@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { NonProductionDatabaseError } from '@repo/db';
+import { DatabaseTimeZoneError, NonProductionDatabaseError } from '@repo/db';
 import { WorkerConfigModule } from '../../../config/config.module';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
 import { PrismaModule } from '../prisma.module';
@@ -19,13 +19,19 @@ describe('PrismaService', () => {
 
 // D-52 r2: production refuses a *_dev/*_test database or the dev marker at boot.
 describe('PrismaService production database check', () => {
-  async function boot(nodeEnv: 'production' | 'test', name: string, marker: string | null) {
+  // One stub answers both boot queries (the identity row and the session TimeZone).
+  async function boot(
+    nodeEnv: 'production' | 'test',
+    name: string,
+    marker: string | null,
+    tz = 'UTC',
+  ) {
     const moduleRef = await Test.createTestingModule({
       imports: [WorkerConfigModule.forRoot({ ...buildTestEnv(), NODE_ENV: nodeEnv }), PrismaModule],
     }).compile();
     const query = jest
       .spyOn(moduleRef.get(PrismaService).client, '$queryRaw')
-      .mockResolvedValue([{ name, marker }]);
+      .mockResolvedValue([{ name, marker, tz }]);
     // A failed init is not closed: Nest's close() awaits the same rejected init. The client never
     // connected (the query is stubbed), so nothing is left open.
     try {
@@ -38,7 +44,7 @@ describe('PrismaService production database check', () => {
   }
 
   it('production boots on a plain database', async () => {
-    await expect(boot('production', 'ggpin', null)).resolves.toEqual({ error: null, queried: 1 });
+    await expect(boot('production', 'ggpin', null)).resolves.toEqual({ error: null, queried: 2 });
   });
 
   it.each([
@@ -48,6 +54,11 @@ describe('PrismaService production database check', () => {
   ])('production refuses database %s with marker %s', async (name, marker) => {
     const { error } = await boot('production', name, marker);
     expect(error).toBeInstanceOf(NonProductionDatabaseError);
+  });
+
+  it('production refuses a session whose TimeZone is not UTC (audit L1, R4-9)', async () => {
+    const { error } = await boot('production', 'ggpin', null, 'Asia/Tashkent');
+    expect(error).toBeInstanceOf(DatabaseTimeZoneError);
   });
 
   it('outside production nothing is queried (the connection stays lazy)', async () => {
