@@ -1,5 +1,5 @@
 import { ValidateRecipientBodySchema } from '@repo/shared';
-import { MOCK_RECIPIENT } from '../fixtures/orders';
+import { MOCK_RECIPIENT, MOCK_RECIPIENT_PREMIUM_EXTENDS } from '../fixtures/orders';
 import { fail, ok, type MockRoute } from '../router';
 
 /** Seconds the busy scenario asks to wait, short enough to watch the countdown end in dev. */
@@ -17,6 +17,7 @@ export const recipientsRoutes: readonly MockRoute[] = [
         });
       }
       if (scenario === 'recipientNotFound') return fail('RECIPIENT_NOT_FOUND');
+      if (scenario === 'hasPremiumExtends') return ok(MOCK_RECIPIENT_PREMIUM_EXTENDS);
       // docs/04: this user's previous check is still running (or 20 a minute were asked).
       if (scenario === 'recipientBusy') {
         return { ...fail('RATE_LIMITED'), retryAfter: String(RECIPIENT_BUSY_RETRY_SEC) };

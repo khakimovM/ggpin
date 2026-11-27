@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "lighthouse": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/lighthouse/run.mjs",
     "e2e:install": "playwright install --with-deps chromium webkit"
   },
   "dependencies": {
@@ -19,7 +20,7 @@
     "@tanstack/react-query": "5.105.3",
     "lucide-react": "1.68.0",
     "motion": "14.9.1",
-    "next": "^15.5.28",
+    "next": "^15.5.29",
     "next-intl": "4.14.9",
     "react": "^19.2.9",
     "react-dom": "^19.2.9",
@@ -39,6 +40,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "6.2.1",
     "jsdom": "30.1.3",
+    "lighthouse": "13.6.0",
     "pg": "8.23.1",
     "tailwindcss": "4.3.4",
     "vitest": "^4.1.12"

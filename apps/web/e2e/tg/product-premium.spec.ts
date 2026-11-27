@@ -12,6 +12,7 @@ import {
   usernameField,
   type Lang,
 } from './product-support';
+import { saveShot } from '../store/shot-file';
 import { axeViolations, overflow } from './support';
 
 // The Mini App product page for Telegram Premium (phase 7 S6): the terms as the catalog labels them,
@@ -130,4 +131,64 @@ test.describe('buying', () => {
     expect((await mainButton(page)).enabled).toBe(false);
     await attachShot(page, testInfo, 'premium-blocked');
   });
+});
+
+// Phase 6 P6-W1: the three "already has Premium" states (owner decision Q1) and the term rows
+// ("{price}/oy", "Eng foydali" on the lowest price per month, Q6). With SHOTS_DIR set, the
+// screenshots are also written there for the comparison with Product.dc.html.
+const STATES = { none: 'aziz_k', has: 'prem_ext', blocked: 'prem_user' } as const;
+const PER_MONTH: Record<Lang, RegExp[]> = {
+  uz: [/55.000\s*so‘m\/oy/, /36.700\s*so‘m\/oy/, /33.000\s*so‘m\/oy/],
+  ru: [/55.000\s*сум\/мес/, /36.700\s*сум\/мес/, /33.000\s*сум\/мес/],
+};
+
+test.describe('premium states', () => {
+  for (const state of ['none', 'has', 'blocked'] as const) {
+    for (const lang of ['uz', 'ru'] as const) {
+      for (const scheme of SCHEMES) {
+        test(`${state} / ${lang} / ${scheme}`, async ({ page }, testInfo) => {
+          const t = TEXT[lang];
+          const r = t.store.product.recipient;
+          await openProduct(page, PREMIUM, {
+            lang,
+            scheme,
+            product: { recipients: { prem_ext: 'hasPremiumExtends', prem_user: 'hasPremium' } },
+          });
+          const radios = term(page, lang).getByRole('radio');
+          for (const [index, perMonth] of PER_MONTH[lang].entries()) {
+            await expect(radios.nth(index)).toContainText(perMonth);
+          }
+          const best = t.store.product.sku.best;
+          await expect(radios.nth(2).getByText(best, { exact: true })).toBeVisible();
+          await expect(page.getByText(best, { exact: true })).toHaveCount(1);
+          await radios.nth(1).click();
+
+          await usernameField(page).fill(STATES[state]);
+          await page.getByRole('button', { name: r.check, exact: true }).click();
+          const note = page.getByRole('status').filter({ hasText: t.warnings.premiumExtends });
+          if (state === 'blocked') {
+            await expect(
+              page.getByRole('alert').filter({ hasText: r.blocked.title }),
+            ).toBeVisible();
+            await expect(note).toHaveCount(0);
+            await expect.poll(() => mainButton(page)).toMatchObject({ enabled: false });
+          } else {
+            // Found: the note (if any) is shown before the visitor confirms, and stays after.
+            await expect(page.getByRole('button', { name: r.confirm, exact: true })).toBeVisible();
+            await expect(note).toHaveCount(state === 'has' ? 1 : 0);
+            await page.getByRole('button', { name: r.confirm, exact: true }).click();
+            await expect(note).toHaveCount(state === 'has' ? 1 : 0);
+            await expect
+              .poll(() => mainButton(page))
+              .toMatchObject({ enabled: true, text: expect.stringMatching(/220.000/) });
+          }
+          expect(await overflow(page)).toBeLessThanOrEqual(0);
+          expect(await axeViolations(page)).toEqual([]);
+          const name = `tg-premium-${state}-${lang}-${scheme}`;
+          await attachShot(page, testInfo, name);
+          if (process.env.SHOTS_DIR) await saveShot(page, process.env.SHOTS_DIR, name);
+        });
+      }
+    }
+  }
 });

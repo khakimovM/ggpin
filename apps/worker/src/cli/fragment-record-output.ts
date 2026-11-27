@@ -30,11 +30,13 @@ async function assertEmpty(dir: string, option: string): Promise<void> {
 }
 
 function assertApartAndLocal(rawDir: string, stagingDir: string, policy: PathPolicy): void {
+  // Local first: `inside` resolves real paths (file-system calls), which a network path must
+  // never reach (audit L-1).
+  assertLocalPath(rawDir, '--out', policy);
+  assertLocalPath(stagingDir, '--fixtures', policy);
   if (inside(rawDir, stagingDir) || inside(stagingDir, rawDir)) {
     throw new OutputRefusal('--out and --fixtures must be two separate folders');
   }
-  assertLocalPath(rawDir, '--out', policy);
-  assertLocalPath(stagingDir, '--fixtures', policy);
   assertNotInSecrets(stagingDir, '--fixtures');
 }
 

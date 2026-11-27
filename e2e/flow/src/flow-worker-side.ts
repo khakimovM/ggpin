@@ -33,8 +33,9 @@ import {
 import { overrideTon } from '../../../apps/worker/src/ton/__tests__/ton-overrides';
 import { dryRunTonWallet, type TonWallet } from '../../../apps/worker/src/ton/ton-wallet';
 
-// The worker side of the Premium order flow (phase 6 S6), in the same process as the API on the
-// shared `_test` Postgres + Redis DB 15, from the worker's OWN env object (never the API's):
+// The fulfillment side of the order flow specs (phase 5 S11 Telegram Stars, phase 6 S6 Telegram
+// Premium), in the same process as the API on the shared `_test` Postgres + Redis DB 15, from the
+// worker's OWN env object (never the API's):
 // - RecipientsModule with its REAL BullMQ consumer of `validate-recipient`: the API's
 //   POST /recipients/validate is answered by the worker's lookup over the dry-run simulators;
 // - FulfillmentModule (with TonModule) on the in-memory chain (FakeTonGateway, a throw-away
@@ -43,7 +44,7 @@ import { dryRunTonWallet, type TonWallet } from '../../../apps/worker/src/ton/to
 //   built from the module's own service and enqueuer, exactly what the BullMQ worker would call.
 // Nothing reaches fragment.com, toncenter, testnet or mainnet.
 
-export class PremiumWorkerSide {
+export class FlowWorkerSide {
   private readonly touched = new Set<string>();
 
   private constructor(
@@ -55,7 +56,7 @@ export class PremiumWorkerSide {
     private readonly walletAddress: TonWallet['address'],
   ) {}
 
-  static async boot(): Promise<PremiumWorkerSide> {
+  static async boot(): Promise<FlowWorkerSide> {
     const env: Env = buildE2eEnv();
     if (!env.FULFILLMENT_DRY_RUN) throw new Error('the flow e2e needs FULFILLMENT_DRY_RUN=true');
     const script = new SimulatorScript();
@@ -98,14 +99,7 @@ export class PremiumWorkerSide {
       moduleRef.get(FulfillEnqueuer),
     );
     const fulfillQueue = new Queue(QUEUES.FULFILL_ORDER, { connection: { url: env.REDIS_URL } });
-    return new PremiumWorkerSide(
-      moduleRef,
-      processor,
-      fulfillQueue,
-      script,
-      gateway,
-      wallet.address,
-    );
+    return new FlowWorkerSide(moduleRef, processor, fulfillQueue, script, gateway, wallet.address);
   }
 
   /** Whether the API queued this order's `fulfill-order` job (jobId = orderId). */

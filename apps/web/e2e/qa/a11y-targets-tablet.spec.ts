@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { settle } from './qa-support';
+import { settle } from '../support/settle';
 import { TOUCH_MIN, targetProblems } from './qa-targets';
 import { WEB } from './screens-web';
 
@@ -11,7 +11,8 @@ import { WEB } from './screens-web';
 
 test.use({ hasTouch: true, isMobile: true, viewport: { width: 1024, height: 768 } });
 
-for (const name of ['store-catalog', 'store-product-stars', 'store-history']) {
+// Phase 8 S4 adds the FAQ page (breadcrumb, site footer, accordion).
+for (const name of ['store-catalog', 'store-product-stars', 'store-history', 'site-faq']) {
   test(`${name}: coarse pointer at 1024 px, every control 44 x 44, no overlap`, async ({
     page,
   }) => {

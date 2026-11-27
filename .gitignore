@@ -30,3 +30,6 @@ next-env.d.ts
 # Fragment session cookies pasted for the import CLI (S7 audit I-3, N-4): never in the repo.
 *cookie*.txt
 *cookie*.json
+
+# Lighthouse run output (phase 8): JSON + HTML per page, uploaded as a CI artifact
+apps/web/lighthouse-report

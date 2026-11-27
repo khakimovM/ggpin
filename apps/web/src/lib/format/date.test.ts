@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, formatDateTime, formatDay, formatTime, formatUserDateTime } from './date';
+import {
+  formatCountdown,
+  formatDateTime,
+  formatDay,
+  formatFullDay,
+  formatTime,
+  formatUserDateTime,
+} from './date';
 
 const TZ = 'Asia/Tashkent'; // UTC+5, so 09:05Z is 14:05
 const at = (iso: string): Date => new Date(iso);
@@ -134,5 +141,13 @@ describe('formatDay', () => {
     expect(formatDay(at('2025-12-30T09:00:00Z'), { locale: 'uz', timeZone: TZ }, NOW)).toBe(
       '30-dekabr, 2025',
     );
+  });
+});
+
+describe('formatFullDay (the date of a document)', () => {
+  it('always names the year, in both languages', () => {
+    const day = at('2026-11-13T00:00:00Z');
+    expect(formatFullDay(day, { locale: 'uz', timeZone: 'UTC' })).toBe('13-noyabr, 2026');
+    expect(formatFullDay(day, { locale: 'ru', timeZone: 'UTC' })).toMatch(/^13 ноября 2026\sг\.$/);
   });
 });

@@ -3,8 +3,10 @@
 import type { CatalogSku } from '@repo/shared';
 import { Icon } from '@repo/ui';
 import { Check } from 'lucide-react';
-import { useRef, type KeyboardEvent } from 'react';
+import { useTranslations } from 'next-intl';
+import { useMemo, useRef, type KeyboardEvent } from 'react';
 import { MONEY_PLACEHOLDER, useFormatMoney } from '../../lib/format/money';
+import { planValues, type PlanValues } from './plan-value';
 
 export interface SkuGridProps {
   skus: readonly CatalogSku[];
@@ -12,17 +14,35 @@ export interface SkuGridProps {
   onSelect: (skuId: string) => void;
   /** Accessible name of the group. */
   ariaLabel: string;
-  /** `grid`: two tiles per row (packages). `list`: one wide row each (Premium terms). */
+  /** `grid`: two tiles per row (packages). `list`: one wide row each (Telegram products). */
   layout: 'grid' | 'list';
+  /**
+   * The SKUs are Premium terms whose `quantity` is months: each row gets its price per month and
+   * the best one the "Eng foydali" ribbon. A signal of its own, not `layout`: a list of Stars
+   * packages is not a list of months.
+   */
+  perMonth: boolean;
 }
+
+const NO_PLANS: PlanValues = { perMonth: new Map(), best: null };
 
 /**
  * Ready packages (Product.dc.html `isSkus` / `isPlans`) as one radio group: one tab stop, arrow
  * keys move and select. The price on a tile is the catalog's display price (`fromPriceTiyin`),
- * laid out as the server sent it; the price the visitor pays comes only from the quote.
+ * laid out as the server sent it; the price the visitor pays comes only from the quote. A term's
+ * per-month figure is derived from that display price, for display only (`plan-value.ts`).
  */
-export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGridProps) {
+export function SkuGrid({
+  skus,
+  selected,
+  onSelect,
+  ariaLabel,
+  layout,
+  perMonth: months,
+}: SkuGridProps) {
   const formatMoney = useFormatMoney();
+  const t = useTranslations('store.product.sku');
+  const plans = useMemo(() => (months ? planValues(skus) : NO_PLANS), [months, skus]);
   const refs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const focusable = skus.some((sku) => sku.id === selected) ? selected : (skus[0]?.id ?? null);
 
@@ -52,6 +72,7 @@ export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGrid
       {skus.map((sku, index) => {
         const on = sku.id === selected;
         const price = sku.fromPriceTiyin === null ? null : formatMoney(sku.fromPriceTiyin);
+        const perMonth = plans.perMonth.get(sku.id);
         return (
           <button
             key={sku.id}
@@ -77,6 +98,11 @@ export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGrid
                 : 'min-h-[68px] items-center gap-3 rounded-[18px] px-3.5 py-3',
             ].join(' ')}
           >
+            {plans.best === sku.id ? (
+              <span className="absolute -top-2.5 left-3.5 h-5 rounded-[7px] bg-accent px-2 text-[10px] leading-5 font-extrabold whitespace-nowrap text-accent-foreground">
+                {t('best')}
+              </span>
+            ) : null}
             {layout === 'grid' ? (
               <span
                 aria-hidden="true"
@@ -90,14 +116,29 @@ export function SkuGrid({ skus, selected, onSelect, ariaLabel, layout }: SkuGrid
                 className={`size-[22px] shrink-0 rounded-full bg-card ${on ? 'border-[7px] border-primary' : 'border-2 border-input-border'}`}
               />
             )}
-            <span
-              className={`text-base leading-[21px] font-extrabold tabular-nums ${layout === 'grid' ? 'pr-6' : 'min-w-0 flex-1'}`}
-            >
-              {sku.label}
-            </span>
+            {layout === 'grid' ? (
+              <span className="pr-6 text-base leading-[21px] font-extrabold tabular-nums">
+                {sku.label}
+              </span>
+            ) : (
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-base leading-[21px] font-extrabold tabular-nums">
+                  {sku.label}
+                </span>
+                {perMonth === undefined ? null : (
+                  <span className="text-xs leading-4 font-semibold text-foreground-muted tabular-nums">
+                    {t('perMonth', { price: formatMoney(perMonth) })}
+                  </span>
+                )}
+              </span>
+            )}
             {price !== null && price !== MONEY_PLACEHOLDER ? (
               <span
-                className={`text-[13px] leading-[18px] font-bold tabular-nums ${layout === 'grid' ? 'text-foreground-secondary' : 'text-[15px] whitespace-nowrap'}`}
+                className={
+                  layout === 'grid'
+                    ? 'text-[13px] leading-[18px] font-bold text-foreground-secondary tabular-nums'
+                    : 'text-[15px] leading-5 font-extrabold whitespace-nowrap tabular-nums'
+                }
               >
                 {price}
               </span>

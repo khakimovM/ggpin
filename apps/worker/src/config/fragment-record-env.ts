@@ -25,11 +25,20 @@ export function fragmentRecordEnvRefusal(source: Source = process.env): string |
   return null;
 }
 
+/** A OneDrive root and the variable it came from (refusals name the variable, never the value). */
+export interface OneDriveRoot {
+  readonly name: string;
+  readonly path: string;
+}
+
 /** OneDrive roots (Windows sets these); the recorder refuses folders inside them (R-5). */
-export function fragmentRecordOneDriveRoots(source: Source = process.env): string[] {
-  return [source['OneDrive'], source['OneDriveConsumer'], source['OneDriveCommercial']].filter(
-    (v): v is string => v !== undefined && v.trim() !== '',
-  );
+export function fragmentRecordOneDriveRoots(source: Source = process.env): OneDriveRoot[] {
+  const roots = [
+    { name: 'OneDrive', path: source['OneDrive'] },
+    { name: 'OneDriveConsumer', path: source['OneDriveConsumer'] },
+    { name: 'OneDriveCommercial', path: source['OneDriveCommercial'] },
+  ];
+  return roots.filter((r): r is OneDriveRoot => r.path !== undefined && r.path.trim() !== '');
 }
 
 /**

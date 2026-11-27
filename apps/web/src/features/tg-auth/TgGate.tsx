@@ -31,8 +31,8 @@ function externalLink(href: string, icon: typeof Send, label: string) {
 }
 
 /**
- * The support button. Inside Telegram a t.me link opens in Telegram (`openTelegramLink`), not in
- * an external browser; any other link, or no Telegram, is an ordinary link. No link configured: no
+ * The support button. Inside Telegram the t.me link opens in Telegram (`openTelegramLink`), not in
+ * an external browser; without Telegram it is an ordinary link. No link configured: no
  * button.
  */
 function SupportAction({ label, inTelegram }: { label: string; inTelegram: boolean }) {

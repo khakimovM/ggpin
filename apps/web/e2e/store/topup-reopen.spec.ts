@@ -28,7 +28,8 @@ test.describe('closing and opening again', () => {
     await expect(modal(page)).not.toContainText(pay('uz').credited.title);
     await field(page).fill('100000');
     await pressContinue(page);
-    expect(api.creates).toHaveLength(2);
+    // The click returns before the create has reached the fake: wait for it to be counted.
+    await expect.poll(() => api.creates.length).toBe(2);
     expect(api.creates[1]?.amountTiyin).toBe('10000000');
   });
 
@@ -77,6 +78,9 @@ test.describe('what the server answers to the amount', () => {
   }) => {
     const api = await openModal(page, 'uz', { creditedTiyin: '5030000' });
     await send(page);
+    // The fake's create sets the request back to PENDING, and the click returns before that create
+    // has reached the fake: PAID is set only once the payment step (the create's answer) is shown.
+    await expect(modal(page).getByTestId('pay-amount')).toBeVisible();
     api.setStatus('PAID');
     await expect(modal(page)).toContainText(/\+50\s300/, { timeout: 15_000 });
     await expect(modal(page)).not.toContainText(/\+50\s347/);
@@ -99,7 +103,11 @@ test.describe('what the server answers to the amount', () => {
 
   test('the methods fail to load: an error with a retry', async ({ page }) => {
     await openModal(page, 'uz', { methods: 'error' });
-    await expect(modal(page).getByRole('button', { name: TEXT.uz.common.retry })).toBeVisible();
+    // A 500 is retried twice first (shouldRetry, 1 s + 2 s backoff): measured 3.5 s from the modal
+    // to the button on an idle machine, so the default 5 s left too little room under load.
+    await expect(modal(page).getByRole('button', { name: TEXT.uz.common.retry })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(field(page)).toHaveCount(0);
   });
 });

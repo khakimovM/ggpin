@@ -18,6 +18,12 @@ export const MOCK_RECIPIENT: ValidateRecipientResponse = {
   warnings: [],
 };
 
+/** Already has Premium and the gift extends it (phase 6 Q1 `has`: a warning, not a block). */
+export const MOCK_RECIPIENT_PREMIUM_EXTENDS: ValidateRecipientResponse = {
+  ...MOCK_RECIPIENT,
+  warnings: [{ code: 'PREMIUM_EXTENDS', message: 'warnings.premiumExtends' }],
+};
+
 export function mockQuote(now: Date): QuoteResponse {
   return {
     quoteId: 'quote_mock_1',

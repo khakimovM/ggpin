@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { routeUntilClosed } from '../support/route-until-closed';
 import type { IssuedQuote, ProductApi } from './product';
 
 // A fake of `POST /orders` and `GET /orders/:id`, shaped like docs/04 (a phase 5 DRAFT). It reads
@@ -157,7 +158,7 @@ export async function installOrdersApi(
     };
   };
 
-  await page.route(ORDERS, async (route) => {
+  await routeUntilClosed(page, ORDERS, async (route) => {
     const request = route.request();
     if (request.method() !== 'POST') return route.fallback();
     const body = request.postDataJSON() as { quoteId: string };
@@ -224,7 +225,7 @@ export async function installOrdersApi(
     return reply(route, 201, envelope({ order: view(known, 'PAID') }));
   });
 
-  await page.route(ORDER, async (route) => {
+  await routeUntilClosed(page, ORDER, async (route) => {
     const request = route.request();
     if (request.method() !== 'GET') return route.fallback();
     const id = ORDER.exec(request.url())?.[1] ?? '';

@@ -56,6 +56,25 @@ describe('the happy path', () => {
     expect(found().found).toEqual({ displayName: 'Aziz', photoUrl: undefined, warnings: [] });
     expect(confirmed()).toMatchObject({ phase: 'confirmed', token: TOKEN });
   });
+
+  it('keeps the warnings from found into confirmed, and drops them on an edit or a reset', () => {
+    const warnings = [{ code: 'PREMIUM_EXTENDS', message: 'warnings.premiumExtends' }];
+    const withWarning = run(
+      [
+        { type: 'found', username: 'aziz_k', response: { ...RESPONSE, warnings } },
+        { type: 'confirm' },
+      ],
+      checking(),
+    );
+    expect(withWarning.phase).toBe('confirmed');
+    expect(withWarning.found?.warnings).toEqual(warnings);
+    expect(run([{ type: 'reset' }], withWarning).found).toBeNull();
+    expect(run([{ type: 'edit', username: 'other_user' }], withWarning).found).toBeNull();
+    // Another spelling of the same person is no edit: the warning stays with the confirmation.
+    expect(run([{ type: 'edit', username: ' @Aziz_K' }], withWarning).found?.warnings).toEqual(
+      warnings,
+    );
+  });
 });
 
 describe('every error code of /recipients/validate', () => {
