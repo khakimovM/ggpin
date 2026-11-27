@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { QUEUES } from '@repo/shared';
+import { BankFeedHealth } from '../payments/bank-feed-health';
 import { UsersModule } from '../users/users.module';
+import { BankfeedDownWatchdog } from './bankfeed-down.watchdog';
 import { GrammyTgOutboxSender } from './grammy-tg-outbox.sender';
 import { FulfillmentAlertRenderer } from './fulfillment-alert.renderer';
 import { NotifySourcesRepository } from './notify-sources.repository';
@@ -37,6 +39,14 @@ import { WorkerDownWatchdog } from './worker-down.watchdog';
     // D-34 (12): one workerDown alert per worker outage, one queueStuck per stuck fulfill-order job.
     WatchdogRepository,
     WorkerDownWatchdog,
+    // D-76 (4): one bankfeedDown alert per bankfeed container outage (its own state and key),
+    // sent only once the top-up gate is closed. BankFeedHealth (the gate's own check) is our own
+    // stateless instance: it needs only global Redis, config and clock, and payments exports
+    // nothing, so notifications does not import PaymentsModule (no module cycle). It is the
+    // SECOND instance (PaymentsModule has its own), so it must stay stateless: a cache or counter
+    // added there would split between the two, and the gate and this watchdog could disagree.
+    BankFeedHealth,
+    BankfeedDownWatchdog,
     // Producer of the order notices (ORDER_ACCEPTED from the purchase).
     OrderNotifyProducer,
   ],

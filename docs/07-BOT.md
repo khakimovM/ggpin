@@ -103,7 +103,7 @@ Ustuvorlik (`tg-outbox`, 5-bosqich S6): kritik xabarlar navbatda boshqalardan ol
 `CRITICAL_OWNER_ALERTS` (`packages/shared/src/notify-fulfillment.ts`): bank feed’dan `foreignChat`,
 `bankChatAnomaly`, `listenerStopped`, `listenerDown`; fulfillment’dan `needsReview`, `tonSeqnoUnmatched`,
 `tonConsumedUnmatched`, `tonBounced`, `tonWalletBlocked`, `tonWitnessConflict`, `tonWalletCompromised`,
-`queueStuck`, `workerDown`; S9 reconciler’idan `orderNoPurchase`, `reconcileGuardRefused`, `tonLateConfirmed`. Egaga OTP kodi (admin tasdig‘i) ham kritik: u qisqa yashaydi. Qolgan hamma xabar
+`queueStuck`, `workerDown`, `bankfeedDown` (D-76 (4)); S9 reconciler’idan `orderNoPurchase`, `reconcileGuardRefused`, `tonLateConfirmed`. Egaga OTP kodi (admin tasdig‘i) ham kritik: u qisqa yashaydi. Qolgan hamma xabar
 oddiy. Chatga 1 xabar/s darvozasi band bo‘lsa, kritik xabar darvoza ochilgan zahoti, oddiy xabar undan
 250–500 ms keyin qaytadi, shuning uchun qaytish aylanmasida ham kritik xabar oldinda qoladi.
 
@@ -116,6 +116,19 @@ hisoblanmaydi: ishlab turgan, lekin band worker (job’lar birin-ketin olinadi) 
 qaytgan eski job yana 5 daqiqa oladi. `active` holat o‘lchanmaydi (TON to‘lovi bir necha daqiqa `active`
 turishi mumkin). Qoldiq: worker job’ni olib, keyin qulasa, job stalled bo‘lib `wait`ga qaytadi va yangidan
 kuzatiladi — bu epizod uchun `queueStuck` yo‘q; uni S4 (stalled → review) va S9 reconciler’ining `stale` / `lockStuck` qadamlari qoplaydi (`needsReview`, refId `<orderId>_lock_<soat>` va `<orderId>_abandoned_<kun>`, pastda).
+
+`bankfeedDown` (API watchdog, D-76 (4)): `workerDown` bilan bir xil tekshiruv, lekin `bankfeed:process-heartbeat`
+kaliti bo‘yicha (bankfeed konteyneri va `WORKER_ROLE=all` worker uni har `BANK_FEED_MODE` da yozadi). Chegara
+ham o‘sha — `WORKER_DOWN_ALERT_AFTER_MS`; o‘z ko‘rilgan vaqti (`worker:watchdog:bankfeed-last-seen`) va o‘z
+refId’si (oxirgi ko‘rilgan vaqt): bitta uzilishga bitta alert, tiklangach qayta qurollanadi, `workerDown` bilan
+bir-birini yashirmaydi. Bu «konteyner o‘lik» degani, «sessiya yo‘q» emas (u — `listenerDown` /
+`listenerStopped`). Yangi to‘ldirish so‘rovlari esa alohida darvoza bilan to‘xtaydi: tinglovchining
+`bankfeed:heartbeat` i `BANK_FEED_HEARTBEAT_MAX_AGE_SEC` dan eskirsa — `503 PAYMENT_METHOD_UNAVAILABLE` (docs/05).
+Alert faqat yangi P2P so‘rovlari haqiqatan to‘xtagandan keyin yuboriladi: chegara o‘tgan, lekin darvoza
+(`BankFeedHealth.isAlive()`) hali ochiq bo‘lsa, alert keyingi tick’ka qoladi, refId o‘zgarmaydi; darvozani o‘qib
+bo‘lmasa, u yopiq hisoblanadi. Shuning uchun alert yana ≤ `BANK_FEED_HEARTBEAT_MAX_AGE_SEC` kechikishi mumkin;
+env sxemasi bu qiymatni 120 s dan oshirishga yo‘l qo‘ymaydi (10–120). Kutish undan uzoq cho‘zilsa, API bir marta `logger.error` yozadi: process
+heartbeat yo‘q, lekin kimdir tinglovchi heartbeat’ini yozyapti (eski image yoki `all` rolli worker).
 
 Runbook: alert manbasini bazadan o‘qib bo‘lmasa (baza ishlamayapti), oxirgi urinishda alert refId’dan
 chiqadigan ma’lumot bilan (qolgani `?`) yuboriladi. Bunday alert o‘qilgan paytda allaqachon hal bo‘lgan

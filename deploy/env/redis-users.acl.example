@@ -1,0 +1,18 @@
+# Template of the Redis ACL file = Docker secret `redis_users_acl` (deploy/compose.prod.yml), installed as
+#   sudo install -m 0400 -o 999 -g 999 <file> /etc/ggpin/secrets/redis_users.acl
+# PLACEHOLDERS ONLY. Passwords are stored as SHA-256 hex (`#<hash>`), never in clear text:
+#   printf '%s' '<password>' | sha256sum | cut -d' ' -f1
+# The clear-text passwords go only into REDIS_URL of api.env / worker.env / bankfeed.env.
+# Redis reads this file at start (`docker compose restart redis` after a change). Comment lines like
+# these are NOT allowed in a real ACL file: strip every line starting with '#' before installing.
+#
+# default: off (an unauthenticated connection can do nothing but AUTH).
+# healthcheck: PING only, no password (the container healthcheck).
+# api / worker / bankfeed: one user per service (rotation and ACL LOG per service), all keys and
+# channels (BullMQ, cache, locks), every command except @dangerous (CONFIG, DEBUG, FLUSH*, KEYS,
+# SHUTDOWN, ACL, REPLICAOF, MONITOR, ...), plus the two BullMQ/ioredis needs: INFO and CLIENT SETNAME.
+user default off
+user healthcheck on nopass -@all +ping
+user api on #<sha256-of-api-password> ~* &* +@all -@dangerous +info +client|setname +client|getname +client|id
+user worker on #<sha256-of-worker-password> ~* &* +@all -@dangerous +info +client|setname +client|getname +client|id
+user bankfeed on #<sha256-of-bankfeed-password> ~* &* +@all -@dangerous +info +client|setname +client|getname +client|id

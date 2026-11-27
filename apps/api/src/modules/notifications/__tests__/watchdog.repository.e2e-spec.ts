@@ -1,8 +1,18 @@
 import { randomUUID } from 'node:crypto';
+import {
+  BANKFEED_PROCESS_HEARTBEAT_KEY,
+  BANK_FEED_HEARTBEAT_KEY,
+  WORKER_HEARTBEAT_KEY,
+} from '@repo/shared';
 import { Queue, Worker } from 'bullmq';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
 import { RedisService } from '../../../infra/redis/redis.service';
-import { QUEUE_WATCH_KEY, WatchdogRepository } from '../watchdog.repository';
+import {
+  BANKFEED_LAST_SEEN_KEY,
+  QUEUE_WATCH_KEY,
+  WORKER_LAST_SEEN_KEY,
+  WatchdogRepository,
+} from '../watchdog.repository';
 
 // The watchdog's reads and writes against real Redis (DB 15) and BullMQ: Redis TIME, which
 // waiting fulfill-order job is the oldest, a job's state and take count, the queue-watch CAS. A private queue name (never the shared `fulfill-order`),
@@ -107,5 +117,30 @@ describe('WatchdogRepository (real Redis + BullMQ)', () => {
     await expect(repo.replaceQueueWatch(null, 'c')).resolves.toBe(false);
     await expect(repo.replaceQueueWatch('', 'c')).resolves.toBe(true);
     await expect(repo.queueWatch()).resolves.toBe('c');
+  });
+
+  // D-76 (4): the bankfeed process key and its own sighting, apart from the worker's.
+  it('bankfeed: reads bankfeed:process-heartbeat only, and keeps its own sighting', async () => {
+    await redis.client.del(BANKFEED_PROCESS_HEARTBEAT_KEY, BANKFEED_LAST_SEEN_KEY);
+    await redis.client.set(WORKER_HEARTBEAT_KEY, 'x', 'PX', MIN);
+    await redis.client.set(BANK_FEED_HEARTBEAT_KEY, String(Date.now()), 'PX', MIN);
+    await expect(repo.bankfeedHeartbeatPresent()).resolves.toBe(false);
+    await redis.client.set(BANKFEED_PROCESS_HEARTBEAT_KEY, 'x', 'PX', MIN);
+    await expect(repo.bankfeedHeartbeatPresent()).resolves.toBe(true);
+
+    await expect(repo.bankfeedLastSeen()).resolves.toBeNull();
+    await repo.storeBankfeedLastSeenIfAbsent(1_000);
+    await repo.storeBankfeedLastSeenIfAbsent(2_000);
+    await expect(repo.bankfeedLastSeen()).resolves.toBe('1000');
+    await repo.storeBankfeedLastSeen(3_000);
+    await expect(repo.bankfeedLastSeen()).resolves.toBe('3000');
+    expect(await redis.client.pttl(BANKFEED_LAST_SEEN_KEY)).toBeGreaterThan(29 * 24 * 60 * MIN);
+    expect(BANKFEED_LAST_SEEN_KEY).not.toBe(WORKER_LAST_SEEN_KEY);
+    await redis.client.del(
+      WORKER_HEARTBEAT_KEY,
+      BANK_FEED_HEARTBEAT_KEY,
+      BANKFEED_PROCESS_HEARTBEAT_KEY,
+      BANKFEED_LAST_SEEN_KEY,
+    );
   });
 });

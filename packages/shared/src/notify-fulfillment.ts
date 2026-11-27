@@ -25,6 +25,7 @@ export const FULFILLMENT_ALERT_PARAMS = {
   tonWitnessConflict: ['number', 'seqno', 'ref'],
   queueStuck: ['number', 'minutes', 'ref'],
   workerDown: ['minutes'],
+  bankfeedDown: ['minutes'],
   orderNoPurchase: ['number', 'product', 'ref'],
   reconcileGuardRefused: ['number', 'status', 'ref'],
   tonLateConfirmed: ['number', 'seqno', 'amount', 'to', 'status', 'ref'],
@@ -62,6 +63,8 @@ export const CRITICAL_OWNER_ALERTS: readonly OwnerAlertKind[] = Object.freeze([
   'tonWalletCompromised',
   'queueStuck',
   'workerDown',
+  // D-76 (4): the bankfeed container is down, incoming P2P money is not matched.
+  'bankfeedDown',
   // Phase 5 S9 (D-64 (6), (7)): a money anomaly, a refused reconcile write, a late-found payout.
   'orderNoPurchase',
   'reconcileGuardRefused',
@@ -93,7 +96,10 @@ export const HELD_REASON_LABEL_KEYS = {
 
 const WORKER_DOWN_REF = /^\d{1,15}$/;
 
-/** The outage start of a `workerDown` refId (epoch ms, alertRef.workerDown), or null. */
+/**
+ * The outage start of a `workerDown` or `bankfeedDown` refId (epoch ms, alertRef.workerDown /
+ * alertRef.bankfeedDown), or null.
+ */
 export function parseWorkerDownRef(refId: string): Date | null {
   return WORKER_DOWN_REF.test(refId) ? new Date(Number(refId)) : null;
 }

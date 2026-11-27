@@ -78,6 +78,7 @@ describe('owner alert priority and last-attempt fallback', () => {
   it.each([
     ['tonWalletCompromised', 'cmtransfer1', 'critical'],
     ['workerDown', '1893488400000', 'critical'],
+    ['bankfeedDown', '1893488400000', 'critical'],
     ['queueStuck', 'cmorder1_1893488400000', 'critical'],
     ['needsReview', 'cmorder1', 'critical'],
     // Bank feed (re-review): security and incoming-money signals are critical too.

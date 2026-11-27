@@ -1,0 +1,251 @@
+# ggpin reverse proxy (P11-S3, D-73 (4) Caddy, (10) admin only through WireGuard). Owner runbook:
+# deploy/proxy/README.md. Domains and the TLS issuer come from the environment (compose.prod.yml), so
+# the brand domain lives in /etc/ggpin/compose.env, not here:
+#   SITE_DOMAIN   e.g. ggpin.uz      (web; www.<SITE_DOMAIN> redirects to it)
+#   API_DOMAIN    e.g. api.ggpin.uz  (api, without the admin API)
+#   ADMIN_DOMAIN  e.g. admin.ggpin.uz (admin SPA + the admin API under /api, WireGuard peers only)
+#   PROXY_TLS     the ACME account e-mail in production; "internal" only for a local test
+#   PROXY_ACME_CA ACME directory (Let's Encrypt production by default; staging for the first try)
+#
+# Caddy is the edge: no trusted_proxies and no client_ip_headers, so a client's own X-Forwarded-For
+# is ignored. Caddy sets X-Forwarded-For to the TCP peer, and the API trusts that header only from
+# this container's fixed edge address (TRUST_PROXY, apps/api/src/config/trust-proxy.ts).
+{
+	admin off
+	persist_config off
+	acme_ca {$PROXY_ACME_CA}
+	# Only matters for "tls internal" (local test): never try to write the host trust store.
+	skip_install_trust
+	servers {
+		# HTTP/3 off: 443/udp is not published (deploy/proxy/README.md "HTTP/3"). Without this line Caddy
+		# would advertise Alt-Svc h3 for a port nobody listens on.
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 60s
+			idle 2m
+		}
+		# Node's own default (16 KiB) is what the API and web accept anyway.
+		max_header_size 16KB
+	}
+	# Caddy's own logs, and the access log of a request no site matched (e.g. a Host in other letter
+	# case): the SAME filters as (access_log) below. The global block cannot import a snippet, so the
+	# list is repeated; keep both copies equal (S3-2).
+	log default {
+		output stdout
+		format filter {
+			wrap json
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+			request>headers>X-Pay-Token delete
+			request>headers>X-Telegram-Bot-Api-Secret-Token delete
+			request>headers>Referer query {
+				delete t
+			}
+			request>uri query {
+				delete t
+			}
+			resp_headers>Set-Cookie delete
+			resp_headers>Location query {
+				delete t
+			}
+			resp_headers>X-Middleware-Rewrite query {
+				delete t
+			}
+		}
+		level INFO
+	}
+}
+
+# Access log of every public site. Never written: cookies, bearer tokens, the pay-link token (header
+# and the `t` query parameter, docs/05 runbook 9), the Telegram webhook secret, Set-Cookie.
+(access_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+			request>headers>X-Pay-Token delete
+			request>headers>X-Telegram-Bot-Api-Secret-Token delete
+			request>headers>Referer query {
+				delete t
+			}
+			request>uri query {
+				delete t
+			}
+			resp_headers>Set-Cookie delete
+			# Upstream answers can echo the request URL: a redirect's Location, and Next's middleware
+			# rewrite header (seen in the S3 test: "X-Middleware-Rewrite: /uz?t=...").
+			resp_headers>Location query {
+				delete t
+			}
+			resp_headers>X-Middleware-Rewrite query {
+				delete t
+			}
+		}
+	}
+}
+
+(common) {
+	import access_log
+	tls {$PROXY_TLS}
+	# `?` = only when the upstream sent none, so the web's own two-year HSTS stays as it is and every
+	# answer carries exactly one. No CSP or other policy here: web, api and admin each send their own,
+	# and a second copy would only be able to weaken or break them.
+	header {
+		defer
+		?Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+	}
+	# Answers Caddy makes itself (502 upstream down, 504, 413 body too large) skip the header handler
+	# above. Only headers here, no responder: the error's own status code is what the client gets.
+	handle_errors {
+		header {
+			Strict-Transport-Security "max-age=63072000; includeSubDomains"
+			-Server
+		}
+	}
+}
+
+(upstream_timeouts) {
+	transport http {
+		dial_timeout 5s
+		response_header_timeout 60s
+	}
+}
+
+# --- web: landing, web store, Mini App (/tg) ---------------------------------------------------
+{$SITE_DOMAIN} {
+	import common
+	request_body {
+		max_size 1MB
+	}
+	reverse_proxy web:3000 {
+		import upstream_timeouts
+	}
+}
+
+www.{$SITE_DOMAIN} {
+	import common
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# --- api (public), WITHOUT the admin API ---------------------------------------------------------
+{$API_DOMAIN} {
+	import common
+	# The API's own bodyLimit is 1 MiB (apps/api/src/common/http/http-limits.ts).
+	request_body {
+		max_size 1MB
+	}
+
+	# Readiness (db, redis, worker state) is for the host only (p5 audit I-5): everything under
+	# /api[/v1]/health is closed from outside except the liveness probe. Path matching is
+	# case-insensitive and runs on the cleaned, unescaped path.
+	@health_internal {
+		path /api/v1/health /api/v1/health/* /api/health /api/health/*
+		not path /api/v1/health/live
+	}
+	handle @health_internal {
+		respond 404
+	}
+
+	# Dot segments (`.` or `..`, also as %2e) have no place in an API path, and the API would route
+	# them literally while the proxy's matchers see them resolved: refused outright (proxy SA F-4), in
+	# addition to the admin checks below, not instead of them.
+	@dot_seg vars_regexp dot_seg {http.request.uri.path} (^|/)\.{1,2}(/|$)
+	handle @dot_seg {
+		respond 404
+	}
+
+	# The admin API is served only on the admin name, behind WireGuard (D-73 (10), S3-1). Closed here:
+	# every path whose segment after /api[/vN] STARTS with "admin" (no terminator, so nothing depends
+	# on what the API decodes after it: %3F, %23, %00). No public route has such a first segment; a
+	# public id that starts with "admin" (/api/v1/orders/adminq3...) still passes. Case-insensitive,
+	# and checked twice:
+	# - path_regexp sees the fully decoded, CLEANED path (// merged, dot segments resolved):
+	#   /API/V1/ADMIN, /api/v1/%61dmin, //api//v1/admin, /api/v1/x/../admin, /api/v1/admin%2Fx;
+	# - admin_api_raw sees the fully decoded path BEFORE cleaning; Fastify decodes a subset of it and
+	#   routes on that (the proxy forwards the raw path): /api/v1/admin/../catalog cleans to a public
+	#   path, yet Fastify serves it from the admin route. deploy/proxy/README.md §1, S3 test 3.
+	@admin_api path_regexp admin_api (?i)^/api(/v[0-9]+)?/admin
+	handle @admin_api {
+		respond 404
+	}
+	@admin_api_raw vars_regexp admin_api_raw {http.request.uri.path} (?i)^/+api(/+v[0-9]+)?/+admin
+	handle @admin_api_raw {
+		respond 404
+	}
+
+	# Telegram delivers webhooks only from these IPv4 ranges (https://core.telegram.org/bots/webhooks,
+	# "the subnets 149.154.160.0/20 and 91.108.4.0/22"; they may change: deploy/proxy/README.md). An
+	# addition to the secret_token check in the API, not a replacement. 404 like the API's own answer
+	# to a wrong secret, so a scanner learns nothing.
+	@webhook_foreign {
+		path /api/v1/telegram/webhook /api/v1/telegram/webhook/*
+		not remote_ip 149.154.160.0/20 91.108.4.0/22
+	}
+	handle @webhook_foreign {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy api:5000 {
+			import upstream_timeouts
+		}
+	}
+}
+
+# --- admin SPA + admin API: WireGuard peers only (D-73 (10)) -------------------------------------
+{$ADMIN_DOMAIN} {
+	import common
+	# Exactly the two peers of deploy/vps/README.md step 4 (owner 10.66.0.2, partner 10.66.0.3), not
+	# the /24: the server's own 10.66.0.1 and any future peer stay out until added here on purpose
+	# (README step 4, new peer). NOT private_ranges either: that would also admit the 172.x Docker
+	# addresses of api/web/admin on the edge network. ACME challenges are answered before this route,
+	# so certificates still renew.
+	@not_vpn not remote_ip 10.66.0.2/32 10.66.0.3/32
+	handle @not_vpn {
+		respond 404
+	}
+	# Everything below runs only for a peer: the catch-all handle sorts after @not_vpn, and the three
+	# inner matchers are disjoint, so their order does not matter.
+	handle {
+		# The SPA calls the admin API on its own origin (VITE_API_URL=https://<ADMIN_DOMAIN>/api/v1),
+		# so those requests come from the peer's WireGuard address, never from a public IP. Only the
+		# admin API and the liveness probe; the rest of /api (readiness included) is 404 here.
+		@admin_api path /api/v1/admin /api/v1/admin/* /api/v1/health/live
+		handle @admin_api {
+			request_body {
+				max_size 1MB
+			}
+			reverse_proxy api:5000 {
+				import upstream_timeouts
+			}
+		}
+		@other_api {
+			path /api /api/*
+			not path /api/v1/admin /api/v1/admin/* /api/v1/health/live
+		}
+		handle @other_api {
+			respond 404
+		}
+		# Static files; the SPA never POSTs to them.
+		handle {
+			request_body {
+				max_size 64KB
+			}
+			reverse_proxy admin:8080 {
+				import upstream_timeouts
+			}
+		}
+	}
+}
+
+# --- container healthcheck: loopback only, no access log -----------------------------------------
+:8081 {
+	bind 127.0.0.1
+	respond /healthz "ok" 200
+	respond 404
+}

@@ -45,7 +45,13 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 ## Nega worker alohida?
 
 - **Kalitlarni izolyatsiya qilish:** TON mnemonic, Fragment cookie'lari va ta'minotchi kalitlari
-  faqat worker'da. API buzilsa ham hamyonga yetib bo‘lmaydi. Xuddi shunday bank-feed Telegram foydalanuvchi sessiyasi (`BANK_FEED_*`) ham faqat worker'da.
+  faqat worker'da. API buzilsa ham hamyonga yetib bo‘lmaydi. Xuddi shunday bank-feed Telegram foydalanuvchi sessiyasi (`BANK_FEED_*`) ham faqat worker image'ida — uning `bankfeed` rolida.
+- **Ikki rol, bitta image (D-76).** Worker image ikki konteynerda ishlaydi, rolini `WORKER_ROLE` belgilaydi (production’da majburiy,
+  `all` faqat dev/test): `worker` = `fulfillment` (chiquvchi qiymat: TON hamyon, Fragment, `fulfill-order`, `validate-recipient`,
+  `price-sync`, `fragment-keepalive`, `reconcile:orders`) va `bankfeed` = `bankfeed` (kiruvchi qiymat: bank-feed tinglovchisi,
+  `bank-message`, `card-limit`, `topup-expire`, `payment-reconcile`). Har rol faqat o‘z Nest modullarini quradi
+  (`apps/worker/src/worker-role-modules.ts`), boshqa rolning sirlarini boot’da rad etadi va o‘z heartbeat kalitini yozadi
+  (`worker:heartbeat` / `bankfeed:process-heartbeat`). Batafsil: `deploy/COMPOSE.md` «Roles».
 - Worker'da tashqi port yo‘q; faqat Redis navbati va Postgres orqali gaplashadi.
 - Yetkazish sekin va qayta urinishli ish — API so‘rovlarini bloklamasligi kerak.
 
@@ -91,13 +97,13 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 | `price-sync`         | cron                                                                              | worker    | —                                                                                |
 | `fragment-keepalive` | cron 20 daq                                                                       | worker    | —                                                                                |
 | `reconcile`          | scheduler id `reconcile:orders` (har `ORDER_RECONCILE_EVERY_MS`, standart 10 daq) | worker    | —                                                                                |
-| `bank-message`       | `bm-<BankMessage.id>`                                                             | worker    | 5 marta, eksponensial 2 s; concurrency 1 (zanjir tartibi)                        |
-| `card-limit`         | `cl-<BankMessage.id>`                                                             | worker    | 8 marta, eksponensial 2 s; tugasa alert `limitCheckFailed`                       |
-| `topup-expire`       | cron har 1 daq                                                                    | worker    | —                                                                                |
+| `bank-message`       | `bm-<BankMessage.id>`                                                             | bankfeed  | 5 marta, eksponensial 2 s; concurrency 1 (zanjir tartibi)                        |
+| `card-limit`         | `cl-<BankMessage.id>`                                                             | bankfeed  | 8 marta, eksponensial 2 s; tugasa alert `limitCheckFailed`                       |
+| `topup-expire`       | cron har 1 daq                                                                    | bankfeed  | —                                                                                |
 | `notify`             | `topup-<paymentId>`, `alert-<kind>-<refId>`                                       | api       | 5 marta, eksponensial 2 s; payload faqat id'lar, matnni API render qiladi        |
 | `tg-outbox`          | `messageId`                                                                       | api       | 429 → `retry_after`                                                              |
-| `payment-reconcile`  | cron 03:00 Asia/Tashkent                                                          | worker    | 3 marta, eksponensial 60 s, keyin alert `reconcileFailed`; MTProto → api'da emas |
-| ↳ `bank-text-purge`  | cron 03:30 Asia/Tashkent (shu navbat)                                             | worker    | 3 marta; xom matn `text = NULL` partiyalab, alert yo‘q (`purgeOverdue`)          |
+| `payment-reconcile`  | cron 03:00 Asia/Tashkent                                                          | bankfeed  | 3 marta, eksponensial 60 s, keyin alert `reconcileFailed`; MTProto → api'da emas |
+| ↳ `bank-text-purge`  | cron 03:30 Asia/Tashkent (shu navbat)                                             | bankfeed  | 3 marta; xom matn `text = NULL` partiyalab, alert yo‘q (`purgeOverdue`)          |
 
 ## Asosiy oqim: Stars xaridi
 
@@ -120,11 +126,11 @@ qilingan klientni `@repo/db` orqali ishlatadi.
 
 ## Deploy (VPS, D-20)
 
-- O‘z VPS'imizda Docker Compose. Konteynerlar: `api` (public), `worker` (public port yo‘q),
-  `web` (public), `admin` (alohida subdomen), `postgres`, `redis`.
+- O‘z VPS'imizda Docker Compose. Konteynerlar: `api` (public), `worker` va `bankfeed` (bitta worker image, ikki rol,
+  public port yo‘q), `web` (public), `admin` (alohida subdomen), `postgres`, `redis`; `migrate` — bir martalik deploy qadami.
 - Tashqariga faqat reverse proxy (TLS) ochiq; Postgres va Redis faqat ichki tarmoqda.
 - Ta'minotchilar IP whitelist so‘rasa, VPS'ning statik IP'si beriladi.
 - Domenlar: `ggpin.uz` (landing, web do‘kon, Mini App `/tg`), `api.ggpin.uz`, `admin.ggpin.uz`.
-- Har servisning o‘z env'i; worker sirlari faqat worker'da.
+- Har servisning o‘z env'i; hamyon/Fragment sirlari faqat `worker`da, bank-feed sessiyasi va kaliti faqat `bankfeed`da.
 - Migratsiya: deploy oldidan `prisma migrate deploy`.
 - Monitoring: health endpointlar, worker heartbeat, Telegram ogohlantirishlar, kunlik DB backup.

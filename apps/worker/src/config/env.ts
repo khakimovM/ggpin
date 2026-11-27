@@ -1,4 +1,8 @@
-import { testModeOutsideJestProblem } from '@repo/shared';
+import {
+  testModeOutsideJestProblem,
+  workerRoleSecretProblems,
+  type WorkerRole,
+} from '@repo/shared';
 import { z } from 'zod';
 import { workerBankFeedProblems, workerBankFeedShape } from './bank-feed-env';
 import {
@@ -16,6 +20,7 @@ import { forgetWalletSecrets, walletKeySource, workerTonProblems, workerTonShape
 import { TonApiKey } from './ton-api-key';
 import { workerTopupProblems, workerTopupShape } from './topup-env';
 import { WalletSecretHandle } from './wallet-secret';
+import { parseWorkerRole, roleFlagProblems, roleRuns } from './worker-role';
 
 // Strict booleans: "yes", "1", "TRUE" are errors, not silently false.
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
@@ -81,6 +86,14 @@ type ParsedEnv = z.infer<typeof EnvSchema>;
  * The frozen worker config. The encrypted mnemonic and its key are not in it as strings: the
  * wallet factory takes them once from TON_WALLET_SECRET (audit L2; undefined in a dry run). The
  * TON API key is a redacting holder only the toncenter transport reads (review m5, audit I-3).
+ *
+ * D-76 (CR #3): the other side's NON-secret settings (TOPUP_*, BANK_FEED_*_BOT_ID ... in a
+ * fulfillment process; TON_MAX_*, FRAGMENT_PAY_ADDRESSES ... in a bankfeed process) still hold
+ * their parsed defaults here, unchecked by that side's cross-field rules. They stay typed as
+ * present on purpose: making them optional would push undefined-handling into the matcher, the
+ * card limits and the TON sender (money paths) for no gain, because the other side's modules are
+ * not in the graph. worker-role-settings-static.spec.ts keeps it so: no file of one side names a
+ * setting of the other.
  */
 export type Env = Readonly<
   Omit<
@@ -91,8 +104,13 @@ export type Env = Readonly<
     readonly TON_API_KEY?: TonApiKey | undefined;
     /** A redacting holder; undefined in a dry run (plan §8) or when not set (S7). */
     readonly FRAGMENT_SESSION_ENC_KEY?: FragmentSessionKey | undefined;
+    /** D-76: which side this process runs; the other side's secrets were never read. */
+    readonly WORKER_ROLE: WorkerRole;
   }
 >;
+
+/** What a side that does not run gets instead of reading its key: nothing. */
+const NOT_READ = { key: undefined, problems: [] } as const;
 
 function walletSecretOf(blob: string | undefined, key: string | undefined) {
   return blob === undefined || key === undefined
@@ -125,10 +143,24 @@ export function loadEnv(
 ): Env {
   const clean = withoutBlanks(source);
   const production = clean.NODE_ENV === 'production';
+  // D-76: the role is settled first, because it decides which secret files may be opened at all.
+  // A side that does not run never calls its key loader (no file is opened), and a variable of the
+  // other side's container is refused by name. An invalid role runs no side and reads nothing.
+  const roleCheck = parseWorkerRole(clean);
+  const role = roleCheck.role;
+  const fulfillment = roleRuns(role, 'fulfillment', clean);
+  const bankFeed = roleRuns(role, 'bankfeed', clean);
+  const problems: string[] = [...roleCheck.problems, ...roleFlagProblems(role, clean)];
+  if (role !== undefined) problems.push(...workerRoleSecretProblems(role, clean));
   // Safe-by-default: dry-run unless the operator says otherwise, and in production the
-  // operator must say so explicitly (no silent default either way).
-  const withDefaults = production ? clean : { FULFILLMENT_DRY_RUN: 'true', ...clean };
-  const problems: string[] = [];
+  // operator must say so explicitly (no silent default either way). A process that does not run
+  // fulfillment never sends value: it is a dry run whatever the env says (roleFlagProblems
+  // refuses anything but "true" there).
+  const withDefaults = !fulfillment
+    ? { ...clean, FULFILLMENT_DRY_RUN: 'true' }
+    : production
+      ? clean
+      : { FULFILLMENT_DRY_RUN: 'true', ...clean };
 
   const parsed = EnvSchema.safeParse(withDefaults);
   if (!parsed.success) {
@@ -148,34 +180,44 @@ export function loadEnv(
   problems.push(...apiSecretProblems(clean));
   if (production) problems.push(...productionSecretProblems(clean));
   // D-52 D3: the session key comes from its Docker-secret file (or inline outside production).
-  const key = bankFeedKeySource(clean, production, readSecret);
+  const key = bankFeed ? bankFeedKeySource(clean, production, readSecret) : NOT_READ;
   problems.push(...key.problems);
   // Plan §8: in dry run nothing can be sent, so no wallet secret is read or kept (the mnemonic,
   // its key and the TON API key stay out of the config even when set).
   const dryRun = withDefaults.FULFILLMENT_DRY_RUN !== 'false';
-  const walletKey = walletKeySource(clean, production, dryRun, readSecret);
+  const walletKey = fulfillment ? walletKeySource(clean, production, dryRun, readSecret) : NOT_READ;
   problems.push(...walletKey.problems);
-  const fragmentKey = fragmentKeySource(clean, production, !dryRun, readSecret);
+  const fragmentKey = fulfillment
+    ? fragmentKeySource(clean, production, !dryRun, readSecret)
+    : NOT_READ;
   problems.push(...fragmentKey.problems);
-  if (!dryRun) problems.push(...liveFragmentProblems(clean, fragmentKey, walletKey.key));
+  if (fulfillment && !dryRun)
+    problems.push(...liveFragmentProblems(clean, fragmentKey, walletKey.key));
   const data = parsed.success
     ? {
         ...parsed.data,
         BANK_FEED_ENC_KEY: key.key,
+        BANK_FEED_API_HASH: bankFeed ? parsed.data.BANK_FEED_API_HASH : undefined,
+        BANK_FEED_SESSION_ENC: bankFeed ? parsed.data.BANK_FEED_SESSION_ENC : undefined,
+        RESELLER_STARS_API_KEY: fulfillment ? parsed.data.RESELLER_STARS_API_KEY : undefined,
         WALLET_ENC_KEY: walletKey.key,
         TON_MNEMONIC_ENC: dryRun ? undefined : parsed.data.TON_MNEMONIC_ENC,
         TON_API_KEY: dryRun ? undefined : parsed.data.TON_API_KEY,
         FRAGMENT_SESSION_ENC_KEY: fragmentKey.key,
       }
     : null;
-  if (data !== null) {
+  if (data !== null && bankFeed) {
     problems.push(...workerTopupProblems(data));
     problems.push(...workerBankFeedProblems(data, production));
+  }
+  if (data !== null && fulfillment) {
     problems.push(...workerTonProblems(data, clean));
     problems.push(...simulatedPayeeProblems(data, production));
   }
 
-  if (data === null || problems.length > 0) throw new EnvValidationError(problems);
+  if (data === null || role === undefined || problems.length > 0) {
+    throw new EnvValidationError(problems);
+  }
   const {
     TON_MNEMONIC_ENC: blob,
     WALLET_ENC_KEY: walletKeyText,
@@ -184,6 +226,7 @@ export function loadEnv(
   } = data;
   return Object.freeze({
     ...config,
+    WORKER_ROLE: role,
     TON_WALLET_SECRET: walletSecretOf(blob, walletKeyText),
     TON_API_KEY: apiKey === undefined ? undefined : new TonApiKey(apiKey),
   });

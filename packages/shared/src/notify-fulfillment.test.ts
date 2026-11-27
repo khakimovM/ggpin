@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FULFILLMENT_ALERT_KINDS } from './fulfillment/fulfillment-alerts';
 import { ALERT_KINDS } from './payments/bank-feed';
-import { alertRef, notifyJobSchema, refIdSubject } from './notify';
+import { alertRef, notifyJobId, notifyJobSchema, refIdSubject } from './notify';
 import {
   CRITICAL_OWNER_ALERTS,
   FULFILLMENT_ALERT_PARAMS,
@@ -78,6 +78,31 @@ describe('workerDown ref', () => {
 
   it.each(['', 'abc', '12_34', '1'.repeat(16), '-5'])('rejects %j', (ref) => {
     expect(parseWorkerDownRef(ref)).toBeNull();
+  });
+});
+
+describe('bankfeedDown (D-76 (4))', () => {
+  const seen = new Date('2030-01-01T08:58:00.000Z');
+
+  it('round-trips the last sighting and fits a notify job', () => {
+    const refId = alertRef.bankfeedDown(seen);
+    expect(parseWorkerDownRef(refId)).toEqual(seen);
+    expect(
+      notifyJobSchema.safeParse({ kind: 'OWNER_ALERT', alert: 'bankfeedDown', refId }).success,
+    ).toBe(true);
+  });
+
+  it('prints only the minutes, and is critical', () => {
+    expect(FULFILLMENT_ALERT_PARAMS.bankfeedDown).toEqual(['minutes']);
+    expect(ownerAlertPriority('bankfeedDown')).toBe('critical');
+  });
+
+  it('the same outage start under workerDown is another notify job id', () => {
+    const refId = alertRef.bankfeedDown(seen);
+    expect(refId).toBe(alertRef.workerDown(seen));
+    expect(notifyJobId({ kind: 'OWNER_ALERT', alert: 'bankfeedDown', refId })).not.toBe(
+      notifyJobId({ kind: 'OWNER_ALERT', alert: 'workerDown', refId }),
+    );
   });
 });
 

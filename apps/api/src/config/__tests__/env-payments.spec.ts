@@ -34,10 +34,19 @@ describe('loadEnv: P2P top-up tuning and the pay-link pepper (phase 4)', () => {
     ['TOPUP_NEW_ACCOUNT_AGE_SEC', '-1'],
     ['BANK_FEED_HEARTBEAT_MAX_AGE_SEC', '9'],
     ['BANK_FEED_HEARTBEAT_MAX_AGE_SEC', 'abc'],
+    // Over 120 s the gate (and the bankfeedDown alert waiting for it) would close too late (B-7).
+    ['BANK_FEED_HEARTBEAT_MAX_AGE_SEC', '121'],
+    ['BANK_FEED_HEARTBEAT_MAX_AGE_SEC', '3600'],
     ['TOPUP_CAPACITY_HOLD_SEC', '0'],
     ['TOPUP_CAPACITY_HOLD_SEC', '-5'],
   ])('refuses %s=%s', (name, value) => {
     expect(messageOf({ ...TEST_ENV_SOURCE, [name]: value })).toContain(name);
+  });
+
+  it.each(['10', '120'])('accepts BANK_FEED_HEARTBEAT_MAX_AGE_SEC=%s (the bounds)', (value) => {
+    expect(
+      buildTestEnv({ BANK_FEED_HEARTBEAT_MAX_AGE_SEC: value }).BANK_FEED_HEARTBEAT_MAX_AGE_SEC,
+    ).toBe(Number(value));
   });
 
   it('accepts a small suffix range (used by the exhaustion tests)', () => {

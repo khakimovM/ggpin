@@ -55,3 +55,4 @@ export * from './tashkent-time';
 export * from './tg-outbox';
 export * from './wallet/cache-keys';
 export * from './wallet/ledger-schemas';
+export * from './worker-roles';

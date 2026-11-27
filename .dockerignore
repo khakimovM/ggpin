@@ -37,6 +37,13 @@ e2e/__screens__
 **/*.key
 **/secrets
 **/.secrets
+# Registry tokens, direnv files, certificate stores, SSH keys, saved browser logins (Playwright)
+**/.npmrc
+**/.envrc
+**/*.p12
+**/*.pfx
+**/id_*
+**/.auth
 
 # Telegram / mtcute sessions and their stores (D-52), local databases, spike leftovers
 **/*.session
@@ -49,3 +56,6 @@ e2e/__screens__
 # Local OS noise and compose files (the image does not need them)
 **/.DS_Store
 docker-compose*.yml
+
+# Deploy runbooks, proxy and compose config: not part of any image
+deploy

@@ -20,7 +20,8 @@ const LIVE = {
   BANK_FEED_API_HASH: 'ab'.repeat(16),
   BANK_FEED_SESSION_ENC: BLOB,
 };
-const PROD = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', FULFILLMENT_DRY_RUN: 'true' };
+// D-76: the bank feed belongs to the bankfeed container (no FULFILLMENT_DRY_RUN there).
+const PROD = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', WORKER_ROLE: 'bankfeed' };
 
 /** A reader that serves the key for PATH only, and records what it was asked for. */
 function reader(content = KEY) {

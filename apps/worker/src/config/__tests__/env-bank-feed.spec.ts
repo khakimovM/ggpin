@@ -18,7 +18,8 @@ const LIVE = {
   BANK_FEED_ENC_KEY: KEY,
 };
 // Production also needs its other strong secrets; these tests only look at bank-feed problems.
-const PROD = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', FULFILLMENT_DRY_RUN: 'true' };
+// D-76: the bank feed belongs to the bankfeed container (no FULFILLMENT_DRY_RUN there).
+const PROD = { ...TEST_ENV_SOURCE, NODE_ENV: 'production', WORKER_ROLE: 'bankfeed' };
 
 function problemsOf(source: Record<string, string>): string {
   try {

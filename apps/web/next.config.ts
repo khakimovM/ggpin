@@ -32,13 +32,18 @@ export default function config(phase: string): NextConfig {
     mocks: env.NEXT_PUBLIC_API_MOCKS,
   });
 
-  // The server-only API URL is checked at start-up too, so a typo fails the deploy instead of
-  // silently turning every server-rendered price off.
+  // The server-only API URL is checked whenever this config is evaluated (`next dev`, `next build`,
+  // `next start`), so a typo fails instead of silently turning every server-rendered price off.
+  // The production image runs the standalone server.js, which never evaluates this file: there the
+  // same parseServerEnv runs in apps/web/docker/start.mjs before the server starts.
   parseServerEnv({ API_INTERNAL_URL: process.env.API_INTERNAL_URL });
 
   const nextConfig: NextConfig = {
     reactStrictMode: true,
     poweredByHeader: false,
+    // Standalone output (server.js + traced files) only for the production image: apps/web/Dockerfile
+    // sets NEXT_OUTPUT=standalone in its build stage. Local builds and `next start` stay as they were.
+    output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
     // @repo/ui is consumed as TypeScript source (no build step).
     transpilePackages: ['@repo/ui'],
     // Imports from the @repo/ui barrel are rewritten to the single component modules used, so a

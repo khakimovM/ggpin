@@ -51,6 +51,10 @@ export const FULFILLMENT_ALERT_KINDS = [
   // crash loop; one alert per stuck episode, docs/07).
   'queueStuck',
   'workerDown',
+  // The bankfeed container's process heartbeat (`bankfeed:process-heartbeat`, D-76 (4)) is gone:
+  // incoming P2P money is no longer matched. The same watch as workerDown with its own sighting
+  // and refId (the last sighting, epoch ms): one alert per outage, in every BANK_FEED_MODE.
+  'bankfeedDown',
   // CRITICAL money anomaly (D-64 (6)): a PAID order's PURCHASE entry is missing or its amount does
   // not match. Nothing was sent; the order is HELD and stays with the owner (no automatic release,
   // no refund). refId = the order (one per order).

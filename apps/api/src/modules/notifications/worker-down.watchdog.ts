@@ -16,13 +16,16 @@ import {
   notifyJobSchema,
   type NotifyJob,
 } from '@repo/shared';
-import type { Queue } from 'bullmq';
 import { z } from 'zod';
 import { APP_CONFIG, type AppConfig } from '../../config/config.module';
+import {
+  WATCHDOG_EVERY_MS,
+  lookAtHeartbeat,
+  type HeartbeatSightings,
+  type WatchdogQueue,
+} from './heartbeat-outage';
 import { WatchdogRepository } from './watchdog.repository';
 
-export const WATCHDOG_EVERY_MS = 30_000;
-const EPOCH_MS = /^\d{1,15}$/;
 // A fulfill-order job still waiting to be taken (a paused queue reports `waiting` too).
 const WAITING_STATES: readonly string[] = ['waiting', 'prioritized'];
 
@@ -43,9 +46,6 @@ export interface WatchdogTick {
   readonly worker: WorkerState;
   readonly queue: QueueState;
 }
-
-/** The part of the notify queue the watchdog uses (BullMQ's Queue; a fake in the unit test). */
-export type WatchdogQueue = Pick<Queue, 'add'>;
 
 /**
  * API-side watch of the worker (D-34 (12), phase 5 S6). Every 30 s, two independent checks:
@@ -123,27 +123,27 @@ export class WorkerDownWatchdog implements OnApplicationBootstrap, BeforeApplica
 
   private async checkWorker(): Promise<WorkerState> {
     const now = await this.repo.redisNowMs();
-    if (await this.repo.heartbeatPresent()) {
-      await this.repo.storeLastSeen(now);
-      return 'UP';
-    }
-    const stored = await this.repo.lastSeen();
-    let lastSeen = this.trusted(stored, now);
-    if (lastSeen === null) {
-      // Never seen: count from now unless another instance just stored one. Untrusted: replace
-      // it unconditionally (NX would keep a future value forever, audit P1).
-      if (stored === null) await this.repo.storeLastSeenIfAbsent(now);
-      else await this.repo.storeLastSeen(now);
-      lastSeen = this.trusted(await this.repo.lastSeen(), now) ?? now;
-    }
-    if (now - lastSeen < this.config.WORKER_DOWN_ALERT_AFTER_MS) return 'DOWN';
+    const look = await lookAtHeartbeat(
+      this.workerSightings,
+      now,
+      this.config.WORKER_DOWN_ALERT_AFTER_MS,
+    );
+    if (look.state !== 'OVER') return look.state;
     await this.alert({
       kind: 'OWNER_ALERT',
       alert: 'workerDown',
-      refId: alertRef.workerDown(new Date(lastSeen)),
+      refId: alertRef.workerDown(new Date(look.since)),
     });
     return 'ALERTED';
   }
+
+  // `worker:heartbeat` and its own sighting key (bankfeedDown has another, BankfeedDownWatchdog).
+  private readonly workerSightings: HeartbeatSightings = {
+    present: () => this.repo.heartbeatPresent(),
+    lastSeen: () => this.repo.lastSeen(),
+    storeLastSeen: (ms) => this.repo.storeLastSeen(ms),
+    storeLastSeenIfAbsent: (ms) => this.repo.storeLastSeenIfAbsent(ms),
+  };
 
   private async checkQueue(): Promise<QueueState> {
     const now = await this.repo.redisNowMs();
@@ -185,13 +185,6 @@ export class WorkerDownWatchdog implements OnApplicationBootstrap, BeforeApplica
     const watch = QueueWatchSchema.safeParse(json);
     if (!watch.success || watch.data.at > now + WATCHDOG_EVERY_MS) return null;
     return watch.data;
-  }
-
-  /** A sighting to count from: our own epoch ms, not past `now` by more than one tick. */
-  private trusted(value: string | null, now: number): number | null {
-    if (value === null || !EPOCH_MS.test(value)) return null;
-    const ms = Number(value);
-    return ms > now + WATCHDOG_EVERY_MS ? null : ms;
   }
 
   private async alert(data: NotifyJob): Promise<void> {

@@ -13,15 +13,26 @@
 ARG NODE_IMAGE=node:24.22.2-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9
 
 # ---------------------------------------------------------------------------------------------
-# manifests: base of every builder. openssl (Prisma) + every workspace manifest, so `npm ci` can
-# validate the lockfile while installing only the workspaces a stage asks for.
+# base: openssl (Prisma) + CA certificates, the start of every builder.
+# compilers: base + the compiler and python for node-gyp, installed BEFORE any manifest is copied,
+# so a package.json change does not download them again (the images themselves are unchanged).
+# manifests: base + every workspace manifest, so `npm ci` can validate the lockfile while
+# installing only the workspaces a stage asks for.
 # ---------------------------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS manifests
+FROM ${NODE_IMAGE} AS base
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && apt-get clean \
  && find /var/lib/apt/lists -type f -delete
 WORKDIR /app
+
+FROM base AS compilers
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential python3 \
+ && apt-get clean \
+ && find /var/lib/apt/lists -type f -delete
+
+FROM base AS manifests
 COPY package.json package-lock.json ./
 COPY apps/worker/package.json apps/worker/
 COPY apps/api/package.json apps/api/
@@ -34,7 +45,7 @@ COPY packages/ui/package.json packages/ui/
 COPY e2e/flow/package.json e2e/flow/
 
 # ---------------------------------------------------------------------------------------------
-# toolchain: manifests + compiler and python for node-gyp. Only the stages that compile
+# toolchain: compilers + the manifests (copied from that stage). Only the stages that compile
 # better-sqlite3 derive from it; the runtime and migrate images never see a compiler.
 #
 # better-sqlite3 (always loaded by @mtcute/node) is compiled from source against the headers that
@@ -44,21 +55,22 @@ COPY e2e/flow/package.json e2e/flow/
 # no npm "build-from-source" config is involved (npm 12 warns that it is unknown), and the
 # binary's inputs are the lockfile (integrity-checked npm tarballs) and the base image only.
 # ---------------------------------------------------------------------------------------------
-FROM manifests AS toolchain
-RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential python3 \
- && apt-get clean \
- && find /var/lib/apt/lists -type f -delete
+FROM compilers AS toolchain
+COPY --from=manifests /app /app
 
 # ---------------------------------------------------------------------------------------------
 # deps-prod: production dependencies only (no typescript, no prisma CLI, no nest CLI).
 # npm installs `prisma` and `typescript` here anyway because they are optional peers of
 # @prisma/client that the lockfile resolves; the generated client (adapter-pg) does not use them
 # at run time, so they and their exclusive dependency tree are deleted explicitly (the smoke test
-# proves the client still loads).
+# proves the client still loads). `--omit=peer` (CR F6) keeps any package that only a peer edge
+# would pull in out of the image. Every peer the worker really needs at run time (@ton/core and
+# @ton/crypto for @ton/ton, rxjs and reflect-metadata for Nest) is also a direct dependency of
+# apps/worker, so it stays; `prisma`/`typescript` are not flagged peer in the lockfile (other
+# workspaces use them directly), hence the explicit delete below remains necessary.
 # ---------------------------------------------------------------------------------------------
 FROM toolchain AS deps-prod
-RUN npm ci --omit=dev --ignore-scripts -w worker -w @repo/db -w @repo/shared \
+RUN npm ci --omit=dev --omit=peer --ignore-scripts -w worker -w @repo/db -w @repo/shared \
       --include-workspace-root --no-audit --no-fund \
  && npm cache clean --force \
  && (cd node_modules/better-sqlite3 \
@@ -97,7 +109,9 @@ RUN npm run build -w @repo/shared \
 # not exist in a production image. Drop its compiled files, then fail the build if any trace stays
 # (a file name, or any remaining module that still requires one of them).
 # The same for the owner-only Fragment recorder (plan S0b, S-9): cli/fragment-record* and its env
-# guard config/fragment-record-env.*. adapters/fragment/* stays (the S8 adapter needs it).
+# guard config/fragment-record-env.*. adapters/fragment/* stays (the S8 adapter needs it). The build
+# emits no comments (tsconfig.build.json removeComments), so both checks are strict: a module that
+# loads the recorder fails first with its own message, then ANY remaining mention fails.
 RUN cd apps/worker/dist \
  && find . \( -name 'bank-feed-inject.*' -o -name 'inject-args.*' -o -name 'inject-text.*' \
       -o -name 'inject-guard.*' -o -path './cli/fragment-record*' \
@@ -107,7 +121,9 @@ RUN cd apps/worker/dist \
       echo 'fragment-record files left in dist' >&2; exit 1; fi \
  && if grep -rIl -e 'bank-feed-inject' -e 'inject-args' -e 'inject-text' -e 'inject-guard' . ; then \
       echo 'dist still references the inject CLI' >&2; exit 1; fi \
- && if grep -rIl -e 'fragment-record' . ; then \
+ && if grep -rIEn -e '(require\(|import\(|from )[^;]*fragment-record' . ; then \
+      echo 'dist still loads the fragment recorder' >&2; exit 1; fi \
+ && if grep -rIn -e 'fragment-record' . ; then \
       echo 'dist still references the fragment recorder' >&2; exit 1; fi \
  && test -f main.js && test -f cli/bank-feed-login.js && test -f healthcheck/healthcheck.js
 
@@ -143,6 +159,11 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && apt-get clean \
  && find /var/lib/apt/lists -type f -delete
+# uid/gid 10005: the migrate job's own id, never a host login account (it holds the DDL owner's
+# DATABASE_URL in its environment). A passwd entry without home or shell, like the worker uids.
+RUN groupadd --system --gid 10005 ggpin-migrate \
+ && useradd --system --uid 10005 --gid 10005 --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin ggpin-migrate
 WORKDIR /app
 COPY --from=migrate-deps /app/node_modules node_modules
 COPY --from=migrate-deps /app/package.json ./
@@ -150,8 +171,11 @@ COPY --from=migrate-deps /app/packages/db/package.json packages/db/
 COPY packages/db/prisma/schema.prisma packages/db/prisma/
 COPY packages/db/prisma/migrations packages/db/prisma/migrations
 COPY packages/db/prisma.config.ts packages/db/
+# Nothing here is owned by or writable for 10005 (the job only reads its schema and migrations).
+RUN if find /app \( -uid 10005 -o -gid 10005 -o \( -perm -0002 ! -type l \) \) -print | grep . ; then \
+      echo 'a file in /app is owned by or writable for the migrate uid' >&2; exit 1; fi
 WORKDIR /app/packages/db
-USER node
+USER 10005:10005
 CMD ["/app/node_modules/.bin/prisma", "migrate", "deploy"]
 
 # ---------------------------------------------------------------------------------------------
@@ -165,6 +189,16 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl tini \
  && apt-get clean \
  && find /var/lib/apt/lists -type f -delete
+# One image, two container uids (SA H-1), never a host login account (preflight.sh checks both):
+# 10003 = the worker (fulfillment, wallet keys), 10004 = the bankfeed role (compose `user:`). Each
+# has a passwd entry (os.userInfo() works) with no home and no shell. Neither owns any file here:
+# the root filesystem is read-only in production and the only writable place is the /tmp tmpfs.
+RUN groupadd --system --gid 10003 ggpin-worker \
+ && useradd --system --uid 10003 --gid 10003 --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin ggpin-worker \
+ && groupadd --system --gid 10004 ggpin-bankfeed \
+ && useradd --system --uid 10004 --gid 10004 --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin ggpin-bankfeed
 WORKDIR /app
 # Manifests + production node_modules (root and per-workspace ones, workspace symlinks kept).
 COPY --from=deps-prod /app /app
@@ -180,11 +214,19 @@ RUN if find /app -path '*/node_modules' -prune -o \( -name '*inject*' -o -name '
       echo 'forbidden file in runtime image' >&2; exit 1; fi \
  && test ! -e /app/node_modules/typescript \
  && test ! -e /app/node_modules/.bin/prisma \
- && test ! -e /app/node_modules/.bin/tsc
+ && test ! -e /app/node_modules/.bin/tsc \
+ && if find /app \( -uid 10003 -o -uid 10004 -o -gid 10003 -o -gid 10004 -o \( -perm -0002 ! -type l \) \) \
+      -print | grep . ; then echo 'a file in /app is owned by or writable for a container uid' >&2; exit 1; fi
 WORKDIR /app/apps/worker
-USER node
-# Healthy = the worker's own Redis heartbeat key exists (10 s beat, 30 s TTL); valid in every
-# BANK_FEED_MODE. Needs only REDIS_URL and prints no secret.
+# D-76 (6): this image runs WORKER_ROLE=fulfillment and WORKER_ROLE=bankfeed. preflight.sh reads the
+# label of the WORKER_IMAGE it is about to start and refuses an image without it (an old image
+# under the new compose would start a full worker twice), and a compose file without both roles.
+LABEL uz.ggpin.worker-roles="fulfillment,bankfeed"
+# Numeric, so `docker inspect` and preflight see the uid itself; compose runs bankfeed as 10004.
+USER 10003:10003
+# Healthy = this role's own Redis heartbeat key exists (10 s beat, 30 s TTL): worker:heartbeat for
+# fulfillment, bankfeed:process-heartbeat for bankfeed (valid in every BANK_FEED_MODE). Needs only
+# REDIS_URL and WORKER_ROLE (the boot's NODE_ENV rule) and prints no secret.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD ["node", "dist/healthcheck/healthcheck.js"]
 # No EXPOSE: the worker has no HTTP surface and no public port.

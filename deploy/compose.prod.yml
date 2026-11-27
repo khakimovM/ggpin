@@ -1,0 +1,296 @@
+# ggpin production stack (P11-S2/S3). Commands (explicit `migrate` BEFORE `up`, images by digest, no
+# build on the VPS) and every design note behind the short comments below: deploy/COMPOSE.md. Owner
+# runbook: deploy/vps/README-2.md step 12. Never `migrate reset` on this stack.
+
+name: ggpin
+
+x-hardened: &hardened
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  ulimits:
+    core: 0
+  restart: unless-stopped
+  logging:
+    driver: local
+    options:
+      max-size: 20m
+      max-file: '5'
+
+services:
+  # ---------------------------------------------------------------------------------------------
+  # Reverse proxy (Caddy, deploy/proxy/). The only public service: 80/443 tcp. uid 65532, no
+  # capability (deploy/COMPOSE.md "Proxy").
+  # ---------------------------------------------------------------------------------------------
+  proxy:
+    <<: *hardened
+    image: ${PROXY_IMAGE:?set PROXY_IMAGE (registry digest of deploy/proxy/Dockerfile) in compose.env}
+    user: '65532:65532'
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    ports:
+      - '${PROXY_BIND_ADDR:-0.0.0.0}:${PROXY_HTTP_PORT:-80}:80'
+      - '${PROXY_BIND_ADDR:-0.0.0.0}:${PROXY_HTTPS_PORT:-443}:443'
+    volumes:
+      - ${PROXY_CADDYFILE:-./proxy/Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /config:size=8m,uid=65532,gid=65532,mode=0700
+    environment:
+      XDG_CONFIG_HOME: /config
+      XDG_DATA_HOME: /data
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in compose.env}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in compose.env}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN in compose.env}
+      PROXY_TLS: ${PROXY_TLS:?set PROXY_TLS (the ACME account e-mail) in compose.env}
+      PROXY_ACME_CA: ${PROXY_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    networks:
+      ingress: {}
+      edge:
+        # Fixed: the API trusts X-Forwarded-For only from this address (TRUST_PROXY below).
+        ipv4_address: ${PROXY_EDGE_IP:-172.30.10.2}
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+      # A broken admin must not keep the store and the API offline: the admin name answers 502.
+      admin: { condition: service_started, required: false }
+    mem_limit: 256m
+    pids_limit: 128
+
+  # ---------------------------------------------------------------------------------------------
+  # API (uid 10001 from the image). Egress: Telegram Bot API (bot.init, setWebhook, outbox).
+  # Owner CLI: deploy/vps/README-2.md (`exec -e SSH_CONNECTION -e SUDO_USER api node dist/cli/ops-cli.js`).
+  # ---------------------------------------------------------------------------------------------
+  api:
+    <<: *hardened
+    image: ${API_IMAGE:?set API_IMAGE (registry digest) in compose.env}
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/api.env
+    environment:
+      NODE_ENV: production
+      API_PORT: '5000'
+      # Only the proxy's edge address may speak for a client (apps/api/src/config/trust-proxy.ts).
+      TRUST_PROXY: ${PROXY_EDGE_IP:-172.30.10.2}
+    networks: [edge, data-api, egress]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    mem_limit: 768m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Web (Next standalone, uid 10002). .next/cache -> /tmp (apps/web/Dockerfile), hence the larger
+  # tmpfs. Talks to the API over edge only; no egress, no data network.
+  # ---------------------------------------------------------------------------------------------
+  web:
+    <<: *hardened
+    image: ${WEB_IMAGE:?set WEB_IMAGE (registry digest) in compose.env}
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:5000/api/v1
+    networks: [edge]
+    depends_on:
+      api: { condition: service_healthy }
+    stop_grace_period: 20s
+    mem_limit: 768m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Admin SPA (static Caddy, uid 65532, :8080). ADMIN_API_ORIGIN = the admin name itself (CSP
+  # connect-src; the SPA calls /api on its own origin). VPN-only: deploy/proxy/Caddyfile.
+  # ---------------------------------------------------------------------------------------------
+  admin:
+    <<: *hardened
+    image: ${ADMIN_IMAGE:?set ADMIN_IMAGE (registry digest) in compose.env}
+    environment:
+      ADMIN_API_ORIGIN: ${ADMIN_API_ORIGIN:?set ADMIN_API_ORIGIN (e.g. https://admin.ggpin.uz) in compose.env}
+    networks: [edge]
+    stop_grace_period: 10s
+    mem_limit: 64m
+    pids_limit: 64
+
+  # ---------------------------------------------------------------------------------------------
+  # Worker = WORKER_ROLE fulfillment (D-76), uid 10003: value out (TON, Fragment, fulfill-order, price
+  # sync). The ONLY holder of the wallet keys; no port, no HTTP surface (deploy/COMPOSE.md "Roles").
+  # ---------------------------------------------------------------------------------------------
+  worker:
+    <<: *hardened
+    image: ${WORKER_IMAGE:?set WORKER_IMAGE (registry digest) in compose.env}
+    container_name: ${COMPOSE_PROJECT_NAME}-worker
+    user: '10003:10003'
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/worker.env
+    environment:
+      NODE_ENV: production
+      WORKER_ROLE: fulfillment
+      BANK_FEED_MODE: 'off'
+      WALLET_ENC_KEY_FILE: /run/secrets/wallet_enc_key
+      FRAGMENT_SESSION_ENC_KEY_FILE: /run/secrets/fragment_session_enc_key
+    secrets: [wallet_enc_key, fragment_session_enc_key]
+    networks: [data-workers, egress]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      replicas: 1
+    # In-flight fulfillment gets time to reach a safe state before SIGKILL.
+    stop_grace_period: 60s
+    mem_limit: 768m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Bankfeed = WORKER_ROLE bankfeed (D-76), the same image as uid 10004: value in (bank-feed listener,
+  # P2P matcher, top-up expiry, payment reconcile). No profile: a plain `up -d` starts it; until the
+  # Telegram session exists, BANK_FEED_MODE=off in bankfeed.env keeps the listener off (D-76 (5)).
+  # ---------------------------------------------------------------------------------------------
+  bankfeed:
+    <<: *hardened
+    image: ${WORKER_IMAGE:?set WORKER_IMAGE (registry digest) in compose.env}
+    container_name: ${COMPOSE_PROJECT_NAME}-bankfeed
+    user: '10004:10004'
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/bankfeed.env
+    environment:
+      NODE_ENV: production
+      WORKER_ROLE: bankfeed
+      BANK_FEED_ENC_KEY_FILE: /run/secrets/bank_feed_enc_key
+    secrets: [bank_feed_enc_key]
+    networks: [data-workers, egress]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      replicas: 1
+    stop_grace_period: 30s
+    mem_limit: 512m
+    pids_limit: 128
+
+  # ---------------------------------------------------------------------------------------------
+  # One-shot `prisma migrate deploy`, explicit step: `--profile migrate run --rm migrate`
+  # (deploy/COMPOSE.md "Migrate").
+  # ---------------------------------------------------------------------------------------------
+  migrate:
+    <<: *hardened
+    image: ${MIGRATE_IMAGE:?set MIGRATE_IMAGE (registry digest) in compose.env}
+    profiles: [migrate]
+    user: '10005:10005'
+    restart: 'no'
+    env_file:
+      - ${GGPIN_ENV_DIR:-/etc/ggpin}/migrate.env
+    environment:
+      NODE_ENV: production
+    networks: [data-workers]
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 512m
+    pids_limit: 128
+
+  # ---------------------------------------------------------------------------------------------
+  # PostgreSQL 16 (official alpine image, uid 70). Runs as 70 from the start: the entrypoint's
+  # chown/gosu needs capabilities that are dropped here. No port. Settings: deploy/postgres/.
+  # ---------------------------------------------------------------------------------------------
+  postgres:
+    <<: *hardened
+    image: ${POSTGRES_IMAGE:-postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685}
+    user: '70:70'
+    command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf']
+    environment:
+      POSTGRES_USER: ggpin
+      POSTGRES_DB: ggpin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --data-checksums
+    secrets: [postgres_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=1m,uid=70,gid=70,mode=0775
+    shm_size: 256m
+    networks: [data-api, data-workers]
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-q', '-h', '127.0.0.1', '-U', 'ggpin', '-d', 'ggpin']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 60s
+    mem_limit: 1536m
+    pids_limit: 256
+
+  # ---------------------------------------------------------------------------------------------
+  # Redis 7 (official alpine image, uid 999). AOF + noeviction (BullMQ must never lose a job),
+  # users and password hashes from the ACL secret file. No port. Settings: deploy/redis/redis.conf.
+  # ---------------------------------------------------------------------------------------------
+  redis:
+    <<: *hardened
+    image: ${REDIS_IMAGE:-redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99}
+    user: '999:999'
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    secrets: [redis_users_acl]
+    volumes:
+      - redisdata:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks: [data-api, data-workers]
+    healthcheck:
+      # A plain string = CMD-SHELL. User `healthcheck` may run PING and nothing else.
+      test: redis-cli --no-auth-warning --user healthcheck --pass x ping | grep -qx PONG
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    stop_grace_period: 30s
+    mem_limit: 512m
+    pids_limit: 64
+
+  # Reserved, not defined yet: backup (P11-S9), umami (P11-S15) — deploy/COMPOSE.md.
+
+networks:
+  ingress:
+    driver: bridge
+  edge:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:-172.30.10.0/24}
+          # Dynamic addresses come only from the upper half, so the proxy's fixed low address
+          # (PROXY_EDGE_IP) is never taken by a container that started first.
+          ip_range: ${EDGE_IP_RANGE:-172.30.10.128/25}
+  # Split so the worker side cannot reach api:5000 (deploy/COMPOSE.md "Networks").
+  data-api:
+    driver: bridge
+    internal: true
+  data-workers:
+    driver: bridge
+    internal: true
+  egress:
+    driver: bridge
+    # The local prod-like test sets EGRESS_INTERNAL=true: no traffic leaves the dev machine.
+    internal: ${EGRESS_INTERNAL:-false}
+    driver_opts:
+      com.docker.network.bridge.enable_icc: 'false'
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+
+secrets:
+  postgres_password:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/postgres_password
+  redis_users_acl:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/redis_users.acl
+  # Host files 0400, owned by their one reader (COMPOSE.md "Secrets"): worker 10003, bankfeed 10004.
+  wallet_enc_key:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/wallet_enc_key
+  fragment_session_enc_key:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/fragment_session_enc_key
+  bank_feed_enc_key:
+    file: ${GGPIN_SECRETS_DIR:-/etc/ggpin/secrets}/bank_feed_enc_key
