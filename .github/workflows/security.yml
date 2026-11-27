@@ -3,9 +3,18 @@ on:
   push: { branches: [main] }
   pull_request:
   schedule: [{ cron: '0 3 * * 1' }]
+# Least privilege, as in ci.yml: no job writes to the repository.
+permissions:
+  contents: read
 jobs:
   gitleaks:
     runs-on: ubuntu-latest
+    # gitleaks-action v2 lists the PR's commits (GET /pulls/{n}/commits): pull-requests: read.
+    # Its PR review comments would need write; without it a comment fails as a warning only, the
+    # leak still fails the job and is in the summary and the SARIF artifact.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -21,7 +30,14 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: npm audit --omit=dev --audit-level=high
+      # The gate's own tests first: a broken gate must not report a green audit.
+      - name: Test the audit gate
+        run: npm run test:scripts
+      # `npm audit --omit=dev`, failing on any high/critical advisory except the exact
+      # GHSA + install path entries of .github/audit-allowlist.json (D-75). An entry past its
+      # reviewBy date fails too. Moderate and lower are listed but do not fail.
+      - name: npm audit (allowlist gate)
+        run: npm run audit:gate
   # Optional: Claude security review on PRs (needs ANTHROPIC_API_KEY secret).
   # claude-review:
   #   if: github.event_name == 'pull_request'

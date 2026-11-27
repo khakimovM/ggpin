@@ -25,6 +25,9 @@ export const SIMULATED_PREMIUM_NANO_TON: ReadonlyMap<number, bigint> = new Map([
  * Prices by product shape, not by slug, so the catalog seed can rename products freely:
  * a custom-quantity product (Stars) gets one per-unit product-level row; a fixed-pack product
  * (Premium) gets one row per active SKU whose month count is in the table above.
+ * Phase 6 S1: the simulated ADAPTER prices by fragmentProductKind(slug) (owner Q4). This source
+ * keeps the shape rule because CostProduct carries no slug yet; the real Premium cost source
+ * (P6-S4) is where the slug reaches price sync. A table row exists only for PREMIUM_MONTHS.
  */
 export class SimulatedFragmentPrices implements CostSource {
   readonly adapter = FRAGMENT_ADAPTER;

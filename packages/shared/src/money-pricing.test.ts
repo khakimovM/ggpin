@@ -6,7 +6,9 @@ import {
   COST_FX_PAIR,
   costForQuantity,
   maxCostFor,
+  perUnitDisplayTiyin,
   priceFromCost,
+  purchaseShortfall,
   totalAfterDiscount,
   unitDisplayPrice,
 } from './money-pricing';
@@ -229,6 +231,33 @@ describe('unitDisplayPrice (step 10)', () => {
   });
 });
 
+describe('perUnitDisplayTiyin (display only, Premium "so‘m/oy")', () => {
+  const SOM_100 = 10_000n; // the 100 so'm step of owner decision Q6, in tiyin
+
+  it('divides exactly when it can (the design samples)', () => {
+    expect(perUnitDisplayTiyin(16_500_000n, 3, SOM_100)).toBe(5_500_000n); // 55 000 so'm
+    expect(perUnitDisplayTiyin(39_600_000n, 12, SOM_100)).toBe(3_300_000n); // 33 000 so'm
+    expect(perUnitDisplayTiyin(0n, 3, SOM_100)).toBe(0n);
+  });
+
+  it('rounds UP to the step, never down', () => {
+    expect(perUnitDisplayTiyin(22_000_000n, 6, SOM_100)).toBe(3_670_000n); // 36 666.67 -> 36 700
+    // One tiyin above an exact multiple is already the next step.
+    expect(perUnitDisplayTiyin(16_500_001n, 3, SOM_100)).toBe(5_510_000n);
+    expect(perUnitDisplayTiyin(16_499_999n, 3, SOM_100)).toBe(5_500_000n);
+    expect(perUnitDisplayTiyin(7n, 2, 1n)).toBe(4n); // step 1 = rounding of the division alone
+  });
+
+  it('rejects units <= 0, a step < 1 and a negative price', () => {
+    expect(() => perUnitDisplayTiyin(100n, 0, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, -3, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, 1.5, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, 3, 0n)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(-1n, 3, SOM_100)).toThrow(MoneyError);
+    expect(() => perUnitDisplayTiyin(100n, 3, notABigInt(100))).toThrow(MoneyError);
+  });
+});
+
 describe('totalAfterDiscount (step 5)', () => {
   it('subtracts the discount from the price', () => {
     expect(totalAfterDiscount(550_000n, 0n)).toBe(550_000n);
@@ -241,6 +270,29 @@ describe('totalAfterDiscount (step 5)', () => {
     expect(() => totalAfterDiscount(100n, -1n)).toThrow(MoneyError);
     expect(() => totalAfterDiscount(-1n, 0n)).toThrow(MoneyError);
     expect(() => totalAfterDiscount(notABigInt(100), 0n)).toThrow(MoneyError);
+  });
+});
+
+describe('purchaseShortfall (422 INSUFFICIENT_BALANCE details)', () => {
+  it('is what the balance lacks, exactly, beyond 2^53', () => {
+    expect(purchaseShortfall(500_000n, 550_000n)).toBe(50_000n);
+    expect(purchaseShortfall(0n, 550_000n)).toBe(550_000n);
+    expect(purchaseShortfall(1n, 9_007_199_254_740_993n)).toBe(9_007_199_254_740_992n);
+  });
+
+  it('is 0 when the balance covers the total', () => {
+    expect(purchaseShortfall(550_000n, 550_000n)).toBe(0n);
+    expect(purchaseShortfall(600_000n, 550_000n)).toBe(0n);
+  });
+
+  it('includes a negative balance (debt) in what must be topped up', () => {
+    expect(purchaseShortfall(-100_000n, 550_000n)).toBe(650_000n);
+  });
+
+  it('refuses a negative total and non-bigints', () => {
+    expect(() => purchaseShortfall(0n, -1n)).toThrow(MoneyError);
+    expect(() => purchaseShortfall(notABigInt(1), 1n)).toThrow(MoneyError);
+    expect(() => purchaseShortfall(1n, notABigInt(1))).toThrow(MoneyError);
   });
 });
 

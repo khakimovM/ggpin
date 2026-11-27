@@ -1,15 +1,20 @@
 'use client';
 
-import type { InputField } from '@repo/shared';
+import type { InputField, RecipientWarning } from '@repo/shared';
 import { Button, Icon } from '@repo/ui';
 import { Ban, CircleHelp, Info } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useCountdown } from '../auth/use-countdown';
 import { RecipientChecking } from './RecipientChecking';
 import { RecipientConfirmed } from './RecipientConfirmed';
 import { RecipientDown } from './RecipientDown';
 import { RecipientFound } from './RecipientFound';
+import { RecipientWarnings } from './RecipientWarnings';
 import { RecipientInput } from './input-fields';
+import { sameRecipient } from './recipient-machine';
 import type { RecipientControls } from './use-validate-recipient';
+
+const NO_WARNINGS: readonly RecipientWarning[] = [];
 
 export interface RecipientFormProps {
   field: InputField;
@@ -23,8 +28,9 @@ export interface RecipientFormProps {
 
 /**
  * "Kimga yuboramiz?" (Product.dc.html `recipient`: idle, checking, found, confirmed, notfound,
- * invalid, down, plus the blocked-premium note). Every message is text with an icon, never a
- * colour alone.
+ * invalid, down, plus the premium notes: the blocking `blocked` and the non-blocking warnings;
+ * `busy` reuses the down note with its own text, the handoff has no state of its own for it).
+ * Every message is text with an icon, never a colour alone.
  */
 export function RecipientForm({
   field,
@@ -34,10 +40,14 @@ export function RecipientForm({
   onHelp,
 }: RecipientFormProps) {
   const t = useTranslations('store.product');
-  const { state, setUsername, check, confirm, reset } = controls;
+  const { state, canonical, setUsername, check, confirm, reset } = controls;
   const { phase, found, username } = state;
   const editing = phase !== 'found' && phase !== 'confirmed';
   const checking = phase === 'checking';
+  // While the server said "busy", the main button is off too (a tap would do nothing); it comes
+  // back with the note's retry button when Retry-After has passed.
+  const busyLeftMs = useCountdown(phase === 'busy' ? state.retryAt : null);
+  const waiting = phase === 'busy' && busyLeftMs > 0;
   const fieldError =
     phase === 'invalid'
       ? t('recipient.invalid')
@@ -75,7 +85,7 @@ export function RecipientForm({
             />
             <Button
               onClick={check}
-              disabled={username === '' || checking}
+              disabled={username === '' || checking || waiting}
               loading={checking}
               className="mt-6 h-12 self-start"
             >
@@ -86,14 +96,15 @@ export function RecipientForm({
             <span className="text-[13px] leading-[18px] font-medium text-foreground-muted">
               {t('recipient.hint')}
             </span>
-            {ownUsername !== null && ownUsername !== username ? (
+            {ownUsername !== null && !sameRecipient(ownUsername, username) ? (
               <Button variant="link" size="sm" onClick={() => setUsername(ownUsername)}>
                 {t('recipient.self')}
               </Button>
             ) : null}
           </div>
-          {checking ? <RecipientChecking /> : null}
-          {phase === 'down' ? <RecipientDown onRetry={check} retryAt={state.retryAt} /> : null}
+          {phase === 'down' || phase === 'busy' ? (
+            <RecipientDown reason={phase} onRetry={check} retryAt={state.retryAt} />
+          ) : null}
           {phase === 'expired' ? (
             <div
               role="alert"
@@ -105,18 +116,23 @@ export function RecipientForm({
           ) : null}
         </>
       ) : null}
+      {/* Mounted in every phase (its live region must exist before "checking" starts); the
+          skeleton only shows while checking, which is an editing phase, under the field. */}
+      <RecipientChecking active={checking} />
 
-      {phase === 'found' && found ? (
+      {phase === 'found' && found && canonical !== null ? (
         <RecipientFound
           recipient={found}
-          username={username}
+          username={canonical}
           onChange={reset}
           onConfirm={confirm}
         />
       ) : null}
-      {phase === 'confirmed' && found ? (
-        <RecipientConfirmed recipient={found} username={username} onChange={reset} />
+      {phase === 'confirmed' && found && canonical !== null ? (
+        <RecipientConfirmed recipient={found} username={canonical} onChange={reset} />
       ) : null}
+      {/* Mounted in every phase, so the live region exists before a warning's text arrives. */}
+      <RecipientWarnings warnings={!editing && found ? found.warnings : NO_WARNINGS} />
 
       {phase === 'blocked' ? (
         <div

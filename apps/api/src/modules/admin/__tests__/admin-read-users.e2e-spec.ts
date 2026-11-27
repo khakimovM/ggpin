@@ -1,7 +1,6 @@
 import { sumBalance } from '@repo/db';
 import { useAdminE2e } from './admin-e2e.harness';
 import { purgeFixtureCatalogAround } from './admin-fixture-purge';
-import { extraOrder } from './admin-read.extra-order';
 import { buildReadWorld, PHONE, type ReadWorld } from './admin-read.fixtures';
 import { leaks } from './admin-read.scan';
 import { checkRead } from './admin-read.schemas';
@@ -25,9 +24,10 @@ describe('admin read: users (real app)', () => {
   let failedOrderId = '';
 
   beforeAll(async () => {
-    w = await buildReadWorld(t.db(), new Date(Date.now() - 3_600_000));
     // Not delivered: listed in the orders tab, never counted in ordersCount / ordersTotalTiyin.
-    failedOrderId = await extraOrder(t.db(), w.orderId, 'FAILED');
+    // Created before the delivered order (the database stamps createdAt), so listed after it.
+    w = await buildReadWorld(t.db(), { extra: ['FAILED'] });
+    failedOrderId = w.extraOrderIds[0] ?? '';
     owner = (await t.login(await t.newAdmin('OWNER'))).cookie;
     operator = (await t.login(await t.newAdmin('OPERATOR'))).cookie;
     support = (await t.login(await t.newAdmin('SUPPORT'))).cookie;
@@ -114,11 +114,14 @@ describe('admin read: users (real app)', () => {
       fields: { username: 'someone' },
     });
 
-    const ledger = await get(`${A}/users/${w.user.id}/ledger?limit=2`, support);
-    expect(ledger.body.meta).toMatchObject({ total: 3, limit: 2 });
-    const page2 = await get(`${A}/users/${w.user.id}/ledger?limit=2&page=2`, support);
+    // ADJUSTMENT, TOPUP and the two orders' PURCHASE entries (D-60: an order exists only with
+    // its debit): a full first page and a partial second one.
+    const ledger = await get(`${A}/users/${w.user.id}/ledger?limit=3`, support);
+    expect(ledger.body.meta).toMatchObject({ total: 4, limit: 3 });
+    const page2 = await get(`${A}/users/${w.user.id}/ledger?limit=3&page=2`, support);
+    expect(items(page2.body)).toHaveLength(1);
     const all = [...items(ledger.body), ...items(page2.body)];
-    expect(all).toHaveLength(3);
+    expect(all).toHaveLength(4);
     const sum = all.reduce((s, row) => s + BigInt(String(row['amountTiyin'])), 0n);
     expect(sum).toBe(w.balanceTiyin);
 

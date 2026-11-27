@@ -55,10 +55,13 @@ describe('admin catalog writes vs quotes and the price preview (S8a)', () => {
 
   const quote = async () => {
     const store = t.app().get(RecipientTokenStore);
-    const token = await store.issue(userId, rows.productId, {
-      username: 'acw_buyer',
-      displayName: 'ACW',
-    });
+    // providerRef is required since phase 5 (fulfillment re-checks the validated recipient).
+    const token = await store.issue(
+      userId,
+      rows.productId,
+      { username: 'acw_buyer', displayName: 'ACW' },
+      'acw-provider-ref',
+    );
     tokens.push(token);
     return t.request('POST', '/api/v1/quotes', kit.miniApp(userId), undefined, {
       productId: rows.productId,

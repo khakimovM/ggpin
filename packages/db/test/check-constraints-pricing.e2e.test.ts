@@ -111,14 +111,12 @@ describe('FxRate_pair_check', () => {
 
 describe('Quote_cost_currency_check', () => {
   it('accepts TON and USDT, rejects other values', async () => {
-    const quote = await createQuote((await createUser()).id);
-    await db.quote.update({ where: { id: quote.id }, data: { costCurrency: 'USDT' } });
-    await db.quote.update({ where: { id: quote.id }, data: { costCurrency: 'TON' } });
+    // INSERT, not UPDATE: since phase 5 a quote's costCurrency is immutable (GG001 trigger).
+    const user = await createUser();
+    await createQuote(user.id, { costCurrency: 'USDT' });
+    await createQuote(user.id, { costCurrency: 'TON' });
     for (const costCurrency of ['UZS', 'ton', '', 'TON ']) {
-      await expectCheck(
-        db.quote.update({ where: { id: quote.id }, data: { costCurrency } }),
-        'Quote_cost_currency_check',
-      );
+      await expectCheck(createQuote(user.id, { costCurrency }), 'Quote_cost_currency_check');
     }
   });
 });

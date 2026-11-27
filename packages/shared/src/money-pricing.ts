@@ -111,6 +111,10 @@ export interface MaxCostInput {
  * minus the minimum margin, converted back and rounded DOWN). Both caps round down so the
  * ceiling is never generous. Throws if the result would be below the quoted cost: that means
  * the price cannot cover its own cost plus margin and must not become a quote.
+ *
+ * Called ONLY when a quote is issued. The result is stored (`Quote.maxCostMinor`, copied to
+ * `Order.maxCostMinor`) and is the single ceiling fulfillment uses; the worker never recomputes
+ * it and never reads PRICE_TOLERANCE_BPS (see `StoredCostCeiling` in fulfillment/cost-ceiling.ts).
  */
 export function maxCostFor(input: MaxCostInput): bigint {
   const { costMinor, costCurrency, rate, priceTiyin, discountTiyin, minMarginTiyin } = input;
@@ -142,6 +146,19 @@ export function unitDisplayPrice(fromPriceTiyin: bigint, quantity: number): bigi
   return mulDiv(fromPriceTiyin, 1n, positiveInt(quantity, 'quantity'), 'up');
 }
 
+/** The step "{price}/oy" is rounded UP to: whole 100 so'm (owner decision Q6, phase 6). */
+export const PER_MONTH_DISPLAY_STEP_TIYIN = 10_000n;
+
+/**
+ * Display only: the price of one unit of a pack (Premium: so'm per month, "55 000 so‘m/oy"),
+ * rounded UP to a whole `stepTiyin` (owner decision Q6, phase 6: 100 so'm), so the hint is never
+ * below what the pack really costs per unit. Never charged: the price paid comes from a quote.
+ */
+export function perUnitDisplayTiyin(priceTiyin: bigint, units: number, stepTiyin: bigint): bigint {
+  requireBigInt(stepTiyin, 'step', 1n);
+  return mulDiv(unitDisplayPrice(priceTiyin, units), 1n, stepTiyin, 'up') * stepTiyin;
+}
+
 /**
  * Step 5: what the customer pays for a quote. A discount can never exceed the price (the
  * total is never negative) and is never negative itself (it cannot raise the price).
@@ -153,6 +170,17 @@ export function totalAfterDiscount(priceTiyin: bigint, discountTiyin: bigint): b
     throw new MoneyError('discount is larger than the price');
   }
   return priceTiyin - discountTiyin;
+}
+
+/**
+ * What the wallet still lacks to pay `totalTiyin` (the `shortfall` of 422 INSUFFICIENT_BALANCE):
+ * 0 when the balance covers it. The balance may be NEGATIVE (a reversed top-up, D-41), and then
+ * the shortfall includes the debt: topping up exactly this much makes the purchase possible.
+ */
+export function purchaseShortfall(balanceTiyin: bigint, totalTiyin: bigint): bigint {
+  if (typeof balanceTiyin !== 'bigint') throw new MoneyError('balance must be a bigint');
+  requireBigInt(totalTiyin, 'total', 0n);
+  return balanceTiyin >= totalTiyin ? 0n : totalTiyin - balanceTiyin;
 }
 
 const TIYIN_STRING = /^(0|[1-9]\d{0,18})$/;
@@ -215,4 +243,53 @@ export function orderGrossProfitTiyin(input: OrderProfitInput): bigint {
   return (
     paid - convertPairForCost({ amount: input.costMinor, pair, from: currency, rate: input.rate })
   );
+}
+
+// ---- Hot-wallet payout limits (rules/45, docs/06 "Limitlar"; moved here from the worker's TON
+// module so the money math lives in one module). Pure bigint comparisons in nanotons: the rolling
+// 24 h sum is read by the worker inside its signing transaction. "Exactly at the limit" is
+// allowed; one nanoton more is refused (the order is HELD).
+
+export interface TonLimits {
+  readonly perOrderMaxNano: bigint;
+  readonly dailyMaxNano: bigint;
+}
+
+export type TonLimitRefusal = 'LIMIT_PER_ORDER' | 'LIMIT_DAILY';
+
+export type TonLimitVerdict =
+  { readonly ok: true } | { readonly ok: false; readonly reason: TonLimitRefusal };
+
+/**
+ * `spentLast24hNano` counts EVERY transfer of the wallet of the last 24 hours, whatever its status:
+ * the EXPIRED ones (provably never sent) too, and the bounced and failed ones. Conservative (audit
+ * I-4, D-60 (2)): a payout re-signed after EXPIRED counts twice towards the daily limit, so the
+ * limit can only refuse earlier, never let more out. The per-order limit is checked first.
+ */
+export function checkTonLimits(
+  amountNano: bigint,
+  spentLast24hNano: bigint,
+  limits: TonLimits,
+): TonLimitVerdict {
+  requireBigInt(amountNano, 'a TON payout', 1n);
+  requireBigInt(spentLast24hNano, 'the spent sum', 0n);
+  if (amountNano > limits.perOrderMaxNano) return { ok: false, reason: 'LIMIT_PER_ORDER' };
+  if (spentLast24hNano + amountNano > limits.dailyMaxNano) {
+    return { ok: false, reason: 'LIMIT_DAILY' };
+  }
+  return { ok: true };
+}
+
+/** The balance pays the amount and keeps the fee reserve (D-56 (12): fees are not in maxCost). */
+export function coversPayout(
+  balanceNano: bigint,
+  amountNano: bigint,
+  feeReserveNano: bigint,
+): boolean {
+  return balanceNano >= amountNano + feeReserveNano;
+}
+
+/** Under the alert threshold (TON_MIN_BALANCE_ALERT_NANO): the owner is told. */
+export function isLowBalance(balanceNano: bigint, alertBelowNano: bigint): boolean {
+  return balanceNano < alertBelowNano;
 }

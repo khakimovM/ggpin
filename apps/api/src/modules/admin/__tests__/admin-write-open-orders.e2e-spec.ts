@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { AdminAdjustPreviewResponseSchema } from '@repo/shared';
 import { useAdminE2e } from './admin-e2e.harness';
 import { purgeFixtureCatalogAround } from './admin-fixture-purge';
-import { orderOf, setOrderStatus } from './admin-open-orders.fixtures';
+import {
+  NOT_FIXTURE_ENTRY,
+  orderOf,
+  purchaseFrozen,
+  setOrderStatus,
+} from './admin-open-orders.fixtures';
 import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-kit';
 
 // Phase 9 S7a, I-5 (Q2 = B, docs/04 «Ochiq buyurtmalar»): a positive adjustment for a user with
@@ -63,7 +68,7 @@ const askCode = (owner: Session, userId: string, amount: bigint, set: string | n
   );
 
 const adjustments = (userId: string) =>
-  t.db().ledgerEntry.count({ where: { userId, kind: 'ADJUSTMENT' } });
+  t.db().ledgerEntry.count({ where: { userId, kind: 'ADJUSTMENT', ...NOT_FIXTURE_ENTRY } });
 
 describe('admin adjust-wallet: open orders (I-5)', () => {
   it('a HELD order: refused without the set, nothing written; with the set applied, audited, replayed', async () => {
@@ -87,6 +92,7 @@ describe('admin adjust-wallet: open orders (I-5)', () => {
     expect(applied.applied).toBe(true);
     const audit = await t.db().auditLog.findUniqueOrThrow({ where: { id: applied.auditId } });
     expect(audit.after).toMatchObject({ openOrders: [order.id], otpVerified: true });
+    expect(await purchaseFrozen(t.db(), userId)).toBe(false);
 
     // The same key and body again, after another order appeared: the replay comes first.
     await orderOf(t.db(), userId, 'PAID');

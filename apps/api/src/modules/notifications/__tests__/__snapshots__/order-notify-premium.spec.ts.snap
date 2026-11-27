@@ -1,0 +1,457 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`Premium order messages (bot.order.*) ORDER_ACCEPTED, 3 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🧾 Заказ #1042 принят: Telegram Premium (3 месяца) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_ACCEPTED, 3 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🧾 #1042 buyurtma qabul qilindi: Telegram Premium (3 oylik) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_ACCEPTED, 6 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🧾 Заказ #1042 принят: Telegram Premium (6 месяцев) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_ACCEPTED, 6 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🧾 #1042 buyurtma qabul qilindi: Telegram Premium (6 oylik) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_ACCEPTED, 12 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🧾 Заказ #1042 принят: Telegram Premium (12 месяцев) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_ACCEPTED, 12 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🧾 #1042 buyurtma qabul qilindi: Telegram Premium (12 oylik) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_DELIVERED, 3 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🎉 Заказ #1042 выполнен! Telegram Premium (3 месяца) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_DELIVERED, 3 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🎉 #1042 yetkazildi! Telegram Premium (3 oylik) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_DELIVERED, 6 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🎉 Заказ #1042 выполнен! Telegram Premium (6 месяцев) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_DELIVERED, 6 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🎉 #1042 yetkazildi! Telegram Premium (6 oylik) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_DELIVERED, 12 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🎉 Заказ #1042 выполнен! Telegram Premium (12 месяцев) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_DELIVERED, 12 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "🎉 #1042 yetkazildi! Telegram Premium (12 oylik) → <code>Test User</code> (@test_user)",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REFUNDED, 3 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⚠️ Заказ #1042 не выполнен. 123 456 сум возвращено на ваш баланс.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REFUNDED, 3 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⚠️ #1042 bajarilmadi. 123 456 so‘m balansingizga qaytarildi.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REFUNDED, 6 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⚠️ Заказ #1042 не выполнен. 123 456 сум возвращено на ваш баланс.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REFUNDED, 6 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⚠️ #1042 bajarilmadi. 123 456 so‘m balansingizga qaytarildi.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REFUNDED, 12 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⚠️ Заказ #1042 не выполнен. 123 456 сум возвращено на ваш баланс.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REFUNDED, 12 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⚠️ #1042 bajarilmadi. 123 456 so‘m balansingizga qaytarildi.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REVIEW, 3 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⏳ Заказ #1042 на проверке. Обычно до 15 минут. Деньги в безопасности.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REVIEW, 3 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⏳ #1042 tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REVIEW, 6 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⏳ Заказ #1042 на проверке. Обычно до 15 минут. Деньги в безопасности.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REVIEW, 6 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⏳ #1042 tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REVIEW, 12 months, ru: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Посмотреть заказ",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⏳ Заказ #1042 на проверке. Обычно до 15 минут. Деньги в безопасности.",
+}
+`;
+
+exports[`Premium order messages (bot.order.*) ORDER_REVIEW, 12 months, uz: snapshot 1`] = `
+{
+  "chatId": "777000111",
+  "replyMarkup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Buyurtmani ko‘rish",
+          "web_app": {
+            "url": "https://app.ggpin.test/tg/orders/cmorder1",
+          },
+        },
+      ],
+    ],
+  },
+  "text": "⏳ #1042 tekshirilmoqda. Odatda 15 daqiqagacha. Pul xavfsiz.",
+}
+`;

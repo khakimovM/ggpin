@@ -19,7 +19,7 @@ describe('admin read: payments (real app)', () => {
   let support = '';
 
   beforeAll(async () => {
-    w = await buildReadWorld(t.db(), new Date(Date.now() - 3_600_000));
+    w = await buildReadWorld(t.db());
     owner = (await t.login(await t.newAdmin('OWNER'))).cookie;
     operator = (await t.login(await t.newAdmin('OPERATOR'))).cookie;
     support = (await t.login(await t.newAdmin('SUPPORT'))).cookie;

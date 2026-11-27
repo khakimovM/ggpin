@@ -59,7 +59,7 @@ describe('admin read routes: role matrix (real app)', () => {
   let ownerId = '';
 
   beforeAll(async () => {
-    world = await buildReadWorld(t.db(), new Date(Date.now() - 3_600_000));
+    world = await buildReadWorld(t.db());
     for (const role of ALL) {
       const admin = await t.newAdmin(role);
       if (role === 'OWNER') ownerId = admin.id;

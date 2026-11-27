@@ -3,12 +3,7 @@ import { RedisService } from '../../../infra/redis/redis.service';
 import { DASHBOARD_CACHE_PREFIX } from '../dashboard/admin-dashboard.cache';
 import { useAdminE2e } from './admin-e2e.harness';
 import { purgeFixtureCatalogAround } from './admin-fixture-purge';
-import {
-  buildReadWorld,
-  isolatedInstant,
-  TOPUP_TIYIN,
-  type ReadWorld,
-} from './admin-read.fixtures';
+import { buildReadWorld, TOPUP_TIYIN, type ReadWorld } from './admin-read.fixtures';
 import { leaks } from './admin-read.scan';
 import { checkRead } from './admin-read.schemas';
 
@@ -17,20 +12,19 @@ const HOUR = 3_600_000;
 type Row = Record<string, unknown>;
 type Body = { data: Row | Row[]; meta?: Record<string, number> };
 
-// Dashboard (an isolated past window, so the figures are exactly this suite's rows), catalog,
+// Dashboard (the world's own window: from the delivered order's creation to just after its delivery,
+// by the database clock, so the figures are exactly this suite's rows; e2e runs in band), catalog,
 // settings, FX history, queues and the OWNER's admin list.
 describe('admin read: dashboard, catalog, settings, infra, admins (real app)', () => {
   const t = useAdminE2e();
   purgeFixtureCatalogAround(t, 'ar-');
   let w: ReadWorld;
-  let at: Date;
   let ownerId = '';
   let owner = '';
   let operator = '';
 
   beforeAll(async () => {
-    at = isolatedInstant();
-    w = await buildReadWorld(t.db(), at);
+    w = await buildReadWorld(t.db());
     const ownerAdmin = await t.newAdmin('OWNER');
     ownerId = ownerAdmin.id;
     owner = (await t.login(ownerAdmin)).cookie;
@@ -46,8 +40,11 @@ describe('admin read: dashboard, catalog, settings, infra, admins (real app)', (
   const one = (body: Body): Row => (Array.isArray(body.data) ? {} : body.data);
 
   it('dashboard (range): KPIs and charts of exactly this window', async () => {
-    const from = new Date(at.getTime() - HOUR).toISOString();
-    const to = new Date(at.getTime() + HOUR).toISOString();
+    // The fixture holds the order PROCESSING for 2 s of real time (database clock).
+    expect(w.deliverySec).toBeGreaterThanOrEqual(2);
+    expect(w.deliverySec).toBeLessThanOrEqual(4);
+    const from = w.window.from.toISOString();
+    const to = w.window.to.toISOString();
     const { status, body } = await get(
       `${A}/dashboard?period=range&from=${from}&to=${to}`,
       operator,
@@ -60,7 +57,8 @@ describe('admin read: dashboard, catalog, settings, infra, admins (real app)', (
       ordersCount: 1,
       deliveredCount: 1,
       deliveryRateBps: 10_000,
-      avgDeliverySec: 90,
+      // deliveredAt - createdAt of the one order, as the database stamped them (>= 1 s, rounded).
+      avgDeliverySec: w.deliverySec,
       grossProfitTiyin: '250000',
       newUsersCount: 1,
       topupsTiyin: TOPUP_TIYIN.toString(),
@@ -83,8 +81,8 @@ describe('admin read: dashboard, catalog, settings, infra, admins (real app)', (
   });
 
   it('dashboard: OWNER and OPERATOR get the same figures, each computed fresh (no role in the cache key)', async () => {
-    const from = new Date(at.getTime() - HOUR).toISOString();
-    const to = new Date(at.getTime() + HOUR).toISOString();
+    const from = w.window.from.toISOString();
+    const to = w.window.to.toISOString();
     const url = `${A}/dashboard?period=range&from=${from}&to=${to}`;
     const redis = t.app().get(RedisService).client;
     const fresh = async (cookie: string) => {

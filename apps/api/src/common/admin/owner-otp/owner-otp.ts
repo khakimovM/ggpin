@@ -7,7 +7,15 @@ import { validationError } from '../admin-input';
 // `after.otpVerified` in the AuditLog. Phase 2 OTP pattern: HMAC(OTP_PEPPER) hash only,
 // constant-time compare, attempts counter; the code itself is never stored, logged or printed.
 
-export const OWNER_OTP_ACTIONS = ['review:credit', 'wallet:adjust', 'payment:reverse'] as const;
+export const OWNER_OTP_ACTIONS = [
+  'review:credit',
+  'wallet:adjust',
+  'payment:reverse',
+  // Phase 5 S10: leaving NEEDS_REVIEW (the order total; always for the owner proofs, D-59) and the
+  // manual FX rate (a jump of more than 10%: the rate is in the target, the amount is 0, D-35 (e)).
+  'order:resolve',
+  'fx:set',
+] as const;
 export type OwnerOtpAction = (typeof OWNER_OTP_ACTIONS)[number];
 
 /** What a code confirms: exactly this action, on this target, for this amount. */

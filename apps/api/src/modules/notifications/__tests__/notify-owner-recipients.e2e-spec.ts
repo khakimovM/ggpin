@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { ownerAlertOutboxJobId, type NotifyJob, type TgOutboxJob } from '@repo/shared';
 import { Queue } from 'bullmq';
+import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { ClockModule } from '../../../common/clock/clock.module';
 import { APP_CONFIG, AppConfigModule, type AppConfig } from '../../../config/config.module';
 import { buildE2eEnv } from '../../../config/__tests__/e2e-env';
@@ -11,6 +12,8 @@ import { RedisModule } from '../../../infra/redis/redis.module';
 import { NotificationsModule } from '../notifications.module';
 import { NotifySourcesRepository } from '../notify-sources.repository';
 import { NotifyConsumer } from '../notify.consumer';
+import { FulfillmentAlertRenderer } from '../fulfillment-alert.renderer';
+import { OrderNotifyRenderer } from '../order-notify.renderer';
 import { OwnerAlertRenderer } from '../owner-alert.renderer';
 import { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
 
@@ -110,6 +113,9 @@ describe('notify consumer: owner alert to two partners (real Redis, private outb
       moduleRef.get(OwnerAlertRenderer),
       flaky,
       moduleRef.get<AppConfig>(APP_CONFIG),
+      moduleRef.get(OrderNotifyRenderer),
+      moduleRef.get(FulfillmentAlertRenderer),
+      moduleRef.get<Clock>(CLOCK),
     );
     await expect(retrying.handle({ id: 'p-flaky', data })).rejects.toThrow('redis hiccup');
     expect(await jobOf(data, PRIMARY)).toBeDefined();

@@ -30,7 +30,17 @@ import { WalletCache } from '../modules/wallet/wallet-cache';
 import { WalletFrozenAlert } from '../modules/wallet/wallet-frozen-alert';
 import { WalletRepository } from '../modules/wallet/wallet.repository';
 import { WalletUnfreezeService } from '../modules/wallet/wallet-unfreeze.service';
+import { FxAdminRepository } from '../modules/fx-admin/fx-admin.repository';
+import { FxAdminService } from '../modules/fx-admin/fx-admin.service';
+import { OrderAdminEffects } from '../modules/orders/admin/order-admin-effects';
+import { OrderAdminReadService } from '../modules/orders/admin/order-admin-read.service';
+import { OrderAdminRepository } from '../modules/orders/admin/order-admin.repository';
+import { OrderRetryService } from '../modules/orders/admin/order-retry.service';
+import { OrderReviewService } from '../modules/orders/admin/order-review.service';
+import { TonHintRepository } from '../modules/orders/admin/tx-hint.repository';
+import { TonHintService } from '../modules/orders/admin/tx-hint.service';
 import { CardListing } from './card-listing';
+import { CLI_CHANNEL_PROVIDER } from './cli-channel';
 
 /**
  * The owner CLI's own module graph (not AppModule): config, clock, Prisma, Redis (wallet cache)
@@ -53,6 +63,8 @@ export class OpsCliModule {
       ],
       providers: [
         { provide: CARD_LOCK_TIMING, useValue: DEFAULT_CARD_LOCK_TIMING },
+        // The CLI channel (I-4): only this module graph provides it.
+        CLI_CHANNEL_PROVIDER,
         AdminAccountsService,
         AdminLifecycleService,
         AdminLoginRequestRepository,
@@ -64,6 +76,15 @@ export class OpsCliModule {
         CardPauseRepository,
         CardPauseService,
         CardPoolRepository,
+        FxAdminRepository,
+        FxAdminService,
+        OrderAdminEffects,
+        OrderAdminReadService,
+        OrderAdminRepository,
+        OrderRetryService,
+        OrderReviewService,
+        TonHintRepository,
+        TonHintService,
         OwnerOtpIssuer,
         OwnerOtpVerifier,
         PaymentsAlerts,

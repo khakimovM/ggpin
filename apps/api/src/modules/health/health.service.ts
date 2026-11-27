@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { DependencyStatus, Readiness } from '@repo/shared';
+import type { DependencyStatus, FragmentHealthValue, Readiness } from '@repo/shared';
 import { HealthRepository } from './health.repository';
 
 // Per check; the checks run in parallel, so a hung dependency costs the probe at most this.
@@ -46,11 +46,15 @@ export class HealthService {
 
   // Never rejects: every check maps its own failure to 'down'.
   private async probe(): Promise<Readiness> {
-    const [db, redis, worker] = await Promise.all([
+    const fragment: { value: FragmentHealthValue | null } = { value: null };
+    const [db, redis, worker, fragmentRead] = await Promise.all([
       this.check('db', () => this.repo.pingDatabase()),
       this.check('redis', () => this.repo.pingRedis()),
       this.check('worker', async () => {
         if (!(await this.repo.workerHeartbeatPresent())) throw new Error('no heartbeat');
+      }),
+      this.check('fragment', async () => {
+        fragment.value = await this.repo.fragmentHealth();
       }),
     ]);
     return {
@@ -58,9 +62,10 @@ export class HealthService {
       db,
       redis,
       worker,
-      // Not checked until the Fragment session health check exists (phase 5); it will then be
-      // reported here but, with the backup provider, will not by itself make the API unready.
-      fragment: 'disabled',
+      // The worker's Fragment keep-alive verdict (phase 5 S7): reported, but with the backup
+      // provider it does not by itself make the API unready. No value: 'disabled' (no session,
+      // or no keep-alive running: the worker check shows which); unreadable: 'down'.
+      fragment: fragmentRead === 'down' ? 'down' : (fragment.value ?? 'disabled'),
     };
   }
 

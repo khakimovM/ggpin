@@ -139,16 +139,34 @@ const NOTHING: Confirmation = { fields: {}, done: () => Promise.resolve() };
  * amount sends no code: the service refuses it as it is. At or below the threshold nothing is
  * asked.
  */
-export async function confirmIfLarge(
+export function confirmIfLarge(
   ctx: CliContext,
-  scope: { action: OwnerOtpAction; amountTiyin: bigint; target: string; flags?: string },
+  scope: OwnerScope,
   signed = false,
 ): Promise<Confirmation> {
+  return confirmOwner(ctx, scope, { signed, always: false });
+}
+
+type OwnerScope = { action: OwnerOtpAction; amountTiyin: bigint; target: string; flags?: string };
+
+/**
+ * confirmIfLarge, and with `always` also at or below the threshold: the owner proofs of
+ * order:resolve need the owner's code whatever the amount (D-59).
+ */
+export async function confirmOwner(
+  ctx: CliContext,
+  scope: OwnerScope,
+  options: { readonly signed?: boolean; readonly always: boolean },
+): Promise<Confirmation> {
+  const signed = options.signed ?? false;
   const threshold = ctx.app.get<AppConfig>(APP_CONFIG).ADMIN_CONFIRM_THRESHOLD_TIYIN;
-  if (magnitude(scope.amountTiyin) <= threshold) return NOTHING;
+  const large = magnitude(scope.amountTiyin) > threshold;
+  if (!large && !options.always) return NOTHING;
+  const why = large
+    ? `is above the confirmation threshold (${money(threshold)})`
+    : "needs the owner's code for this proof";
   const answer = await ctx.io.prompt(
-    `${money(scope.amountTiyin)} is above the confirmation threshold (${money(threshold)}). ` +
-      `Re-type the amount in so'm to confirm: `,
+    `${money(scope.amountTiyin)} ${why}. Re-type the amount in so'm to confirm: `,
   );
   let confirmAmountTiyin: bigint;
   try {

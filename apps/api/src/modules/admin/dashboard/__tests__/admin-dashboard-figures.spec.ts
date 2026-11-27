@@ -93,6 +93,24 @@ describe('dashboardFigures', () => {
     ]);
   });
 
+  it('avgDeliverySec rounds the mean to the nearest second, a half up (2.4 -> 2, 2.5 -> 3, 2.6 -> 3)', () => {
+    const created = new Date('2026-11-17T05:00:00.000Z');
+    for (const [ms, sec] of [
+      [2_400, 2],
+      [2_500, 3],
+      [2_600, 3],
+    ] as const) {
+      const delivered = new Date(created.getTime() + ms);
+      const { kpi } = dashboardFigures(
+        PERIOD,
+        [order({ createdAt: created, deliveredAt: delivered })],
+        counts(),
+        NAMES,
+      );
+      expect([ms, kpi.avgDeliverySec]).toEqual([ms, sec]);
+    }
+  });
+
   it('a loss is a negative profit string; nothing delivered gives nulls, not zeros', () => {
     const loss = dashboardFigures(PERIOD, [order({ costMinor: 2_000_000n })], counts(), NAMES);
     expect(loss.kpi.grossProfitTiyin).toBe('-1000000');

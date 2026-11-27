@@ -22,6 +22,7 @@ export default defineConfig({
         'src/payments/*.ts',
         'src/wallet/*.ts',
         'src/orders/*.ts',
+        'src/fulfillment/*.ts',
         'src/log-redaction/**/*.ts',
         'src/admin/*.ts',
       ],

@@ -16,6 +16,7 @@ describe('/api/v1/health', () => {
     pingDatabase: jest.fn<Promise<void>, []>(),
     pingRedis: jest.fn<Promise<void>, []>(),
     workerHeartbeatPresent: jest.fn<Promise<boolean>, []>(),
+    fragmentHealth: jest.fn<Promise<'ok' | 'down' | null>, []>(),
   };
 
   beforeAll(async () => {
@@ -64,6 +65,7 @@ describe('/api/v1/health', () => {
     repo.pingDatabase.mockResolvedValue(undefined);
     repo.pingRedis.mockResolvedValue(undefined);
     repo.workerHeartbeatPresent.mockResolvedValue(true);
+    repo.fragmentHealth.mockResolvedValue(null);
   });
 
   afterAll(async () => {

@@ -1,12 +1,30 @@
 import { randomBytes } from 'node:crypto';
-import type { OrderStatus, PrismaClient } from '@repo/db';
+import { appendLedgerEntry, type OrderStatus, type Prisma, type PrismaClient } from '@repo/db';
+import { fixtureCatalog, fixtureQuote, moveOrder, paidOrder } from './admin-fixture-orders';
 
-// Synthetic orders for the I-5 suites (phase 9 S7a): one small catalog per call and an order of
-// the user in `status`, all under the `oo-` prefix. A suite that calls it purges every `oo-` row
-// before and after it (purgeFixtureCatalogAround, admin-fixture-purge.ts); the users stay, like the
-// other suites' ledger users. No ledger entry is written: the open-orders check reads statuses only.
+// Orders for the I-5 suites (phase 9 S7a): an order of the user in `status`, on the persistent
+// `oo-fixture` catalog (admin-fixture-orders.ts), built the way the purchase and the worker build
+// them (D-60): Order(PAID) with its PURCHASE of -price. A real purchase needs the money first
+// (422 INSUFFICIENT_BALANCE otherwise), so the fixture funds it with an ADJUSTMENT of +price
+// (ADMIN_ACTION/oo-…) just before: the user's balance is what it was, never negative, and an
+// adjustment under test never meets a debt (wallet-admin.steps.ts would freeze the account).
+// A REFUNDED order is not funded: its REFUND returns the debit, so the user ends where they began
+// (funding it would leave a lasting credit of the price).
 
-const hex = (n: number): string => randomBytes(n).toString('hex');
+/** The default price of a fixture order. */
+export const OPEN_ORDER_PRICE = 1_600_000n;
+
+/** The prefix of the funding ADJUSTMENT's refId (an AuditLog id never starts with it). */
+const FUNDING_REF = 'oo-';
+
+/**
+ * The ledger entries the fixture did NOT write: not an order's PURCHASE / REFUND (refType ORDER;
+ * an admin adjustment is ADMIN_ACTION) and not a funding ADJUSTMENT. What a suite counts as
+ * "written by the action under test".
+ */
+export const NOT_FIXTURE_ENTRY: Prisma.LedgerEntryWhereInput = {
+  NOT: [{ refType: 'ORDER' }, { refId: { startsWith: FUNDING_REF } }],
+};
 
 export interface OpenOrderRow {
   readonly id: string;
@@ -17,86 +35,46 @@ export async function orderOf(
   db: PrismaClient,
   userId: string,
   status: OrderStatus,
-  priceTiyin = 1_600_000n,
+  priceTiyin = OPEN_ORDER_PRICE,
 ): Promise<OpenOrderRow> {
-  const tag = hex(5);
-  const category = await db.category.create({
-    data: { slug: `oo-${tag}`, nameUz: `OO kat ${tag}`, nameRu: `OO кат ${tag}` },
+  const catalog = await fixtureCatalog(db, 'oo-');
+  const quote = await fixtureQuote(db, catalog, userId, {
+    priceTiyin,
+    recipient: { username: 'someone', displayName: 'Some One' },
   });
-  const product = await db.product.create({
-    data: {
-      slug: `oo-${tag}`,
-      categoryId: category.id,
-      nameUz: `OO mahsulot ${tag}`,
-      nameRu: `OO товар ${tag}`,
-      imageUrl: 'https://cdn.example.test/p.png',
-      deliveryType: 'TG_USERNAME',
-      inputSchema: [{ key: 'username', type: 'username' }],
-      isActive: false,
-    },
-  });
-  const sku = await db.sku.create({
-    data: { productId: product.id, labelUz: '50', labelRu: '50', quantity: 50, markupBps: 1500 },
-  });
-  const fxRate = await db.fxRate.create({
-    data: { pair: 'USDT_UZS', rate: '12500', source: 'e2e' },
-  });
-  const snapshot = await db.costSnapshot.create({
-    data: {
-      productId: product.id,
-      skuId: sku.id,
-      adapter: 'FRAGMENT',
-      currency: 'USDT',
-      basisQuantity: 50,
-      costMinor: 1_000_000n,
-      source: 'simulator',
-    },
-  });
-  const recipient = { username: 'someone', displayName: 'Some One' };
-  const quote = await db.quote.create({
-    data: {
-      userId,
-      skuId: sku.id,
-      productId: product.id,
-      quantity: 50,
-      recipient,
-      costCurrency: 'USDT',
-      costMinor: 1_000_000n,
-      fxRateId: fxRate.id,
-      costSnapshotId: snapshot.id,
-      priceTiyin,
-      maxCostMinor: 1_100_000n,
-      expiresAt: new Date(Date.now() + 5 * 60_000),
-      usedAt: new Date(),
-    },
-  });
-  const order = await db.order.create({
-    data: {
-      userId,
-      quoteId: quote.id,
-      productId: product.id,
-      skuId: sku.id,
-      quantity: 50,
-      recipient,
-      priceTiyin,
-      costCurrency: 'USDT',
-      costMinor: 1_000_000n,
-      maxCostMinor: 1_100_000n,
-      fxRateId: fxRate.id,
-      status,
-      idempotencyKey: `oo-${hex(8)}`,
-      requestHash: 'h',
-    },
-    select: { id: true, number: true },
-  });
+  if (status !== 'REFUNDED') {
+    await db.$transaction((tx) =>
+      appendLedgerEntry(tx, {
+        userId,
+        kind: 'ADJUSTMENT',
+        amountTiyin: priceTiyin,
+        refType: 'ADMIN_ACTION',
+        refId: `${FUNDING_REF}${randomBytes(8).toString('hex')}`,
+      }),
+    );
+  }
+  const order = await paidOrder(db, quote, 'oo-');
+  await moveOrder(db, order.id, status);
   return order;
 }
 
-/** Moves the order to `status` directly (a fixture: the state machine is the worker's, not here). */
+/**
+ * Moves the order on to `status` along a legal path, as the worker or an operator would (a HELD
+ * order to REFUNDED goes through FAILED and the refund helper, which writes the REFUND entry).
+ */
 export async function setOrderStatus(
   db: PrismaClient,
   orderId: string,
   status: OrderStatus,
 ): Promise<void> {
-  await db.order.update({ where: { id: orderId }, data: { status } });
+  await moveOrder(db, orderId, status);
+}
+
+/** The account's purchase freeze flag (D-41: a negative balance after an adjustment raises it). */
+export async function purchaseFrozen(db: PrismaClient, userId: string): Promise<boolean> {
+  const user = await db.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { purchaseFrozen: true },
+  });
+  return user.purchaseFrozen;
 }

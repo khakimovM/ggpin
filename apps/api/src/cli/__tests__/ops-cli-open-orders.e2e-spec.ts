@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { orderOf, setOrderStatus } from '../../modules/admin/__tests__/admin-open-orders.fixtures';
+import {
+  NOT_FIXTURE_ENTRY,
+  orderOf,
+  setOrderStatus,
+} from '../../modules/admin/__tests__/admin-open-orders.fixtures';
 import { WalletAdminService } from '../../modules/wallet/wallet-admin.service';
 import { ACTOR, useOpsE2e } from './ops-e2e.harness';
 
@@ -31,17 +35,22 @@ describe('wallet:adjust with open orders (real Postgres)', () => {
     const set = fields(refused.out)['openOrdersSet'] ?? '';
     expect(set).toMatch(/^[0-9a-f]{12}$/);
     expect(refused.err.join(' ')).toContain(`--confirm-open-orders=<openOrdersSet> --key ${key}`);
-    expect(await t.db().ledgerEntry.count({ where: { userId } })).toBe(0);
+    expect(await t.db().ledgerEntry.count({ where: { userId, ...NOT_FIXTURE_ENTRY } })).toBe(0);
 
     const done = await t.run([...argv, `--confirm-open-orders=${set}`]);
     expect(done.code).toBe(0);
-    expect(fields(done.out)).toMatchObject({ applied: 'true', audit: key, balance: '1500 UZS' });
+    expect(fields(done.out)).toMatchObject({
+      applied: 'true',
+      audit: key,
+      balance: '1500 UZS',
+      purchaseFrozen: 'false',
+    });
     expect(fields(done.out)['confirms']).toBe(`open orders: 1 open order(s), set ${set}`);
     expect((await t.audit(key)).after).toMatchObject({ openOrders: [order.id] });
 
     const again = await t.run([...argv, `--confirm-open-orders=${set}`]);
     expect(fields(again.out)).toMatchObject({ applied: 'false', audit: key });
-    expect(await t.db().ledgerEntry.count({ where: { userId } })).toBe(1);
+    expect(await t.db().ledgerEntry.count({ where: { userId, ...NOT_FIXTURE_ENTRY } })).toBe(1);
   });
 
   it('a stale set is refused; a debit is not checked; a bare or malformed flag is a usage error', async () => {
@@ -54,7 +63,7 @@ describe('wallet:adjust with open orders (real Postgres)', () => {
     const refused = await t.run([...base, '--amount', '100', `--confirm-open-orders=${stale}`]);
     expect(refused.code).toBe(1);
     expect(fields(refused.out)['openOrdersSet']).not.toBe(stale);
-    expect(await t.db().ledgerEntry.count({ where: { userId } })).toBe(0);
+    expect(await t.db().ledgerEntry.count({ where: { userId, ...NOT_FIXTURE_ENTRY } })).toBe(0);
 
     const debit = await t.run([...base, '--amount=-100']);
     expect(debit.code).toBe(0);
@@ -87,7 +96,7 @@ describe('wallet:adjust with open orders (real Postgres)', () => {
     expect(refused.err.join(' ')).toContain(
       `without --confirm-open-orders and the same --key ${key}`,
     );
-    expect(await t.db().ledgerEntry.count({ where: { userId } })).toBe(0);
+    expect(await t.db().ledgerEntry.count({ where: { userId, ...NOT_FIXTURE_ENTRY } })).toBe(0);
 
     // The service itself, past the CLI's pre-check: the same refusal under the wallet lock.
     const wallets = t.app().get(WalletAdminService);
@@ -102,7 +111,7 @@ describe('wallet:adjust with open orders (real Postgres)', () => {
         confirmOpenOrdersSet: set,
       }),
     ).rejects.toMatchObject({ details: { field: 'user', reason: 'OPEN_ORDERS' } });
-    expect(await t.db().ledgerEntry.count({ where: { userId } })).toBe(0);
+    expect(await t.db().ledgerEntry.count({ where: { userId, ...NOT_FIXTURE_ENTRY } })).toBe(0);
     expect(await t.db().auditLog.count({ where: { targetId: userId } })).toBe(0);
   });
 });

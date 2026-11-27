@@ -105,8 +105,15 @@ export function setup(found: QuoteProduct | null = product()) {
         userId: 'u1',
         productId: 'p1',
         recipient: RECIPIENT,
+        providerRef: 'fragment-ref-1',
         issuedAt: NOW.toISOString(),
-      } as { userId: string; productId: string; recipient: Recipient; issuedAt: string } | null);
+      } as {
+        userId: string;
+        productId: string;
+        recipient: Recipient;
+        providerRef: string;
+        issuedAt: string;
+      } | null);
     }),
   };
   const priceBook = {

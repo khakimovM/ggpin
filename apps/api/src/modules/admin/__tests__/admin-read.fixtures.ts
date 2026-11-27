@@ -1,18 +1,24 @@
 import { randomBytes } from 'node:crypto';
 import { appendLedgerEntry, type PrismaClient } from '@repo/db';
-import { nextTestTelegramId } from '../../../config/__tests__/test-telegram-id';
+import { fixtureCatalog } from './admin-fixture-orders';
+import { freshFxSource } from './admin-fixture-purge';
+import { EXTRA_ORDER_PRICE, worldOrders, type ExtraStatus } from './admin-read.orders';
+
+export { PHONE } from './admin-read.orders';
+
+export type { ExtraStatus } from './admin-read.orders';
 
 // Rows for the admin read e2e on the shared *_test database, all SYNTHETIC: PAN prefix 9995 with
 // this holder (payments 9999, worker 9998, notify 9996), bank sender ids 930…, and every card
-// RETIRED from the start, so the payments suites never see a foreign live card. The catalog and the
-// order sit under the `ar-` prefix and are purged before and after each suite
-// (purgeFixtureCatalogAround, admin-fixture-purge.ts). The rest is append-only or harmless and is
-// kept (like the other suites' bank rows); the PURCHASE entry then names a removed order by refId.
+// RETIRED from the start, so the payments suites never see a foreign live card. The orders sit on
+// the persistent `ar-fixture` catalog (admin-fixture-orders.ts: an order is never deleted, so its
+// product stays); the fresh FX rate and cost snapshot the price preview reads are unreferenced and
+// purged before and after each suite (purgeFixtureCatalogAround, admin-fixture-purge.ts). The rest
+// is append-only or harmless and is kept (like the other suites' bank rows).
 
 export const READ_HOLDER = 'ADMIN READ E2E HOLDER';
 /** A full 16-digit number in the raw bank text: it must never reach a non-OWNER, nor any card field. */
 export const RAW_PAN = '9995123412341234';
-export const PHONE = '+998901234567';
 /** A P2P amount: a whole base plus a unique tail (PaymentIntent_p2p_check). */
 export const TOPUP_TIYIN = 2_012_300n;
 const MINUTE = 60_000;
@@ -33,12 +39,24 @@ export interface ReadWorld {
   readonly reviewId: string;
   readonly reviewMessageId: string;
   readonly orderId: string;
+  /** The extra orders, created (and so listed) before the delivered one. */
+  readonly extraOrderIds: readonly string[];
   readonly productId: string;
   readonly skuId: string;
   readonly categoryId: string;
   readonly fxRateId: string;
   /** SUM(ledger) of the user. */
   readonly balanceTiyin: bigint;
+  /**
+   * [the delivered order's createdAt, its deliveredAt + 1 ms), by the database clock: a window of
+   * the PRESENT, so it holds exactly this world's dated rows (the user, the order, the confirmed
+   * top-up) only because nothing else writes to this test database meanwhile. That holds on the p9
+   * lane: its e2e runs only under the e2e-lane lock, and jest runs the suites in band (one at a
+   * time, maxWorkers 1). Running another writer on the same database breaks the dashboard figures.
+   */
+  readonly window: { readonly from: Date; readonly to: Date };
+  /** deliveredAt - createdAt of the delivered order in whole seconds (Math.round), >= 2. */
+  readonly deliverySec: number;
 }
 
 async function retiredCard(db: PrismaClient) {
@@ -92,58 +110,23 @@ async function creditMessage(
   });
 }
 
-async function catalog(db: PrismaClient) {
-  const tag = hex(5);
-  const category = await db.category.create({
-    data: { slug: `ar-${tag}`, nameUz: `AR kat ${tag}`, nameRu: `AR кат ${tag}` },
+/** The world's catalog: the persistent pack, its FRAGMENT route, and fresh pricing inputs. */
+async function readCatalog(db: PrismaClient) {
+  const catalog = await fixtureCatalog(db, 'ar-');
+  const { productId, skuId } = catalog;
+  await db.productRoute.upsert({
+    where: { productId_adapter: { productId, adapter: 'FRAGMENT' } },
+    create: { productId, adapter: 'FRAGMENT', priority: 1 },
+    update: { priority: 1, isEnabled: true },
   });
-  const product = await db.product.create({
-    data: {
-      slug: `ar-${tag}`,
-      categoryId: category.id,
-      nameUz: `AR mahsulot ${tag}`,
-      nameRu: `AR товар ${tag}`,
-      imageUrl: 'https://cdn.example.test/p.png',
-      deliveryType: 'TG_USERNAME',
-      inputSchema: [{ key: 'username', type: 'username' }],
-    },
-  });
-  const sku = await db.sku.create({
-    data: { productId: product.id, labelUz: '50', labelRu: '50', quantity: 50, markupBps: 1500 },
-  });
-  await db.productRoute.create({
-    data: { productId: product.id, adapter: 'FRAGMENT', priority: 1 },
-  });
-  return { category, product, sku };
-}
-
-/**
- * One user with a phone, three ledger entries (an adjustment, a credited top-up and a purchase),
- * a DELIVERED order delivered at `deliveredAt` (price 16 000, discount 1 000, cost 1 USDT at
- * 12 500 so'm: profit 2 500 so'm), and an OPEN NO_MATCH review on a second credit message.
- */
-export async function buildReadWorld(db: PrismaClient, deliveredAt: Date): Promise<ReadWorld> {
-  const username = `ar_${hex(5)}`;
-  const user = await db.user.create({
-    data: {
-      telegramId: BigInt(nextTestTelegramId()),
-      username,
-      firstName: 'Read',
-      phone: PHONE,
-      referralCode: `ar${hex(6)}`,
-      createdAt: deliveredAt,
-      wallet: { create: {} },
-    },
-  });
-  const card = await retiredCard(db);
-  const { category, product, sku } = await catalog(db);
+  // The newest USDT_UZS rate and cost snapshot right now: what the price preview reads.
   const fxRate = await db.fxRate.create({
-    data: { pair: 'USDT_UZS', rate: '12500', source: 'e2e' },
+    data: { pair: 'USDT_UZS', rate: '12500', source: freshFxSource('ar-') },
   });
-  const snapshot = await db.costSnapshot.create({
+  await db.costSnapshot.create({
     data: {
-      productId: product.id,
-      skuId: sku.id,
+      productId,
+      skuId,
       adapter: 'FRAGMENT',
       currency: 'USDT',
       basisQuantity: 50,
@@ -151,45 +134,25 @@ export async function buildReadWorld(db: PrismaClient, deliveredAt: Date): Promi
       source: 'simulator',
     },
   });
-  const recipient = { username: 'someone', displayName: 'Some One', photoUrl: 'https://x.test/p' };
-  const quote = await db.quote.create({
-    data: {
-      userId: user.id,
-      skuId: sku.id,
-      productId: product.id,
-      quantity: 50,
-      recipient,
-      costCurrency: 'USDT',
-      costMinor: 1_000_000n,
-      fxRateId: fxRate.id,
-      costSnapshotId: snapshot.id,
-      priceTiyin: 1_600_000n,
-      maxCostMinor: 1_100_000n,
-      expiresAt: new Date(deliveredAt.getTime() + 5 * MINUTE),
-      usedAt: deliveredAt,
-    },
-  });
-  const order = await db.order.create({
-    data: {
-      userId: user.id,
-      quoteId: quote.id,
-      productId: product.id,
-      skuId: sku.id,
-      quantity: 50,
-      recipient,
-      priceTiyin: 1_600_000n,
-      discountTiyin: 100_000n,
-      costCurrency: 'USDT',
-      costMinor: 1_000_000n,
-      maxCostMinor: 1_100_000n,
-      fxRateId: fxRate.id,
-      status: 'DELIVERED',
-      idempotencyKey: `ar-${hex(8)}`,
-      requestHash: 'h',
-      createdAt: new Date(deliveredAt.getTime() - 90_000),
-      deliveredAt,
-    },
-  });
+  return { catalog, fxRateId: fxRate.id };
+}
+
+/**
+ * One user with a phone, the delivered order above (after the `extra` orders, each in its status
+ * with its own PURCHASE), a confirmed top-up and an adjustment, and an OPEN NO_MATCH review on a
+ * second credit message. The user's creation and the top-up's confirmation are stamped at the
+ * delivered order's creation, so `window` holds exactly the world's dated rows.
+ */
+export async function buildReadWorld(
+  db: PrismaClient,
+  options: { readonly extra?: readonly ExtraStatus[] } = {},
+): Promise<ReadWorld> {
+  const card = await retiredCard(db);
+  const { catalog, fxRateId } = await readCatalog(db);
+  const { user, extraOrderIds, order } = await worldOrders(db, catalog, options.extra ?? []);
+  const username = user.username ?? '';
+  const at = order.createdAt;
+  await db.user.update({ where: { id: user.id }, data: { createdAt: at } });
 
   const message = await creditMessage(db, card, TOPUP_TIYIN);
   const createdAt = new Date(message.tgDate.getTime() - 5 * MINUTE);
@@ -221,7 +184,7 @@ export async function buildReadWorld(db: PrismaClient, deliveredAt: Date): Promi
         amountTiyin: TOPUP_TIYIN,
         status: 'CONFIRMED',
         bankMessageId: message.id,
-        confirmedAt: deliveredAt,
+        confirmedAt: at,
         raw: { secretish: 'never shown' },
       },
     });
@@ -239,13 +202,6 @@ export async function buildReadWorld(db: PrismaClient, deliveredAt: Date): Promi
       refType: 'PAYMENT',
       refId: payment.id,
     });
-    await appendLedgerEntry(tx, {
-      userId: user.id,
-      kind: 'PURCHASE',
-      amountTiyin: -1_500_000n,
-      refType: 'ORDER',
-      refId: order.id,
-    });
     return { intent, payment };
   });
 
@@ -254,6 +210,7 @@ export async function buildReadWorld(db: PrismaClient, deliveredAt: Date): Promi
     data: { kind: 'NO_MATCH', bankMessageId: reviewMessage.id, cardId: card.id },
   });
 
+  const extraDebits = EXTRA_ORDER_PRICE * BigInt(extraOrderIds.length);
   return {
     user: { id: user.id, telegramId: user.telegramId, username },
     cardId: card.id,
@@ -264,17 +221,14 @@ export async function buildReadWorld(db: PrismaClient, deliveredAt: Date): Promi
     reviewId: review.id,
     reviewMessageId: reviewMessage.id,
     orderId: order.id,
-    productId: product.id,
-    skuId: sku.id,
-    categoryId: category.id,
-    fxRateId: fxRate.id,
-    balanceTiyin: 5_000_000n + TOPUP_TIYIN - 1_500_000n,
+    extraOrderIds,
+    productId: catalog.productId,
+    skuId: catalog.skuId,
+    categoryId: catalog.categoryId,
+    fxRateId,
+    // ADJUSTMENT + TOPUP - the delivered order's PURCHASE (price - discount) - the extras'.
+    balanceTiyin: 5_000_000n + TOPUP_TIYIN - 1_500_000n - extraDebits,
+    window: { from: at, to: new Date(order.deliveredAt.getTime() + 1) },
+    deliverySec: Math.round(order.gapMs / 1000),
   };
-}
-
-/** A unique past instant for one suite's dashboard window (no other suite writes there). */
-export function isolatedInstant(): Date {
-  const base = Date.UTC(2003, 0, 1);
-  const slot = Number(runSeed % 1_000n) * DAY * 7 + Number(randomBytes(2).readUInt16BE(0)) * 1000;
-  return new Date(base + slot + 12 * 3_600_000);
 }

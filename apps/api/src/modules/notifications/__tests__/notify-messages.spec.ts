@@ -1,8 +1,10 @@
 import { BANK_FEED_ALERT_PARAMS, tgOutboxJobSchema, type TgOutboxJob } from '@repo/shared';
 import { translate } from '../../../common/i18n/translate';
 import { buildTestEnv } from '../../../config/__tests__/test-env';
+import type { FulfillmentAlertRenderer } from '../fulfillment-alert.renderer';
 import type { NotifySourcesRepository } from '../notify-sources.repository';
 import { NotifyConsumer } from '../notify.consumer';
+import type { OrderNotifyRenderer } from '../order-notify.renderer';
 import type { OwnerAlertRenderer } from '../owner-alert.renderer';
 import type { TgOutboxEnqueuer } from '../tg-outbox.enqueuer';
 
@@ -32,7 +34,15 @@ function setup(locale: 'uz' | 'ru', miniAppUrl: string | undefined) {
     },
   } as unknown as TgOutboxEnqueuer;
   const config = buildTestEnv(miniAppUrl === undefined ? {} : { MINI_APP_URL: miniAppUrl });
-  const consumer = new NotifyConsumer(sources, {} as OwnerAlertRenderer, outbox, config);
+  const consumer = new NotifyConsumer(
+    sources,
+    {} as OwnerAlertRenderer,
+    outbox,
+    config,
+    {} as OrderNotifyRenderer,
+    {} as FulfillmentAlertRenderer,
+    { now: () => new Date() },
+  );
   return { consumer, sent };
 }
 

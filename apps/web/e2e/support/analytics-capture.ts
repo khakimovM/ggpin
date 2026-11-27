@@ -1,5 +1,6 @@
 import type { Page, Request } from '@playwright/test';
 import { FAKE_UMAMI_TRACKER } from './fake-umami';
+import { routeUntilClosed } from './route-until-closed';
 import { untilHydrated } from './hydration';
 
 // What the analytics specs (e2e/site/analytics*.spec.ts) share: the stand-in tracker served in
@@ -30,10 +31,10 @@ export interface Beacon {
 /** Serves the stand-in tracker (or the given one) and records what it posts to the collector. */
 export async function captureBeacons(page: Page, tracker = FAKE_UMAMI_TRACKER) {
   const beacons: Beacon[] = [];
-  await page.route(`**${SCRIPT_PATH}`, (route) =>
+  await routeUntilClosed(page, `**${SCRIPT_PATH}`, (route) =>
     route.fulfill({ contentType: 'text/javascript', body: tracker }),
   );
-  await page.route(`**${COLLECT_PATH}`, async (route) => {
+  await routeUntilClosed(page, `**${COLLECT_PATH}`, async (route) => {
     const raw = route.request().postData() ?? '';
     const body = JSON.parse(raw) as Omit<Beacon, 'raw'>;
     beacons.push({ ...body, raw });

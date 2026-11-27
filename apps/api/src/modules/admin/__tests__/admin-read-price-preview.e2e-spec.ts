@@ -22,7 +22,7 @@ describe('admin read: price preview with real pricing inputs (real app)', () => 
   let base = new Date();
 
   beforeAll(async () => {
-    w = await buildReadWorld(t.db(), new Date(Date.now() - 60 * MINUTE));
+    w = await buildReadWorld(t.db());
     operator = (await t.login(await t.newAdmin('OPERATOR'))).cookie;
     // The world's snapshot and rate were written just now: the clock is set after them, so they
     // are the newest inputs, and fresh.

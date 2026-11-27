@@ -12,6 +12,7 @@ interface Sources {
   message: () => Promise<unknown>;
   card: () => Promise<unknown>;
   reconcileRun: (day: string) => Promise<unknown>;
+  auditLog: () => Promise<unknown>;
 }
 
 export const NOW = new Date('2030-01-01T09:00:00.000Z');
@@ -24,6 +25,7 @@ export function renderer(sources: Partial<Sources>): OwnerAlertRenderer {
     message: () => Promise.resolve(null),
     card: () => Promise.resolve(null),
     reconcileRun: () => Promise.resolve(null),
+    auditLog: () => Promise.resolve(null),
     ...sources,
   };
   return new OwnerAlertRenderer(fake as unknown as NotifySourcesRepository, buildTestEnv(), {

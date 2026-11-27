@@ -1,6 +1,6 @@
 'use client';
 
-import type { CatalogProductDetail } from '@repo/shared';
+import { fragmentProductKind, type CatalogProductDetail } from '@repo/shared';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { haptics } from '../../telegram/haptics';
@@ -27,8 +27,8 @@ export function tabsOf(product: CatalogProductDetail): string[] {
 }
 
 /**
- * "Miqdor" for a free quantity, "Muddat" for terms (Premium: a Telegram product without a free
- * quantity), "Paketni tanlang" for other packages, with tabs when the catalog groups them.
+ * "Miqdor" for a free quantity, "Muddat" for Premium's terms, "Paketni tanlang" for any other
+ * packages, with tabs when the catalog groups them.
  */
 export function PackageSection({
   product,
@@ -65,7 +65,10 @@ export function PackageSection({
     );
   }
 
-  const terms = product.deliveryType === 'TG_USERNAME';
+  // A Telegram product is laid out as a list; only Premium's SKUs are terms in months ("Muddat",
+  // the per-month line, the ribbon). Stars packages without a free quantity are not.
+  const list = product.deliveryType === 'TG_USERNAME';
+  const terms = fragmentProductKind(product.slug) === 'PREMIUM';
   const visible = tab === null ? product.skus : product.skus.filter((sku) => sku.tab === tab);
   const title = terms ? t('sku.plans') : t('sku.title');
   return (
@@ -83,7 +86,8 @@ export function PackageSection({
         skus={visible}
         selected={selectedSku}
         ariaLabel={title}
-        layout={terms ? 'list' : 'grid'}
+        layout={list ? 'list' : 'grid'}
+        perMonth={terms}
         onSelect={(skuId) => {
           haptics.selection();
           onSelectSku(skuId);

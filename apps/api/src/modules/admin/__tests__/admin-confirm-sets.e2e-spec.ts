@@ -12,7 +12,7 @@ import { createP2pPayment, retireCards } from '../../wallet/__tests__/wallet-p2p
 import { adminOtpJobId, adminOtpQuotaKey } from '../confirm/admin-otp.keys';
 import { useAdminE2e } from './admin-e2e.harness';
 import { purgeFixtureCatalogAround } from './admin-fixture-purge';
-import { orderOf, setOrderStatus } from './admin-open-orders.fixtures';
+import { NOT_FIXTURE_ENTRY, orderOf, setOrderStatus } from './admin-open-orders.fixtures';
 import { adminWriteKit, dataOf, errorOf, type Session } from './admin-write.e2e-kit';
 
 // Phase 9 S7a-fix (owner decision 2026-11-22, docs/04 «Tasdiq kodi»): `POST /admin/confirmations`
@@ -94,7 +94,9 @@ async function expectRefused(
   });
   expect(await codesToday(owner)).toBe(0);
   expect(await messagesTo(owner)).toBe(messagesBefore);
-  expect(await t.db().ledgerEntry.count({ where: { userId, kind: 'ADJUSTMENT' } })).toBe(0);
+  expect(
+    await t.db().ledgerEntry.count({ where: { userId, kind: 'ADJUSTMENT', ...NOT_FIXTURE_ENTRY } }),
+  ).toBe(0);
 }
 
 describe('confirmations: unconfirmed or stale sets get no code (S7a-fix)', () => {

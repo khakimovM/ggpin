@@ -1,4 +1,5 @@
 import type { Page, Request, Route } from '@playwright/test';
+import { routeUntilClosed } from '../support/route-until-closed';
 import { API_PATTERN, USER } from '../support/fake-api';
 import { installCatalogApi } from './catalog';
 
@@ -56,7 +57,7 @@ export async function installTgApi(page: Page, answers: LoginAnswer[] = [{ kind:
     });
   };
 
-  await page.route(API_PATTERN, async (route) => {
+  await routeUntilClosed(page, API_PATTERN, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace('/api/v1', '');
     api.requests.push(request);
