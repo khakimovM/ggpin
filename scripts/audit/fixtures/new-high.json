@@ -1,0 +1,115 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@prisma/config": {
+      "name": "@prisma/config",
+      "severity": "high",
+      "isDirect": false,
+      "via": ["effect"],
+      "effects": ["prisma"],
+      "range": ">=6.13.0-dev.1",
+      "nodes": ["node_modules/@prisma/config"],
+      "fixAvailable": {
+        "name": "prisma",
+        "version": "6.12.0",
+        "isSemVerMajor": true
+      }
+    },
+    "@ton/ton": {
+      "name": "@ton/ton",
+      "severity": "high",
+      "isDirect": false,
+      "via": ["zod"],
+      "effects": [],
+      "range": "*",
+      "nodes": ["node_modules/@ton/ton"],
+      "fixAvailable": false
+    },
+    "effect": {
+      "name": "effect",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1100002,
+          "name": "effect",
+          "dependency": "effect",
+          "title": "Effect: ReDoS in Schema.TemplateLiteral compiled regex",
+          "url": "https://github.com/advisories/GHSA-7589-6fvf-x4pw",
+          "severity": "high",
+          "cwe": ["CWE-1333"],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=3.22.0"
+        }
+      ],
+      "effects": ["@prisma/config"],
+      "range": "<=3.22.0",
+      "nodes": ["node_modules/effect"],
+      "fixAvailable": {
+        "name": "prisma",
+        "version": "6.12.0",
+        "isSemVerMajor": true
+      }
+    },
+    "prisma": {
+      "name": "prisma",
+      "severity": "high",
+      "isDirect": false,
+      "via": ["@prisma/config"],
+      "effects": [],
+      "range": ">=6.13.0-dev.1",
+      "nodes": ["node_modules/prisma"],
+      "fixAvailable": {
+        "name": "prisma",
+        "version": "6.12.0",
+        "isSemVerMajor": true
+      }
+    },
+    "zod": {
+      "name": "zod",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1100001,
+          "name": "zod",
+          "dependency": "zod",
+          "title": "Zod can exhaust memory while validating oversized constrained collections",
+          "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+          "severity": "high",
+          "cwe": ["CWE-400"],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<4.6.6"
+        }
+      ],
+      "effects": ["@ton/ton"],
+      "range": "<4.6.6",
+      "nodes": ["node_modules/@ton/ton/node_modules/zod"],
+      "fixAvailable": false
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 5,
+      "critical": 0,
+      "total": 5
+    },
+    "dependencies": {
+      "prod": 900,
+      "dev": 600,
+      "optional": 40,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 1496
+    }
+  }
+}

@@ -102,6 +102,18 @@ describe('mock handlers answer in the real contract shape', () => {
         })
       ).status,
     ).toBe(422);
+    const extends_ = valid(
+      await call({
+        method: 'POST',
+        path: '/recipients/validate',
+        body: recipientBody,
+        scenario: 'hasPremiumExtends',
+      }),
+      ValidateRecipientResponseSchema,
+    );
+    expect(extends_.data.warnings).toEqual([
+      { code: 'PREMIUM_EXTENDS', message: 'warnings.premiumExtends' },
+    ]);
     // docs/04: the previous check of this user is still running -> 429 + Retry-After.
     const busy = await call({
       method: 'POST',

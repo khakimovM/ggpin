@@ -146,6 +146,19 @@ export function unitDisplayPrice(fromPriceTiyin: bigint, quantity: number): bigi
   return mulDiv(fromPriceTiyin, 1n, positiveInt(quantity, 'quantity'), 'up');
 }
 
+/** The step "{price}/oy" is rounded UP to: whole 100 so'm (owner decision Q6, phase 6). */
+export const PER_MONTH_DISPLAY_STEP_TIYIN = 10_000n;
+
+/**
+ * Display only: the price of one unit of a pack (Premium: so'm per month, "55 000 so‘m/oy"),
+ * rounded UP to a whole `stepTiyin` (owner decision Q6, phase 6: 100 so'm), so the hint is never
+ * below what the pack really costs per unit. Never charged: the price paid comes from a quote.
+ */
+export function perUnitDisplayTiyin(priceTiyin: bigint, units: number, stepTiyin: bigint): bigint {
+  requireBigInt(stepTiyin, 'step', 1n);
+  return mulDiv(unitDisplayPrice(priceTiyin, units), 1n, stepTiyin, 'up') * stepTiyin;
+}
+
 /**
  * Step 5: what the customer pays for a quote. A discount can never exceed the price (the
  * total is never negative) and is never negative itself (it cannot raise the price).

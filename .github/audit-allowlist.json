@@ -1,0 +1,12 @@
+{
+  "entries": [
+    {
+      "id": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "path": "node_modules/@ton/ton/node_modules/zod",
+      "reason": "No zod 3.x fix (only 4.6.6). zod 3.x z.array without a length limit collects one issue per bad item; @ton/ton HttpApi parses toncenter responses with 7 such arrays. The worker uses only TonClient/HttpApi (not TonClient4). Mitigation D-60 (4): HTTPS to the configured endpoint only, no redirects or proxy, response <= 2 MiB (worst case measured ~340 MB heap, worker limit 768 MB). DoS only, no money out. Revisit before mainnet.",
+      "decision": "D-75",
+      "reviewBy": "2027-01-31"
+    }
+  ]
+}
